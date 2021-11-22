@@ -35,24 +35,24 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const accountAddress = await signer.publicKeyHash();
 
     // Compile and deploy contracts.
-    smartpy.compile_newtarget("FA2", ['config = FA2_contract.environment_config()',
+    smartpy.compile_newtarget("FA2", ['config = FA2_contract.items_config()',
       'metadata = sp.utils.metadata_of_url("https://example.com")',
       `admin = sp.address("${accountAddress}")`]);
 
-    const FA2_contract = await deploy_contract("FA2", Tezos);
+    const items_FA2_contract = await deploy_contract("FA2", Tezos);
     
     smartpy.compile_newtarget("TL_Minter", [`sp.address("${accountAddress}")`,
-      `sp.address("${FA2_contract.address}")`]);
+      `sp.address("${items_FA2_contract.address}")`]);
 
     const Minter_contract = await deploy_contract("TL_Minter", Tezos);
 
     // Set the minter as the token administrator
     console.log("Setting minter as token admin...")
-    const admin_op = await FA2_contract.methods.set_administrator(Minter_contract.address).send();
+    const admin_op = await items_FA2_contract.methods.set_administrator(Minter_contract.address).send();
     await admin_op.confirmation();
 
     smartpy.compile_newtarget("TL_Places", [`sp.address("${accountAddress}")`,
-      `sp.address("${FA2_contract.address}")`,
+      `sp.address("${items_FA2_contract.address}")`,
       `sp.address("${Minter_contract.address}")`]);
 
     const Places_contract = await deploy_contract("TL_Places", Tezos);

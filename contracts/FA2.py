@@ -1055,11 +1055,33 @@ def global_parameter(env_var, default):
     except:
         return default
 
-def environment_config():
+
+def items_config():
+    # Items is a multi-asset, fungible token, that stores the total supply.
     return FA2_config(
         debug_mode = global_parameter("debug_mode", False),
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", False),
+        # NOTE TO SELF: We want to be able to transfer tezos, probably. Although,
+        # since the administrator is the minting contract, probably it doesn't matter.
+        add_mutez_transfer = global_parameter("add_mutez_transfer", False),
+        readable = global_parameter("readable", True),
+        force_layouts = global_parameter("force_layouts", True),
+        support_operator = global_parameter("support_operator", True),
+        assume_consecutive_token_ids =
+            global_parameter("assume_consecutive_token_ids", True),
+        store_total_supply = global_parameter("store_total_supply", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        allow_self_transfer = global_parameter("allow_self_transfer", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+    )
+
+def places_config():
+    # Places is a multi-asset, non-fungible token.
+    return FA2_config(
+        debug_mode = global_parameter("debug_mode", False),
+        single_asset = global_parameter("single_asset", False),
+        non_fungible = global_parameter("non_fungible", True),
         # NOTE TO SELF: We want to be able to transfer tezos, probably. Although,
         # since the administrator is the minting contract, probably it doesn't matter.
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
@@ -1074,31 +1096,7 @@ def environment_config():
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
     )
 
-## ## Standard “main”
-##
-## This specific main uses the relative new feature of non-default tests
-## for the browser version.
-#if "templates" not in __name__:
-    #add_test(environment_config())
-    #if not global_parameter("only_environment_test", False):
-    #    add_test(FA2_config(debug_mode = True), is_default = not sp.in_browser)
-    #    add_test(FA2_config(single_asset = True), is_default = not sp.in_browser)
-    #    add_test(FA2_config(non_fungible = True, add_mutez_transfer = True),
-    #             is_default = not sp.in_browser)
-    #    add_test(FA2_config(readable = False), is_default = not sp.in_browser)
-    #    add_test(FA2_config(force_layouts = False),
-    #             is_default = not sp.in_browser)
-    #    add_test(FA2_config(debug_mode = True, support_operator = False),
-    #             is_default = not sp.in_browser)
-    #    add_test(FA2_config(assume_consecutive_token_ids = False)
-    #             , is_default = not sp.in_browser)
-    #    add_test(FA2_config(store_total_supply = True)
-    #             , is_default = not sp.in_browser)
-    #    add_test(FA2_config(add_mutez_transfer = True)
-    #             , is_default = not sp.in_browser)
-    #    add_test(FA2_config(lazy_entry_points = True)
-    #             , is_default = not sp.in_browser)
 
-    #sp.add_compilation_target("FA2", FA2(config = environment_config(),
-    #                          metadata = sp.utils.metadata_of_url("https://example.com"),
-    #                          admin = sp.address("tz1M9CMEtsXm3QxA7FmMU2Qh7xzsuGXVbcDr")))
+#sp.add_compilation_target("FA2", FA2(config = environment_config(),
+#                          metadata = sp.utils.metadata_of_url("https://example.com"),
+#                          admin = sp.address("tz1M9CMEtsXm3QxA7FmMU2Qh7xzsuGXVbcDr")))

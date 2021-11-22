@@ -20,7 +20,7 @@ def test():
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
-    items_tokens = fa2_contract.FA2(config = fa2_contract.environment_config(),
+    items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
