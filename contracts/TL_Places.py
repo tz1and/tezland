@@ -1,6 +1,6 @@
 # The (market)places contract.
 #
-# Each marketplace belongs to a lot (an FA2 token that is the "land").
+# Each marketplace belongs to a place (an FA2 token that is the "land").
 # Items (another type of token) can be stored on your (market)place, either to sell
 # or just to build something nice.
 
@@ -9,10 +9,10 @@ import smartpy as sp
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
 class TL_Places(manager_contract.Manageable):
-    def __init__(self, manager, token, minter):
+    def __init__(self, manager, items_contract, minter):
         self.init_storage(
             manager = manager,
-            token = token,
+            items_contract = items_contract,
             minter = minter,
             fees = sp.nat(25),
             # some information about the place
@@ -46,6 +46,8 @@ class TL_Places(manager_contract.Manageable):
     def new_place(self, lot_id):
         sp.set_type(lot_id, sp.TBytes)
 
+        #temp_id = sp.sha3(sp.pack(sp.nat(12)))
+
          # skip if it exists. we don't want to overwrite nested big maps.
         sp.if self.data.places.contains(lot_id):
             sp.failwith("place exists")
@@ -78,11 +80,7 @@ class TL_Places(manager_contract.Manageable):
         sp.verify(sp.sender == this_place.owner, message = "NOT_OWNER")
 
         # Make sure item is owned.
-        item_balance = sp.view("get_balance_oc",
-            self.data.token,
-            sp.record(owner = sp.sender, token_id = params.token_id),
-            t = sp.TNat).open_some()
-        sp.verify(item_balance >= params.token_amount, message = "ITEM_NOT_OWNED")
+        sp.verify(self.fa2_balance(self.data.items_contract, params.token_id) >= params.token_amount, message = "ITEM_NOT_OWNED")
 
         self.data.stored_items[sp.pair(params.lot_id, this_place.counter)] = sp.record(
             item_amount = params.token_amount,
@@ -112,11 +110,7 @@ class TL_Places(manager_contract.Manageable):
             sp.verify(sp.len(curr.item_data) == 16, message = "DATA_LEN")
 
             # Make sure item is owned.
-            item_balance = sp.view("get_balance_oc",
-                self.data.token,
-                sp.record(owner = sp.sender, token_id = curr.token_id),
-                t = sp.TNat).open_some()
-            sp.verify(item_balance >= curr.token_amount, message = "ITEM_NOT_OWNED")
+            sp.verify(self.fa2_balance(self.data.items_contract, curr.token_id) >= curr.token_amount, message = "ITEM_NOT_OWNED")
 
             self.data.stored_items[sp.pair(params.lot_id, this_place.counter)] = sp.record(
                 item_amount = curr.token_amount,
@@ -125,7 +119,7 @@ class TL_Places(manager_contract.Manageable):
                 xtz_per_item = curr.xtz_per_token,
                 item_data = curr.item_data)
 
-            this_place.counter += 1
+            this_place.counter += 1 # TODO: use sp.local for counter
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
@@ -173,23 +167,20 @@ class TL_Places(manager_contract.Manageable):
         # send monies
         sp.if (the_item.xtz_per_item != sp.tez(0)):
             # get the royalties for this item
-            item_royalties = sp.view("get_royalties",
-                self.data.minter,
-                the_item.item_id,
-                t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
+            item_royalties = sp.local("item_royalties", self.get_item_royalties(the_item.item_id))
             
-            fee = sp.utils.mutez_to_nat(sp.amount) * (item_royalties.royalties + self.data.fees) / sp.nat(1000)
-            royalties = item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees)
+            fee = sp.local("fee", sp.utils.mutez_to_nat(sp.amount) * (item_royalties.value.royalties + self.data.fees) / sp.nat(1000))
+            royalties = sp.local("royalties", item_royalties.value.royalties * fee.value / (item_royalties.value.royalties + self.data.fees))
 
             # send royalties to creator
-            sp.send(item_royalties.creator, sp.utils.nat_to_mutez(royalties))
+            sp.send(item_royalties.value.creator, sp.utils.nat_to_mutez(royalties.value))
             # send management fees
-            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee.value - royalties.value)))
             # send rest of the value to seller
-            sp.send(this_place.owner, sp.amount - sp.utils.nat_to_mutez(fee))
+            sp.send(this_place.owner, sp.amount - sp.utils.nat_to_mutez(fee.value))
         
         # transfer item to buyer
-        self.fa2_transfer(self.data.token, this_place.owner, sp.sender, the_item.item_id, 1)
+        self.fa2_transfer(self.data.items_contract, this_place.owner, sp.sender, the_item.item_id, 1)
         
         # reduce the item count in storage or remove it.
         sp.if the_item.item_amount > 1:
@@ -236,6 +227,17 @@ class TL_Places(manager_contract.Manageable):
     def fa2_transfer(self, fa2, from_, to_, item_id, item_amount):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))]), sp.mutez(0), c)
+
+    def fa2_balance(self, fa2, token_id):
+        return sp.view("get_balance_oc", fa2,
+            sp.record(owner = sp.sender, token_id = token_id),
+            t = sp.TNat).open_some()
+
+    def get_item_royalties(self, item_id):
+        return sp.view("get_royalties",
+            self.data.minter,
+            item_id,
+            t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
 
 
 # A a compilation target (produces compiled code)
