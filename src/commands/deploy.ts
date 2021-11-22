@@ -1,9 +1,7 @@
-import * as dotenv from "dotenv";
 import * as smartpy from './smartpy';
 import { TezosToolkit, ContractAbstraction, ContractProvider } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 
-dotenv.config(); /* This loads the variables in your .env file to process.env */
 
 async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
   var orig_op = await Tezos.contract.originate({

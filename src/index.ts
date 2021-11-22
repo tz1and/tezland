@@ -1,8 +1,11 @@
 import { program } from 'commander';
+import * as dotenv from "dotenv";
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
 import * as deploy from './commands/deploy';
 const packageJson = require('../package.json');
+
+dotenv.config(); /* This loads the variables in your .env file to process.env */
 
 // configuration
 
