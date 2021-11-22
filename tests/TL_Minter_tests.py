@@ -25,13 +25,19 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
+    places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += places_tokens
+
     # create minter contract
     scenario.h2("Test Minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address) #admin.address, 
+    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address)
     scenario += minter
 
-    # set items_tokens administrator to minter contract
+    # set items_tokens and places_tokens administrator to minter contract
     items_tokens.set_administrator(minter.address).run(sender = admin)
+    places_tokens.set_administrator(minter.address).run(sender = admin)
 
     # test manager stuff
     scenario.h3("set_manager")
@@ -39,8 +45,6 @@ def test():
     minter.set_manager(alice.address).run(sender = admin)
     scenario.verify(minter.data.manager == alice.address)
     minter.set_manager(admin.address).run(sender = alice)
-
-    #scenario += minter.add_manager(bob.address).run(sender = bob, valid = False)
 
     # test set_paused
     scenario.h3("set_paused")
@@ -85,6 +89,13 @@ def test():
     minter.set_paused(True).run(sender = admin)
     minter.regain_admin_Items().run(sender = bob, valid = False)
     minter.regain_admin_Items().run(sender = admin) # admin can only be regained if paused
+    minter.set_paused(False).run(sender = admin)
+
+    scenario.h3("regain_admin_Places")
+    minter.regain_admin_Places().run(sender = admin, valid = False)
+    minter.set_paused(True).run(sender = admin)
+    minter.regain_admin_Places().run(sender = bob, valid = False)
+    minter.regain_admin_Places().run(sender = admin) # admin can only be regained if paused
     minter.set_paused(False).run(sender = admin)
 
     scenario.table_of_contents()

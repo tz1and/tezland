@@ -3,11 +3,13 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 class TL_Minter(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract):
+    def __init__(self, manager, items_contract, places_contract):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
             item_id = sp.nat(0),
+            places_contract = places_contract,
+            place_id = sp.nat(0),
             paused = False,
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
@@ -21,6 +23,22 @@ class TL_Minter(pausable_contract.Pausable):
         c = sp.contract(
             sp.TAddress,
             self.data.items_contract, 
+            entry_point = "set_administrator").open_some()
+            
+        sp.transfer(
+            self.data.manager, 
+            sp.mutez(0), 
+            c)
+
+    # This lets the manager regain admin to the places FA2 contract.
+    @sp.entry_point
+    def regain_admin_Places(self):
+        self.onlyPaused()
+        self.onlyManager()
+
+        c = sp.contract(
+            sp.TAddress,
+            self.data.places_contract, 
             entry_point = "set_administrator").open_some()
             
         sp.transfer(

@@ -34,24 +34,37 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const accountAddress = await signer.publicKeyHash();
 
-    // Compile and deploy contracts.
-    smartpy.compile_newtarget("FA2", ['config = FA2_contract.items_config()',
+    // Compile and deploy Items FA2 contract.
+    smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
       'metadata = sp.utils.metadata_of_url("https://example.com")',
       `admin = sp.address("${accountAddress}")`]);
 
-    const items_FA2_contract = await deploy_contract("FA2", Tezos);
+    const items_FA2_contract = await deploy_contract("FA2_Items", Tezos);
+
+    // Compile and deploy Places FA2 contract.
+    smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
+      'metadata = sp.utils.metadata_of_url("https://example.com")',
+      `admin = sp.address("${accountAddress}")`]);
+
+    const places_FA2_contract = await deploy_contract("FA2_Places", Tezos);
     
-    smartpy.compile_newtarget("TL_Minter", [`sp.address("${accountAddress}")`,
-      `sp.address("${items_FA2_contract.address}")`]);
+    // Compile and deploy Minter contract.
+    smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`sp.address("${accountAddress}")`,
+      `sp.address("${items_FA2_contract.address}")`,
+      `sp.address("${places_FA2_contract.address}")`]);
 
     const Minter_contract = await deploy_contract("TL_Minter", Tezos);
 
     // Set the minter as the token administrator
     console.log("Setting minter as token admin...")
-    const admin_op = await items_FA2_contract.methods.set_administrator(Minter_contract.address).send();
-    await admin_op.confirmation();
+    const items_admin_op = await items_FA2_contract.methods.set_administrator(Minter_contract.address).send();
+    await items_admin_op.confirmation();
 
-    smartpy.compile_newtarget("TL_Places", [`sp.address("${accountAddress}")`,
+    const places_admin_op = await places_FA2_contract.methods.set_administrator(Minter_contract.address).send();
+    await places_admin_op.confirmation();
+
+    // Compile and deploy Places contract.
+    smartpy.compile_newtarget("TL_Places", "TL_Places", [`sp.address("${accountAddress}")`,
       `sp.address("${items_FA2_contract.address}")`,
       `sp.address("${Minter_contract.address}")`]);
 
