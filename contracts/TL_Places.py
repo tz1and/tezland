@@ -16,12 +16,13 @@ class TL_Places(manager_contract.Manageable):
             places_contract = places_contract,
             minter = minter,
             fees = sp.nat(25),
-            # some information about the place
+            # basically only holds the per-marketplace counter.
+            # TODO: I suppose it doesn't even need to be per-place
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat
                 )),
-            # since we can't have nested bigmaps, we store the items as a map from (mapid, itemid)
-            # we can search for part of the key in better call dev
+            # since we can't have nested bigmaps, we store the items as a map from (sha3(lot_id), storeid)
+            # we can search for part of the key with an indexer (bcd).
             stored_items=sp.big_map(tkey=sp.TPair(sp.TBytes, sp.TNat), tvalue=sp.TRecord(
                 issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
                 item_amount=sp.TNat, # number of objects to store.
@@ -54,37 +55,6 @@ class TL_Places(manager_contract.Manageable):
                 #    xtz_per_item = sp.TMutez))
                 )
         return self.data.places[place_hash]
-
-    #@sp.entry_point(lazify = True)
-    #def place_item(self, params):
-    #    sp.set_type(params.lot_id, sp.TNat)
-    #    sp.set_type(params.token_id, sp.TNat)
-    #    sp.set_type(params.token_amount, sp.TNat)
-    #    sp.set_type(params.xtz_per_token, sp.TMutez)
-    #    sp.set_type(params.item_data, sp.TBytes)
-    #
-    #    sp.verify(sp.len(params.item_data) == 16, message = "DATA_LEN")
-    #
-    #    # get the place
-    #    place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
-    #    this_place = self.get_or_create_place(place_hash.value)
-    #
-    #    # make sure caller owns place
-    #    sp.verify(self.fa2_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
-    #
-    #    # Make sure item is owned.
-    #    sp.verify(self.fa2_balance(self.data.items_contract, params.token_id, sp.sender) >= params.token_amount,
-    #        message = "ITEM_NOT_OWNED")
-    #
-    #    self.data.stored_items[sp.pair(place_hash.value, this_place.counter)] = sp.record(
-    #        issuer = sp.sender,
-    #        item_amount = params.token_amount,
-    #        item_id = params.token_id,
-    #        #for_sale = True,
-    #        xtz_per_item = params.xtz_per_token,
-    #        item_data = params.item_data)
-    #
-    #    this_place.counter += 1
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -134,20 +104,6 @@ class TL_Places(manager_contract.Manageable):
         sp.for curr in params.item_list:
             del self.data.stored_items[sp.pair(place_hash.value, curr)]
 
-    #@sp.entry_point(lazify = True)
-    #def remove_item(self, params):
-    #    sp.set_type(params.lot_id, sp.TNat)
-    #    sp.set_type(params.item_id, sp.TNat)
-    #
-    #    # get the place
-    #    place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
-    #
-    #    # make sure caller owns place
-    #    sp.verify(self.fa2_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
-    #
-    #    # remove the item
-    #    del self.data.stored_items[sp.pair(place_hash.value, params.item_id)]
-
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params.lot_id, sp.TNat)
@@ -190,20 +146,10 @@ class TL_Places(manager_contract.Manageable):
     #
     # Update code
     #
-    #@sp.entry_point
-    #def update_place_item(self, new_code):
-    #    self.onlyManager()
-    #    sp.set_entry_point("place_item", new_code)
-
     @sp.entry_point
     def update_place_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("place_items", new_code)
-
-    #@sp.entry_point
-    #def update_remove_item(self, new_code):
-    #    self.onlyManager()
-    #    sp.set_entry_point("remove_item", new_code)
 
     @sp.entry_point
     def update_remove_items(self, new_code):
