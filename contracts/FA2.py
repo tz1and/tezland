@@ -440,7 +440,7 @@ class FA2_core(sp.Contract):
         destination = sp.set_type_expr(params.callback, sp.TContract(Balance_of.response_type()))
         sp.transfer(res.value, sp.mutez(0), destination)
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def get_balance(self, req):
         """This is the `get_balance` view defined in TZIP-12."""
         sp.set_type(
@@ -451,19 +451,6 @@ class FA2_core(sp.Contract):
         user = self.ledger_key.make(req.owner, req.token_id)
         sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
         sp.result(self.data.ledger[user].balance)
-
-    @sp.onchain_view()
-    def get_balance_oc(self, req):
-        """This is the `get_balance` view defined in TZIP-12."""
-        sp.set_type(
-            req, sp.TRecord(
-                owner = sp.TAddress,
-                token_id = sp.TNat
-            ).layout(("owner", "token_id")))
-        user = self.ledger_key.make(req.owner, req.token_id)
-        sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
-        sp.result(self.data.ledger[user].balance)
-
 
     @sp.entry_point
     def update_operators(self, params):
@@ -568,7 +555,7 @@ class FA2_token_metadata(FA2_core):
             sp.set_type(tok, sp.TNat)
             sp.result(self.data.token_metadata[tok])
 
-        self.token_metadata = sp.offchain_view(pure = True, doc = "Get Token Metadata")(token_metadata)
+        self.token_metadata = sp.onchain_view()(token_metadata)
 
     # make_metadataThis is what we want to modify for the token metadata. HEN puts it all on IPFS.
     def make_metadata(symbol, name, decimals):
@@ -583,26 +570,26 @@ class FA2_token_metadata(FA2_core):
 
 class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def count_tokens(self):
         """Get how many tokens are in this FA2 contract.
         """
         sp.result(self.token_id_set.cardinal(self.data.all_tokens))
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def does_token_exist(self, tok):
         "Ask whether a token ID is exists."
         sp.set_type(tok, sp.TNat)
         sp.result(self.data.token_metadata.contains(tok))
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def all_tokens(self):
         if self.config.assume_consecutive_token_ids:
             sp.result(sp.range(0, self.data.all_tokens))
         else:
             sp.result(self.data.all_tokens.elements())
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def total_supply(self, tok):
         if self.config.store_total_supply:
             sp.result(self.data.total_supply[tok])
@@ -610,7 +597,7 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
             sp.set_type(tok, sp.TNat)
             sp.result("total-supply not supported")
 
-    @sp.offchain_view(pure = True)
+    @sp.onchain_view()
     def is_operator(self, query):
         sp.set_type(query,
                     sp.TRecord(token_id = sp.TNat,

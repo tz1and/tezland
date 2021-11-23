@@ -49,7 +49,8 @@ class TL_Minter(pausable_contract.Pausable):
     @sp.entry_point(lazify = True)
     def mint_Item(self, params):
         self.onlyUnpaused()
-        sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)))
+        sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
+            message = "PARAM_ERROR")
         
         c = sp.contract(
             sp.TRecord(

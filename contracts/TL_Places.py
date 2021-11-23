@@ -37,7 +37,7 @@ class TL_Places(manager_contract.Manageable):
     def set_fees(self, fees):
         sp.set_type(fees, sp.TNat)
         self.onlyManager()
-        sp.verify(fees <= 60) # let's not get greedy
+        sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
         self.data.fees = fees
 
     def get_or_create_place(self, place_hash):
@@ -66,13 +66,13 @@ class TL_Places(manager_contract.Manageable):
         this_place = self.get_or_create_place(place_hash.value)
 
         # make sure caller owns place
-        sp.verify(self.fa2_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
+        sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
 
         sp.for curr in params.item_list:
             sp.verify(sp.len(curr.item_data) == 16, message = "DATA_LEN")
 
             # Make sure item is owned.
-            sp.verify(self.fa2_balance(self.data.items_contract, curr.token_id, sp.sender) >= curr.token_amount,
+            sp.verify(self.fa2_get_balance(self.data.items_contract, curr.token_id, sp.sender) >= curr.token_amount,
                 message = "ITEM_NOT_OWNED")
 
             self.data.stored_items[sp.pair(place_hash.value, this_place.counter)] = sp.record(
@@ -93,7 +93,7 @@ class TL_Places(manager_contract.Manageable):
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
 
         # make sure caller owns place
-        sp.verify(self.fa2_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
+        sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
 
         # remove the items
         sp.for curr in params.item_list:
@@ -116,7 +116,7 @@ class TL_Places(manager_contract.Manageable):
         # send monies
         sp.if (the_item.xtz_per_item != sp.tez(0)):
             # get the royalties for this item
-            item_royalties = sp.local("item_royalties", self.get_item_royalties(the_item.item_id))
+            item_royalties = sp.local("item_royalties", self.minter_get_royalties(the_item.item_id))
             
             fee = sp.local("fee", sp.utils.mutez_to_nat(sp.amount) * (item_royalties.value.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.local("royalties", item_royalties.value.royalties * fee.value / (item_royalties.value.royalties + self.data.fees))
@@ -162,12 +162,12 @@ class TL_Places(manager_contract.Manageable):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))]), sp.mutez(0), c)
 
-    def fa2_balance(self, fa2, token_id, owner):
-        return sp.view("get_balance_oc", fa2,
+    def fa2_get_balance(self, fa2, token_id, owner):
+        return sp.view("get_balance", fa2,
             sp.record(owner = owner, token_id = token_id),
             t = sp.TNat).open_some()
 
-    def get_item_royalties(self, item_id):
+    def minter_get_royalties(self, item_id):
         return sp.view("get_royalties",
             self.data.minter,
             item_id,
