@@ -27,10 +27,7 @@ class TL_Places(manager_contract.Manageable):
                 issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
                 item_amount=sp.TNat, # number of objects to store.
                 item_id=sp.TNat, # object id
-                #for_sale=sp.TBool, # Available to be sold?
                 xtz_per_item=sp.TMutez, # 0 if not for sale.
-                #royalties=sp.TNat, # royalties come from the minter via on-chain view
-                #creator=sp.TAddress # same as above
                 item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
                 # TODO: store transform as half floats? could be worth it...
                 ))
@@ -51,7 +48,6 @@ class TL_Places(manager_contract.Manageable):
                 #stored_items = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 #    item_amount = sp.TNat,
                 #    item_id = sp.TNat,
-                #    for_sale = sp.TBool,
                 #    xtz_per_item = sp.TMutez))
                 )
         return self.data.places[place_hash]
@@ -83,7 +79,6 @@ class TL_Places(manager_contract.Manageable):
                 issuer = sp.sender,
                 item_amount = curr.token_amount,
                 item_id = curr.token_id,
-                #for_sale = True,
                 xtz_per_item = curr.xtz_per_token,
                 item_data = curr.item_data)
 
@@ -114,8 +109,7 @@ class TL_Places(manager_contract.Manageable):
         # get the item
         the_item = self.data.stored_items[sp.pair(place_hash.value, params.item_id)]
 
-        # todo: make sure it's for sale, the transfered amount is correct, etc.
-        #sp.verify(the_item.for_sale == True, message = "NOT_FOR_SALE")
+        # make sure it's for sale, the transfered amount is correct, etc.
         sp.verify(the_item.xtz_per_item > sp.mutez(0), message = "NOT_FOR_SALE")
         sp.verify(the_item.xtz_per_item == sp.amount, message = "WRONG_AMOUNT")
 

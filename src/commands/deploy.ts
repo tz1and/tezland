@@ -84,6 +84,16 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       metadata: Buffer.from("test_metadata", 'utf8').toString('hex')}).send();
     await mint_place_op.confirmation();
 
+    // Set operators
+    console.log("Set item operators")
+    const operator_op = await items_FA2_contract.methods.update_operators([{
+      add_operator: {
+          owner: accountAddress,
+          operator: Places_contract.address,
+          token_id: 0
+      }}]).send();
+    await operator_op.confirmation();
+
     //todo: use half float? https://github.com/petamoriken/float16/blob/master/src/_util/converter.mjs
     // http://www.fox-toolkit.org/ftp/fasthalffloatconversion.pdf
 
@@ -96,45 +106,10 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     //const example_item_data = toHexString(view);
     const example_item_data = "ffffffffffffffffffffffffffffffff"
 
-    /*{
-      const place_bytes = Buffer.from("shouldbeahash1", 'utf8').toString('hex');
-
-      console.log("Place a lot of items")
-      for (let j = 0; j < 20; j++) {
-        const batch = Tezos.contract.batch();
-        for (let i = 0; i < 100; i++) {
-          batch.withContractCall(Places_contract.methodsObject.place_item({
-            lot_id: place_bytes, token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data}));
-        }
-        const batchOp = await batch.send();
-        console.log('Operation hash:', batchOp.hash);
-        await batchOp.confirmation();
-      }
-    }
-
-    {
-      const place_bytes = Buffer.from("shouldbeahash2", 'utf8').toString('hex');
-
-      console.log("Place a lot of items again")
-      for (let j = 0; j < 20; j++) {
-        const batch = Tezos.contract.batch();
-        for (let i = 0; i < 100; i++) {
-          batch.withContractCall(Places_contract.methodsObject.place_item({
-            lot_id: place_bytes, token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data}));
-        }
-        const batchOp = await batch.send();
-        console.log('Operation hash:', batchOp.hash);
-        await batchOp.confirmation();
-      }
-    }*/
-
-    //console.dir(Places_contract.parameterSchema.ExtractSignatures(), {depth: 20});
-    //console.dir(Places_contract.parameterSchema.ExtractSchema(), {depth: 20});
-
     {
       const place_id = 0;
 
-      console.log("Place a lot of items again")
+      console.log("Place a lot of items")
       for (let j = 0; j < 5; j++) {
         const place_items_op = await Places_contract.methodsObject.place_items({
           lot_id: place_id, item_list: [
@@ -183,10 +158,28 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         await place_items_op.confirmation();
       }
 
+      console.log("Place a single item")
+      const place_item_op = await Places_contract.methodsObject.place_items({
+        lot_id: place_id, item_list: [
+          {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data}
+        ]}).send();
+      console.log('Operation hash:', place_item_op.hash);
+      await place_item_op.confirmation();
+
       console.log("Remove some items")
       const remove_items_op = await Places_contract.methodsObject.remove_items({
         lot_id: place_id, item_list: [1,2,3,55]}).send();
       await remove_items_op.confirmation();
+
+      console.log("Remove a lot of items")
+      const remove_many_items_op = await Places_contract.methodsObject.remove_items({
+        lot_id: place_id, item_list: [...Array(40)].map((_, i) => 100 + i)}).send();
+      await remove_many_items_op.confirmation();
+
+      console.log("Get an item")
+      const get_item_op = await Places_contract.methodsObject.get_item({
+        lot_id: place_id, item_id: 99}).send({ amount: 1000000, mutez: true });
+      await get_item_op.confirmation();
     }
 
   } catch (error) {
