@@ -4,42 +4,49 @@ import * as fs from 'fs';
 
 // Expected location of SmartPy CLI.
 const SMART_PY_CLI = "~/smartpy-cli/SmartPy.sh"
+const test_out_dir = "./tests/test_output"
 
 
-export async function test(contract_name: string): Promise<void> {
+export function test(contract_names: string[]) {
+    if(contract_names.length > 0)
+        contract_names.forEach(value => test_single(value));
+    else {
+        const test_dir = './tests/';
+        fs.readdirSync(test_dir).forEach(file => {
+            if(fs.lstatSync(test_dir + file).isFile() && file.endsWith('_tests.py'))
+            test_single(file.substring(0, file.length - 9));
+        });
+    }
+
+    console.log(`Test results are in ${test_out_dir}`)
+}
+
+export function test_single(contract_name: string) {
     console.log(kleur.yellow(`Running tests for contract '${contract_name}' ...`));
 
     try {
         // Build artifact directory.
-        const out_dir = "./tests/test_output"
-
-        console.log(`Testing ${contract_name}`)
-
         const contract_in = `./tests/${contract_name}_tests.py`
 
-        child.execSync(`${SMART_PY_CLI} test ${contract_in} ${out_dir} --html`, {stdio: 'inherit'})
+        child.execSync(`${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
 
         console.log(kleur.green(`Tests for '${contract_name}' succeeded`))
-        console.log(`Test results are in ${out_dir}`)
 
     } catch(err) {
         console.log(kleur.red(`Tests for '${contract_name}' faile: ${err}`))
     }
 }
 
-export async function compile(contract_name: string): Promise<void> {
+export function compile(contract_name: string) {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
     try {
         // Build artifact directory.
         const tmp_out_dir = "./build/tmp_contract_build"
+        const contract_in = `./contracts/${contract_name}.py`
 
         // cleanup
         fs.rmdirSync(tmp_out_dir, {recursive: true})
-
-        console.log(`Compiling ${contract_name}`)
-
-        const contract_in = `./contracts/${contract_name}.py`
 
         child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 

@@ -51,9 +51,9 @@ program
     .command('test')
     .alias('t')
     .description('Runs tests.')
-    .argument('<contract_name>', 'name of contract')
-    .action((contract_name) => {
-        smartpy.test(contract_name);
+    .argument('[contract_names...]', 'names of contracts')
+    .action((contract_names: string[]) => {
+        smartpy.test(contract_names);
     });
 
 program
