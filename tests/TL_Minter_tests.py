@@ -1,7 +1,6 @@
 import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_Places.py")
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 @sp.add_test(name = "TL_Minter_tests", profile = True)
@@ -55,7 +54,7 @@ def test():
     minter.set_paused(False).run(sender = admin)
     scenario.verify(minter.data.paused == False)
 
-    # test minting
+    # test Item minting
     scenario.h3("mint_Item")
     minter.mint_Item(address = bob.address,
         amount = 4,
@@ -73,6 +72,24 @@ def test():
         amount = 25,
         royalties = 250,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
+
+    minter.set_paused(False).run(sender = admin)
+
+    # test Place minting
+    scenario.h3("mint_Place")
+    minter.mint_Place(address = bob.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False)
+
+    minter.mint_Place(address = alice.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
+
+    minter.mint_Place(address = admin.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+
+    minter.set_paused(True).run(sender = admin)
+
+    minter.mint_Place(address = admin.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin, valid = False)
 
     minter.set_paused(False).run(sender = admin)
 

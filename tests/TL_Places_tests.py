@@ -36,7 +36,7 @@ def test():
     items_tokens.set_administrator(minter.address).run(sender = admin)
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
-    # mint some items_tokens for testing
+    # mint some item tokens for testing
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
@@ -47,25 +47,27 @@ def test():
         royalties = 250,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
+    # mint some place tokens for testing
+    minter.mint_Place(address = bob.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+
+    minter.mint_Place(address = alice.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+
+    place_bob = sp.nat(0)
+    place_alice = sp.nat(1)
+
     # Test places
 
     scenario.h2("Test Places")
 
     # create places contract
     scenario.h3("Originate places contract")
-    places = places_contract.TL_Places(admin.address, items_tokens.address, minter.address)
+    places = places_contract.TL_Places(admin.address, items_tokens.address, places_tokens.address, minter.address)
     scenario += places
 
-    place1 = sp.utils.bytes_of_string("shouldbeahash1")
-    place2 = sp.utils.bytes_of_string("shouldbeahash2")
-
-    # create a new (market)place
-    scenario.h3("Create places")
-    places.new_place(place1).run(sender = bob)
-    places.new_place(place1).run(sender = bob, valid = False)
-    places.new_place(place2).run(sender = alice)
-    places.new_place(place2).run(sender = alice, valid = False)
-
+    # set operators
+    scenario.h3("Add operators")
     items_tokens.update_operators([
         sp.variant("add_operator", items_tokens.operator_param.make(
             owner = bob.address,
@@ -86,40 +88,40 @@ def test():
 
     # place some items not owned
     scenario.h3("Placing items")
-    places.place_item(lot_id = place1, token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position).run(sender = bob, valid = False)
-    places.place_item(lot_id = place1, token_amount = 500, token_id = 0, xtz_per_token = sp.tez(1), item_data = position).run(sender = bob, valid = False)
+    places.place_items(lot_id = place_bob, item_list = [sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = bob, valid = False)
+    places.place_items(lot_id = place_bob, item_list = [sp.record(token_amount = 500, token_id = 0, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = bob, valid = False)
 
     # place some items in a lot not owned
-    places.place_item(lot_id = place2, token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position).run(sender = bob, valid = False)
-    places.place_item(lot_id = place1, token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position).run(sender = alice, valid = False)
+    places.place_items(lot_id = place_alice, item_list = [sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = bob, valid = False)
+    places.place_items(lot_id = place_bob, item_list = [sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = alice, valid = False)
 
     # place some items
-    places.place_item(lot_id = place1, token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position).run(sender = bob)
-    places.place_item(lot_id = place1, token_amount = 2, token_id = 0, xtz_per_token = sp.tez(1), item_data = position).run(sender = bob)
+    places.place_items(lot_id = place_bob, item_list = [sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = bob)
+    places.place_items(lot_id = place_bob, item_list = [sp.record(token_amount = 2, token_id = 0, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = bob)
 
-    places.place_item(lot_id = place2, token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position).run(sender = alice)
-    places.place_item(lot_id = place2, token_amount = 2, token_id = 1, xtz_per_token = sp.tez(1), item_data = position).run(sender = alice)
+    places.place_items(lot_id = place_alice, item_list = [sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = alice)
+    places.place_items(lot_id = place_alice, item_list = [sp.record(token_amount = 2, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)]).run(sender = alice)
 
     # get (buy) items.
     scenario.h3("Gettting items")
-    places.get_item(lot_id = place1, item_id = 1).run(sender = alice, amount = sp.tez(1))
-    places.get_item(lot_id = place1, item_id = 1).run(sender = alice, amount = sp.tez(1))
-    places.get_item(lot_id = place1, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False)
-    places.get_item(lot_id = place2, item_id = 1).run(sender = bob, amount = sp.tez(1))
-    places.get_item(lot_id = place2, item_id = 1).run(sender = bob, amount = sp.tez(1))
-    places.get_item(lot_id = place2, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False)
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False)
+    places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
+    places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
+    places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False)
 
     # remove items in a lot not owned
     scenario.h3("Removing items")
-    places.remove_item(lot_id = place1, item_id = 0).run(sender = alice, valid = False)
-    places.remove_item(lot_id = place2, item_id = 0).run(sender = bob, valid = False)
+    places.remove_items(lot_id = place_bob, item_list = [0]).run(sender = alice, valid = False)
+    places.remove_items(lot_id = place_alice, item_list = [0]).run(sender = bob, valid = False)
 
     # remove items
-    places.remove_item(lot_id = place1, item_id = 0).run(sender = bob)
-    places.remove_item(lot_id = place2, item_id = 0).run(sender = alice)
+    places.remove_items(lot_id = place_bob, item_list = [0]).run(sender = bob)
+    places.remove_items(lot_id = place_alice, item_list = [0]).run(sender = alice)
 
-    #place item list
-    places.place_items(lot_id = place2, item_list = [
+    #place multiple items
+    places.place_items(lot_id = place_alice, item_list = [
         sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
         sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
         sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)

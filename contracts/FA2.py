@@ -1057,7 +1057,7 @@ def global_parameter(env_var, default):
 
 
 def items_config():
-    # Items is a multi-asset, fungible token, that stores the total supply.
+    # Items is a multi-asset, fungible token, (that doesn't stores the total supply).
     return FA2_config(
         debug_mode = global_parameter("debug_mode", False),
         single_asset = global_parameter("single_asset", False),
@@ -1070,7 +1070,7 @@ def items_config():
         support_operator = global_parameter("support_operator", True),
         assume_consecutive_token_ids =
             global_parameter("assume_consecutive_token_ids", True),
-        store_total_supply = global_parameter("store_total_supply", True),
+        store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         allow_self_transfer = global_parameter("allow_self_transfer", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),

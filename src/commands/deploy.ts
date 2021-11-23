@@ -64,18 +64,25 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     // Compile and deploy Places contract.
     smartpy.compile_newtarget("TL_Places", "TL_Places", [`sp.address("${accountAddress}")`,
       `sp.address("${items_FA2_contract.address}")`,
+      `sp.address("${places_FA2_contract.address}")`,
       `sp.address("${Minter_contract.address}")`]);
 
     const Places_contract = await deploy_contract("TL_Places", Tezos);
 
     // TEMP
-    // mint some tokens
-    console.log("Minting tokens")
-    const mint_op = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
+    // mint some Item tokens
+    console.log("Minting Item tokens")
+    const mint_item_op = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
       amount: 100,
       royalties: 250,
       metadata: Buffer.from("test_metadata", 'utf8').toString('hex')}).send();
-    await mint_op.confirmation();
+    await mint_item_op.confirmation();
+
+    // mint a Place token
+    console.log("Minting Place token")
+    const mint_place_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
+      metadata: Buffer.from("test_metadata", 'utf8').toString('hex')}).send();
+    await mint_place_op.confirmation();
 
     //todo: use half float? https://github.com/petamoriken/float16/blob/master/src/_util/converter.mjs
     // http://www.fox-toolkit.org/ftp/fasthalffloatconversion.pdf
@@ -92,10 +99,6 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     /*{
       const place_bytes = Buffer.from("shouldbeahash1", 'utf8').toString('hex');
 
-      console.log("New place")
-      const new_place_op = await Places_contract.methods.new_place(place_bytes).send();
-      await new_place_op.confirmation();
-
       console.log("Place a lot of items")
       for (let j = 0; j < 20; j++) {
         const batch = Tezos.contract.batch();
@@ -111,10 +114,6 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     {
       const place_bytes = Buffer.from("shouldbeahash2", 'utf8').toString('hex');
-
-      console.log("New place again")
-      const new_place_op = await Places_contract.methods.new_place(place_bytes).send();
-      await new_place_op.confirmation();
 
       console.log("Place a lot of items again")
       for (let j = 0; j < 20; j++) {
@@ -133,16 +132,12 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     //console.dir(Places_contract.parameterSchema.ExtractSchema(), {depth: 20});
 
     {
-      const place_bytes = Buffer.from("shouldbeahash3", 'utf8').toString('hex');
-
-      console.log("New place again")
-      const new_place_op = await Places_contract.methods.new_place(place_bytes).send();
-      await new_place_op.confirmation();
+      const place_id = 0;
 
       console.log("Place a lot of items again")
       for (let j = 0; j < 5; j++) {
         const place_items_op = await Places_contract.methodsObject.place_items({
-          lot_id: place_bytes, item_list: [
+          lot_id: place_id, item_list: [
             {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
             {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
             {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
@@ -190,7 +185,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
       console.log("Remove some items")
       const remove_items_op = await Places_contract.methodsObject.remove_items({
-        lot_id: place_bytes, item_list: [1,2,3,55]}).send();
+        lot_id: place_id, item_list: [1,2,3,55]}).send();
       await remove_items_op.confirmation();
     }
 

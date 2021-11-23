@@ -74,6 +74,33 @@ class TL_Minter(pausable_contract.Pausable):
         self.data.royalties[self.data.item_id] = sp.record(creator=sp.sender, royalties=params.royalties)
         self.data.item_id += 1
 
+    @sp.entry_point(lazify = True)
+    def mint_Place(self, params):
+        self.onlyManager()
+        self.onlyUnpaused()
+        
+        c = sp.contract(
+            sp.TRecord(
+            address=sp.TAddress,
+            amount=sp.TNat,
+            token_id=sp.TNat,
+            metadata=sp.TMap(sp.TString, sp.TBytes)
+            ),
+            self.data.places_contract, 
+            entry_point = "mint").open_some()
+            
+        sp.transfer(
+            sp.record(
+            address=params.address,
+            amount=1,
+            token_id=self.data.place_id,
+            metadata={ '' : params.metadata }
+            ), 
+            sp.mutez(0), 
+            c)
+        
+        self.data.place_id += 1
+
     @sp.onchain_view()
     def get_royalties(self, id):
         # sp.result is used to return the view result (the contract storage in this case)
@@ -86,6 +113,11 @@ class TL_Minter(pausable_contract.Pausable):
     def update_mint_Item(self, new_code):
         self.onlyManager()
         sp.set_entry_point("mint_Item", new_code)
+
+    @sp.entry_point
+    def update_mint_Place(self, new_code):
+        self.onlyManager()
+        sp.set_entry_point("mint_Place", new_code)
 
 # A a compilation target (produces compiled code)
 #sp.add_compilation_target("TL_Minter", TL_Minter(
