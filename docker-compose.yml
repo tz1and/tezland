@@ -107,6 +107,38 @@ services:
       - 127.0.0.1:8000:80
     logging: *bcd-logging
 
+  #graphql:
+  #  restart: always
+  #  image: tezoslive/taas-graphql
+  #  depends_on:
+  #    - flextesa
+  #  environment:
+  #    - TEZOS_NODE=http://sandbox:20000
+  #  links:
+  #    - "flextesa:sandbox"
+  #  ports:
+  #    - "3000:3000"
+  #  logging: *bcd-logging
+
+  ipfs:
+    container_name: ipfs-node
+    restart: always
+    image: ipfs/go-ipfs:latest
+    #bootstrap rm --all
+    #command: bootstrap add /ip4/127.0.0.1/tcp/4001/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc
+    environment:
+      #- IPFS_SWARM_KEY=/key/swarm/psk/1.0.0/\n/base16/\n925e93e58f6cb4aa7a5660e5166a3081f84d40a6888f70d49fdbc68f0f10362a
+      - IPFS_PATH=/ipfsdata
+    volumes:
+      - ./ipfsdata:/ipfsdata
+    ports:
+      - 127.0.0.1:4001:4001
+      - 127.0.0.1:4001:4001/udp
+      - 127.0.0.1:5001:5001
+      - 127.0.0.1:8080:8080
+      - 127.0.0.1:8081:8081
+    logging: *bcd-logging
+
 volumes:
   esdata:
   bcdshare:
