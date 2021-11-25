@@ -28,7 +28,10 @@ class TL_Places(manager_contract.Manageable):
                     item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
                     # TODO: store transform as half floats? could be worth it...
                     ))
-                ))
+                )),
+            # since we can't have nested bigmaps, we store the items as a map from (sha3(lot_id), storeid)
+            # we can search for part of the key with an indexer (bcd).
+            
             )
 
     @sp.entry_point
@@ -66,10 +69,6 @@ class TL_Places(manager_contract.Manageable):
         # get the place
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
         this_place = self.get_or_create_place(place_hash.value)
-
-        # todo: limit the number of stored items per lot. maybe... 64 initially?
-        # in local testing, I could get up to 2000-3000 items per map before things started to fail,
-        # so there's plenty of room ahead.
 
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
@@ -144,15 +143,6 @@ class TL_Places(manager_contract.Manageable):
             the_item.item_amount = sp.as_nat(the_item.item_amount - 1)
         sp.else:
             del this_place.stored_items[params.item_id]
-
-    #
-    # Views
-    #
-    @sp.onchain_view()
-    def get_stored_items(self, lot_id):
-        sp.set_type(lot_id, sp.TNat)
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(lot_id)))
-        sp.result(self.data.places[place_hash.value].stored_items)
 
     #
     # Update code

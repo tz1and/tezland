@@ -9,12 +9,12 @@ const test_out_dir = "./tests/test_output"
 
 export function test(contract_names: string[]) {
     if(contract_names.length > 0)
-        contract_names.forEach(value => test_single(value));
+        contract_names.forEach(contract_name => test_single(contract_name));
     else {
         const test_dir = './tests/';
         fs.readdirSync(test_dir).forEach(file => {
             if(fs.lstatSync(test_dir + file).isFile() && file.endsWith('_tests.py'))
-            test_single(file.substring(0, file.length - 9));
+                test_single(file.slice(0, -9));
         });
     }
 

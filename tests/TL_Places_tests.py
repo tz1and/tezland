@@ -127,7 +127,13 @@ def test():
         sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)
         ]).run(sender = alice)
 
-    # TODO: test remove_items
+    # test views
+    scenario.h3("Views")
+    scenario.p("It's views")
+    stored_items = places.get_stored_items(place_alice)
+    scenario.verify(stored_items[2].item_amount == 1)
+    scenario.verify(stored_items[3].item_amount == 1)
+    scenario.verify(stored_items[4].item_amount == 1)
 
     # set fees
     scenario.h3("Fees")

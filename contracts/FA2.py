@@ -27,7 +27,7 @@ class FA2_config:
                  store_total_supply                 = True,
                  lazy_entry_points                  = False,
                  allow_self_transfer                = False,
-                 use_token_metadata_offchain_view   = False
+                 use_token_metadata_onchain_view   = False
                  ):
 
         if debug_mode:
@@ -38,7 +38,7 @@ class FA2_config:
         # regular maps instead of big-maps, hence it makes inspection
         # of the state of the contract easier.
 
-        self.use_token_metadata_offchain_view = use_token_metadata_offchain_view
+        self.use_token_metadata_onchain_view = use_token_metadata_onchain_view
         # Include offchain view for accessing the token metadata (requires TZIP-016 contract metadata)
 
         self.single_asset = single_asset
@@ -638,7 +638,7 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
 
         if config.store_total_supply:
             list_of_views = list_of_views + [self.total_supply]
-        if config.use_token_metadata_offchain_view:
+        if config.use_token_metadata_onchain_view:
             self.set_token_metadata_view()
             list_of_views = list_of_views + [self.token_metadata]
 
@@ -1060,7 +1060,7 @@ def items_config():
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         allow_self_transfer = global_parameter("allow_self_transfer", False),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+        use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
     )
 
 def places_config():
@@ -1080,7 +1080,7 @@ def places_config():
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         allow_self_transfer = global_parameter("allow_self_transfer", False),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+        use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
     )
 
 
