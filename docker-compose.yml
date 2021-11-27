@@ -36,16 +36,19 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
       - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=https://cloudflare-ipfs.com
+      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
       - elastic
       - db
     ports:
-      - 127.0.0.1:14000:14000
+      - 14000:14000
+    expose:
+      - 14000/tcp
     volumes:
       - bcdshare:/etc/bcd
     links:
       - "flextesa:sandbox"
+      - "ipfs:localipfs"
     logging: *bcd-logging
 
   indexer:
@@ -56,12 +59,13 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
       - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=https://cloudflare-ipfs.com
+      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
       - db
       - metrics
     links:
       - "flextesa:sandbox"
+      - "ipfs:localipfs"
     volumes:
       - bcdshare:/etc/bcd
     logging: *bcd-logging
@@ -74,12 +78,13 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
       - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=https://cloudflare-ipfs.com
+      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
       - elastic
       - db
     links:
       - "flextesa:sandbox"
+      - "ipfs:localipfs"
     volumes:
       - bcdshare:/etc/bcd
     logging: *bcd-logging
@@ -132,11 +137,17 @@ services:
     volumes:
       - ./ipfsdata:/ipfsdata
     ports:
-      - 127.0.0.1:4001:4001
-      - 127.0.0.1:4001:4001/udp
-      - 127.0.0.1:5001:5001
-      - 127.0.0.1:8080:8080
-      - 127.0.0.1:8081:8081
+      - "4001:4001"
+      - "4001:4001/udp"
+      - "5001:5001"
+      - "8080:8080"
+      - "8081:8081"
+    expose:
+      - 4001/tcp
+      - 4001/udp
+      - 5001/tcp
+      - 8080/tcp
+      - 8081/tcp
     logging: *bcd-logging
 
 volumes:

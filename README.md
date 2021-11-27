@@ -1,4 +1,4 @@
-needs latest bcdhub with hangzhou support. build local with
+needs latest bcdhub with hangzhou support. bump version and build local with
 
  make stable-images
 
