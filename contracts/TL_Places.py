@@ -8,6 +8,24 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
+itemStoreMapType = sp.TMap(sp.TNat, sp.TRecord(
+    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
+    item_amount=sp.TNat, # number of objects to store.
+    item_id=sp.TNat, # object id
+    xtz_per_item=sp.TMutez, # 0 if not for sale.
+    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
+    # TODO: store transform as half floats? could be worth it...
+    ))
+
+itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=sp.TRecord(
+    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
+    item_amount=sp.TNat, # number of objects to store.
+    item_id=sp.TNat, # object id
+    xtz_per_item=sp.TMutez, # 0 if not for sale.
+    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
+    # TODO: store transform as half floats? could be worth it...
+    ))
+
 class TL_Places(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter):
         self.init_storage(
@@ -20,14 +38,7 @@ class TL_Places(manager_contract.Manageable):
             # TODO: I suppose it doesn't even need to be per-place
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,
-                stored_items=sp.TMap(sp.TNat, sp.TRecord(
-                    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
-                    item_amount=sp.TNat, # number of objects to store.
-                    item_id=sp.TNat, # object id
-                    xtz_per_item=sp.TMutez, # 0 if not for sale.
-                    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
-                    # TODO: store transform as half floats? could be worth it...
-                    ))
+                stored_items=itemStoreMapType
                 ))
             )
 
@@ -43,14 +54,7 @@ class TL_Places(manager_contract.Manageable):
         sp.if self.data.places.contains(place_hash) == False:
             self.data.places[place_hash] = sp.record(
                 counter = 0,
-                stored_items=sp.map(tkey=sp.TNat, tvalue=sp.TRecord(
-                    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
-                    item_amount=sp.TNat, # number of objects to store.
-                    item_id=sp.TNat, # object id
-                    xtz_per_item=sp.TMutez, # 0 if not for sale.
-                    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
-                    # TODO: store transform as half floats? could be worth it...
-                    ))
+                stored_items=itemStoreMapLiteral
                 )
         return self.data.places[place_hash]
 
@@ -152,7 +156,10 @@ class TL_Places(manager_contract.Manageable):
     def get_stored_items(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(lot_id)))
-        sp.result(self.data.places[place_hash.value].stored_items)
+        sp.if self.data.places.contains(place_hash.value) == False:
+            sp.result(itemStoreMapLiteral)
+        sp.else:
+            sp.result(self.data.places[place_hash.value].stored_items)
 
     #
     # Update code

@@ -135,6 +135,9 @@ def test():
     scenario.verify(stored_items[3].item_amount == 1)
     scenario.verify(stored_items[4].item_amount == 1)
 
+    stored_items_empty = places.get_stored_items(sp.nat(5))
+    scenario.verify(sp.len(stored_items_empty) == 0)
+
     # set fees
     scenario.h3("Fees")
     places.set_fees(35).run(sender = bob, valid = False)
