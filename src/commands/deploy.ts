@@ -2,6 +2,11 @@ import * as smartpy from './smartpy';
 import { TezosToolkit, ContractAbstraction, ContractProvider } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 import * as ipfs from '../ipfs'
+import {
+  Float16Array, isFloat16Array,
+  getFloat16, setFloat16,
+  hfround,
+} from "@petamoriken/float16";
 
 
 async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
@@ -101,8 +106,22 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
     await mint_item_op.confirmation();
 
+    const mint_item_op2 = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
+      amount: 50,
+      royalties: 250,
+      metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
+    await mint_item_op2.confirmation();
+
+    const mint_item_op3 = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
+      amount: 25,
+      royalties: 250,
+      metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
+    await mint_item_op3.confirmation();
+
     // Create place metadata and upload it
-    const place_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address);
+    const place_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
+      [0,0,0],
+      [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
     console.log(`place token metadata: ${place_metadata_url}`);
 
     // mint a Place token
@@ -110,6 +129,18 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const mint_place_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
       metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')}).send();
     await mint_place_op.confirmation();
+
+    // Create place metadata and upload it
+    const place2_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
+      [22,0,0],
+      [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
+    console.log(`place 2 token metadata: ${place_metadata_url}`);
+
+    // mint a Place token
+    console.log("Minting Place 2 token")
+    const mint_place2_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
+      metadata: Buffer.from(place2_metadata_url, 'utf8').toString('hex')}).send();
+    await mint_place2_op.confirmation();
 
     // Set operators
     console.log("Set item operators")
@@ -121,66 +152,38 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       }}]).send();
     await operator_op.confirmation();
 
-    //todo: use half float? https://github.com/petamoriken/float16/blob/master/src/_util/converter.mjs
-    // http://www.fox-toolkit.org/ftp/fasthalffloatconversion.pdf
-
-    var float32 = new Float32Array(8);
-    float32[0] = 1.1; float32[1] = 5.1; float32[2] = 2.1; float32[3] = 0.0; // quaternion xyzw
-    float32[4] = 10.0; // scale
-    float32[5] = 100.0; float32[6] = 200.0; float32[7] = -50.0; // position xyz
-    var view = new Uint8Array(float32.buffer);
     const toHexString = (bytes: Uint8Array) => bytes.reduce((str: String, byte: Number) => str + byte.toString(16).padStart(2, '0'), '');
-    //const example_item_data = toHexString(view);
-    const example_item_data = "ffffffffffffffffffffffffffffffff"
 
     {
       const place_id = 0;
 
       console.log("Place a lot of items")
       for (let j = 0; j < 5; j++) {
+        const item_list = new Array();
+        for (let i = 0; i < 40; i++) {
+          // 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+          const array = new Uint8Array(16);
+          const view = new DataView(array.buffer);
+          // quat
+          setFloat16(view, 0, 0);
+          setFloat16(view, 2, 0);
+          setFloat16(view, 4, 0);
+          setFloat16(view, 6, 1);
+          // scale
+          setFloat16(view, 8, 1);
+          // pos
+          setFloat16(view, 10, Math.random() * 20 - 10);
+          setFloat16(view, 12, 1);
+          setFloat16(view, 14, Math.random() * 20 - 10);
+          const example_item_data = toHexString(array);
+          //console.log(example_item_data);
+
+          item_list.push({token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data});
+        }
+
         const place_items_op = await Places_contract.methodsObject.place_items({
-          lot_id: place_id, item_list: [
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data},
-            {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data}
-          ]}).send();
+          lot_id: place_id, item_list: item_list
+        }).send();
         console.log('Operation hash:', place_items_op.hash);
         await place_items_op.confirmation();
       }
@@ -188,7 +191,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       console.log("Place a single item")
       const place_item_op = await Places_contract.methodsObject.place_items({
         lot_id: place_id, item_list: [
-          {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data}
+          {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff"}
         ]}).send();
       console.log('Operation hash:', place_item_op.hash);
       await place_item_op.confirmation();

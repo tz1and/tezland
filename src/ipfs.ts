@@ -1,6 +1,6 @@
 import * as ipfs from 'ipfs-http-client'
 
-export async function upload_place_metadata(minter_address: string): Promise<string> {
+export async function upload_place_metadata(minter_address: string, center: number[], border: number[][]): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
     const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
@@ -9,8 +9,8 @@ export async function upload_place_metadata(minter_address: string): Promise<str
         identifier: "some-uuid",
         description: "A nice place",
         minter: minter_address,
-        center_coordinates: [0,0,0],
-        border_coordinates: [[0,0,0], [0,0,0], [0,0,0], [0,0,0]]
+        center_coordinates: center,
+        border_coordinates: border
     }));
 
     return `ipfs://${result.path}`;
