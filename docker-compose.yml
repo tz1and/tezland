@@ -91,7 +91,7 @@ services:
 
   flextesa:
     restart: always
-    image: tqtezos/flextesa:20211119   #20211119 with hangzhou # 20210602 granada
+    image: oxheadalpha/flextesa:20211207   #20211119 with hangzhou # 20210602 granada
     command: hangzbox start
     environment:
       - block_time=2
