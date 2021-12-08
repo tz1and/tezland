@@ -161,6 +161,22 @@ class TL_Places(manager_contract.Manageable):
         sp.else:
             sp.result(self.data.places[place_hash.value].stored_items)
 
+    @sp.onchain_view()
+    def get_place_seqnum(self, lot_id):
+        sp.set_type(lot_id, sp.TNat)
+        place_hash = sp.local("place_hash", sp.sha3(sp.pack(lot_id)))
+        sp.if self.data.places.contains(place_hash.value) == False:
+            sp.result(sp.sha3(sp.pack(sp.pair(
+                sp.nat(0),
+                sp.nat(0)
+            ))))
+        sp.else:
+            this_place = self.data.places[place_hash.value]
+            sp.result(sp.sha3(sp.pack(sp.pair(
+                sp.len(this_place.stored_items),
+                this_place.counter
+            ))))
+
     #
     # Update code
     #
