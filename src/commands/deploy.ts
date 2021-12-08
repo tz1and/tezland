@@ -212,6 +212,10 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       await get_item_op.confirmation();
     }
 
+    console.log("BABYLON_APP_ITEM_CONTRACT=" + items_FA2_contract.address)
+    console.log("BABYLON_APP_PLACE_CONTRACT=" + places_FA2_contract.address)
+    console.log("BABYLON_APP_MARKETPLACES_CONTRACT=" + Places_contract.address)
+    
   } catch (error) {
     console.log(error);
   }
