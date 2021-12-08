@@ -160,7 +160,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       console.log("Place a lot of items")
       for (let j = 0; j < 5; j++) {
         const item_list = new Array();
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 10; i++) {
           // 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
           const array = new Uint8Array(16);
           const view = new DataView(array.buffer);
@@ -198,24 +198,24 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
       console.log("Remove some items")
       const remove_items_op = await Places_contract.methodsObject.remove_items({
-        lot_id: place_id, item_list: [1,2,3,55]}).send();
+        lot_id: place_id, item_list: [1,2,3,45]}).send();
       await remove_items_op.confirmation();
 
       console.log("Remove a lot of items")
       const remove_many_items_op = await Places_contract.methodsObject.remove_items({
-        lot_id: place_id, item_list: [...Array(40)].map((_, i) => 100 + i)}).send();
+        lot_id: place_id, item_list: [...Array(10)].map((_, i) => 30 + i)}).send();
       await remove_many_items_op.confirmation();
 
       console.log("Get an item")
       const get_item_op = await Places_contract.methodsObject.get_item({
-        lot_id: place_id, item_id: 99}).send({ amount: 1000000, mutez: true });
+        lot_id: place_id, item_id: 47}).send({ amount: 1000000, mutez: true });
       await get_item_op.confirmation();
     }
 
     console.log("BABYLON_APP_ITEM_CONTRACT=" + items_FA2_contract.address)
     console.log("BABYLON_APP_PLACE_CONTRACT=" + places_FA2_contract.address)
     console.log("BABYLON_APP_MARKETPLACES_CONTRACT=" + Places_contract.address)
-    
+
   } catch (error) {
     console.log(error);
   }
