@@ -33,6 +33,9 @@ class TL_Places(manager_contract.Manageable):
             items_contract = items_contract,
             places_contract = places_contract,
             minter = minter,
+            # in local testing, I could get up to 2000-3000 items per map before things started to fail,
+            # so there's plenty of room ahead.
+            item_limit = sp.nat(64),
             fees = sp.nat(25),
             # basically only holds the per-marketplace counter.
             # TODO: I suppose it doesn't even need to be per-place
@@ -48,6 +51,12 @@ class TL_Places(manager_contract.Manageable):
         self.onlyManager()
         sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
         self.data.fees = fees
+
+    @sp.entry_point
+    def set_item_limit(self, item_limit):
+        sp.set_type(item_limit, sp.TNat)
+        self.onlyManager()
+        self.data.item_limit = item_limit
 
     def get_or_create_place(self, place_hash):
         # create new place if it doesn't exist
@@ -71,9 +80,8 @@ class TL_Places(manager_contract.Manageable):
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
         this_place = self.get_or_create_place(place_hash.value)
 
-        # todo: limit the number of stored items per lot. maybe... 64 initially?
-        # in local testing, I could get up to 2000-3000 items per map before things started to fail,
-        # so there's plenty of room ahead.
+        # todo: test item limit!!!!
+        sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
 
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
@@ -176,6 +184,10 @@ class TL_Places(manager_contract.Manageable):
                 sp.len(this_place.stored_items),
                 this_place.counter
             ))))
+
+    @sp.onchain_view()
+    def get_item_limit(self):
+        sp.result(self.data.item_limit)
 
     #
     # Update code

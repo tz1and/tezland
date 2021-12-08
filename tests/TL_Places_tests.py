@@ -131,7 +131,12 @@ def test():
     scenario.h3("Views")
     scenario.p("It's views")
 
-    scenario.h3("Stored items")
+    scenario.h4("Item limit")
+    item_limit = places.get_item_limit()
+    scenario.verify(item_limit == sp.nat(64))
+    scenario.show(item_limit)
+
+    scenario.h4("Stored items")
     stored_items = places.get_stored_items(place_alice)
     scenario.verify(stored_items[2].item_amount == 1)
     scenario.verify(stored_items[3].item_amount == 1)
@@ -142,7 +147,7 @@ def test():
     scenario.verify(sp.len(stored_items_empty) == 0)
     scenario.show(stored_items_empty)
 
-    scenario.h3("Sequence numbers")
+    scenario.h4("Sequence numbers")
     sequence_number = places.get_place_seqnum(place_alice)
     scenario.verify(sequence_number == sp.sha3(sp.pack(sp.pair(sp.nat(3), sp.nat(5)))))
     scenario.show(sequence_number)
@@ -150,6 +155,16 @@ def test():
     sequence_number_empty = places.get_place_seqnum(sp.nat(5))
     scenario.verify(sequence_number_empty == sp.sha3(sp.pack(sp.pair(sp.nat(0), sp.nat(0)))))
     scenario.show(sequence_number_empty)
+
+    # set item limit
+    scenario.h3("Item Limit")
+
+    scenario.verify(places.data.item_limit == 64)
+    places.set_item_limit(128).run(sender = bob, valid = False)
+    places.set_item_limit(128).run(sender = admin)
+    scenario.verify(places.data.item_limit == 128)
+
+    # todo: test item limit on add!!!!
 
     # set fees
     scenario.h3("Fees")
