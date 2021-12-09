@@ -77,7 +77,7 @@ export function compile_newtarget(target_name: string, contract_name: string, ta
     console.log(`Building ${target_name} target`)
 
     // Make target dir if it doesn't exist
-    if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir);
+    if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir, { recursive: true });
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
@@ -87,7 +87,7 @@ sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract
     ))`)
 
     // cleanup
-    fs.rmdirSync(tmp_out_dir, {recursive: true})
+    if (fs.existsSync(tmp_out_dir)) fs.rmdirSync(tmp_out_dir, {recursive: true})
 
     console.log(`Compiling ${target_name}`)
 
