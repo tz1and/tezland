@@ -94,56 +94,48 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const Places_contract = await deploy_contract("TL_Places", Tezos);
 
     // TEMP
-    // Create item metadata and upload it
-    const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address);
-    console.log(`item token metadata: ${item_metadata_url}`);
+    const mintNewItem = async (model_path: string, amount: number) => {
+      const mesh_url = await ipfs.upload_item_model(model_path);
+      console.log(`item model: ${mesh_url}`);
 
-    // mint some Item tokens
-    console.log("Minting Item tokens")
-    const mint_item_op = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
-      amount: 100,
-      royalties: 250,
-      metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
-    await mint_item_op.confirmation();
+      // Create item metadata and upload it
+      const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, mesh_url);
+      console.log(`item token metadata: ${item_metadata_url}`);
 
-    const mint_item_op2 = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
-      amount: 50,
-      royalties: 250,
-      metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
-    await mint_item_op2.confirmation();
+      // mint some Item tokens
+      console.log("Minting Item tokens")
+      const mint_item_op = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
+        amount: amount,
+        royalties: 250,
+        metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
+      await mint_item_op.confirmation();
+    }
 
-    const mint_item_op3 = await Minter_contract.methodsObject.mint_Item({address: accountAddress,
-      amount: 25,
-      royalties: 250,
-      metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')}).send();
-    await mint_item_op3.confirmation();
+    await mintNewItem('assets/Lantern.glb', 100);
+    await mintNewItem('assets/Fox.glb', 25);
+    await mintNewItem('assets/Duck.glb', 75);
+    await mintNewItem('assets/DragonAttenuation.glb', 66);
 
     // Create place metadata and upload it
-    const place_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
-      [0,0,0],
-      [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
-    console.log(`place token metadata: ${place_metadata_url}`);
+    const mintNewPlace = async (center: number[], border: number[][]) => {
+      const place_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
+        center,
+        border);
+      console.log(`place token metadata: ${place_metadata_url}`);
 
-    // mint a Place token
-    console.log("Minting Place token")
-    const mint_place_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
-      metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')}).send();
-    await mint_place_op.confirmation();
+      // mint a Place token
+      console.log("Minting Place token")
+      const mint_place_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
+        metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')}).send();
+      await mint_place_op.confirmation();
+    }
 
-    // Create place metadata and upload it
-    const place2_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
-      [22,0,0],
-      [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
-    console.log(`place 2 token metadata: ${place_metadata_url}`);
-
-    // mint a Place token
-    console.log("Minting Place 2 token")
-    const mint_place2_op = await Minter_contract.methodsObject.mint_Place({address: accountAddress,
-      metadata: Buffer.from(place2_metadata_url, 'utf8').toString('hex')}).send();
-    await mint_place2_op.confirmation();
+    await mintNewPlace([0,0,0], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
+    await mintNewPlace([22,0,0], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
+    await mintNewPlace([22,0,-22], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
 
     // Set operators
-    console.log("Set item operators")
+    /*console.log("Set item operators")
     const operator_op = await items_FA2_contract.methods.update_operators([{
       add_operator: {
           owner: accountAddress,
@@ -210,8 +202,9 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       const get_item_op = await Places_contract.methodsObject.get_item({
         lot_id: place_id, item_id: 47}).send({ amount: 1000000, mutez: true });
       await get_item_op.confirmation();
-    }
+    }*/
 
+    console.log('\n');
     console.log("BABYLON_APP_ITEM_CONTRACT=" + items_FA2_contract.address)
     console.log("BABYLON_APP_PLACE_CONTRACT=" + places_FA2_contract.address)
     console.log("BABYLON_APP_MARKETPLACES_CONTRACT=" + Places_contract.address)

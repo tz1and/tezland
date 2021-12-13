@@ -1,4 +1,5 @@
 import * as ipfs from 'ipfs-http-client'
+import * as fs from 'fs';
 
 export async function upload_place_metadata(minter_address: string, center: number[], border: number[][]): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
@@ -16,7 +17,7 @@ export async function upload_place_metadata(minter_address: string, center: numb
     return `ipfs://${result.path}`;
 }
 
-export async function upload_item_metadata(minter_address: string): Promise<string> {
+export async function upload_item_metadata(minter_address: string, model_url: string): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
     const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
@@ -24,8 +25,21 @@ export async function upload_item_metadata(minter_address: string): Promise<stri
     const result = await ipfs_client.add(createItemTokenMetadata({
         name: "My awesome item",
         description: "A nice item",
-        minter: minter_address
+        minter: minter_address,
+        modelUrl: model_url
     }));
+
+    return `ipfs://${result.path}`;
+}
+
+export async function upload_item_model(file: string): Promise<string> {
+    if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
+
+    const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
+
+    const data: Buffer = fs.readFileSync(file);
+
+    const result = await ipfs_client.add(data);
 
     return `ipfs://${result.path}`;
 }
@@ -79,6 +93,7 @@ interface ItemMetadata {
     description: string;
     minter: string;
     name: string;
+    modelUrl: string;
 }
 
 function createItemTokenMetadata(metadata: ItemMetadata) {
@@ -91,7 +106,7 @@ function createItemTokenMetadata(metadata: ItemMetadata) {
             isBooleanAmount: false,
             shouldPreferSymbol: false,
             symbol: 'Item',
-            //artifactUri: cid,
+            artifactUri: metadata.modelUrl,
             decimals: 0
         })
     )

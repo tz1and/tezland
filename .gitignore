@@ -2,6 +2,7 @@ node_modules/
 build/
 tests/test_output/
 ipfsdata/
+assets/
 .env
 temp_wallet
 notes.txt
