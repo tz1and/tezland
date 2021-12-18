@@ -133,6 +133,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     await mintNewPlace([0,0,0], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
     await mintNewPlace([22,0,0], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
     await mintNewPlace([22,0,-22], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10]]);
+    await mintNewPlace([0,0,-25], [[10,0,10], [10,0,-10], [-10,0,-10], [-10,0,10], [0,0,14]]);
 
     // Set operators
     /*console.log("Set item operators")
