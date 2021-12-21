@@ -3,6 +3,7 @@ build/
 tests/test_output/
 ipfsdata/
 assets/
+.vscode/
 .env
 temp_wallet
 notes.txt

@@ -26,6 +26,7 @@ itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=sp.TRecord(
     # TODO: store transform as half floats? could be worth it...
     ))
 
+# TODO: make pausable?
 class TL_Places(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter):
         self.init_storage(
