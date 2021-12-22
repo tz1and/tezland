@@ -120,7 +120,7 @@ def test():
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.now,
-        end_time = sp.now.add_minutes(2)).run(sender = bob)
+        end_time = sp.now.add_minutes(80)).run(sender = bob)
 
     # todo: verify token was transferred
 
@@ -152,17 +152,18 @@ def test():
 
     # try a couple of wrong amount bids at several times
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(1), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(60), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(80), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(119), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(120), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(121), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(1), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(2), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(20), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(40), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(60), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(80), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(81), valid = False)
     
     # valid
-    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(122), valid = True)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = True)
     # valid but wrong state
-    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(122), valid = False)
+    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = False)
     # todo: more failure cases
 
     #
@@ -178,11 +179,26 @@ def test():
     #auction_info = dutch.get_auction_price(0)
     #scenario.show(auction_info)
 
-    # set fees
-    scenario.h3("Fees")
+    #
+    # set_fees
+    #
+    scenario.h3("set_fees")
+
     dutch.set_fees(35).run(sender = bob, valid = False)
     dutch.set_fees(250).run(sender = admin, valid = False)
+    scenario.verify(dutch.data.fees == sp.nat(25))
     dutch.set_fees(45).run(sender = admin)
+    scenario.verify(dutch.data.fees == sp.nat(45))
 
+    #
+    # set_granularity
+    #
+    scenario.h3("set_granularity")
+    
+    dutch.set_granularity(35).run(sender = bob, valid = False)
+    dutch.set_granularity(250).run(sender = alice, valid = False)
+    scenario.verify(dutch.data.granularity == sp.nat(60))
+    dutch.set_granularity(45).run(sender = admin)
+    scenario.verify(dutch.data.granularity == sp.nat(45))
 
     scenario.table_of_contents()

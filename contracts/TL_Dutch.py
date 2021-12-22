@@ -14,6 +14,7 @@ class TL_Dutch(pausable_contract.Pausable):
             places_contract = places_contract,
             minter = minter,
             auction_id = sp.nat(0), # the auction id counter.
+            granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             fees = sp.nat(25),
             paused = False,
             auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
@@ -30,8 +31,16 @@ class TL_Dutch(pausable_contract.Pausable):
 
 
     @sp.entry_point
+    def set_granularity(self, granularity):
+        """Call to set granularity in seconds."""
+        sp.set_type(granularity, sp.TNat)
+        self.onlyManager()
+        self.data.granularity = granularity
+
+
+    @sp.entry_point
     def set_fees(self, fees):
-        """Called to set fees in permille.
+        """Call to set fees in permille.
         fees must be <= than 60 permille.
         """
         sp.set_type(fees, sp.TNat)
@@ -131,6 +140,8 @@ class TL_Dutch(pausable_contract.Pausable):
             sp.self_address,
             auction_id,
             t = sp.TMutez).open_some())
+        #sp.trace(sp.now)
+        #sp.trace(ask_price.value)
         # check if correct value was sent. probably best to send back overpay instead of cancel.
         sp.verify(sp.amount >= ask_price.value, message = "WRONG_AMOUNT")
 
@@ -187,8 +198,8 @@ class TL_Dutch(pausable_contract.Pausable):
             # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
             # probably by validating the input in create. to make sure intervals can't be negative.
             # todo: investigate if this can be "stepped" somehow, instead of gradually reducing the price.
-            duration = abs(the_auction.end_time - the_auction.start_time)
-            time_since_start = abs(sp.now - the_auction.start_time)
+            duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
+            time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
             mutez_per_sec = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
             time_deduction = mutez_per_sec * time_since_start
 
