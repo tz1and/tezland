@@ -84,26 +84,73 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
-    # create auction
-    scenario.h3("Create auction")
+    #
+    # create
+    #
+    scenario.h3("Create")
+
+    # incorrect start/end price
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(100),
+        start_time = sp.now,
+        end_time = sp.now.add_minutes(2)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(120),
+        start_time = sp.now,
+        end_time = sp.now.add_minutes(2)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    # incorrect start/end time
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(120),
+        start_time = sp.now.add_minutes(2),
+        end_time = sp.now.add_minutes(2)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.now.add_minutes(3),
+        end_time = sp.now.add_minutes(2)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    # valid
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.now,
         end_time = sp.now.add_minutes(2)).run(sender = bob)
 
-    # temp: views
-    auction_info = dutch.get_auction(0)
-    #scenario.verify(item_limit == sp.nat(64))
-    scenario.show(auction_info)
+    # todo: verify token was transferred
 
-    # NOTE: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
-    #auction_info = dutch.get_auction_price(0)
-    #scenario.show(auction_info)
+    #
+    # cancel
+    #
+    scenario.h3("Cancel")
 
-    # todo: failure cases
+    dutch.create(token_id = place_alice,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.now,
+        end_time = sp.now.add_minutes(2)).run(sender = alice)
 
+    # not owner
+    dutch.cancel(1).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    # valid
+    dutch.cancel(1).run(sender = alice)
+    # already cancelled, wrong state
+    dutch.cancel(1).run(sender = alice, valid = False, exception = "WRONG_STATE")
+
+    # todo: verify token was transferred
+    # todo: test cancel from manager??
+
+    #
     # bid
+    #
+    scenario.h3("Bid")
+
+    # try a couple of wrong amount bids at several times
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0), valid = False)
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(1), valid = False)
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(60), valid = False)
@@ -111,10 +158,25 @@ def test():
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(119), valid = False)
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(120), valid = False)
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(121), valid = False)
-    # todo: more failure cases
-    dutch.bid(0).run(sender = alice, amount = sp.tez(3), now=sp.timestamp(122), valid = False)
+    
+    # valid
     dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(122), valid = True)
+    # valid but wrong state
     dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(122), valid = False)
+    # todo: more failure cases
+
+    #
+    # todo: views
+    #
+    scenario.h3("Views")
+
+    auction_info = dutch.get_auction(0)
+    #scenario.verify(item_limit == sp.nat(64))
+    scenario.show(auction_info)
+
+    # NOTE: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
+    #auction_info = dutch.get_auction_price(0)
+    #scenario.show(auction_info)
 
     # set fees
     scenario.h3("Fees")

@@ -3,6 +3,10 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 class TL_Dutch(pausable_contract.Pausable):
+    """A simple dutch auction.
+    
+    The price keeps dropping until end_time is reached. First valid bid gets the token.
+    """
     def __init__(self, manager, items_contract, places_contract, minter):
         self.init_storage(
             manager = manager,
@@ -20,7 +24,7 @@ class TL_Dutch(pausable_contract.Pausable):
                 end_price=sp.TMutez,
                 start_time=sp.TTimestamp,
                 end_time=sp.TTimestamp,
-                state=sp.TNat # 0 = open, 1 = closed. TODO
+                state=sp.TNat # 0 = open, 1 = closed, 2 = cancelled. TODO
                 ))
             )
 
@@ -87,12 +91,14 @@ class TL_Dutch(pausable_contract.Pausable):
 
         the_auction = self.data.auctions[auction_id]
 
-        # verify ownership (manager can cancel all)
+        # verify ownership (manager can cancel all???)
         sp.if ~self.isManager(sp.sender):
             sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # and if it's in cancleable state
         sp.verify(the_auction.state == sp.nat(0), message = "WRONG_STATE")
+
+        the_auction.state = sp.nat(2)
 
         # transfer token back to auction owner.
         self.fa2_transfer(self.data.places_contract, sp.self_address, the_auction.owner, the_auction.token_id, 1)
