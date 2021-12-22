@@ -2,7 +2,6 @@ import smartpy as sp
 
 pause_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
-# TODO: make pausable?
 class PausableTest(pause_contract.Pausable):
     def __init__(self, manager):
         self.init_storage(
