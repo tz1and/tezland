@@ -197,7 +197,6 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.else:
             # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
             # probably by validating the input in create. to make sure intervals can't be negative.
-            # todo: investigate if this can be "stepped" somehow, instead of gradually reducing the price.
             duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
             time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
             mutez_per_sec = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
