@@ -199,8 +199,8 @@ class TL_Dutch(pausable_contract.Pausable):
             # probably by validating the input in create. to make sure intervals can't be negative.
             duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
             time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
-            mutez_per_sec = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
-            time_deduction = mutez_per_sec * time_since_start
+            mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
+            time_deduction = mutez_per_interval * time_since_start
 
             current_price = the_auction.start_price - sp.utils.nat_to_mutez(time_deduction)
 
