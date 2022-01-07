@@ -206,9 +206,10 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     }*/
 
     console.log('\n');
-    console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address)
-    console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address)
-    console.log("REACT_APP_MARKETPLACES_CONTRACT=" + Places_contract.address)
+    console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
+    console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
+    console.log("REACT_APP_MARKETPLACES_CONTRACT=" + Places_contract.address);
+    console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
 
   } catch (error) {
     console.log(error);
