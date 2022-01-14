@@ -93,6 +93,14 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const Places_contract = await deploy_contract("TL_Places", Tezos);
 
+    // Compile and deploy Dutch auction contract.
+    smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`sp.address("${accountAddress}")`,
+      `sp.address("${items_FA2_contract.address}")`,
+      `sp.address("${places_FA2_contract.address}")`,
+      `sp.address("${Minter_contract.address}")`]);
+      
+    const Dutch_contract = await deploy_contract("TL_Dutch", Tezos);
+
     // TEMP
     const mintNewItem = async (model_path: string, amount: number) => {
       const mesh_url = await ipfs.upload_item_model(model_path);
@@ -210,6 +218,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
     console.log("REACT_APP_MARKETPLACES_CONTRACT=" + Places_contract.address);
     console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
+    console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
 
   } catch (error) {
     console.log(error);
