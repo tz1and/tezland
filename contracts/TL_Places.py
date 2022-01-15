@@ -8,23 +8,25 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
-itemStoreMapType = sp.TMap(sp.TNat, sp.TRecord(
+itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
     item_amount=sp.TNat, # number of objects to store.
     item_id=sp.TNat, # object id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
     # TODO: store transform as half floats? could be worth it...
-    ))
+    )
 
-itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=sp.TRecord(
-    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
-    item_amount=sp.TNat, # number of objects to store.
-    item_id=sp.TNat, # object id
-    xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
-    # TODO: store transform as half floats? could be worth it...
-    ))
+# TODO: reccords in variants are immutable?
+# Create an issue in gitlab: is it a smartpy limitation?
+#extensibleVariantType = sp.TVariant(
+#    item = itemRecordType,
+#    ext = sp.TBytes
+#)
+
+itemStoreMapType = sp.TMap(sp.TNat, itemRecordType)
+
+itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=itemRecordType)
 
 # TODO: make pausable?
 class TL_Places(manager_contract.Manageable):
