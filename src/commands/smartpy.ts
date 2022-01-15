@@ -33,7 +33,7 @@ export function test_single(contract_name: string) {
         console.log(kleur.green(`Tests for '${contract_name}' succeeded`))
 
     } catch(err) {
-        console.log(kleur.red(`Tests for '${contract_name}' faile: ${err}`))
+        console.log(kleur.red(`Tests for '${contract_name}' failed: ${err}`))
     }
 }
 
