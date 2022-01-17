@@ -104,7 +104,12 @@ def test():
 
     # get (buy) items.
     scenario.h3("Gettting items")
+
+    # make sure sequence number changes on interaction. need to use compute here to eval immediate.
+    check_before_sequence_number = scenario.compute(places.get_place_seqnum(place_bob))
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
+    scenario.verify(check_before_sequence_number != places.get_place_seqnum(place_bob))
+
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False)
     places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
@@ -138,9 +143,9 @@ def test():
 
     scenario.h4("Stored items")
     stored_items = places.get_stored_items(place_alice)
-    scenario.verify(stored_items[2].item_amount == 1)
-    scenario.verify(stored_items[3].item_amount == 1)
-    scenario.verify(stored_items[4].item_amount == 1)
+    scenario.verify(stored_items[2].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items[3].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items[4].open_variant("item").item_amount == 1)
     scenario.show(stored_items)
 
     stored_items_empty = places.get_stored_items(sp.nat(5))
@@ -148,23 +153,36 @@ def test():
     scenario.show(stored_items_empty)
 
     scenario.h4("Sequence numbers")
-    sequence_number = places.get_place_seqnum(place_alice)
+    sequence_number = scenario.compute(places.get_place_seqnum(place_alice))
     scenario.verify(sequence_number == sp.sha3(sp.pack(sp.pair(sp.nat(3), sp.nat(5)))))
     scenario.show(sequence_number)
 
-    sequence_number_empty = places.get_place_seqnum(sp.nat(5))
+    sequence_number_empty = scenario.compute(places.get_place_seqnum(sp.nat(5)))
     scenario.verify(sequence_number_empty == sp.sha3(sp.pack(sp.pair(sp.nat(0), sp.nat(0)))))
     scenario.show(sequence_number_empty)
 
     # set item limit
     scenario.h3("Item Limit")
 
+    scenario.h4("set_item_limit")
     scenario.verify(places.data.item_limit == 64)
     places.set_item_limit(128).run(sender = bob, valid = False)
     places.set_item_limit(128).run(sender = admin)
     scenario.verify(places.data.item_limit == 128)
 
-    # todo: test item limit on add!!!!
+    scenario.h4("item limit on place_items")
+    places.set_item_limit(10).run(sender = admin)
+    places.place_items(lot_id = place_alice, item_list = [
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+        sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position),
+    ]).run(sender = alice, valid = False, exception = 'ITEM_LIMIT')
 
     # set fees
     scenario.h3("Fees")

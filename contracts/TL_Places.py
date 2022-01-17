@@ -13,20 +13,22 @@ itemRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of objects to store.
     item_id=sp.TNat, # object id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes # we store the transforms as bytes. 4 floats for quat, 1 float scale, 3 floats pos = 32 bytes
-    # TODO: store transform as half floats? could be worth it...
+    item_data=sp.TBytes # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+    # TODO: store an animation index?
     )
 
 # TODO: reccords in variants are immutable?
 # Create an issue in gitlab: is it a smartpy limitation?
-#extensibleVariantType = sp.TVariant(
-#    item = itemRecordType,
-#    ext = sp.TBytes
-#)
+extensibleVariantType = sp.TVariant(
+    item = itemRecordType,
+    ext = sp.TBytes
+)
 
-itemStoreMapType = sp.TMap(sp.TNat, itemRecordType)
+itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 
-itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=itemRecordType)
+itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
+
+transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 # TODO: make pausable?
 class TL_Places(manager_contract.Manageable):
@@ -44,6 +46,8 @@ class TL_Places(manager_contract.Manageable):
             # TODO: I suppose it doesn't even need to be per-place
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,
+                interactionCounter=sp.TNat,
+                # TODO: place ground color maybe?
                 stored_items=itemStoreMapType
                 ))
             )
@@ -66,6 +70,7 @@ class TL_Places(manager_contract.Manageable):
         sp.if self.data.places.contains(place_hash) == False:
             self.data.places[place_hash] = sp.record(
                 counter = 0,
+                interactionCounter = 0,
                 stored_items=itemStoreMapLiteral
                 )
         return self.data.places[place_hash]
@@ -89,21 +94,27 @@ class TL_Places(manager_contract.Manageable):
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
 
+        # our token transfer list
+        # TODO: could also build up a map and convert it to a list with map.values()
+        transferList = sp.local("transferList", sp.list([], t = transferListItemType))
+
         sp.for curr in params.item_list:
             sp.verify(sp.len(curr.item_data) == 16, message = "DATA_LEN")
 
-            # Make sure item is owned.
-            sp.verify(self.fa2_get_balance(self.data.items_contract, curr.token_id, sp.sender) >= curr.token_amount,
-                message = "ITEM_NOT_OWNED")
+            # transfer item to this contract
+            # do multi-transfer by building up a list of transfers
+            transferList.value.push(sp.record(amount=curr.token_amount, to_=sp.self_address, token_id=curr.token_id))
 
-            this_place.stored_items[this_place.counter] = sp.record(
+            this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
                 issuer = sp.sender,
                 item_amount = curr.token_amount,
                 item_id = curr.token_id,
                 xtz_per_item = curr.xtz_per_token,
-                item_data = curr.item_data)
+                item_data = curr.item_data))
 
             this_place.counter += 1 # TODO: use sp.local for counter
+
+        self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferList.value)
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
@@ -117,10 +128,26 @@ class TL_Places(manager_contract.Manageable):
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
 
+        # our token transfer list
+        # TODO: could also build up a map and convert it to a list with map.values()
+        transferList = sp.local("transferList", sp.list([], t = transferListItemType))
+
         # remove the items
         sp.for curr in params.item_list:
+            with this_place.stored_items[curr].match_cases() as arg:
+                with arg.match("item") as the_item:
+                    # transfer all remaining items back to issuer
+                    # do multi-transfer by building up a list of transfers
+                    transferList.value.push(sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.item_id))
+                # nothing to do here with ext items.
+            
             del this_place.stored_items[curr]
 
+        this_place.interactionCounter += 1
+
+        self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferList.value)
+
+    # TODO: allow getting multiple items? could make the code too complicated.
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params.lot_id, sp.TNat)
@@ -129,17 +156,17 @@ class TL_Places(manager_contract.Manageable):
         # get the place
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
         this_place = self.data.places[place_hash.value]
-        # get the item
-        the_item = this_place.stored_items[params.item_id]
+        # get the item from storage. get_item is only supposed to work for the item variant.
+        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item"))
 
         # make sure it's for sale, the transfered amount is correct, etc.
-        sp.verify(the_item.xtz_per_item > sp.mutez(0), message = "NOT_FOR_SALE")
-        sp.verify(the_item.xtz_per_item == sp.amount, message = "WRONG_AMOUNT")
+        sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = "NOT_FOR_SALE")
+        sp.verify(the_item.value.xtz_per_item == sp.amount, message = "WRONG_AMOUNT")
 
         # send monies
-        sp.if (the_item.xtz_per_item != sp.tez(0)):
+        sp.if (the_item.value.xtz_per_item != sp.tez(0)):
             # get the royalties for this item
-            item_royalties = sp.local("item_royalties", self.minter_get_royalties(the_item.item_id))
+            item_royalties = sp.local("item_royalties", self.minter_get_royalties(the_item.value.item_id))
             
             fee = sp.local("fee", sp.utils.mutez_to_nat(sp.amount) * (item_royalties.value.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.local("royalties", item_royalties.value.royalties * fee.value / (item_royalties.value.royalties + self.data.fees))
@@ -149,16 +176,19 @@ class TL_Places(manager_contract.Manageable):
             # send management fees
             sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee.value - royalties.value)))
             # send rest of the value to seller
-            sp.send(the_item.issuer, sp.amount - sp.utils.nat_to_mutez(fee.value))
+            sp.send(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee.value))
         
         # transfer item to buyer
-        self.fa2_transfer(self.data.items_contract, the_item.issuer, sp.sender, the_item.item_id, 1)
+        self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.item_id, 1)
         
         # reduce the item count in storage or remove it.
-        sp.if the_item.item_amount > 1:
-            the_item.item_amount = sp.as_nat(the_item.item_amount - 1)
+        sp.if the_item.value.item_amount > 1:
+            the_item.value.item_amount = sp.as_nat(the_item.value.item_amount - 1)
+            this_place.stored_items[params.item_id] = sp.variant("item", the_item.value)
         sp.else:
             del this_place.stored_items[params.item_id]
+
+        this_place.interactionCounter += 1
 
     #
     # Views
@@ -184,7 +214,7 @@ class TL_Places(manager_contract.Manageable):
         sp.else:
             this_place = self.data.places[place_hash.value]
             sp.result(sp.sha3(sp.pack(sp.pair(
-                sp.len(this_place.stored_items),
+                this_place.interactionCounter,
                 this_place.counter
             ))))
 
@@ -214,8 +244,13 @@ class TL_Places(manager_contract.Manageable):
     # Misc
     #
     def fa2_transfer(self, fa2, from_, to_, item_id, item_amount):
-        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))))), fa2, entry_point='transfer').open_some()
+        # TODO: build transferlist and call fa2_transfer_multi
+        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))]), sp.mutez(0), c)
+
+    def fa2_transfer_multi(self, fa2, from_, transfer_list):
+        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
+        sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
     def fa2_get_balance(self, fa2, token_id, owner):
         return sp.view("get_balance", fa2,
