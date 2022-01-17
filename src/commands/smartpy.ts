@@ -46,7 +46,7 @@ export function compile(contract_name: string) {
         const contract_in = `./contracts/${contract_name}.py`
 
         // cleanup
-        fs.rmdirSync(tmp_out_dir, {recursive: true})
+        fs.rmSync(tmp_out_dir, {recursive: true})
 
         child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
@@ -87,7 +87,7 @@ sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract
     ))`)
 
     // cleanup
-    if (fs.existsSync(tmp_out_dir)) fs.rmdirSync(tmp_out_dir, {recursive: true})
+    if (fs.existsSync(tmp_out_dir)) fs.rmSync(tmp_out_dir, {recursive: true})
 
     console.log(`Compiling ${target_name}`)
 
