@@ -544,6 +544,40 @@ class FA2_mint(FA2_core):
         if self.config.store_total_supply:
             self.data.total_supply[params.token_id] = params.amount + self.data.total_supply.get(params.token_id, default_value = 0)
 
+# Change: add burn
+class FA2_burn(FA2_core):
+    @sp.entry_point
+    def burn(self, params):
+        sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
+        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
+        # We don't check for pauseness because we're the admin.
+        if self.config.single_asset:
+            sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
+        if self.config.non_fungible:
+            sp.verify(params.amount == 1, message = "NFT-asset: amount <> 1")
+            sp.verify(
+                self.token_id_set.contains(self.data.all_tokens, params.token_id),
+                message = "NFT-asset: cannot burn non-existent token"
+            )
+        # fail if token doesn't exist.
+        # this is redundant as it shouldn't even be possible to have a balance of a non-token
+        sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
+            sp.failwith(self.error_message.token_undefined())
+        # update balance
+        user = self.ledger_key.make(params.address, params.token_id)
+        sp.if self.data.ledger.contains(user):
+            # check balance
+            sp.verify((self.data.ledger[user].balance >= params.amount),
+                message = self.error_message.insufficient_balance())
+            # If the user has a banlance try and subtract from it (should error on underflow)
+            self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
+        sp.else:
+            # If the user doesn't have a balance, fail
+            sp.failwith(self.error_message.insufficient_balance())
+        # decrease total supply
+        if self.config.store_total_supply:
+            self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
+
 class FA2_token_metadata(FA2_core):
     def set_token_metadata_view(self):
         def token_metadata(self, tok):
@@ -569,7 +603,7 @@ class FA2_token_metadata(FA2_core):
         }))
 
 
-class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
+class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_burn, FA2_administrator, FA2_pause, FA2_core):
 
     @sp.onchain_view()
     def count_tokens(self):
@@ -717,6 +751,7 @@ def add_test(config, is_default = True):
         admin = sp.test_account("Administrator")
         alice = sp.test_account("Alice")
         bob   = sp.test_account("Robert")
+        carol   = sp.test_account("Carol")
         # Let's display the accounts:
         scenario.h2("Accounts")
         scenario.show([admin, alice, bob])
@@ -774,6 +809,30 @@ def add_test(config, is_default = True):
         scenario.verify(
             c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance
             == 10 + 10 + 11)
+        scenario.h2("Burning tokens")
+        c1.burn(address = alice.address,
+            amount = 10,
+            token_id = 0).run(sender = admin)
+        c1.burn(address = bob.address,
+            amount = 5,
+            token_id = 0).run(sender = admin)
+        c1.burn(address = alice.address,
+            amount = 10,
+            token_id = 0).run(sender = alice, valid = False, exception = "FA2_NOT_ADMIN")
+        c1.burn(address = alice.address,
+            amount = 100,
+            token_id = 0).run(sender = admin, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
+        c1.burn(address = carol.address,
+            amount = 1,
+            token_id = 0).run(sender = admin, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
+        c1.burn(address = alice.address,
+            amount = 100,
+            token_id = 1).run(sender = admin, valid = False) #usually FA2_TOKEN_UNDEFINED, except for single and nft
+        scenario.verify(
+            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10
+        )
+        scenario.verify(
+            c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance == 10 + 10 + 11 - 5)
         if config.single_asset:
             return
         scenario.h2("More Token Types")
@@ -811,6 +870,13 @@ def add_test(config, is_default = True):
                                                   amount = 10,
                                                   token_id = 2)])
             ]).run(sender = bob)
+        scenario.h2("Burning more token types")
+        c1.burn(address = bob.address,
+            amount = 10,
+            token_id = 1).run(sender = admin)
+        c1.burn(address = bob.address,
+            amount = 5,
+            token_id = 2).run(sender = admin)
         scenario.h2("Other Basic Permission Tests")
         scenario.h3("Bob cannot transfer Alice's tokens.")
         c1.transfer(
@@ -868,7 +934,7 @@ def add_test(config, is_default = True):
             sp.record(owner = alice.address, token_id = 1),
             sp.record(owner = alice.address, token_id = 2)
         ]))
-        scenario.verify(consumer.data.last_sum == 90)
+        scenario.verify(consumer.data.last_sum == 80)
         scenario.h2("Operators")
         if not c1.config.support_operator:
             scenario.h3("This version was compiled with no operator support")
