@@ -25,7 +25,7 @@ class TL_Dutch(pausable_contract.Pausable):
                 end_price=sp.TMutez,
                 start_time=sp.TTimestamp,
                 end_time=sp.TTimestamp,
-                state=sp.TNat # 0 = open, 1 = closed, 2 = cancelled. TODO
+                state=sp.TNat # 0 = open, 1 = closed, 2 = cancelled. TODO: remove state.
                 ))
             )
 
@@ -112,8 +112,7 @@ class TL_Dutch(pausable_contract.Pausable):
         # transfer token back to auction owner.
         self.fa2_transfer(self.data.places_contract, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
-        # TODO: delete auction or set it to state = 2 (cancelled)?
-        #del self.data.auctions[auction_id]
+        del self.data.auctions[auction_id]
 
 
     @sp.entry_point(lazify = True)
@@ -163,8 +162,7 @@ class TL_Dutch(pausable_contract.Pausable):
          # transfer item to buyer
         self.fa2_transfer(self.data.places_contract, sp.self_address, sp.sender, the_auction.token_id, 1)
 
-        # TODO: delete auction or mark is as finished?
-        #del self.data.auctions[auction_id]
+        del self.data.auctions[auction_id]
 
 
     #

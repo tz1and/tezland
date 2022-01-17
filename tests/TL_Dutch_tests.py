@@ -140,7 +140,7 @@ def test():
     # valid
     dutch.cancel(1).run(sender = alice)
     # already cancelled, wrong state
-    dutch.cancel(1).run(sender = alice, valid = False, exception = "WRONG_STATE")
+    dutch.cancel(1).run(sender = alice, valid = False) #, exception = "WRONG_STATE") # TODO: if auction is not deleted
 
     # todo: verify token was transferred
     # todo: test cancel from manager??
@@ -171,7 +171,23 @@ def test():
     #
     scenario.h3("Views")
 
-    auction_info = dutch.get_auction(0)
+    # alice should own bobs token now
+    # set operators and create a new auction
+    places_tokens.update_operators([
+        sp.variant("add_operator", places_tokens.operator_param.make(
+            owner = alice.address,
+            operator = dutch.address,
+            token_id = place_bob
+        ))
+    ]).run(sender = alice, valid = True)
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.now,
+        end_time = sp.now.add_minutes(80)).run(sender = alice)
+
+    auction_info = dutch.get_auction(2)
     #scenario.verify(item_limit == sp.nat(64))
     scenario.show(auction_info)
 
