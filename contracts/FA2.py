@@ -450,7 +450,8 @@ class FA2_core(sp.Contract):
             ).layout(("owner", "token_id")))
         user = self.ledger_key.make(req.owner, req.token_id)
         sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
-        sp.result(self.data.ledger[user].balance)
+        # Change: use map.get with default value to prevent exception
+        sp.result(self.data.ledger.get(user, sp.record(balance = 0)).balance)
 
     @sp.entry_point
     def update_operators(self, params):
