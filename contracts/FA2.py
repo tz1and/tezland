@@ -548,9 +548,10 @@ class FA2_mint(FA2_core):
 class FA2_burn(FA2_core):
     @sp.entry_point
     def burn(self, params):
+        sp.verify(~self.is_paused(), message = self.error_message.paused())
         sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
-        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
-        # We don't check for pauseness because we're the admin.
+        # make sure id and amount are sensible.
+        # this is reduntant as these situations should be impossible.
         if self.config.single_asset:
             sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
         if self.config.non_fungible:
@@ -559,6 +560,17 @@ class FA2_burn(FA2_core):
                 self.token_id_set.contains(self.data.all_tokens, params.token_id),
                 message = "NFT-asset: cannot burn non-existent token"
             )
+        # if the user is not admin, make sure he can only delete his own (or operated) tokens
+        sender_verify = ((self.is_administrator(sp.sender)) |
+                         (params.address == sp.sender))
+        message = self.error_message.not_owner()
+        if self.config.support_operator:
+            message = self.error_message.not_operator()
+            sender_verify |= (self.operator_set.is_member(self.data.operators,
+                                                          params.address,
+                                                          sp.sender,
+                                                          params.token_id))
+        sp.verify(sender_verify, message = message)
         # fail if token doesn't exist.
         # this is redundant as it shouldn't even be possible to have a balance of a non-token
         sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
@@ -818,7 +830,10 @@ def add_test(config, is_default = True):
             token_id = 0).run(sender = admin)
         c1.burn(address = alice.address,
             amount = 10,
-            token_id = 0).run(sender = alice, valid = False, exception = "FA2_NOT_ADMIN")
+            token_id = 0).run(sender = alice)
+        c1.burn(address = bob.address,
+            amount = 10,
+            token_id = 0).run(sender = alice, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
         c1.burn(address = alice.address,
             amount = 100,
             token_id = 0).run(sender = admin, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
@@ -829,7 +844,7 @@ def add_test(config, is_default = True):
             amount = 100,
             token_id = 1).run(sender = admin, valid = False) #usually FA2_TOKEN_UNDEFINED, except for single and nft
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10
+            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10 - 10
         )
         scenario.verify(
             c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance == 10 + 10 + 11 - 5)
@@ -875,8 +890,14 @@ def add_test(config, is_default = True):
             amount = 10,
             token_id = 1).run(sender = admin)
         c1.burn(address = bob.address,
+            amount = 1,
+            token_id = 1).run(sender = bob)
+        c1.burn(address = bob.address,
             amount = 5,
             token_id = 2).run(sender = admin)
+        c1.burn(address = bob.address,
+            amount = 1,
+            token_id = 2).run(sender = bob)
         scenario.h2("Other Basic Permission Tests")
         scenario.h3("Bob cannot transfer Alice's tokens.")
         c1.transfer(
@@ -934,7 +955,7 @@ def add_test(config, is_default = True):
             sp.record(owner = alice.address, token_id = 1),
             sp.record(owner = alice.address, token_id = 2)
         ]))
-        scenario.verify(consumer.data.last_sum == 80)
+        scenario.verify(consumer.data.last_sum == 70)
         scenario.h2("Operators")
         if not c1.config.support_operator:
             scenario.h3("This version was compiled with no operator support")
@@ -972,6 +993,10 @@ def add_test(config, is_default = True):
                                                       amount = 2,
                                                       token_id = 2)])
                 ]).run(sender = op1)
+            scenario.p("Operator1 can now burn Alice's tokens 0 and 2")
+            c1.burn(address = alice.address,
+                amount = 1,
+                token_id = 2).run(sender = op1)
             scenario.p("Operator1 cannot transfer Bob's tokens")
             c1.transfer(
                 [
@@ -981,6 +1006,10 @@ def add_test(config, is_default = True):
                                                       amount = 2,
                                                       token_id = 1)])
                 ]).run(sender = op1, valid = False)
+            scenario.p("Operator1 cannot burn Bob's tokens")
+            c1.burn(address = bob.address,
+                amount = 10,
+                token_id = 1).run(sender = op1, valid = False, exception = "FA2_NOT_OPERATOR")
             scenario.p("Operator2 cannot transfer Alice's tokens")
             c1.transfer(
                 [
@@ -990,6 +1019,10 @@ def add_test(config, is_default = True):
                                                       amount = 2,
                                                       token_id = 1)])
                 ]).run(sender = op2, valid = False)
+            scenario.p("Operator2 cannot burn Alice's tokens")
+            c1.burn(address = alice.address,
+                amount = 10,
+                token_id = 1).run(sender = op2, valid = False, exception = "FA2_NOT_OPERATOR")
             scenario.p("Alice can remove their operator")
             c1.update_operators([
                 sp.variant("remove_operator", c1.operator_param.make(
