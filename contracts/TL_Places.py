@@ -96,6 +96,8 @@ class TL_Places(manager_contract.Manageable):
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
 
+        # TODO: use FA2.is_operator onchain view to allow sharing of places!!!
+
         # our token transfer list
         # TODO: could also build up a map and convert it to a list with map.values()
         transferList = sp.local("transferList", sp.list([], t = transferListItemType))
@@ -138,6 +140,8 @@ class TL_Places(manager_contract.Manageable):
 
         # make sure caller owns place
         sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
+
+        # TODO: allow removal of items by issuer who is not owner? (as in previous owner or operator).
 
         # our token transfer list
         # TODO: could also build up a map and convert it to a list with map.values()
