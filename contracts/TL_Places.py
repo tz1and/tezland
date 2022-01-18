@@ -15,7 +15,7 @@ itemRecordType = sp.TRecord(
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
     # TODO: store an animation index?
-    )
+)
 
 # TODO: reccords in variants are immutable?
 # Create an issue in gitlab: is it a smartpy limitation?
@@ -25,8 +25,17 @@ extensibleVariantType = sp.TVariant(
 )
 
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
-
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
+
+placeItemType = sp.TVariant(
+    item = sp.TRecord(
+        token_id=sp.TNat,
+        token_amount=sp.TNat,
+        xtz_per_token=sp.TMutez,
+        item_data=sp.TBytes
+    ),
+    ext = sp.TBytes
+)
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
@@ -77,11 +86,7 @@ class TL_Places(manager_contract.Manageable):
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
-        sp.set_type(params.item_list, sp.TList(sp.TRecord(
-            token_id=sp.TNat,
-            token_amount=sp.TNat,
-            xtz_per_token=sp.TMutez,
-            item_data=sp.TBytes)))
+        sp.set_type(params.item_list, sp.TList(placeItemType))
         sp.set_type(params.lot_id, sp.TNat)
 
         # get the place
@@ -99,22 +104,31 @@ class TL_Places(manager_contract.Manageable):
         transferList = sp.local("transferList", sp.list([], t = transferListItemType))
 
         sp.for curr in params.item_list:
-            sp.verify(sp.len(curr.item_data) == 16, message = "DATA_LEN")
+            with curr.match_cases() as arg:
+                with arg.match("item") as item:
+                    sp.verify(sp.len(item.item_data) == 16, message = "DATA_LEN")
 
-            # transfer item to this contract
-            # do multi-transfer by building up a list of transfers
-            transferList.value.push(sp.record(amount=curr.token_amount, to_=sp.self_address, token_id=curr.token_id))
+                    # transfer item to this contract
+                    # do multi-transfer by building up a list of transfers
+                    transferList.value.push(sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id))
 
-            this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
-                issuer = sp.sender,
-                item_amount = curr.token_amount,
-                item_id = curr.token_id,
-                xtz_per_item = curr.xtz_per_token,
-                item_data = curr.item_data))
+                    this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
+                        issuer = sp.sender,
+                        item_amount = item.token_amount,
+                        item_id = item.token_id,
+                        xtz_per_item = item.xtz_per_token,
+                        item_data = item.item_data))
 
-            this_place.counter += 1 # TODO: use sp.local for counter
+                with arg.match("ext") as ext_data:
+                    # TDOD: limit data len?
+                    #sp.verify(sp.len(ext_data) == 16, message = "DATA_LEN")
+                    this_place.stored_items[this_place.counter] = sp.variant("ext", ext_data)
 
-        self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferList.value)
+            this_place.counter += 1 # TODO: use sp.local for counter?
+
+        # only transfer if list has items
+        sp.if sp.len(transferList.value) > 0:
+            self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferList.value)
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
@@ -145,7 +159,9 @@ class TL_Places(manager_contract.Manageable):
 
         this_place.interactionCounter += 1
 
-        self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferList.value)
+        # only transfer if list has items
+        sp.if sp.len(transferList.value) > 0:
+            self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferList.value)
 
     # TODO: allow getting multiple items? could make the code too complicated.
     @sp.entry_point(lazify = True)
