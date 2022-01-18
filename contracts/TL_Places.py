@@ -51,8 +51,6 @@ class TL_Places(manager_contract.Manageable):
             # so there's plenty of room ahead.
             item_limit = sp.nat(64),
             fees = sp.nat(25),
-            # basically only holds the per-marketplace counter.
-            # TODO: I suppose it doesn't even need to be per-place
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interactionCounter=sp.TNat,
@@ -93,7 +91,6 @@ class TL_Places(manager_contract.Manageable):
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
         this_place = self.get_or_create_place(place_hash.value)
 
-        # todo: test item limit!!!!
         sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
 
         # make sure caller owns place
@@ -260,9 +257,7 @@ class TL_Places(manager_contract.Manageable):
     # Misc
     #
     def fa2_transfer(self, fa2, from_, to_, item_id, item_amount):
-        # TODO: build transferlist and call fa2_transfer_multi
-        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
-        sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))]), sp.mutez(0), c)
+        self.fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))
 
     def fa2_transfer_multi(self, fa2, from_, transfer_list):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
