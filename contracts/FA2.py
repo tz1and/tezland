@@ -474,19 +474,6 @@ class FA2_core(sp.Contract):
         destination = sp.set_type_expr(params.callback, sp.TContract(Balance_of.response_type()))
         sp.transfer(res.value, sp.mutez(0), destination)
 
-    @sp.onchain_view()
-    def get_balance(self, req):
-        """This is the `get_balance` view defined in TZIP-12."""
-        sp.set_type(
-            req, sp.TRecord(
-                owner = sp.TAddress,
-                token_id = sp.TNat
-            ).layout(("owner", "token_id")))
-        user = self.ledger_key.make(req.owner, req.token_id)
-        sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
-        # Change: use map.get with default value to prevent exception
-        sp.result(self.data.ledger.get(user, sp.record(balance = 0)).balance)
-
     @sp.entry_point
     def update_operators(self, params):
         sp.set_type(params, sp.TList(
@@ -605,6 +592,18 @@ class FA2_token_metadata(FA2_core):
 
 
 class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
+    @sp.onchain_view()
+    def get_balance(self, req):
+        """This is the `get_balance` view defined in TZIP-12."""
+        sp.set_type(
+            req, sp.TRecord(
+                owner = sp.TAddress,
+                token_id = sp.TNat
+            ).layout(("owner", "token_id")))
+        user = self.ledger_key.make(req.owner, req.token_id)
+        sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
+        # Change: use map.get with default value to prevent exception
+        sp.result(self.data.ledger.get(user, sp.record(balance = 0)).balance)
 
     @sp.onchain_view()
     def count_tokens(self):
