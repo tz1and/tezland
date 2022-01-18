@@ -98,9 +98,8 @@ class TL_Places(manager_contract.Manageable):
 
         # TODO: use FA2.is_operator onchain view to allow sharing of places!!!
 
-        # our token transfer list
-        # TODO: could also build up a map and convert it to a list with map.values()
-        transferList = sp.local("transferList", sp.list([], t = transferListItemType))
+        # our token transfer map
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
 
         sp.for curr in params.item_list:
             with curr.match_cases() as arg:
@@ -109,7 +108,11 @@ class TL_Places(manager_contract.Manageable):
 
                     # transfer item to this contract
                     # do multi-transfer by building up a list of transfers
-                    transferList.value.push(sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id))
+
+                    sp.if transferMap.value.contains(item.token_id):
+                        transferMap.value[item.token_id].amount += item.token_amount
+                    sp.else:
+                        transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
                     this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
                         issuer = sp.sender,
@@ -126,8 +129,8 @@ class TL_Places(manager_contract.Manageable):
             this_place.counter += 1 # TODO: use sp.local for counter?
 
         # only transfer if list has items
-        sp.if sp.len(transferList.value) > 0:
-            self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferList.value)
+        sp.if sp.len(transferMap.value) > 0:
+            self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
@@ -143,9 +146,8 @@ class TL_Places(manager_contract.Manageable):
 
         # TODO: allow removal of items by issuer who is not owner? (as in previous owner or operator).
 
-        # our token transfer list
-        # TODO: could also build up a map and convert it to a list with map.values()
-        transferList = sp.local("transferList", sp.list([], t = transferListItemType))
+        # our token transfer map
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
 
         # remove the items
         sp.for curr in params.item_list:
@@ -153,7 +155,10 @@ class TL_Places(manager_contract.Manageable):
                 with arg.match("item") as the_item:
                     # transfer all remaining items back to issuer
                     # do multi-transfer by building up a list of transfers
-                    transferList.value.push(sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.item_id))
+                    sp.if transferMap.value.contains(the_item.item_id):
+                        transferMap.value[the_item.item_id].amount += the_item.item_amount
+                    sp.else:
+                        transferMap.value[the_item.item_id] = sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.item_id)
                 # nothing to do here with ext items.
             
             del this_place.stored_items[curr]
@@ -161,8 +166,8 @@ class TL_Places(manager_contract.Manageable):
         this_place.interactionCounter += 1
 
         # only transfer if list has items
-        sp.if sp.len(transferList.value) > 0:
-            self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferList.value)
+        sp.if sp.len(transferMap.value) > 0:
+            self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
     # TODO: allow getting multiple items? could make the code too complicated.
     @sp.entry_point(lazify = True)
