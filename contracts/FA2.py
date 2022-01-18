@@ -20,7 +20,6 @@ class FA2_config:
                  single_asset                       = False,
                  non_fungible                       = False,
                  add_mutez_transfer                 = False,
-                 readable                           = True,
                  force_layouts                      = True,
                  support_operator                   = True,
                  assume_consecutive_token_ids       = True,
@@ -53,16 +52,6 @@ class FA2_config:
         self.non_fungible = non_fungible
         # Enforce the non-fungibility of the tokens, i.e. the fact
         # that total supply has to be 1.
-
-        self.readable = readable
-        # The `readable` option is a legacy setting that we keep around
-        # only for benchmarking purposes.
-        #
-        # User-accounts are kept in a big-map:
-        # `(user-address * token-id) -> ownership-info`.
-        #
-        # For the Babylon protocol, one had to use `readable = False`
-        # in order to use `PACK` on the keys of the big-map.
 
         self.force_layouts = force_layouts
         # The specification requires all interface-fronting records
@@ -107,8 +96,6 @@ class FA2_config:
             name += "-nft"
         if add_mutez_transfer:
             name += "-mutez"
-        if not readable:
-            name += "-no_readable"
         if not force_layouts:
             name += "-no_layout"
         if not support_operator:
@@ -215,10 +202,7 @@ class Ledger_key:
             result = user
         else:
             result = sp.pair(user, token)
-        if self.config.readable:
-            return result
-        else:
-            return sp.pack(result)
+        return result
 
 ## For now a value in the ledger is just the user's balance. Previous
 ## versions of the specification required more information; potential
@@ -243,10 +227,7 @@ class Operator_set:
                           token_id = token_id_type
                           ).layout(("owner", ("operator", "token_id")))
     def key_type(self):
-        if self.config.readable:
-            return self.inner_type()
-        else:
-            return sp.TBytes
+        return self.inner_type()
     def make(self):
         return self.config.my_map(tkey = self.key_type(), tvalue = sp.TUnit)
     def make_key(self, owner, operator, token_id):
@@ -254,10 +235,7 @@ class Operator_set:
                             operator = operator,
                             token_id = token_id)
         metakey = sp.set_type_expr(metakey, self.inner_type())
-        if self.config.readable:
-            return metakey
-        else:
-            return sp.pack(metakey)
+        return metakey
     def add(self, set, owner, operator, token_id):
         set[self.make_key(owner, operator, token_id)] = sp.unit
     def remove(self, set, owner, operator, token_id):
@@ -1163,7 +1141,6 @@ def items_config():
         # NOTE TO SELF: We want to be able to transfer tezos, probably. Although,
         # since the administrator is the minting contract, probably it doesn't matter.
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
-        readable = global_parameter("readable", True),
         force_layouts = global_parameter("force_layouts", True),
         support_operator = global_parameter("support_operator", True),
         assume_consecutive_token_ids =
@@ -1184,7 +1161,6 @@ def places_config():
         # NOTE TO SELF: We want to be able to transfer tezos, probably. Although,
         # since the administrator is the minting contract, probably it doesn't matter.
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
-        readable = global_parameter("readable", True),
         force_layouts = global_parameter("force_layouts", True),
         support_operator = global_parameter("support_operator", True),
         assume_consecutive_token_ids =
