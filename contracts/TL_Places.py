@@ -4,9 +4,14 @@
 # Items (another type of token) can be stored on your (market)place, either to sell
 # or just to build something nice.
 
+from ast import operator
 import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
+
+# TODO: distinction between manager and admin?
+# TODO: put error messages into functions?
+# TODO: test operator stuff!
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -14,7 +19,7 @@ itemRecordType = sp.TRecord(
     item_id=sp.TNat, # object id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
-    # TODO: store an animation index?
+    # TODO: store an animation index in data?
 )
 
 # TODO: reccords in variants are immutable?
@@ -87,6 +92,7 @@ class TL_Places(manager_contract.Manageable):
     def place_items(self, params):
         sp.set_type(params.item_list, sp.TList(placeItemType))
         sp.set_type(params.lot_id, sp.TNat)
+        sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         # get the place
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
@@ -94,10 +100,12 @@ class TL_Places(manager_contract.Manageable):
 
         sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
 
-        # make sure caller owns place
-        sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
-
-        # TODO: use FA2.is_operator onchain view to allow sharing of places!!!
+        # if not owner, caller must be operator of place.
+        sp.if self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) != 1:
+            sp.verify(self.fa2_is_operator(
+                self.data.places_contract, params.lot_id,
+                params.owner.open_some(message = "PARAM_ERROR"),
+                sp.sender) == True, message = "NOT_OPERATOR")
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -135,17 +143,22 @@ class TL_Places(manager_contract.Manageable):
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
-        sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.item_list, sp.TList(sp.TNat))
+        sp.set_type(params.lot_id, sp.TNat)
+        sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         # get the place
         place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
         this_place = self.data.places[place_hash.value]
 
-        # make sure caller owns place
-        sp.verify(self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) == 1, message = "NOT_OWNER")
-
-        # TODO: allow removal of items by issuer who is not owner? (as in previous owner or operator).
+        # if not owner, caller must be operator of place.
+        sp.if self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) != 1:
+            sp.verify(self.fa2_is_operator(
+                self.data.places_contract, params.lot_id,
+                params.owner.open_some(message = "PARAM_ERROR"),
+                sp.sender) == True, message = "NOT_OPERATOR")
+        
+        # TODO: Best make it so issuer can remove their items, even if not operator or owner.
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -273,9 +286,25 @@ class TL_Places(manager_contract.Manageable):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
+    def fa2_is_operator(self, fa2, token_id, owner, operator):
+        return sp.view("is_operator", fa2,
+            sp.set_type_expr(
+                sp.record(token_id = token_id, owner = owner, operator = operator),
+                sp.TRecord(
+                    token_id = sp.TNat,
+                    owner = sp.TAddress,
+                    operator = sp.TAddress
+                ).layout(("owner", ("operator", "token_id")))),
+            t = sp.TBool).open_some()
+
     def fa2_get_balance(self, fa2, token_id, owner):
         return sp.view("get_balance", fa2,
-            sp.record(owner = owner, token_id = token_id),
+            sp.set_type_expr(
+                sp.record(owner = owner, token_id = token_id),
+                sp.TRecord(
+                    owner = sp.TAddress,
+                    token_id = sp.TNat
+                ).layout(("owner", "token_id"))),
             t = sp.TNat).open_some()
 
     def minter_get_royalties(self, item_id):

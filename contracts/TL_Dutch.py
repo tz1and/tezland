@@ -2,6 +2,8 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
+# TODO: distinction between manager and admin?
+
 class TL_Dutch(pausable_contract.Pausable):
     """A simple dutch auction.
     
@@ -174,11 +176,7 @@ class TL_Dutch(pausable_contract.Pausable):
         """Returns information about an auction."""
         sp.set_type(auction_id, sp.TNat)
         # TODO: decide if we want this view to error
-        #sp.if self.data.auctions.contains(auction_id) == False:
-        #    sp.result(sp.record(
-        #        ...
-        #        ))
-        #sp.else:
+        #sp.result(self.data.auctions.get(auction_id, default))
         sp.result(self.data.auctions[auction_id])
 
 
