@@ -1,19 +1,21 @@
-##
-## ## Introduction
-##
-## See the FA2 standard definition:
-## <https://gitlab.com/tzip/tzip/-/blob/master/proposals/tzip-12/>
-##
-## See more examples/documentation at
-## <https://gitlab.com/smondet/fa2-smartpy/> and
-## <https://assets.tqtezos.com/docs/token-contracts/fa2/1-fa2-smartpy/>.
-##
+#
+# ## Introduction
+#
+# See the FA2 standard definition:
+# <https://gitlab.com/tzip/tzip/-/blob/master/proposals/tzip-12/>
+#
+# See more examples/documentation at
+# <https://gitlab.com/smondet/fa2-smartpy/> and
+# <https://assets.tqtezos.com/docs/token-contracts/fa2/1-fa2-smartpy/>.
+#
+# TODO: bring up to date with latest FA2: https://gitlab.com/SmartPy/smartpy/-/issues/28
+# TODO: check for newer.
 import smartpy as sp
-##
-## ## Meta-Programming Configuration
-##
-## The `FA2_config` class holds the meta-programming configuration.
-##
+#
+# ## Meta-Programming Configuration
+#
+# The `FA2_config` class holds the meta-programming configuration.
+#
 class FA2_config:
     def __init__(self,
                  debug_mode                         = False,
@@ -215,21 +217,23 @@ class Ledger_value:
 class Operator_set:
     def __init__(self, config):
         self.config = config
-    def inner_type(self):
+
+    def key_type(self):
         return sp.TRecord(owner = sp.TAddress,
                           operator = sp.TAddress,
                           token_id = token_id_type
                           ).layout(("owner", ("operator", "token_id")))
-    def key_type(self):
-        return self.inner_type()
+
     def make(self):
         return self.config.my_map(tkey = self.key_type(), tvalue = sp.TUnit)
+
     def make_key(self, owner, operator, token_id):
         metakey = sp.record(owner = owner,
                             operator = operator,
                             token_id = token_id)
-        metakey = sp.set_type_expr(metakey, self.inner_type())
+        metakey = sp.set_type_expr(metakey, self.key_type())
         return metakey
+
     def add(self, set, owner, operator, token_id):
         set[self.make_key(owner, operator, token_id)] = sp.unit
     def remove(self, set, owner, operator, token_id):
