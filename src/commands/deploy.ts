@@ -41,13 +41,8 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const items_metadata_url = await ipfs.upload_contract_metadata({
       name: 'tz1aND Items',
       description: 'tz1aND Item FA2 tokens',
-      authors: ['someguy <someguy@gmail.com>'],
-      homepage: 'www.someurl.com',
-      repository: 'https://github.com/somerepo',
-      license: { name: "MIT" },
       interfaces: ["TZIP-12"],
       version: '1.0.0'});
-    console.log(`items contract metadata: ${items_metadata_url}`);
 
     // Compile and deploy Items FA2 contract.
     smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
@@ -59,13 +54,8 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const places_metadata_url = await ipfs.upload_contract_metadata({
       name: 'tz1aND Places',
       description: 'tz1aND Places FA2 tokens',
-      authors: ['someguy <someguy@gmail.com>'],
-      homepage: 'www.someurl.com',
-      repository: 'https://github.com/somerepo',
-      license: { name: "MIT" },
       interfaces: ["TZIP-12"],
       version: '1.0.0'});
-    console.log(`places contract metadata: ${places_metadata_url}`);
 
     // Compile and deploy Places FA2 contract.
     smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
