@@ -25,7 +25,6 @@ class FA2_config:
                  assume_consecutive_token_ids       = True,
                  store_total_supply                 = True,
                  lazy_entry_points                  = False,
-                 allow_self_transfer                = False,
                  use_token_metadata_onchain_view    = False,
                  allow_burn_tokens                  = False
                  ):
@@ -85,8 +84,6 @@ class FA2_config:
         # Those are “compilation” options of SmartPy into Michelson.
         #
 
-        self.allow_self_transfer = allow_self_transfer
-        # Authorize call of `transfer` entry_point from self
         name = "FA2"
         if debug_mode:
             name += "-debug"
@@ -106,8 +103,6 @@ class FA2_config:
             name += "-no_totsup"
         if lazy_entry_points:
             name += "-lep"
-        if allow_self_transfer:
-            name += "-self_transfer"
         if allow_burn_tokens:
             name += "-burn"
         self.name = name
@@ -422,8 +417,6 @@ class FA2_core(sp.Contract):
                                                                   current_from,
                                                                   sp.sender,
                                                                   tx.token_id))
-                if self.config.allow_self_transfer:
-                    sender_verify |= (sp.sender == sp.self_address)
                 sp.verify(sender_verify, message = message)
                 sp.verify(
                     self.data.token_metadata.contains(tx.token_id),
@@ -1156,7 +1149,6 @@ def items_config():
             global_parameter("assume_consecutive_token_ids", True),
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
-        allow_self_transfer = global_parameter("allow_self_transfer", False),
         use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True)
     )
@@ -1176,7 +1168,6 @@ def places_config():
             global_parameter("assume_consecutive_token_ids", True),
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
-        allow_self_transfer = global_parameter("allow_self_transfer", False),
         use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False)
     )
