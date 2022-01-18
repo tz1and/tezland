@@ -130,7 +130,6 @@ class Error_message:
     def not_owner(self):             return self.make("NOT_OWNER")
     def operators_unsupported(self): return self.make("OPERATORS_UNSUPPORTED")
     def not_admin(self):             return self.make("NOT_ADMIN")
-    def not_admin_or_operator(self): return self.make("NOT_ADMIN_OR_OPERATOR")
     def paused(self):                return self.make("PAUSED")
 
 ## The current type for a batched transfer in the specification is as
@@ -331,7 +330,6 @@ def burn(self, params):
         )
     
     # check ownership and operators
-    # Change: removed admin check. See: https://gitlab.com/SmartPy/smartpy/-/issues/28 
     sender_verify = (params.address == sp.sender)
     message = self.error_message.not_owner()
     if self.config.support_operator:
@@ -416,7 +414,6 @@ class FA2_core(sp.Contract):
                 if self.config.single_asset:
                     sp.verify(tx.token_id == 0, message = "single-asset: token-id <> 0")
 
-                # Change: removed admin check. See: https://gitlab.com/SmartPy/smartpy/-/issues/28 
                 sender_verify = (current_from == sp.sender)
                 message = self.error_message.not_owner()
                 if self.config.support_operator:
@@ -487,19 +484,17 @@ class FA2_core(sp.Contract):
             sp.for update in params:
                 with update.match_cases() as arg:
                     with arg.match("add_operator") as upd:
-                        sp.verify(
-                            (upd.owner == sp.sender) | self.is_administrator(sp.sender),
-                            message = self.error_message.not_admin_or_operator()
-                        )
+                        # Sender must be the owner
+                        sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                        # Add operator
                         self.operator_set.add(self.data.operators,
                                               upd.owner,
                                               upd.operator,
                                               upd.token_id)
                     with arg.match("remove_operator") as upd:
-                        sp.verify(
-                            (upd.owner == sp.sender) | self.is_administrator(sp.sender),
-                            message = self.error_message.not_admin_or_operator()
-                        )
+                        # Sender must be the owner
+                        sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                        # Remove operator
                         self.operator_set.remove(self.data.operators,
                                                  upd.owner,
                                                  upd.operator,
@@ -962,7 +957,7 @@ def add_test(config, is_default = True):
             op1 = sp.test_account("Operator1")
             op2 = sp.test_account("Operator2")
             scenario.show([op0, op1, op2])
-            scenario.p("Admin can change Alice's operator.")
+            scenario.p("Admin can't change Alice's operator.")
             c1.update_operators([
                 sp.variant("add_operator", c1.operator_param.make(
                     owner = alice.address,
@@ -972,7 +967,18 @@ def add_test(config, is_default = True):
                     owner = alice.address,
                     operator = op1.address,
                     token_id = 2))
-            ]).run(sender = admin)
+            ]).run(sender = admin, valid = False, exception = "FA2_NOT_OWNER")
+            scenario.p("Only Alice can change Alice's operator.")
+            c1.update_operators([
+                sp.variant("add_operator", c1.operator_param.make(
+                    owner = alice.address,
+                    operator = op1.address,
+                    token_id = 0)),
+                sp.variant("add_operator", c1.operator_param.make(
+                    owner = alice.address,
+                    operator = op1.address,
+                    token_id = 2))
+            ]).run(sender = alice)
             scenario.p("Operator1 can now transfer Alice's tokens 0 and 2")
             c1.transfer(
                 [
