@@ -27,7 +27,7 @@ class FA2_config:
                  assume_consecutive_token_ids       = True,
                  store_total_supply                 = True,
                  lazy_entry_points                  = False,
-                 use_token_metadata_onchain_view    = False,
+                 use_token_metadata_offchain_view   = False,
                  allow_burn_tokens                  = False
                  ):
 
@@ -43,7 +43,7 @@ class FA2_config:
         # Add an entry point for the administrator to transfer tez potentially
         # in the contract's balance.
 
-        self.use_token_metadata_onchain_view = use_token_metadata_onchain_view
+        self.use_token_metadata_offchain_view = use_token_metadata_offchain_view
         # Include offchain view for accessing the token metadata (requires TZIP-016 contract metadata)
 
         self.single_asset = single_asset
@@ -552,7 +552,6 @@ class FA2_mint(FA2_core):
         if self.config.store_total_supply:
             self.data.total_supply[params.token_id] = params.amount + self.data.total_supply.get(params.token_id, default_value = 0)
 
-
 class FA2_token_metadata(FA2_core):
     def set_token_metadata_view(self):
         def token_metadata(self, tok):
@@ -565,7 +564,7 @@ class FA2_token_metadata(FA2_core):
             sp.set_type(tok, sp.TNat)
             sp.result(self.data.token_metadata[tok])
 
-        self.token_metadata = sp.onchain_view()(token_metadata)
+        self.token_metadata = sp.offchain_view(pure = True, doc = "Get Token Metadata")(token_metadata)
 
     # make_metadataThis is what we want to modify for the token metadata. HEN puts it all on IPFS.
     def make_metadata(symbol, name, decimals):
@@ -660,7 +659,7 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
 
         if config.store_total_supply:
             list_of_views = list_of_views + [self.total_supply]
-        if config.use_token_metadata_onchain_view:
+        if config.use_token_metadata_offchain_view:
             self.set_token_metadata_view()
             list_of_views = list_of_views + [self.token_metadata]
 
@@ -1147,7 +1146,7 @@ def items_config():
             global_parameter("assume_consecutive_token_ids", True),
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
-        use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True)
     )
 
@@ -1166,7 +1165,7 @@ def places_config():
             global_parameter("assume_consecutive_token_ids", True),
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
-        use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False)
     )
 
