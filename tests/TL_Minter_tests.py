@@ -31,7 +31,8 @@ def test():
 
     # create minter contract
     scenario.h2("Test Minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address)
+    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     # set items_tokens and places_tokens administrator to minter contract

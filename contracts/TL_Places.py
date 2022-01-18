@@ -41,12 +41,13 @@ transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.T
 
 # TODO: make pausable?
 class TL_Places(manager_contract.Manageable):
-    def __init__(self, manager, items_contract, places_contract, minter):
+    def __init__(self, manager, items_contract, places_contract, minter, metadata):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
             places_contract = places_contract,
             minter = minter,
+            metadata = metadata,
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
             item_limit = sp.nat(64),

@@ -30,7 +30,8 @@ def test():
         admin = admin.address)
     scenario += places_tokens
 
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address)
+    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     items_tokens.set_administrator(minter.address).run(sender = admin)
@@ -63,7 +64,8 @@ def test():
 
     # create places contract
     scenario.h3("Originate places contract")
-    places = places_contract.TL_Places(admin.address, items_tokens.address, places_tokens.address, minter.address)
+    places = places_contract.TL_Places(admin.address, items_tokens.address, places_tokens.address, minter.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += places
 
     # set operators

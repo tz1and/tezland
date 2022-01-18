@@ -38,6 +38,9 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const accountAddress = await signer.publicKeyHash();
 
+    //
+    // Items
+    //
     const items_metadata_url = await ipfs.upload_contract_metadata({
       name: 'tz1aND Items',
       description: 'tz1aND Item FA2 tokens',
@@ -51,6 +54,9 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const items_FA2_contract = await deploy_contract("FA2_Items", Tezos);
 
+    //
+    // Places
+    //
     const places_metadata_url = await ipfs.upload_contract_metadata({
       name: 'tz1aND Places',
       description: 'tz1aND Places FA2 tokens',
@@ -63,11 +69,21 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       `admin = sp.address("${accountAddress}")`]);
 
     const places_FA2_contract = await deploy_contract("FA2_Places", Tezos);
+
+    //
+    // Minter
+    //
+    const minter_metadata_url = await ipfs.upload_contract_metadata({
+      name: 'tz1aND Minter',
+      description: 'tz1aND Items and Places minter',
+      interfaces: [],
+      version: '1.0.0'});
     
     // Compile and deploy Minter contract.
-    smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`sp.address("${accountAddress}")`,
-      `sp.address("${items_FA2_contract.address}")`,
-      `sp.address("${places_FA2_contract.address}")`]);
+    smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`manager = sp.address("${accountAddress}")`,
+      `items_contract = sp.address("${items_FA2_contract.address}")`,
+      `places_contract = sp.address("${places_FA2_contract.address}")`,
+      `metadata = sp.utils.metadata_of_url("${minter_metadata_url}")`]);
 
     const Minter_contract = await deploy_contract("TL_Minter", Tezos);
 
@@ -79,19 +95,39 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
     const places_admin_op = await places_FA2_contract.methods.set_administrator(Minter_contract.address).send();
     await places_admin_op.confirmation();
 
+    //
+    // World (Marketplaces)
+    //
+    const marketplaces_metadata_url = await ipfs.upload_contract_metadata({
+      name: 'tz1aND World',
+      description: 'tz1aND Virtual World',
+      interfaces: [],
+      version: '1.0.0'});
+
     // Compile and deploy Places contract.
-    smartpy.compile_newtarget("TL_Places", "TL_Places", [`sp.address("${accountAddress}")`,
-      `sp.address("${items_FA2_contract.address}")`,
-      `sp.address("${places_FA2_contract.address}")`,
-      `sp.address("${Minter_contract.address}")`]);
+    smartpy.compile_newtarget("TL_Places", "TL_Places", [`manager = sp.address("${accountAddress}")`,
+      `items_contract = sp.address("${items_FA2_contract.address}")`,
+      `places_contract = sp.address("${places_FA2_contract.address}")`,
+      `minter = sp.address("${Minter_contract.address}")`,
+      `metadata = sp.utils.metadata_of_url("${marketplaces_metadata_url}")`]);
 
     const Places_contract = await deploy_contract("TL_Places", Tezos);
 
+    //
+    // Dutch
+    //
+    const dutch_metadata_url = await ipfs.upload_contract_metadata({
+      name: 'tz1aND Dutch Auctions',
+      description: 'tz1aND Item and Place Dutch auctions',
+      interfaces: [],
+      version: '1.0.0'});
+
     // Compile and deploy Dutch auction contract.
-    smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`sp.address("${accountAddress}")`,
-      `sp.address("${items_FA2_contract.address}")`,
-      `sp.address("${places_FA2_contract.address}")`,
-      `sp.address("${Minter_contract.address}")`]);
+    smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`manager = sp.address("${accountAddress}")`,
+      `items_contract = sp.address("${items_FA2_contract.address}")`,
+      `places_contract = sp.address("${places_FA2_contract.address}")`,
+      `minter = sp.address("${Minter_contract.address}")`,
+      `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
       
     const Dutch_contract = await deploy_contract("TL_Dutch", Tezos);
 

@@ -3,12 +3,13 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 class TL_Minter(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract, places_contract):
+    def __init__(self, manager, items_contract, places_contract, metadata):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
             item_id = sp.nat(0),
             places_contract = places_contract,
+            metadata = metadata,
             place_id = sp.nat(0),
             paused = False,
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
