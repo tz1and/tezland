@@ -315,18 +315,9 @@ def mutez_transfer(contract, params):
 ## `burn` is an optional entry-point, hence we define it “outside” the
 ## class:
 def burn(self, params):
-    sp.verify(~self.is_paused(), message = self.error_message.paused())
     sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
-    # make sure id and amount are sensible.
-    # this is reduntant as these situations should be impossible.
-    if self.config.single_asset:
-        sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
-    if self.config.non_fungible:
-        sp.verify(params.amount == 1, message = "NFT-asset: amount <> 1")
-        sp.verify(
-            self.token_id_set.contains(self.data.all_tokens, params.token_id),
-            message = "NFT-asset: cannot burn non-existent token"
-        )
+
+    sp.verify(~self.is_paused(), message = self.error_message.paused())
     
     # check ownership and operators
     sender_verify = (params.address == sp.sender)
@@ -338,24 +329,27 @@ def burn(self, params):
                                                       sp.sender,
                                                       params.token_id))
     sp.verify(sender_verify, message = message)
-    # fail if token doesn't exist.
-    # this is redundant as it shouldn't even be possible to have a balance of a non-token
+
+    # Fail if token doesn't exist.
     sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
         sp.failwith(self.error_message.token_undefined())
-    # update balance
+
+    # Update balance
     user = self.ledger_key.make(params.address, params.token_id)
     sp.if self.data.ledger.contains(user):
-        # check balance
+        # Check balance
         sp.verify((self.data.ledger[user].balance >= params.amount),
             message = self.error_message.insufficient_balance())
-        # If the user has a banlance try and subtract from it (should error on underflow)
+        # The user has sufficient banlance, subtract from it.
         self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
     sp.else:
-        # If the user doesn't have a balance, fail
+        # If the user doesn't have a balance, fail.
         sp.failwith(self.error_message.insufficient_balance())
-    # decrease total supply
+
+    # Update total supply
     if self.config.store_total_supply:
         self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
+
 ##
 ## The `FA2` class builds a contract according to an `FA2_config` and an
 ## administrator address.
@@ -826,7 +820,7 @@ def add_test(config, is_default = True):
             token_id = 0).run(sender = carol, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
         c1.burn(address = alice.address,
             amount = 100,
-            token_id = 1).run(sender = admin, valid = False) #usually FA2_TOKEN_UNDEFINED, except for single and nft
+            token_id = 1).run(sender = alice, valid = False, exception = "FA2_TOKEN_UNDEFINED")
         scenario.verify(
             c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10
         )
