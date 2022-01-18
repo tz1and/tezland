@@ -44,16 +44,18 @@ export async function upload_item_model(file: string): Promise<string> {
     return `ipfs://${result.path}`;
 }
 
-export interface FA2Metadata {
+export interface ContractMetadata {
     authors: string[];
     description: string;
     homepage: string;
-    repository: string;
+    interfaces: string[],
+    license: object;
     name: string;
+    repository: string;
     version: string;
 }
 
-export async function upload_FA2_metadata(metadata: FA2Metadata): Promise<string> {
+export async function upload_contract_metadata(metadata: ContractMetadata): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
     const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });

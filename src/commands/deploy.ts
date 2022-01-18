@@ -38,14 +38,16 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const accountAddress = await signer.publicKeyHash();
 
-    const items_metadata_url = await ipfs.upload_FA2_metadata({
+    const items_metadata_url = await ipfs.upload_contract_metadata({
+      name: 'tz1aND Items',
+      description: 'tz1aND Item FA2 tokens',
       authors: ['someguy <someguy@gmail.com>'],
-      description: 'Items FA2',
       homepage: 'www.someurl.com',
       repository: 'https://github.com/somerepo',
-      name: 'Items',
+      license: { name: "MIT" },
+      interfaces: ["TZIP-12"],
       version: '1.0.0'});
-    console.log(`items FA2 metadata: ${items_metadata_url}`);
+    console.log(`items contract metadata: ${items_metadata_url}`);
 
     // Compile and deploy Items FA2 contract.
     smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
@@ -54,14 +56,16 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
     const items_FA2_contract = await deploy_contract("FA2_Items", Tezos);
 
-    const places_metadata_url = await ipfs.upload_FA2_metadata({
+    const places_metadata_url = await ipfs.upload_contract_metadata({
+      name: 'tz1aND Places',
+      description: 'tz1aND Places FA2 tokens',
       authors: ['someguy <someguy@gmail.com>'],
-      description: 'Places FA2',
       homepage: 'www.someurl.com',
       repository: 'https://github.com/somerepo',
-      name: 'Places',
+      license: { name: "MIT" },
+      interfaces: ["TZIP-12"],
       version: '1.0.0'});
-    console.log(`places FA2 metadata: ${places_metadata_url}`);
+    console.log(`places contract metadata: ${places_metadata_url}`);
 
     // Compile and deploy Places FA2 contract.
     smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
