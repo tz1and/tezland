@@ -27,7 +27,8 @@ class FA2_config:
                  store_total_supply                 = True,
                  lazy_entry_points                  = False,
                  allow_self_transfer                = False,
-                 use_token_metadata_onchain_view   = False
+                 use_token_metadata_onchain_view    = False,
+                 allow_burn_tokens                  = False
                  ):
 
         if debug_mode:
@@ -37,6 +38,10 @@ class FA2_config:
         # The option `debug_mode` makes the code generation use
         # regular maps instead of big-maps, hence it makes inspection
         # of the state of the contract easier.
+
+        self.allow_burn_tokens = allow_burn_tokens
+        # Add an entry point for the administrator to transfer tez potentially
+        # in the contract's balance.
 
         self.use_token_metadata_onchain_view = use_token_metadata_onchain_view
         # Include offchain view for accessing the token metadata (requires TZIP-016 contract metadata)
@@ -116,6 +121,8 @@ class FA2_config:
             name += "-lep"
         if allow_self_transfer:
             name += "-self_transfer"
+        if allow_burn_tokens:
+            name += "-burn"
         self.name = name
 
 ## ## Auxiliary Classes and Values
@@ -326,6 +333,53 @@ def mutez_transfer(contract, params):
     sp.set_type(params.destination, sp.TAddress)
     sp.set_type(params.amount, sp.TMutez)
     sp.send(params.destination, params.amount)
+
+##
+## Change: add burn
+## `burn` is an optional entry-point, hence we define it “outside” the
+## class:
+def burn(self, params):
+    sp.verify(~self.is_paused(), message = self.error_message.paused())
+    sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
+    # make sure id and amount are sensible.
+    # this is reduntant as these situations should be impossible.
+    if self.config.single_asset:
+        sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
+    if self.config.non_fungible:
+        sp.verify(params.amount == 1, message = "NFT-asset: amount <> 1")
+        sp.verify(
+            self.token_id_set.contains(self.data.all_tokens, params.token_id),
+            message = "NFT-asset: cannot burn non-existent token"
+        )
+    # if the user is not admin, make sure he can only delete his own (or operated) tokens
+    sender_verify = ((self.is_administrator(sp.sender)) |
+                        (params.address == sp.sender))
+    message = self.error_message.not_owner()
+    if self.config.support_operator:
+        message = self.error_message.not_operator()
+        sender_verify |= (self.operator_set.is_member(self.data.operators,
+                                                        params.address,
+                                                        sp.sender,
+                                                        params.token_id))
+    sp.verify(sender_verify, message = message)
+    # fail if token doesn't exist.
+    # this is redundant as it shouldn't even be possible to have a balance of a non-token
+    sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
+        sp.failwith(self.error_message.token_undefined())
+    # update balance
+    user = self.ledger_key.make(params.address, params.token_id)
+    sp.if self.data.ledger.contains(user):
+        # check balance
+        sp.verify((self.data.ledger[user].balance >= params.amount),
+            message = self.error_message.insufficient_balance())
+        # If the user has a banlance try and subtract from it (should error on underflow)
+        self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
+    sp.else:
+        # If the user doesn't have a balance, fail
+        sp.failwith(self.error_message.insufficient_balance())
+    # decrease total supply
+    if self.config.store_total_supply:
+        self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
 ##
 ## The `FA2` class builds a contract according to an `FA2_config` and an
 ## administrator address.
@@ -351,9 +405,11 @@ class FA2_core(sp.Contract):
         self.ledger_key = Ledger_key(self.config)
         self.token_meta_data = Token_meta_data(self.config)
         self.batch_transfer    = Batch_transfer(self.config)
-        if  self.config.add_mutez_transfer:
+        if self.config.add_mutez_transfer:
             self.transfer_mutez = sp.entry_point(mutez_transfer)
-        if config.lazy_entry_points:
+        if self.config.allow_burn_tokens:
+            self.burn = sp.entry_point(burn)
+        if self.config.lazy_entry_points:
             self.add_flag("lazy-entry-points")
         self.add_flag("initial-cast")
         self.exception_optimization_level = "default-line"
@@ -544,51 +600,6 @@ class FA2_mint(FA2_core):
         if self.config.store_total_supply:
             self.data.total_supply[params.token_id] = params.amount + self.data.total_supply.get(params.token_id, default_value = 0)
 
-# Change: add burn
-class FA2_burn(FA2_core):
-    @sp.entry_point
-    def burn(self, params):
-        sp.verify(~self.is_paused(), message = self.error_message.paused())
-        sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
-        # make sure id and amount are sensible.
-        # this is reduntant as these situations should be impossible.
-        if self.config.single_asset:
-            sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
-        if self.config.non_fungible:
-            sp.verify(params.amount == 1, message = "NFT-asset: amount <> 1")
-            sp.verify(
-                self.token_id_set.contains(self.data.all_tokens, params.token_id),
-                message = "NFT-asset: cannot burn non-existent token"
-            )
-        # if the user is not admin, make sure he can only delete his own (or operated) tokens
-        sender_verify = ((self.is_administrator(sp.sender)) |
-                         (params.address == sp.sender))
-        message = self.error_message.not_owner()
-        if self.config.support_operator:
-            message = self.error_message.not_operator()
-            sender_verify |= (self.operator_set.is_member(self.data.operators,
-                                                          params.address,
-                                                          sp.sender,
-                                                          params.token_id))
-        sp.verify(sender_verify, message = message)
-        # fail if token doesn't exist.
-        # this is redundant as it shouldn't even be possible to have a balance of a non-token
-        sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
-            sp.failwith(self.error_message.token_undefined())
-        # update balance
-        user = self.ledger_key.make(params.address, params.token_id)
-        sp.if self.data.ledger.contains(user):
-            # check balance
-            sp.verify((self.data.ledger[user].balance >= params.amount),
-                message = self.error_message.insufficient_balance())
-            # If the user has a banlance try and subtract from it (should error on underflow)
-            self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
-        sp.else:
-            # If the user doesn't have a balance, fail
-            sp.failwith(self.error_message.insufficient_balance())
-        # decrease total supply
-        if self.config.store_total_supply:
-            self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
 
 class FA2_token_metadata(FA2_core):
     def set_token_metadata_view(self):
@@ -615,7 +626,7 @@ class FA2_token_metadata(FA2_core):
         }))
 
 
-class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_burn, FA2_administrator, FA2_pause, FA2_core):
+class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
 
     @sp.onchain_view()
     def count_tokens(self):
@@ -1144,7 +1155,7 @@ def global_parameter(env_var, default):
 
 
 def items_config():
-    # Items is a multi-asset, fungible token, (that doesn't stores the total supply).
+    # Items is a multi-asset, fungible token, (that doesn't stores the total supply) an allows burning.
     return FA2_config(
         debug_mode = global_parameter("debug_mode", False),
         single_asset = global_parameter("single_asset", False),
@@ -1161,10 +1172,11 @@ def items_config():
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         allow_self_transfer = global_parameter("allow_self_transfer", False),
         use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
+        allow_burn_tokens = global_parameter("allow_burn_tokens", True)
     )
 
 def places_config():
-    # Places is a multi-asset, non-fungible token.
+    # Places is a multi-asset, non-fungible token. No burning allowed.
     return FA2_config(
         debug_mode = global_parameter("debug_mode", False),
         single_asset = global_parameter("single_asset", False),
@@ -1181,6 +1193,7 @@ def places_config():
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         allow_self_transfer = global_parameter("allow_self_transfer", False),
         use_token_metadata_onchain_view = global_parameter("use_token_metadata_onchain_view", True),
+        allow_burn_tokens = global_parameter("allow_burn_tokens", False)
     )
 
 
