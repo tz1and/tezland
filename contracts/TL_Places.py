@@ -43,6 +43,8 @@ placeItemType = sp.TVariant(
     ext = sp.TBytes
 )
 
+defaultPlaceProps = sp.bytes('0xc1e3c1')
+
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 # TODO: make pausable?
@@ -89,7 +91,7 @@ class TL_Places(manager_contract.Manageable):
             self.data.places[place_hash] = sp.record(
                 counter = 0,
                 interaction_counter = 0,
-                place_props = sp.bytes('0xc1e3c1'), # only set color by default.
+                place_props = defaultPlaceProps, # only set color by default.
                 stored_items=itemStoreMapLiteral
                 )
         return self.data.places[place_hash]
@@ -272,7 +274,7 @@ class TL_Places(manager_contract.Manageable):
         sp.if self.data.places.contains(place_hash) == False:
             sp.result(sp.record(
                 stored_items = itemStoreMapLiteral,
-                place_props = sp.bytes("0x000000")))
+                place_props = defaultPlaceProps))
         sp.else:
             sp.result(sp.record(
                 stored_items = self.data.places[place_hash].stored_items,
