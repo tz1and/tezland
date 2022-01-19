@@ -12,6 +12,8 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 # TODO: distinction between manager and admin?
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
+# TODO: don't use place hash?
+# TODO: test place props
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -60,7 +62,7 @@ class TL_Places(manager_contract.Manageable):
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interactionCounter=sp.TNat,
-                # TODO: place ground color maybe?
+                placeProps=sp.TBytes, # ground color, maybe other stuff later.
                 stored_items=itemStoreMapType
                 ))
             )
@@ -78,15 +80,59 @@ class TL_Places(manager_contract.Manageable):
         self.onlyManager()
         self.data.item_limit = item_limit
 
-    def get_or_create_place(self, place_hash):
+    # Don't use private lambda because we need to be able to update code
+    def get_or_create_place(self, lot_id):
+        sp.set_type(lot_id, sp.TNat)
+
+        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
         # create new place if it doesn't exist
         sp.if self.data.places.contains(place_hash) == False:
             self.data.places[place_hash] = sp.record(
                 counter = 0,
                 interactionCounter = 0,
+                placeProps = sp.bytes('0xc1e3c1'), # only set color by default.
                 stored_items=itemStoreMapLiteral
                 )
         return self.data.places[place_hash]
+
+    # Don't use private lambda because we need to be able to update code
+    def get_place(self, lot_id):
+        sp.set_type(lot_id, sp.TNat)
+
+        # still want to use a local here because this returns an expression
+        # that maybe be computed over and over
+        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
+        return self.data.places[place_hash]
+
+    # Don't use private lambda because we need to be able to update code
+    def check_owner_or_operator(self, lot_id, owner):
+        sp.set_type(lot_id, sp.TNat)
+        sp.set_type(owner, sp.TOption(sp.TAddress))
+        
+        # caller must be owner or operator of place.
+        sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) != 1:
+            sp.verify(self.fa2_is_operator(
+                self.data.places_contract, lot_id,
+                owner.open_some(message = "PARAM_ERROR"),
+                sp.sender) == True, message = "NOT_OPERATOR")
+
+    @sp.entry_point(lazify = True)
+    def set_place_props(self, params):
+        sp.set_type(params.props, sp.TBytes)
+        sp.set_type(params.lot_id, sp.TNat)
+        sp.set_type(params.owner, sp.TOption(sp.TAddress))
+
+        # get the place
+        this_place = self.get_or_create_place(params.lot_id)
+
+        # caller must be owner or operator of place.
+        self.check_owner_or_operator(params.lot_id, params.owner)
+
+        # currently we only store the color. 6 bytes.
+        sp.verify(sp.len(params.props) == 6, message = "DATA_LEN")
+
+        this_place.placeProps = params.props
+        this_place.interactionCounter += 1
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -95,17 +141,12 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         # get the place
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
-        this_place = self.get_or_create_place(place_hash.value)
+        this_place = self.get_or_create_place(params.lot_id)
 
         sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
 
-        # if not owner, caller must be operator of place.
-        sp.if self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) != 1:
-            sp.verify(self.fa2_is_operator(
-                self.data.places_contract, params.lot_id,
-                params.owner.open_some(message = "PARAM_ERROR"),
-                sp.sender) == True, message = "NOT_OPERATOR")
+        # caller must be owner or operator of place.
+        self.check_owner_or_operator(params.lot_id, params.owner)
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -135,7 +176,7 @@ class TL_Places(manager_contract.Manageable):
                     #sp.verify(sp.len(ext_data) == 16, message = "DATA_LEN")
                     this_place.stored_items[this_place.counter] = sp.variant("ext", ext_data)
 
-            this_place.counter += 1 # TODO: use sp.local for counter?
+            this_place.counter += 1
 
         # only transfer if list has items
         sp.if sp.len(transferMap.value) > 0:
@@ -148,15 +189,10 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         # get the place
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
-        this_place = self.data.places[place_hash.value]
+        this_place = self.get_place(params.lot_id)
 
-        # if not owner, caller must be operator of place.
-        sp.if self.fa2_get_balance(self.data.places_contract, params.lot_id, sp.sender) != 1:
-            sp.verify(self.fa2_is_operator(
-                self.data.places_contract, params.lot_id,
-                params.owner.open_some(message = "PARAM_ERROR"),
-                sp.sender) == True, message = "NOT_OPERATOR")
+        # caller must be owner or operator of place.
+        self.check_owner_or_operator(params.lot_id, params.owner)
         
         # TODO: Best make it so issuer can remove their items, even if not operator or owner.
 
@@ -190,8 +226,8 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.item_id, sp.TNat)
 
         # get the place
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(params.lot_id)))
-        this_place = self.data.places[place_hash.value]
+        this_place = self.get_place(params.lot_id)
+
         # get the item from storage. get_item is only supposed to work for the item variant.
         the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item"))
 
@@ -202,6 +238,7 @@ class TL_Places(manager_contract.Manageable):
         # send monies
         sp.if (the_item.value.xtz_per_item != sp.tez(0)):
             # get the royalties for this item
+            # TODO: use sp.compute instead of sp.local.
             item_royalties = sp.local("item_royalties", self.minter_get_royalties(the_item.value.item_id))
             
             fee = sp.local("fee", sp.utils.mutez_to_nat(sp.amount) * (item_royalties.value.royalties + self.data.fees) / sp.nat(1000))
@@ -232,23 +269,23 @@ class TL_Places(manager_contract.Manageable):
     @sp.onchain_view()
     def get_stored_items(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(lot_id)))
-        sp.if self.data.places.contains(place_hash.value) == False:
+        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
+        sp.if self.data.places.contains(place_hash) == False:
             sp.result(itemStoreMapLiteral)
         sp.else:
-            sp.result(self.data.places[place_hash.value].stored_items)
+            sp.result(self.data.places[place_hash].stored_items)
 
     @sp.onchain_view()
     def get_place_seqnum(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        place_hash = sp.local("place_hash", sp.sha3(sp.pack(lot_id)))
-        sp.if self.data.places.contains(place_hash.value) == False:
+        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
+        sp.if self.data.places.contains(place_hash) == False:
             sp.result(sp.sha3(sp.pack(sp.pair(
                 sp.nat(0),
                 sp.nat(0)
             ))))
         sp.else:
-            this_place = self.data.places[place_hash.value]
+            this_place = self.data.places[place_hash]
             sp.result(sp.sha3(sp.pack(sp.pair(
                 this_place.interactionCounter,
                 this_place.counter

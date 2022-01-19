@@ -94,8 +94,12 @@ def test():
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 500, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
 
     # place some items in a lot not owned
-    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice, valid = False)
+    places.place_items(lot_id = place_alice, owner=sp.some(alice.address), item_list = [
+        sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))
+    ]).run(sender = bob, valid = False, exception = "NOT_OPERATOR")
+    places.place_items(lot_id = place_bob, owner=sp.some(bob.address), item_list = [
+        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))
+    ]).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
 
     # place some items
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
