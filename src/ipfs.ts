@@ -60,15 +60,20 @@ export interface ContractMetadata {
 // TODO: add to some config or so.
 const metaRepository = 'https://github.com/somerepo';
 const metaHomepage = 'www.someurl.com';
+const metaAcknowledgement = "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
 const metaAuthors = ['someguy <someguy@gmail.com>'];
 const metaLicense = { name: "MIT" };
 
-function createContractMetadata(metadata: ContractMetadata) {
+function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean) {
+
+    const description = is_fa2 ? metadata.description + metaAcknowledgement : metadata.description;
+    const authors = is_fa2 ? metaAuthors.concat('Seb Mondet <https://seb.mondet.org>') : metaAuthors;
+
     return Buffer.from(
         JSON.stringify({
             name: metadata.name,
-            description: metadata.description,
-            authors: metaAuthors,
+            description: description,
+            authors: authors,
             homepage: metaHomepage,
             repository: metaRepository,
             license: metaLicense,
@@ -78,12 +83,12 @@ function createContractMetadata(metadata: ContractMetadata) {
     )
 }
 
-export async function upload_contract_metadata(metadata: ContractMetadata): Promise<string> {
+export async function upload_contract_metadata(metadata: ContractMetadata, is_fa2: boolean = false): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
     const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
 
-    const result = await ipfs_client.add(createContractMetadata(metadata));
+    const result = await ipfs_client.add(createContractMetadata(metadata, is_fa2));
 
     console.log(`${metadata.name} contract metadata: ipfs://${result.path}`);
 

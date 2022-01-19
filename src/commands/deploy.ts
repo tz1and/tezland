@@ -45,7 +45,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       name: 'tz1aND Items',
       description: 'tz1aND Item FA2 tokens',
       interfaces: ["TZIP-12"],
-      version: '1.0.0'});
+      version: '1.0.0'}, true);
 
     // Compile and deploy Items FA2 contract.
     smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
@@ -61,7 +61,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
       name: 'tz1aND Places',
       description: 'tz1aND Places FA2 tokens',
       interfaces: ["TZIP-12"],
-      version: '1.0.0'});
+      version: '1.0.0'}, true);
 
     // Compile and deploy Places FA2 contract.
     smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
