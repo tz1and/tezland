@@ -239,18 +239,17 @@ class TL_Places(manager_contract.Manageable):
         # send monies
         sp.if (the_item.value.xtz_per_item != sp.tez(0)):
             # get the royalties for this item
-            # TODO: use sp.compute instead of sp.local.
-            item_royalties = sp.local("item_royalties", self.minter_get_royalties(the_item.value.item_id))
+            item_royalties = sp.compute(self.minter_get_royalties(the_item.value.item_id))
             
-            fee = sp.local("fee", sp.utils.mutez_to_nat(sp.amount) * (item_royalties.value.royalties + self.data.fees) / sp.nat(1000))
-            royalties = sp.local("royalties", item_royalties.value.royalties * fee.value / (item_royalties.value.royalties + self.data.fees))
+            fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalties.royalties + self.data.fees) / sp.nat(1000))
+            royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
 
             # send royalties to creator
-            sp.send(item_royalties.value.creator, sp.utils.nat_to_mutez(royalties.value))
+            sp.send(item_royalties.creator, sp.utils.nat_to_mutez(royalties))
             # send management fees
-            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee.value - royalties.value)))
+            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            sp.send(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee.value))
+            sp.send(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
         
         # transfer item to buyer
         self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.item_id, 1)
