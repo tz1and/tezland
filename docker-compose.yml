@@ -1,7 +1,7 @@
 version: "3.6"
 services:
   elastic:
-    image: bakingbad/bcdhub-elastic:4.0 #.1337
+    image: bakingbad/bcdhub-elastic:${TAG}
     restart: always
     volumes:
       - esdata:/usr/share/elasticsearch/data
@@ -29,7 +29,7 @@ services:
 
   api:
     restart: always
-    image: bakingbad/bcdhub-api:4.0 #.1337
+    image: bakingbad/bcdhub-api:${TAG}
     environment:
       - BCD_ENV=sandbox
       - GIN_MODE=debug
@@ -53,7 +53,7 @@ services:
 
   indexer:
     restart: always
-    image: bakingbad/bcdhub-indexer:4.0 #.1337
+    image: bakingbad/bcdhub-indexer:${TAG}
     environment:
       - BCD_ENV=sandbox
       - POSTGRES_USER=root
@@ -72,7 +72,7 @@ services:
 
   metrics:
     restart: always
-    image: bakingbad/bcdhub-metrics:4.0 #.1337
+    image: bakingbad/bcdhub-metrics:${TAG}
     environment:
       - BCD_ENV=sandbox
       - POSTGRES_USER=root
@@ -91,7 +91,7 @@ services:
 
   flextesa:
     restart: always
-    image: oxheadalpha/flextesa:20211221   #20211119 with hangzhou # 20210602 granada
+    image: oxheadalpha/flextesa:20211207   #20211119 with hangzhou # 20210602 granada
     command: hangzbox start
     environment:
       - block_time=2
@@ -105,7 +105,7 @@ services:
   gui:
     container_name: sandbox-gui
     restart: always
-    image: bakingbad/bcdhub-gui:4.0 #.1337
+    image: bakingbad/bcdhub-gui:4.0 #${TAG}
     depends_on:
       - api
     ports:

@@ -4,12 +4,14 @@ import { TezosToolkit, VIEW_LAMBDA } from '@taquito/taquito';
 import { InMemorySigner } from "@taquito/signer";
 const sleep = require('util').promisify(setTimeout);
 
+const bcdtag = "4.0.1337"
+
 export async function start(): Promise<void> {
     console.log(kleur.yellow('starting sandbox...'));
 
     try {
         child.execSync(
-            'COMPOSE_PROJECT_NAME=bcdbox docker-compose -f docker-compose.yml up -d',
+            `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose -f docker-compose.yml up -d`,
             {stdio: 'inherit'}
         )
 
@@ -44,7 +46,7 @@ export async function kill(): Promise<void> {
 
     try {
         child.execSync(
-            'COMPOSE_PROJECT_NAME=bcdbox docker-compose -f docker-compose.yml down -v',
+            `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose -f docker-compose.yml down -v`,
             {stdio: 'inherit'}
         )
     } catch (err) {
@@ -55,7 +57,7 @@ export async function kill(): Promise<void> {
 export async function info(): Promise<void> {
     try {
         child.execSync(
-            'COMPOSE_PROJECT_NAME=bcdbox docker-compose exec flextesa granabox info',
+            `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose exec flextesa granabox info`,
             {stdio: 'inherit'}
         )
     } catch (err) {
