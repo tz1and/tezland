@@ -26,7 +26,13 @@ export async function upload_item_metadata(minter_address: string, model_url: st
         name: "My awesome item",
         description: "A nice item",
         minter: minter_address,
-        modelUrl: model_url
+        modelUrl: model_url,
+        formats: [
+            {
+                mimeType: "model/gltf-binary", // model/gltf+json, model/gltf-binary
+                uri: model_url
+            }
+        ],
     }));
 
     return `ipfs://${result.path}`;
@@ -115,6 +121,7 @@ interface ItemMetadata {
     minter: string;
     name: string;
     modelUrl: string;
+    formats: object[];
 }
 
 function createItemTokenMetadata(metadata: ItemMetadata) {
@@ -128,7 +135,8 @@ function createItemTokenMetadata(metadata: ItemMetadata) {
             shouldPreferSymbol: false,
             symbol: 'Item',
             artifactUri: metadata.modelUrl,
-            decimals: 0
+            decimals: 0,
+            formats: metadata.formats
         })
     )
 }
