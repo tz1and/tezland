@@ -43,7 +43,7 @@ placeItemType = sp.TVariant(
     ext = sp.TBytes
 )
 
-defaultPlaceProps = sp.bytes('0xc1e3c1')
+defaultPlaceProps = sp.bytes('0x82b881')
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
@@ -266,6 +266,7 @@ class TL_Places(manager_contract.Manageable):
     #
     # Views
     #
+    # TODO: rename to get_place_data?
     @sp.onchain_view()
     def get_stored_items(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
