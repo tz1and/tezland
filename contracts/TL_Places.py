@@ -13,7 +13,6 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
 # TODO: don't use place hash?
-# TODO: test place props
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -61,8 +60,8 @@ class TL_Places(manager_contract.Manageable):
             fees = sp.nat(25),
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,
-                interactionCounter=sp.TNat,
-                placeProps=sp.TBytes, # ground color, maybe other stuff later.
+                interaction_counter=sp.TNat,
+                place_props=sp.TBytes, # ground color, maybe other stuff later.
                 stored_items=itemStoreMapType
                 ))
             )
@@ -89,8 +88,8 @@ class TL_Places(manager_contract.Manageable):
         sp.if self.data.places.contains(place_hash) == False:
             self.data.places[place_hash] = sp.record(
                 counter = 0,
-                interactionCounter = 0,
-                placeProps = sp.bytes('0xc1e3c1'), # only set color by default.
+                interaction_counter = 0,
+                place_props = sp.bytes('0xc1e3c1'), # only set color by default.
                 stored_items=itemStoreMapLiteral
                 )
         return self.data.places[place_hash]
@@ -122,17 +121,17 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
-        # get the place
-        this_place = self.get_or_create_place(params.lot_id)
-
         # caller must be owner or operator of place.
         self.check_owner_or_operator(params.lot_id, params.owner)
 
-        # currently we only store the color. 6 bytes.
-        sp.verify(sp.len(params.props) == 6, message = "DATA_LEN")
+        # get the place
+        this_place = self.get_or_create_place(params.lot_id)
 
-        this_place.placeProps = params.props
-        this_place.interactionCounter += 1
+        # currently we only store the color. 3 bytes.
+        sp.verify(sp.len(params.props) == 3, message = "DATA_LEN")
+
+        this_place.place_props = params.props
+        this_place.interaction_counter += 1
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -140,13 +139,13 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
+        # caller must be owner or operator of place.
+        self.check_owner_or_operator(params.lot_id, params.owner)
+
         # get the place
         this_place = self.get_or_create_place(params.lot_id)
 
         sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
-
-        # caller must be owner or operator of place.
-        self.check_owner_or_operator(params.lot_id, params.owner)
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -213,7 +212,7 @@ class TL_Places(manager_contract.Manageable):
             
             del this_place.stored_items[curr]
 
-        this_place.interactionCounter += 1
+        this_place.interaction_counter += 1
 
         # only transfer if list has items
         sp.if sp.len(transferMap.value) > 0:
@@ -261,7 +260,7 @@ class TL_Places(manager_contract.Manageable):
         sp.else:
             del this_place.stored_items[params.item_id]
 
-        this_place.interactionCounter += 1
+        this_place.interaction_counter += 1
 
     #
     # Views
@@ -271,9 +270,13 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(lot_id, sp.TNat)
         place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
         sp.if self.data.places.contains(place_hash) == False:
-            sp.result(itemStoreMapLiteral)
+            sp.result(sp.record(
+                stored_items = itemStoreMapLiteral,
+                place_props = sp.bytes("0x000000")))
         sp.else:
-            sp.result(self.data.places[place_hash].stored_items)
+            sp.result(sp.record(
+                stored_items = self.data.places[place_hash].stored_items,
+                place_props = self.data.places[place_hash].place_props))
 
     @sp.onchain_view()
     def get_place_seqnum(self, lot_id):
@@ -287,7 +290,7 @@ class TL_Places(manager_contract.Manageable):
         sp.else:
             this_place = self.data.places[place_hash]
             sp.result(sp.sha3(sp.pack(sp.pair(
-                this_place.interactionCounter,
+                this_place.interaction_counter,
                 this_place.counter
             ))))
 

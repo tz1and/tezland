@@ -153,6 +153,12 @@ def test():
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [2]).run(sender = bob)
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [3, 4]).run(sender = bob)
 
+    scenario.h3("Set place props")
+    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFF')).run(sender = bob)
+    scenario.verify(places.data.places[sp.sha3(sp.pack(place_bob))].place_props == sp.bytes('0xFFFFFF'))
+    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
+    places.set_place_props(lot_id = place_bob, owner=sp.some(bob.address), props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
+
     # test views
     scenario.h3("Views")
     scenario.p("It's views")
@@ -164,13 +170,14 @@ def test():
 
     scenario.h4("Stored items")
     stored_items = places.get_stored_items(place_alice)
-    scenario.verify(stored_items[2].open_variant("item").item_amount == 1)
-    scenario.verify(stored_items[3].open_variant("item").item_amount == 1)
-    scenario.verify(stored_items[4].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.place_props == sp.bytes('0xc1e3c1'))
+    scenario.verify(stored_items.stored_items[2].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.stored_items[3].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.stored_items[4].open_variant("item").item_amount == 1)
     scenario.show(stored_items)
 
     stored_items_empty = places.get_stored_items(sp.nat(5))
-    scenario.verify(sp.len(stored_items_empty) == 0)
+    scenario.verify(sp.len(stored_items_empty.stored_items) == 0)
     scenario.show(stored_items_empty)
 
     scenario.h4("Sequence numbers")
