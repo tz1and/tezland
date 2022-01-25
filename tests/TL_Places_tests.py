@@ -155,7 +155,7 @@ def test():
 
     scenario.h3("Set place props")
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFF')).run(sender = bob)
-    scenario.verify(places.data.places[sp.sha3(sp.pack(place_bob))].place_props == sp.bytes('0xFFFFFF'))
+    scenario.verify(places.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
     places.set_place_props(lot_id = place_bob, owner=sp.some(bob.address), props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
 

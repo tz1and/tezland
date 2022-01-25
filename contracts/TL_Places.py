@@ -12,7 +12,6 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 # TODO: distinction between manager and admin?
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
-# TODO: don't use place hash?
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -47,7 +46,7 @@ defaultPlaceProps = sp.bytes('0x82b881')
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
-# TODO: make pausable?
+# TODO: make pausable? Probably not, items and places are pausable.
 class TL_Places(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter, metadata):
         self.init_storage(
@@ -60,7 +59,7 @@ class TL_Places(manager_contract.Manageable):
             # so there's plenty of room ahead.
             item_limit = sp.nat(32),
             fees = sp.nat(25),
-            places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
+            places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interaction_counter=sp.TNat,
                 place_props=sp.TBytes, # ground color, maybe other stuff later.
@@ -85,25 +84,15 @@ class TL_Places(manager_contract.Manageable):
     def get_or_create_place(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
 
-        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
         # create new place if it doesn't exist
-        sp.if self.data.places.contains(place_hash) == False:
-            self.data.places[place_hash] = sp.record(
+        sp.if self.data.places.contains(lot_id) == False:
+            self.data.places[lot_id] = sp.record(
                 counter = 0,
                 interaction_counter = 0,
                 place_props = defaultPlaceProps, # only set color by default.
                 stored_items=itemStoreMapLiteral
                 )
-        return self.data.places[place_hash]
-
-    # Don't use private lambda because we need to be able to update code
-    def get_place(self, lot_id):
-        sp.set_type(lot_id, sp.TNat)
-
-        # still want to use a local here because this returns an expression
-        # that maybe be computed over and over
-        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
-        return self.data.places[place_hash]
+        return self.data.places[lot_id]
 
     # Don't use private lambda because we need to be able to update code
     def check_owner_or_operator(self, lot_id, owner):
@@ -190,7 +179,7 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         # get the place
-        this_place = self.get_place(params.lot_id)
+        this_place = self.data.places[params.lot_id]
 
         # caller must be owner or operator of place.
         self.check_owner_or_operator(params.lot_id, params.owner)
@@ -227,7 +216,7 @@ class TL_Places(manager_contract.Manageable):
         sp.set_type(params.item_id, sp.TNat)
 
         # get the place
-        this_place = self.get_place(params.lot_id)
+        this_place = self.data.places[params.lot_id]
 
         # get the item from storage. get_item is only supposed to work for the item variant.
         the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item"))
@@ -270,27 +259,25 @@ class TL_Places(manager_contract.Manageable):
     @sp.onchain_view()
     def get_stored_items(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
-        sp.if self.data.places.contains(place_hash) == False:
+        sp.if self.data.places.contains(lot_id) == False:
             sp.result(sp.record(
                 stored_items = itemStoreMapLiteral,
                 place_props = defaultPlaceProps))
         sp.else:
             sp.result(sp.record(
-                stored_items = self.data.places[place_hash].stored_items,
-                place_props = self.data.places[place_hash].place_props))
+                stored_items = self.data.places[lot_id].stored_items,
+                place_props = self.data.places[lot_id].place_props))
 
     @sp.onchain_view()
     def get_place_seqnum(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        place_hash = sp.compute(sp.sha3(sp.pack(lot_id)))
-        sp.if self.data.places.contains(place_hash) == False:
+        sp.if self.data.places.contains(lot_id) == False:
             sp.result(sp.sha3(sp.pack(sp.pair(
                 sp.nat(0),
                 sp.nat(0)
             ))))
         sp.else:
-            this_place = self.data.places[place_hash]
+            this_place = self.data.places[lot_id]
             sp.result(sp.sha3(sp.pack(sp.pair(
                 this_place.interaction_counter,
                 this_place.counter
