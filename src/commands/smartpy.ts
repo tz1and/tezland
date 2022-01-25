@@ -61,6 +61,7 @@ export function compile(contract_name: string) {
         fs.copyFileSync(`${tmp_out_dir}/${storage_compiled}`, `./build/${storage_out}`)
 
         console.log(kleur.green(`Michelson contract written to ${contract_out}`))
+        console.log()
 
     } catch(err) {
         console.log('failed: ' + err)
@@ -107,4 +108,5 @@ sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract
 
     console.log(kleur.green(`Michelson contract written to ${contract_out}`))
     console.log(kleur.green(`Michelson storage written to ${storage_out}`))
+    console.log()
 }

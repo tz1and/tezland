@@ -1,6 +1,7 @@
 import * as ipfs from 'ipfs-http-client'
 import * as fs from 'fs';
 
+// TODO: use nft.storage!
 export async function upload_place_metadata(minter_address: string, center: number[], border: number[][]): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
@@ -17,6 +18,7 @@ export async function upload_place_metadata(minter_address: string, center: numb
     return `ipfs://${result.path}`;
 }
 
+// TODO: use nft.storage!
 export async function upload_item_metadata(minter_address: string, model_url: string): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
@@ -83,6 +85,7 @@ function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean) {
     )
 }
 
+// TODO: use nft.storage!
 export async function upload_contract_metadata(metadata: ContractMetadata, is_fa2: boolean = false): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 

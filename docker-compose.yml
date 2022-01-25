@@ -107,7 +107,7 @@ services:
     image: oxheadalpha/flextesa:20211207   #20211119 with hangzhou # 20210602 granada
     command: hangzbox start
     environment:
-      - block_time=2
+      - block_time=10
       - flextesa_node_cors_origin=*
     ports:
       - "20000:20000"
