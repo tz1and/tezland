@@ -170,7 +170,7 @@ def test():
 
     scenario.h4("Stored items")
     stored_items = places.get_stored_items(place_alice)
-    scenario.verify(stored_items.place_props == sp.bytes('0xc1e3c1'))
+    scenario.verify(stored_items.place_props == sp.bytes('0x82b881'))
     scenario.verify(stored_items.stored_items[2].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[3].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[4].open_variant("item").item_amount == 1)

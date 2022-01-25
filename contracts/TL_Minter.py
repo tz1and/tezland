@@ -106,9 +106,10 @@ class TL_Minter(pausable_contract.Pausable):
         self.data.place_id += 1
 
     @sp.onchain_view()
-    def get_royalties(self, id):
+    def get_item_royalties(self, item_id):
+        sp.set_type(item_id, sp.TNat)
         # sp.result is used to return the view result (the contract storage in this case)
-        sp.result(self.data.royalties[id])
+        sp.result(self.data.royalties[item_id])
 
     #
     # Update code

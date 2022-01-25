@@ -94,10 +94,10 @@ def test():
 
     minter.set_paused(False).run(sender = admin)
 
-    # test get_royalties view
-    scenario.h3("get_royalties")
+    # test get_item_royalties view
+    scenario.h3("get_item_royalties")
     scenario.p("It's a view")
-    view_res = minter.get_royalties(0)
+    view_res = minter.get_item_royalties(sp.nat(0))
     scenario.verify(view_res.royalties == 250)
     scenario.verify(view_res.creator == bob.address)
 

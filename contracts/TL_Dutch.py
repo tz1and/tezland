@@ -3,6 +3,8 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: distinction between manager and admin?
+# TODO: test royalties for item token
+# TODO: test auction with end price 0!!!!!
 
 class TL_Dutch(pausable_contract.Pausable):
     """A simple dutch auction.
@@ -12,8 +14,8 @@ class TL_Dutch(pausable_contract.Pausable):
     def __init__(self, manager, items_contract, places_contract, minter, metadata):
         self.init_storage(
             manager = manager,
-            items_contract = items_contract, # TODO: instead, add a set of allow FA2 contracts
-            places_contract = places_contract,
+            items_contract = items_contract,
+            permitted_fa2 = sp.set([places_contract], t=sp.TAddress),
             minter = minter,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
@@ -28,9 +30,9 @@ class TL_Dutch(pausable_contract.Pausable):
                 end_price=sp.TMutez,
                 start_time=sp.TTimestamp,
                 end_time=sp.TTimestamp,
-                state=sp.TNat # 0 = open, 1 = closed, 2 = cancelled. TODO: remove state.
-                ))
-            )
+                fa2=sp.TAddress
+            ))
+        )
 
 
     @sp.entry_point
@@ -44,13 +46,24 @@ class TL_Dutch(pausable_contract.Pausable):
     @sp.entry_point
     def set_fees(self, fees):
         """Call to set fees in permille.
-        fees must be <= than 60 permille.
+        Fees must be <= than 60 permille.
         """
         sp.set_type(fees, sp.TNat)
         self.onlyManager()
         sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
         self.data.fees = fees
 
+    @sp.entry_point
+    def set_permitted_fa2(self, params):
+        """Call to add/remove fa2 contract from
+        token contracts permitted for auctions."""
+        sp.set_type(params.fa2, sp.TAddress)
+        sp.set_type(params.permitted, sp.TBool)
+        self.onlyManager()
+        sp.if params.permitted == True:
+            self.data.permitted_fa2.add(params.fa2)
+        sp.else:
+            self.data.permitted_fa2.remove(params.fa2)
 
     @sp.entry_point(lazify = True)
     def create(self, params):
@@ -66,12 +79,17 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(params.end_price, sp.TMutez)
         sp.set_type(params.start_time, sp.TTimestamp)
         sp.set_type(params.end_time, sp.TTimestamp)
+        sp.set_type(params.fa2, sp.TAddress)
 
         self.onlyUnpaused()
 
-        # TODO: verify inputs
+        # verify inputs
+        sp.verify(self.data.permitted_fa2.contains(params.fa2), message = "TOKEN_NOT_PERMITTED")
         sp.verify(params.start_time < params.end_time, message = "INVALID_PARAM")
         sp.verify(params.start_price > params.end_price, message = "INVALID_PARAM")
+
+        # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
+        sp.verify(self.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
 
         # Create auction
         self.data.auctions[self.data.auction_id] = sp.record(
@@ -81,20 +99,20 @@ class TL_Dutch(pausable_contract.Pausable):
             end_price=params.end_price,
             start_time=params.start_time,
             end_time=params.end_time,
-            state=0
-            )
+            fa2=params.fa2
+        )
 
         self.data.auction_id += 1
 
         # Transfer token (place)
-        self.fa2_transfer(self.data.places_contract, sp.sender, sp.self_address, params.token_id, 1)
+        self.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
 
 
     @sp.entry_point(lazify = True)
     def cancel(self, auction_id):
         """Cancel an auction.
 
-        Given it is in a cancelable state (eg 0) and owned.
+        Given it is owned.
         Token is transferred back to auction owner.
         """
         sp.set_type(auction_id, sp.TNat)
@@ -107,13 +125,8 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.if ~self.isManager(sp.sender):
             sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
-        # and if it's in cancleable state
-        sp.verify(the_auction.state == sp.nat(0), message = "WRONG_STATE")
-
-        the_auction.state = sp.nat(2)
-
         # transfer token back to auction owner.
-        self.fa2_transfer(self.data.places_contract, sp.self_address, the_auction.owner, the_auction.token_id, 1)
+        self.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
         del self.data.auctions[auction_id]
 
@@ -129,41 +142,45 @@ class TL_Dutch(pausable_contract.Pausable):
 
         self.onlyUnpaused()
 
-        the_auction = self.data.auctions[auction_id]
+        the_auction = sp.local("the_auction", self.data.auctions[auction_id])
 
-        # make sure auction is in biddable state
-        sp.verify(the_auction.state == sp.nat(0), message = "WRONG_STATE")
-
-        # NOTE: no need to check auction has started, get_auction_price does.
+        # check auction has started
+        sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
 
         # calculate current price and verify amount sent
-        # TODO: figure out if calling view on self is a good idea
         ask_price = sp.local("ask_price", sp.view("get_auction_price",
             sp.self_address,
             auction_id,
             t = sp.TMutez).open_some())
         #sp.trace(sp.now)
         #sp.trace(ask_price.value)
+
         # check if correct value was sent. probably best to send back overpay instead of cancel.
         sp.verify(sp.amount >= ask_price.value, message = "WRONG_AMOUNT")
-
-        # set state to finished.
-        the_auction.state = sp.nat(1)
 
         # Send back overpay, if there was any.
         overpay = sp.amount - ask_price.value
         sp.if overpay > sp.tez(0):
             sp.send(sp.sender, overpay)
 
-        # calculate fees
-        fee = sp.local("fee", sp.utils.mutez_to_nat(ask_price.value) * self.data.fees / sp.nat(1000))
-        # send management fees
-        sp.send(self.data.manager, sp.utils.nat_to_mutez(fee.value))
-        # send rest of the value to seller
-        sp.send(the_auction.owner, ask_price.value - sp.utils.nat_to_mutez(fee.value))
+        sp.if ask_price.value != sp.tez(0):
+            token_royalties = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
+
+            # calculate fees
+            fee = sp.compute(sp.utils.mutez_to_nat(ask_price.value) * (token_royalties.royalties + self.data.fees) / sp.nat(1000))
+            royalties = sp.compute(token_royalties.royalties * fee / (token_royalties.royalties + self.data.fees))
+
+            # send royalties to creator, if any.
+            sp.if royalties > 0:
+                sp.send(token_royalties.creator, sp.utils.nat_to_mutez(royalties))
+
+            # send management fees
+            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            # send rest of the value to seller
+            sp.send(the_auction.value.owner, ask_price.value - sp.utils.nat_to_mutez(fee))
 
          # transfer item to buyer
-        self.fa2_transfer(self.data.places_contract, sp.self_address, sp.sender, the_auction.token_id, 1)
+        self.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
 
         del self.data.auctions[auction_id]
 
@@ -175,33 +192,38 @@ class TL_Dutch(pausable_contract.Pausable):
     def get_auction(self, auction_id):
         """Returns information about an auction."""
         sp.set_type(auction_id, sp.TNat)
-        # TODO: decide if we want this view to error
-        #sp.result(self.data.auctions.get(auction_id, default))
         sp.result(self.data.auctions[auction_id])
 
 
     @sp.onchain_view()
     def get_auction_price(self, auction_id):
         """Returns the current price of an auction."""
+        sp.set_type(auction_id, sp.TNat)
         the_auction = self.data.auctions[auction_id]
 
-        # check auction has started
-        sp.verify(sp.now >= the_auction.start_time, "NOT_STARTED")
-        # TODO: check auction state is 0.
-
-        sp.if sp.now >= the_auction.end_time:
-            sp.result(the_auction.end_price)
+        # return start price if it hasn't started
+        sp.if sp.now <= the_auction.start_time:
+            sp.result(the_auction.start_price)
         sp.else:
-            # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
-            # probably by validating the input in create. to make sure intervals can't be negative.
-            duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
-            time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
-            mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
-            time_deduction = mutez_per_interval * time_since_start
+            # return end price if it's over
+            sp.if sp.now >= the_auction.end_time:
+                sp.result(the_auction.end_price)
+            sp.else:
+                # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
+                # probably by validating the input in create. to make sure intervals can't be negative.
+                duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
+                time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
+                mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
+                time_deduction = mutez_per_interval * time_since_start
 
-            current_price = the_auction.start_price - sp.utils.nat_to_mutez(time_deduction)
+                current_price = the_auction.start_price - sp.utils.nat_to_mutez(time_deduction)
 
-            sp.result(current_price)
+                sp.result(current_price)
+    
+    @sp.onchain_view()
+    def get_permitted_fa2(self):
+        """Returns the set of permitted fa2 contracts."""
+        sp.result(self.data.permitted_fa2)
 
 
     #
@@ -229,3 +251,29 @@ class TL_Dutch(pausable_contract.Pausable):
     def fa2_transfer(self, fa2, from_, to_, item_id, item_amount):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))]), sp.mutez(0), c)
+
+    def fa2_get_balance(self, fa2, token_id, owner):
+        return sp.view("get_balance", fa2,
+            sp.set_type_expr(
+                sp.record(owner = owner, token_id = token_id),
+                sp.TRecord(
+                    owner = sp.TAddress,
+                    token_id = sp.TNat
+                ).layout(("owner", "token_id"))),
+            t = sp.TNat).open_some()
+
+    def minter_get_item_royalties(self, item_id):
+        return sp.view("get_item_royalties",
+            self.data.minter,
+            item_id,
+            t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
+
+    def get_royalties_if_item(self, token_id, auction_fa2):
+        sp.set_type(token_id, sp.TNat)
+        sp.set_type(auction_fa2, sp.TAddress)
+
+        token_royalties = sp.local("token_royalties", sp.record(creator=sp.self_address, royalties=0))
+        sp.if (auction_fa2 == self.data.items_contract):
+            token_royalties.value = self.minter_get_item_royalties(token_id)
+        
+        return token_royalties.value

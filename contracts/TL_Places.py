@@ -237,9 +237,9 @@ class TL_Places(manager_contract.Manageable):
         sp.verify(the_item.value.xtz_per_item == sp.amount, message = "WRONG_AMOUNT")
 
         # send monies
-        sp.if (the_item.value.xtz_per_item != sp.tez(0)):
+        sp.if the_item.value.xtz_per_item != sp.tez(0):
             # get the royalties for this item
-            item_royalties = sp.compute(self.minter_get_royalties(the_item.value.item_id))
+            item_royalties = sp.compute(self.minter_get_item_royalties(the_item.value.item_id))
             
             fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalties.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
@@ -349,8 +349,8 @@ class TL_Places(manager_contract.Manageable):
                 ).layout(("owner", "token_id"))),
             t = sp.TNat).open_some()
 
-    def minter_get_royalties(self, item_id):
-        return sp.view("get_royalties",
+    def minter_get_item_royalties(self, item_id):
+        return sp.view("get_item_royalties",
             self.data.minter,
             item_id,
             t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
