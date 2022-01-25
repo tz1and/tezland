@@ -58,7 +58,7 @@ class TL_Places(manager_contract.Manageable):
             metadata = metadata,
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
-            item_limit = sp.nat(64),
+            item_limit = sp.nat(32),
             fees = sp.nat(25),
             places = sp.big_map(tkey=sp.TBytes, tvalue=sp.TRecord(
                 counter=sp.TNat,

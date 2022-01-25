@@ -165,7 +165,7 @@ def test():
 
     scenario.h4("Item limit")
     item_limit = places.get_item_limit()
-    scenario.verify(item_limit == sp.nat(64))
+    scenario.verify(item_limit == sp.nat(32))
     scenario.show(item_limit)
 
     scenario.h4("Stored items")
@@ -193,7 +193,7 @@ def test():
     scenario.h3("Item Limit")
 
     scenario.h4("set_item_limit")
-    scenario.verify(places.data.item_limit == 64)
+    scenario.verify(places.data.item_limit == 32)
     places.set_item_limit(128).run(sender = bob, valid = False)
     places.set_item_limit(128).run(sender = admin)
     scenario.verify(places.data.item_limit == 128)
