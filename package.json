@@ -9,7 +9,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "private": true,
   "dependencies": {
     "@taquito/signer": "^11.1.0",
     "@taquito/taquito": "^11.1.0",
