@@ -138,6 +138,11 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = alice)
 
+    #place items with invalid data
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'))),
+    ]).run(sender = alice, valid = False, exception = "DATA_LEN")
+
     # test ext items
     scenario.h3("Ext items")
 
@@ -156,7 +161,8 @@ def test():
     scenario.h3("Set place props")
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFF')).run(sender = bob)
     scenario.verify(places.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
-    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
+    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob)
+    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
     places.set_place_props(lot_id = place_bob, owner=sp.some(bob.address), props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
 
     # test views

@@ -44,6 +44,9 @@ placeItemType = sp.TVariant(
 
 defaultPlaceProps = sp.bytes('0x82b881')
 
+itemDataMinLen = sp.nat(16)
+placeDataMinLen = sp.nat(3)
+
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 # TODO: make pausable? Probably not, items and places are pausable.
@@ -119,7 +122,7 @@ class TL_Places(manager_contract.Manageable):
         this_place = self.get_or_create_place(params.lot_id)
 
         # currently we only store the color. 3 bytes.
-        sp.verify(sp.len(params.props) == 3, message = "DATA_LEN")
+        sp.verify(sp.len(params.props) >= placeDataMinLen, message = "DATA_LEN")
 
         this_place.place_props = params.props
         this_place.interaction_counter += 1
@@ -144,7 +147,7 @@ class TL_Places(manager_contract.Manageable):
         sp.for curr in params.item_list:
             with curr.match_cases() as arg:
                 with arg.match("item") as item:
-                    sp.verify(sp.len(item.item_data) == 16, message = "DATA_LEN")
+                    sp.verify(sp.len(item.item_data) >= itemDataMinLen, message = "DATA_LEN")
 
                     # transfer item to this contract
                     # do multi-transfer by building up a list of transfers
