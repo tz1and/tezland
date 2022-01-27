@@ -162,7 +162,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         //
         // World (Marketplaces)
         //
-        const marketplaces_metadata_url = await ipfs.upload_contract_metadata({
+        const world_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1aND World',
             description: 'tz1aND Virtual World',
             interfaces: [],
@@ -170,13 +170,13 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         });
 
         // Compile and deploy Places contract.
-        smartpy.compile_newtarget("TL_Places", "TL_Places", [`manager = sp.address("${accountAddress}")`,
+        smartpy.compile_newtarget("TL_World", "TL_World", [`manager = sp.address("${accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
-        `metadata = sp.utils.metadata_of_url("${marketplaces_metadata_url}")`]);
+        `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
-        await deploy_contract_batch("TL_Places", tezland_batch);
+        await deploy_contract_batch("TL_World", tezland_batch);
 
         //
         // Dutch
@@ -331,7 +331,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         console.log('\n');
         console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
-        console.log("REACT_APP_MARKETPLACES_CONTRACT=" + Places_contract.address);
+        console.log("REACT_APP_world_CONTRACT=" + Places_contract.address);
         console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
         console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
         console.log()

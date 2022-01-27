@@ -1,10 +1,10 @@
 import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_Places.py")
+places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
 
-@sp.add_test(name = "TL_Places_tests", profile = True)
+@sp.add_test(name = "TL_World_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
@@ -64,7 +64,7 @@ def test():
 
     # create places contract
     scenario.h3("Originate places contract")
-    places = places_contract.TL_Places(admin.address, items_tokens.address, places_tokens.address, minter.address,
+    places = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += places
 

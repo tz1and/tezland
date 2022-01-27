@@ -50,7 +50,7 @@ placeDataMinLen = sp.nat(3)
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 # TODO: make pausable? Probably not, items and places are pausable.
-class TL_Places(manager_contract.Manageable):
+class TL_World(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter, metadata):
         self.init_storage(
             manager = manager,
@@ -347,7 +347,7 @@ class TL_Places(manager_contract.Manageable):
 
 
 # A a compilation target (produces compiled code)
-#sp.add_compilation_target("TL_Places", TL_Places(
+#sp.add_compilation_target("TL_World", TL_World(
 #    sp.address("tz1UQpm4CRWUTY9GBxmU8bWR8rxMHCu7jxjV"), # Manager
 #    sp.address("tz1UQpm4CRWUTY9GBxmU8bWR8rxMHCu7jxjV"), # Token
 #    sp.address("tz1UQpm4CRWUTY9GBxmU8bWR8rxMHCu7jxjV")  # Minter
