@@ -12,6 +12,7 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 # TODO: distinction between manager and admin?
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
+# TODO: test DAO distribution
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -51,15 +52,17 @@ transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.T
 
 # TODO: make pausable? Probably not, items and places are pausable.
 class TL_World(manager_contract.Manageable):
-    def __init__(self, manager, items_contract, places_contract, minter, metadata):
+    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
             places_contract = places_contract,
             minter = minter,
+            dao_contract = dao_contract,
             metadata = metadata,
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
+            terminus = terminus,
             item_limit = sp.nat(32),
             fees = sp.nat(25),
             places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
@@ -242,6 +245,16 @@ class TL_World(manager_contract.Manageable):
             sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
             sp.send(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
+
+            sp.if (sp.now < self.data.terminus):
+                # assuming 6 decimals, like tez.
+                manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
+                user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
+                self.dao_distribute([
+                    sp.record(to_=sp.sender, amount=user_share),
+                    sp.record(to_=the_item.value.issuer, amount=user_share),
+                    sp.record(to_=self.data.manager, amount=manager_share)
+                ])
         
         # transfer item to buyer
         self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.item_id, 1)
@@ -344,6 +357,15 @@ class TL_World(manager_contract.Manageable):
             self.data.minter,
             item_id,
             t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
+
+    def dao_distribute(self, recipients):
+        recipientType = sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat))
+        sp.set_type(recipients, recipientType)
+        c = sp.contract(
+            recipientType,
+            self.data.dao_contract,
+            entry_point='distribute').open_some()
+        sp.transfer(recipients, sp.mutez(0), c)
 
 
 # A a compilation target (produces compiled code)

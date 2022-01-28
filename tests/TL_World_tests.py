@@ -20,20 +20,30 @@ def test():
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
+    scenario.h3("items")
     items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
+    scenario.h3("places")
     places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
+    scenario.h3("minter")
     minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
+    scenario.h3("dao")
+    dao_token = fa2_contract.FA2(config = fa2_contract.dao_config(),
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += dao_token
+
+    scenario.h3("preparation")
     items_tokens.set_administrator(minter.address).run(sender = admin)
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
@@ -58,15 +68,24 @@ def test():
     place_bob = sp.nat(0)
     place_alice = sp.nat(1)
 
+    dao_token.mint(address = admin.address,
+        amount = 0,
+        metadata = fa2_contract.FA2.make_metadata(name = "tz1aND DAO",
+            decimals = 6,
+            symbol= "tz1aDAO"),
+        token_id = 0).run(sender = admin)
+
     # Test places
 
     scenario.h2("Test Places")
 
     # create places contract
     scenario.h3("Originate places contract")
-    places = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, minter.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
+    places = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, minter.address, dao_token.address,
+        sp.now.add_days(60), metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += places
+
+    dao_token.set_administrator(places.address).run(sender = admin)
 
     # set operators
     scenario.h3("Add operators")
