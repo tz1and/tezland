@@ -9,7 +9,6 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
-# TODO: distinction between manager and admin?
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
 # TODO: test DAO distribution

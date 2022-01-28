@@ -2,7 +2,6 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
-# TODO: distinction between manager and admin?
 # TODO: test royalties for item token
 # TODO: test auction with end price 0!!!!!
 
@@ -121,7 +120,7 @@ class TL_Dutch(pausable_contract.Pausable):
 
         the_auction = self.data.auctions[auction_id]
 
-        # verify ownership (manager can cancel all???)
+        # verify ownership (TODO: manager can cancel all???)
         sp.if ~self.isManager(sp.sender):
             sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
