@@ -28,7 +28,8 @@ class FA2_config:
                  store_total_supply                 = True,
                  lazy_entry_points                  = False,
                  use_token_metadata_offchain_view   = False,
-                 allow_burn_tokens                  = False
+                 allow_burn_tokens                  = False,
+                 add_distribute                     = False
                  ):
 
         if debug_mode:
@@ -40,8 +41,11 @@ class FA2_config:
         # of the state of the contract easier.
 
         self.allow_burn_tokens = allow_burn_tokens
-        # Add an entry point for the administrator to transfer tez potentially
-        # in the contract's balance.
+        # Add an entry point that allows to burn tokens.
+
+        self.add_distribute = add_distribute
+        # Add an entry point for the administrator to transfer mint tokens
+        # to a list of recipients
 
         self.use_token_metadata_offchain_view = use_token_metadata_offchain_view
         # Include offchain view for accessing the token metadata (requires TZIP-016 contract metadata)
@@ -86,6 +90,10 @@ class FA2_config:
         # Those are “compilation” options of SmartPy into Michelson.
         #
 
+        # add_distribute can only be used with single_asset
+        if self.add_distribute and not (self.single_asset and not self.non_fungible):
+            raise Exception('add_distribute can only be used with single_asset && !non_fungible')
+
         name = "FA2"
         if debug_mode:
             name += "-debug"
@@ -107,6 +115,8 @@ class FA2_config:
             name += "-lep"
         if allow_burn_tokens:
             name += "-burn"
+        if add_distribute:
+            name += "-distribute"
         self.name = name
 
 ## ## Auxiliary Classes and Values
@@ -311,6 +321,20 @@ def mutez_transfer(contract, params):
     sp.send(params.destination, params.amount)
 
 ##
+## Change: add distribute
+## `distribute` is an optional entry-point, used for distributing a DAO token.
+## only supposed to work with single asset token type.
+def distribute(self, recipients):
+    sp.set_type(recipients, sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat)))
+    sp.verify(self.data.all_tokens != 0, 'Token must have been minted') 
+    sp.for rec in recipients:
+        # this effectively includes the mint function here.
+        self.mint(sp.record(address = rec.to_,
+            amount = rec.amount,
+            metadata = {}, # If token 0 has been minted, this isn't used.
+            token_id = 0))
+
+##
 ## Change: add burn
 ## `burn` is an optional entry-point, hence we define it “outside” the
 ## class:
@@ -379,6 +403,8 @@ class FA2_core(sp.Contract):
             self.transfer_mutez = sp.entry_point(mutez_transfer)
         if self.config.allow_burn_tokens:
             self.burn = sp.entry_point(burn)
+        if self.config.add_distribute:
+            self.distribute = sp.entry_point(distribute)
         if self.config.lazy_entry_points:
             self.add_flag("lazy-entry-points")
         self.add_flag("initial-cast")
@@ -734,10 +760,12 @@ def add_test(config, is_default = True):
         scenario.h1("FA2 Contract Name: " + config.name)
         scenario.table_of_contents()
         # sp.test_account generates ED25519 key-pairs deterministically:
-        admin = sp.test_account("Administrator")
-        alice = sp.test_account("Alice")
-        bob   = sp.test_account("Robert")
-        carol   = sp.test_account("Carol")
+        admin  = sp.test_account("Administrator")
+        alice  = sp.test_account("Alice")
+        bob    = sp.test_account("Robert")
+        carol  = sp.test_account("Carol")
+        darryl = sp.test_account("Darryl")
+        eve    = sp.test_account("Eve")
         # Let's display the accounts:
         scenario.h2("Accounts")
         scenario.show([admin, alice, bob])
@@ -748,6 +776,12 @@ def add_test(config, is_default = True):
         if config.non_fungible:
             # TODO
             return
+        if config.add_distribute:
+            scenario.h2("distribute before mint")
+            c1.distribute([
+                sp.record(to_ = darryl.address, amount = 50 ),
+                sp.record(to_ = eve.address, amount = 50 )
+            ]).run(sender = admin, valid = False)
         scenario.h2("Initial Minting")
         scenario.p("The administrator mints 100 token-0's to Alice.")
         tok0_md = FA2.make_metadata(
@@ -795,6 +829,23 @@ def add_test(config, is_default = True):
         scenario.verify(
             c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance
             == 10 + 10 + 11)
+        # test distribute
+        if config.add_distribute:
+            scenario.h2("distribute")
+            c1.distribute([
+                sp.record(to_ = darryl.address, amount = 50 ),
+                sp.record(to_ = eve.address, amount = 50 )
+            ]).run(sender = admin)
+            scenario.verify(c1.data.total_supply[0] == 200)
+            scenario.verify(c1.data.ledger[c1.ledger_key.make(darryl.address, 0)].balance == 50)
+            scenario.verify(c1.data.ledger[c1.ledger_key.make(eve.address, 0)].balance == 50)
+            c1.distribute([
+                sp.record(to_ = darryl.address, amount = 50 ),
+                sp.record(to_ = eve.address, amount = 50 )
+            ]).run(sender = bob, valid = False)
+        if not config.allow_burn_tokens:
+            # TODO
+            return
         scenario.h2("Burning tokens")
         c1.burn(address = alice.address,
             amount = 10,
@@ -1147,7 +1198,8 @@ def items_config():
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
-        allow_burn_tokens = global_parameter("allow_burn_tokens", True)
+        allow_burn_tokens = global_parameter("allow_burn_tokens", True),
+        add_distribute = global_parameter("add_distribute", False)
     )
 
 def places_config():
@@ -1166,7 +1218,28 @@ def places_config():
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
-        allow_burn_tokens = global_parameter("allow_burn_tokens", False)
+        allow_burn_tokens = global_parameter("allow_burn_tokens", False),
+        add_distribute = global_parameter("add_distribute", False)
+    )
+
+def dao_config():
+    # Places is a multi-asset, non-fungible token. No burning allowed.
+    return FA2_config(
+        debug_mode = global_parameter("debug_mode", False),
+        single_asset = global_parameter("single_asset", True),
+        non_fungible = global_parameter("non_fungible", False),
+        # NOTE TO SELF: We want to be able to transfer tezos, probably. Although,
+        # since the administrator is the minting contract, probably it doesn't matter.
+        add_mutez_transfer = global_parameter("add_mutez_transfer", False),
+        force_layouts = global_parameter("force_layouts", True),
+        support_operator = global_parameter("support_operator", True),
+        assume_consecutive_token_ids =
+            global_parameter("assume_consecutive_token_ids", True),
+        store_total_supply = global_parameter("store_total_supply", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
+        allow_burn_tokens = global_parameter("allow_burn_tokens", False),
+        add_distribute = global_parameter("add_distribute", True)
     )
 
 
