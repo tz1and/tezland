@@ -273,9 +273,14 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
         // Create place metadata and upload it
         const mintNewPlace = async (center: number[], border: number[][], batch: WalletOperationBatch) => {
-            const place_metadata_url = await ipfs.upload_place_metadata(Minter_contract.address,
-                center,
-                border);
+            const place_metadata_url = await ipfs.upload_place_metadata({
+                name: "Some Place",
+                description: "A nice place",
+                minter: accountAddress,
+                centerCoordinates: center,
+                borderCoordinates: border,
+                placeType: "exterior"
+            });
             console.log(`place token metadata: ${place_metadata_url}`);
 
             batch.with([{

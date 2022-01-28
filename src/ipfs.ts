@@ -1,19 +1,14 @@
 import * as ipfs from 'ipfs-http-client'
 import * as fs from 'fs';
+import assert = require('assert');
 
 // TODO: use nft.storage!
-export async function upload_place_metadata(minter_address: string, center: number[], border: number[][]): Promise<string> {
+export async function upload_place_metadata(metadata: PlaceMetadata): Promise<string> {
     if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
 
     const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
 
-    const result = await ipfs_client.add(createPlaceTokenMetadata({
-        identifier: "some-uuid",
-        description: "A nice place",
-        minter: minter_address,
-        center_coordinates: center,
-        border_coordinates: border
-    }));
+    const result = await ipfs_client.add(createPlaceTokenMetadata(metadata));
 
     return `ipfs://${result.path}`;
 }
@@ -99,29 +94,36 @@ export async function upload_contract_metadata(metadata: ContractMetadata, is_fa
 }
 
 interface PlaceMetadata {
-    center_coordinates: number[];
-    border_coordinates: number[][];
+    centerCoordinates?: number[];
+    borderCoordinates?: number[][];
     description: string;
     minter: string;
-    identifier: string;
+    name: string;
+    placeType: "exterior" | "interior";
 }
 
 function createPlaceTokenMetadata(metadata: PlaceMetadata) {
-    return Buffer.from(
-        JSON.stringify({
-            identifier: metadata.identifier,
-            description: metadata.description,
-            minter: metadata.minter,
-            isTransferable: true,
-            isBooleanAmount: true,
-            shouldPreferSymbol: true,
-            symbol: 'Place',
-            //artifactUri: cid,
-            decimals: 0,
-            center_coordinates: metadata.center_coordinates,
-            border_coordinates: metadata.border_coordinates
-        })
-    )
+    const full_metadata: any = {
+        name: metadata.name,
+        description: metadata.description,
+        minter: metadata.minter,
+        isTransferable: true,
+        isBooleanAmount: true,
+        shouldPreferSymbol: true,
+        symbol: 'Place',
+        //artifactUri: cid,
+        decimals: 0,
+        placeType: metadata.placeType
+    }
+
+    if (metadata.placeType === "exterior") {
+        assert(metadata.borderCoordinates);
+        assert(metadata.centerCoordinates);
+        full_metadata.centerCoordinates = metadata.centerCoordinates;
+        full_metadata.borderCoordinates = metadata.borderCoordinates;
+    }
+    
+    return JSON.stringify(full_metadata);
 }
 
 interface ItemMetadata {
