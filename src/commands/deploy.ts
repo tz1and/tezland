@@ -1,9 +1,10 @@
 import * as smartpy from './smartpy';
-import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind } from "@taquito/taquito";
+import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
 import * as ipfs from '../ipfs'
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';
 import { BatchWalletOperation } from '@taquito/taquito/dist/types/wallet/batch-operation';
+import { char2Bytes } from '@taquito/utils'
 
 
 async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
@@ -110,10 +111,27 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
         deploy_contract_batch("FA2_Places", fa2_batch);
 
+        //
+        // DAO
+        //
+        const dao_metadata_url = await ipfs.upload_contract_metadata({
+            name: 'tz1aND DAO',
+            description: 'tz1aND Places FA2 tokens',
+            interfaces: ["TZIP-12"],
+            version: '1.0.0'
+        }, true);
+
+        // Compile and deploy Places FA2 contract.
+        smartpy.compile_newtarget("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
+            `metadata = sp.utils.metadata_of_url("${dao_metadata_url}")`,
+            `admin = sp.address("${accountAddress}")`]);
+
+        deploy_contract_batch("FA2_DAO", fa2_batch);
+
         // send batch.
         const fa2_batch_op = await fa2_batch.send();
         await fa2_batch_op.confirmation();
-        const [items_FA2_contract, places_FA2_contract] = await get_originated_contracts_batch(fa2_batch_op, Tezos);
+        const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await get_originated_contracts_batch(fa2_batch_op, Tezos);
 
         //
         // Minter
@@ -174,6 +192,8 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
+        `dao_contract = sp.address("${dao_FA2_contract.address}")`,
+        `terminus = sp.timestamp(${Math.floor(Date.now() / 1000)}).add_days(60)`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
         await deploy_contract_batch("TL_World", tezland_batch);
@@ -199,7 +219,37 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
 
         const tezland_batch_op = await tezland_batch.send();
         await tezland_batch_op.confirmation();
-        const [Places_contract, Dutch_contract] = await get_originated_contracts_batch(tezland_batch_op, Tezos);
+        const [World_contract, Dutch_contract] = await get_originated_contracts_batch(tezland_batch_op, Tezos);
+
+        // Mint 0 dao and set the world as the dao administrator
+        console.log("Setting world as dao admin")
+        const tokenMetadataMap = new MichelsonMap();
+        tokenMetadataMap.set("decimals", char2Bytes("6"));
+        tokenMetadataMap.set("name", char2Bytes("tz1aND DAO"));
+        tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+
+        const dao_admin_batch = Tezos.wallet.batch();
+        dao_admin_batch.with([
+            {
+                kind: OpKind.TRANSACTION,
+                ...dao_FA2_contract.methodsObject.mint({
+                    address: accountAddress,
+                    amount: 0,
+                    token_id: 0,
+                    metadata: tokenMetadataMap}).toTransferParams()
+            },
+            {
+                kind: OpKind.TRANSACTION,
+                ...dao_FA2_contract.methods.set_administrator(World_contract.address).toTransferParams()
+            }
+        ])
+
+        const dao_admin_batch_op = await dao_admin_batch.send();
+        await dao_admin_batch_op.confirmation();
+
+        console.log("Successfully set world as dao admin");
+        console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}`);
+        console.log();
 
         // TEMP
         const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
@@ -246,10 +296,10 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         await mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch);
 
         // don't mint places for now. use generate map.
-        //await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        //await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        //await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        //await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
+        await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+        await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+        await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+        await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
 
         // send batch.
         const mint_batch_op = await mint_batch.send();
@@ -263,7 +313,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         const operator_op = await items_FA2_contract.methods.update_operators([{
           add_operator: {
               owner: accountAddress,
-              operator: Places_contract.address,
+              operator: World_contract.address,
               token_id: 0
           }}]).send();
         await operator_op.confirmation();
@@ -297,7 +347,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
               item_list.push({token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data});
             }
     
-            const place_items_op = await Places_contract.methodsObject.place_items({
+            const place_items_op = await World_contract.methodsObject.place_items({
               lot_id: place_id, item_list: item_list
             }).send();
             console.log('Operation hash:', place_items_op.hash);
@@ -305,7 +355,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
           }
     
           console.log("Place a single item")
-          const place_item_op = await Places_contract.methodsObject.place_items({
+          const place_item_op = await World_contract.methodsObject.place_items({
             lot_id: place_id, item_list: [
               {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff"}
             ]}).send();
@@ -313,17 +363,17 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
           await place_item_op.confirmation();
     
           console.log("Remove some items")
-          const remove_items_op = await Places_contract.methodsObject.remove_items({
+          const remove_items_op = await World_contract.methodsObject.remove_items({
             lot_id: place_id, item_list: [1,2,3,45]}).send();
           await remove_items_op.confirmation();
     
           console.log("Remove a lot of items")
-          const remove_many_items_op = await Places_contract.methodsObject.remove_items({
+          const remove_many_items_op = await World_contract.methodsObject.remove_items({
             lot_id: place_id, item_list: [...Array(10)].map((_, i) => 30 + i)}).send();
           await remove_many_items_op.confirmation();
     
           console.log("Get an item")
-          const get_item_op = await Places_contract.methodsObject.get_item({
+          const get_item_op = await World_contract.methodsObject.get_item({
             lot_id: place_id, item_id: 47}).send({ amount: 1000000, mutez: true });
           await get_item_op.confirmation();
         }*/
@@ -331,10 +381,39 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         console.log('\n');
         console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
-        console.log("REACT_APP_world_CONTRACT=" + Places_contract.address);
+        console.log("REACT_APP_DAO_CONTRACT=" + dao_FA2_contract.address);
+        console.log("REACT_APP_WORLD_CONTRACT=" + World_contract.address);
         console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
         console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
         console.log()
+        console.log()
+        console.log(`
+contracts:
+  tezlandItems:
+    address: ${items_FA2_contract.address}
+    typename: tezlandItems
+
+  tezlandPlaces:
+    address: ${places_FA2_contract.address}
+    typename: tezlandPlaces
+
+  tezlandDAO:
+    address: ${dao_FA2_contract.address}
+    typename: tezlandDAO
+
+  tezlandWorld:
+    address: ${World_contract.address}
+    typename: tezlandWorld
+
+  tezlandMinter:
+    address: ${Minter_contract.address}
+    typename: tezlandMinter
+
+  tezlandDutchAuctions:
+    address: ${Dutch_contract.address}
+    typename: tezlandDutchAuctions`);
+        console.log()
+
 
         const end_time = performance.now();
         console.log(`Deploy ran in ${((end_time - start_time) / 1000).toFixed(1)}s`);
