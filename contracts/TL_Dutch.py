@@ -120,9 +120,7 @@ class TL_Dutch(pausable_contract.Pausable):
 
         the_auction = self.data.auctions[auction_id]
 
-        # verify ownership (TODO: manager can cancel all???)
-        sp.if ~self.isManager(sp.sender):
-            sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
+        sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # transfer token back to auction owner.
         self.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
