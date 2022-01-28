@@ -279,6 +279,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
                 minter: accountAddress,
                 centerCoordinates: center,
                 borderCoordinates: border,
+                buildHeight: 10,
                 placeType: "exterior"
             });
             console.log(`place token metadata: ${place_metadata_url}`);
