@@ -16,7 +16,7 @@ export async function start(): Promise<void> {
         )
 
         // TODO: Have a global instance of toolkit somewhere? Or at least a module.
-        console.log("Waiting to deploy lambda view contract");
+        /*console.log("Waiting to deploy lambda view contract");
         await sleep(20000);
 
         // Create signer and toolkit
@@ -35,7 +35,7 @@ export async function start(): Promise<void> {
         });
 
         const lambdaContract = await op.contract();
-        console.log("Lambda view contract: " + lambdaContract.address);
+        console.log("Lambda view contract: " + lambdaContract.address);*/
     } catch (err) {
         console.log(kleur.red("failed to start sandbox: " + err))
     }
