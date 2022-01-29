@@ -22,7 +22,7 @@ export async function upload_item_metadata(minter_address: string, model_url: st
         formats: [
             {
                 mimeType: "model/gltf-binary", // model/gltf+json, model/gltf-binary
-                uri: model_url
+                fileSize: 1024*1024 // Will do for testing...
             }
         ],
     }));
@@ -49,7 +49,7 @@ export interface ContractMetadata {
 const metaRepository = 'https://github.com/tz1aND';
 const metaHomepage = 'www.tz1and.com';
 const metaAcknowledgement = "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
-const metaAuthors = ['someguy <someguy@gmail.com>']; // TODO!!!!
+const metaAuthors = ['852Kerfunke <https://github.com/852Kerfunkle>'];
 const metaLicense = { name: "MIT" };
 
 function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean) {
