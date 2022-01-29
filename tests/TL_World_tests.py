@@ -120,9 +120,17 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
 
-    # place some items
+    # place some items and make sure tokens are tranferred.
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
+
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    scenario.verify(sp.to_int(balance_after) == (balance_before - 1))
+
+    # place some more items
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(0), item_data = position))]).run(sender = bob)
 
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
@@ -135,19 +143,50 @@ def test():
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
     scenario.verify(check_before_sequence_number != places.get_place_seqnum(place_bob))
 
+    # test wrong amount
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(15), valid = False, exception = "WRONG_AMOUNT")
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.mutez(1500), valid = False, exception = "WRONG_AMOUNT")
+
+    # make sure item tokens and dao tokens are transferred 
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    dao_balance_alice_before = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    dao_balance_bob_before = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    dao_balance_manager_before = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
+
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
-    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False)
+
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    dao_balance_alice_after = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    dao_balance_bob_after = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    dao_balance_manager_after = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
+    scenario.verify(balance_after == (balance_before + 1))
+    scenario.verify(dao_balance_alice_after == (dao_balance_alice_before + sp.nat(500000)))
+    scenario.verify(dao_balance_bob_after == (dao_balance_bob_before + sp.nat(500000)))
+    scenario.verify(dao_balance_manager_after == (dao_balance_manager_before + sp.nat(250000)))
+
+    # test not for sale
+    places.get_item(lot_id = place_bob, item_id = 2).run(sender = alice, amount = sp.tez(1), valid = False, exception = "NOT_FOR_SALE")
+
+    # test getting some more items
+    places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False) # missing item in map
     places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
     places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
-    places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False)
+    places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False) # missing item in map
 
     # remove items in a lot not owned
     scenario.h3("Removing items")
+    
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = alice, valid = False)
     places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = bob, valid = False)
 
-    # remove items
+    # remove items and make sure tokens are transferred
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = bob)
+
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    scenario.verify(balance_after == (balance_before + 1))
+    
     places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = alice)
 
     #place multiple items

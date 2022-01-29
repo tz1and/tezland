@@ -4,14 +4,12 @@ import { uploadToIpfs } from './storage';
 import { Blob } from 'nft.storage';
 
 
-// TODO: use nft.storage!
 export async function upload_place_metadata(metadata: PlaceMetadata): Promise<string> {
     const result = await uploadToIpfs(createPlaceTokenMetadata(metadata), false);
 
     return result.metdata_uri;
 }
 
-// TODO: use nft.storage!
 export async function upload_item_metadata(minter_address: string, model_path: string): Promise<string> {
     const data: Buffer = fs.readFileSync(model_path);
 
@@ -62,7 +60,6 @@ function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean): an
     };
 }
 
-// TODO: use nft.storage!
 export async function upload_contract_metadata(metadata: ContractMetadata, is_fa2: boolean = false): Promise<string> {
     const result = await uploadToIpfs(createContractMetadata(metadata, is_fa2), true);
 

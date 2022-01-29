@@ -144,6 +144,8 @@ def test():
         end_time = sp.now.add_minutes(80),
         fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "TOKEN_NOT_PERMITTED")
 
+    balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
+
     # valid
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
@@ -152,7 +154,8 @@ def test():
         end_time = sp.now.add_minutes(80),
         fa2 = places_tokens.address).run(sender = bob)
 
-    # todo: verify token was transferred
+    balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
+    scenario.verify(sp.to_int(balance_after) == (balance_before - 1))
 
     #
     # cancel
@@ -166,15 +169,17 @@ def test():
         end_time = sp.now.add_minutes(2),
         fa2 = places_tokens.address).run(sender = alice)
 
+    balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
+
     # not owner
     dutch.cancel(1).run(sender = bob, valid = False, exception = "NOT_OWNER")
     # valid
     dutch.cancel(1).run(sender = alice)
     # already cancelled, wrong state
-    dutch.cancel(1).run(sender = alice, valid = False) #, exception = "WRONG_STATE") # TODO: if auction is not deleted
+    dutch.cancel(1).run(sender = alice, valid = False) # missing item in map
 
-    # todo: verify token was transferred
-    # todo: test cancel from manager??
+    balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
+    scenario.verify(balance_after == (balance_before + 1))
 
     #
     # bid
@@ -191,14 +196,20 @@ def test():
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(80), valid = False)
     dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(81), valid = False)
 
+    balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
+
     # valid
     dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = True)
     # valid but wrong state
     dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = False)
-    # todo: more failure cases
+
+    balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
+    scenario.verify(balance_after == (balance_before + 1))
+
+    # todo: more failure cases?
 
     #
-    # todo: views
+    # views
     #
     scenario.h3("Views")
 
@@ -228,7 +239,7 @@ def test():
     scenario.verify(permitted_fa2.contains(items_tokens.address) == False)
     scenario.show(auction_info)
 
-    # NOTE: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
+    # TODO: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
     #auction_info = dutch.get_auction_price(0)
     #scenario.show(auction_info)
 

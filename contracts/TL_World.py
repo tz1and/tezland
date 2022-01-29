@@ -11,7 +11,6 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
-# TODO: test DAO distribution
 
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
@@ -19,7 +18,7 @@ itemRecordType = sp.TRecord(
     item_id=sp.TNat, # object id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
-    # TODO: store an animation index in data?
+    # NOTE: could store an animation index and all kinds of other stuff in item_data
 )
 
 # TODO: reccords in variants are immutable?
@@ -49,7 +48,7 @@ placeDataMinLen = sp.nat(3)
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
-# TODO: make pausable? Probably not, items and places are pausable.
+# TODO: make pausable! ext items don't call fa2 transfer!
 class TL_World(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
         self.init_storage(
@@ -189,7 +188,7 @@ class TL_World(manager_contract.Manageable):
         # caller must be owner or operator of place.
         self.check_owner_or_operator(params.lot_id, params.owner)
         
-        # TODO: Best make it so issuer can remove their items, even if not operator or owner.
+        # TODO: Make it so issuer can remove their items, even if not operator or owner?
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))

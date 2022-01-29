@@ -3,6 +3,7 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: remove regain admin and add a pause function instead?
+# TODO: add a "pause_all" maybe.
 
 class TL_Minter(pausable_contract.Pausable):
     def __init__(self, manager, items_contract, places_contract, metadata):

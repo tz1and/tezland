@@ -15,7 +15,6 @@ export async function start(): Promise<void> {
             {stdio: 'inherit'}
         )
 
-        // TODO: Have a global instance of toolkit somewhere? Or at least a module.
         /*console.log("Waiting to deploy lambda view contract");
         await sleep(20000);
 
