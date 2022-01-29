@@ -18,9 +18,14 @@ type NetworksConfig = {
     [networkName: string]: NetworkConfig;
 }
 
+type IpfsConfig = {
+    localNodeUrl: IpfsUrl;
+    nftStorageApiKey: string;
+    uploadToLocalIpfs: boolean;
+}
+
 type SmartpyNodeDevConfig = {
     defaultNetwork: string;
     networks: NetworksConfig;
-    ipfsUrl: IpfsUrl;
-    nftStorageApiKey: string;
+    ipfs: IpfsConfig;
 }

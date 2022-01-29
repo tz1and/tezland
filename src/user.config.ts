@@ -21,7 +21,10 @@ const config: SmartpyNodeDevConfig = {
             accounts: { deployer: deployerKey }
         }
     },
-    ipfsUrl: "http://localhost:5001",
-    nftStorageApiKey: nftStorageApiKey
+    ipfs: {
+        localNodeUrl: "http://localhost:5001",
+        nftStorageApiKey: nftStorageApiKey,
+        uploadToLocalIpfs: true
+    }
 }
 export default config;
