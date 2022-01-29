@@ -1,13 +1,12 @@
 import * as ipfs from 'ipfs-http-client'
 import * as fs from 'fs';
+import config from './user.config';
 import assert = require('assert');
+
+const ipfs_client = ipfs.create({ url: config.ipfsUrl });
 
 // TODO: use nft.storage!
 export async function upload_place_metadata(metadata: PlaceMetadata): Promise<string> {
-    if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
-
-    const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
-
     const result = await ipfs_client.add(createPlaceTokenMetadata(metadata));
 
     return `ipfs://${result.path}`;
@@ -15,10 +14,6 @@ export async function upload_place_metadata(metadata: PlaceMetadata): Promise<st
 
 // TODO: use nft.storage!
 export async function upload_item_metadata(minter_address: string, model_url: string): Promise<string> {
-    if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
-
-    const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
-
     const result = await ipfs_client.add(createItemTokenMetadata({
         name: "My awesome item",
         description: "A nice item",
@@ -36,10 +31,6 @@ export async function upload_item_metadata(minter_address: string, model_url: st
 }
 
 export async function upload_item_model(file: string): Promise<string> {
-    if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
-
-    const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
-
     const data: Buffer = fs.readFileSync(file);
 
     const result = await ipfs_client.add(data);
@@ -55,10 +46,10 @@ export interface ContractMetadata {
 }
 
 // TODO: add to some config or so.
-const metaRepository = 'https://github.com/somerepo';
-const metaHomepage = 'www.someurl.com';
+const metaRepository = 'https://github.com/tz1aND';
+const metaHomepage = 'www.tz1and.com';
 const metaAcknowledgement = "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
-const metaAuthors = ['someguy <someguy@gmail.com>'];
+const metaAuthors = ['someguy <someguy@gmail.com>']; // TODO!!!!
 const metaLicense = { name: "MIT" };
 
 function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean) {
@@ -82,10 +73,6 @@ function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean) {
 
 // TODO: use nft.storage!
 export async function upload_contract_metadata(metadata: ContractMetadata, is_fa2: boolean = false): Promise<string> {
-    if (!process.env.IPFS_URL) throw Error("IPFS_URL not set");
-
-    const ipfs_client = ipfs.create({ url: process.env.IPFS_URL });
-
     const result = await ipfs_client.add(createContractMetadata(metadata, is_fa2));
 
     console.log(`${metadata.name} contract metadata: ipfs://${result.path}`);

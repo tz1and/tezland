@@ -1,11 +1,8 @@
 import { program } from 'commander';
-import * as dotenv from "dotenv";
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
 import * as deploy from './commands/deploy';
 const packageJson = require('../package.json');
-
-dotenv.config(); /* This loads the variables in your .env file to process.env */
 
 // configuration
 
@@ -51,7 +48,7 @@ program
     .command('test')
     .alias('t')
     .description('Runs tests.')
-    .argument('[contract_names...]', 'names of contracts')
+    .argument('[contract_names...]', 'names of contracts (optional)')
     .action((contract_names: string[]) => {
         smartpy.test(contract_names);
     });
@@ -72,10 +69,10 @@ program
 program
     .command('deploy')
     .alias('d')
-    .description('Run a deploy script.')
-    //.argument('<contract_name>', 'name of contract')
-    .action((contract_name) => {
-        deploy.deploy(); //(contract_name);
+    .description('Run the deploy script.')
+    .option('-n, --network [network]', 'the network to deploy to (optional)')
+    .action((options) => {
+        deploy.deploy(options); //(contract_name);
     });
 
 try {

@@ -5,5 +5,4 @@ ipfsdata/
 assets/
 .vscode/
 .env
-temp_wallet
-notes.txt
+secrets.json

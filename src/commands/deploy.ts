@@ -5,6 +5,10 @@ import * as ipfs from '../ipfs'
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';
 import { BatchWalletOperation } from '@taquito/taquito/dist/types/wallet/batch-operation';
 import { char2Bytes } from '@taquito/utils'
+import { performance } from 'perf_hooks';
+import config from '../user.config';
+import assert from 'assert';
+import kleur from 'kleur';
 
 
 async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
@@ -17,8 +21,7 @@ async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Prom
 
     console.log(`Successfully deployed contract ${contract_name}`);
     console.log(`>> Transaction hash: ${orig_op.hash}`);
-    console.log(`>> Contract address: ${contract.address}`);
-    console.log();
+    console.log(`>> Contract address: ${contract.address}\n`);
 
     return contract;
 };
@@ -58,18 +61,21 @@ async function get_originated_contracts_batch(batch_op: BatchWalletOperation, Te
     return contracts;
 }
 
-export async function deploy(/*contract_name: string*/): Promise<void> {
+export async function deploy(options: any): Promise<void> {
+    // TODO: have this in some helper function.
+    if(!options.network) options.network = config.defaultNetwork;
+    const networkConfig = config.networks[options.network];
+    assert(networkConfig, `Network config not found for '${options.network}'`);
+    const deployerKey = networkConfig.accounts.deployer;
+    assert(networkConfig.accounts, `deployer account not set for '${options.network}'`)
+
+    console.log(kleur.red(`Deploying to '${networkConfig.network}' on ${networkConfig.url} ...\n`));
+
     try {
         const start_time = performance.now();
 
-        // Create signer and toolkit
-        if (!process.env.TEZOS_RPC_URL) throw Error("TEZOS_RPC_URL not set");
-        if (!process.env.ORIGINATOR_PRIVATE_KEY) throw Error("ORIGINATOR_PRIVATE_KEY not set");
-
-        const { TEZOS_RPC_URL, ORIGINATOR_PRIVATE_KEY } = process.env;
-
-        const signer = await InMemorySigner.fromSecretKey(ORIGINATOR_PRIVATE_KEY);
-        const Tezos = new TezosToolkit(TEZOS_RPC_URL);
+        const signer = await InMemorySigner.fromSecretKey(deployerKey);
+        const Tezos = new TezosToolkit(networkConfig.url);
         Tezos.setProvider({ signer: signer });
 
         const accountAddress = await signer.publicKeyHash();
@@ -171,8 +177,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         await set_admin_batch_op.confirmation();
 
         console.log("Successfully set minter as tokens admin");
-        console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}`);
-        console.log();
+        console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
 
         // prepare others batch
         const tezland_batch = Tezos.wallet.batch();
@@ -248,143 +253,77 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         await dao_admin_batch_op.confirmation();
 
         console.log("Successfully set world as dao admin");
-        console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}`);
-        console.log();
+        console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}\n`);
 
-        // TEMP
-        const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
-            const mesh_url = await ipfs.upload_item_model(model_path);
-            console.log(`item model: ${mesh_url}`);
+        // If this is a test deploy, mint some test items.
+        if(options.network === "sandbox") {
+            console.log(kleur.magenta("Minting tokens for testing...\n"));
 
-            // Create item metadata and upload it
-            const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, mesh_url);
-            console.log(`item token metadata: ${item_metadata_url}`);
+            const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
+                const mesh_url = await ipfs.upload_item_model(model_path);
+                console.log(`item model: ${mesh_url}`);
 
-            batch.with([{
-                kind: OpKind.TRANSACTION,
-                ...Minter_contract.methodsObject.mint_Item({
-                    address: accountAddress,
-                    amount: amount,
-                    royalties: 250,
-                    metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
-                }).toTransferParams()
-            }]);
-        }
+                // Create item metadata and upload it
+                const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, mesh_url);
+                console.log(`item token metadata: ${item_metadata_url}`);
 
-        // Create place metadata and upload it
-        const mintNewPlace = async (center: number[], border: number[][], batch: WalletOperationBatch) => {
-            const place_metadata_url = await ipfs.upload_place_metadata({
-                name: "Some Place",
-                description: "A nice place",
-                minter: accountAddress,
-                centerCoordinates: center,
-                borderCoordinates: border,
-                buildHeight: 10,
-                placeType: "exterior"
-            });
-            console.log(`place token metadata: ${place_metadata_url}`);
-
-            batch.with([{
-                kind: OpKind.TRANSACTION,
-                ...Minter_contract.methodsObject.mint_Place({
-                    address: accountAddress,
-                    metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')
-                }).toTransferParams()
-            }]);
-        }
-
-        // prepare batch
-        const mint_batch = Tezos.wallet.batch();
-
-        await mintNewItem('assets/Lantern.glb', 100, mint_batch);
-        await mintNewItem('assets/Fox.glb', 25, mint_batch);
-        await mintNewItem('assets/Duck.glb', 75, mint_batch);
-        await mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch);
-
-        // don't mint places for now. use generate map.
-        await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-        await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
-
-        // send batch.
-        const mint_batch_op = await mint_batch.send();
-        await mint_batch_op.confirmation();
-
-        console.log("Successfully minted items");
-        console.log(`>> Transaction hash: ${mint_batch_op.opHash}`);
-
-        // Set operators
-        /*console.log("Set item operators")
-        const operator_op = await items_FA2_contract.methods.update_operators([{
-          add_operator: {
-              owner: accountAddress,
-              operator: World_contract.address,
-              token_id: 0
-          }}]).send();
-        await operator_op.confirmation();
-    
-        const toHexString = (bytes: Uint8Array) => bytes.reduce((str: String, byte: Number) => str + byte.toString(16).padStart(2, '0'), '');
-    
-        {
-          const place_id = 0;
-    
-          console.log("Place a lot of items")
-          for (let j = 0; j < 5; j++) {
-            const item_list = new Array();
-            for (let i = 0; i < 10; i++) {
-              // 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
-              const array = new Uint8Array(16);
-              const view = new DataView(array.buffer);
-              // quat
-              setFloat16(view, 0, 0);
-              setFloat16(view, 2, 0);
-              setFloat16(view, 4, 0);
-              setFloat16(view, 6, 1);
-              // scale
-              setFloat16(view, 8, 1);
-              // pos
-              setFloat16(view, 10, Math.random() * 20 - 10);
-              setFloat16(view, 12, 1);
-              setFloat16(view, 14, Math.random() * 20 - 10);
-              const example_item_data = toHexString(array);
-              //console.log(example_item_data);
-    
-              item_list.push({token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: example_item_data});
+                batch.with([{
+                    kind: OpKind.TRANSACTION,
+                    ...Minter_contract.methodsObject.mint_Item({
+                        address: accountAddress,
+                        amount: amount,
+                        royalties: 250,
+                        metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
+                    }).toTransferParams()
+                }]);
             }
-    
-            const place_items_op = await World_contract.methodsObject.place_items({
-              lot_id: place_id, item_list: item_list
-            }).send();
-            console.log('Operation hash:', place_items_op.hash);
-            await place_items_op.confirmation();
-          }
-    
-          console.log("Place a single item")
-          const place_item_op = await World_contract.methodsObject.place_items({
-            lot_id: place_id, item_list: [
-              {token_amount: 1, token_id: 0, xtz_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff"}
-            ]}).send();
-          console.log('Operation hash:', place_item_op.hash);
-          await place_item_op.confirmation();
-    
-          console.log("Remove some items")
-          const remove_items_op = await World_contract.methodsObject.remove_items({
-            lot_id: place_id, item_list: [1,2,3,45]}).send();
-          await remove_items_op.confirmation();
-    
-          console.log("Remove a lot of items")
-          const remove_many_items_op = await World_contract.methodsObject.remove_items({
-            lot_id: place_id, item_list: [...Array(10)].map((_, i) => 30 + i)}).send();
-          await remove_many_items_op.confirmation();
-    
-          console.log("Get an item")
-          const get_item_op = await World_contract.methodsObject.get_item({
-            lot_id: place_id, item_id: 47}).send({ amount: 1000000, mutez: true });
-          await get_item_op.confirmation();
-        }*/
 
-        console.log('\n');
+            // Create place metadata and upload it
+            const mintNewPlace = async (center: number[], border: number[][], batch: WalletOperationBatch) => {
+                const place_metadata_url = await ipfs.upload_place_metadata({
+                    name: "Some Place",
+                    description: "A nice place",
+                    minter: accountAddress,
+                    centerCoordinates: center,
+                    borderCoordinates: border,
+                    buildHeight: 10,
+                    placeType: "exterior"
+                });
+                console.log(`place token metadata: ${place_metadata_url}`);
+
+                batch.with([{
+                    kind: OpKind.TRANSACTION,
+                    ...Minter_contract.methodsObject.mint_Place({
+                        address: accountAddress,
+                        metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')
+                    }).toTransferParams()
+                }]);
+            }
+
+            // prepare batch
+            const mint_batch = Tezos.wallet.batch();
+
+            await mintNewItem('assets/Lantern.glb', 100, mint_batch);
+            await mintNewItem('assets/Fox.glb', 25, mint_batch);
+            await mintNewItem('assets/Duck.glb', 75, mint_batch);
+            await mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch);
+
+            // don't mint places for now. use generate map.
+            await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+            await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+            await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+            await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
+
+            // send batch.
+            const mint_batch_op = await mint_batch.send();
+            await mint_batch_op.confirmation();
+
+            console.log("Successfully minted items");
+            console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
+        }
+
+        // TODO: create deployments folder and write to it
+
         console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
         console.log("REACT_APP_DAO_CONTRACT=" + dao_FA2_contract.address);
@@ -392,9 +331,7 @@ export async function deploy(/*contract_name: string*/): Promise<void> {
         console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
         console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
         console.log()
-        console.log()
-        console.log(`
-contracts:
+        console.log(`contracts:
   tezlandItems:
     address: ${items_FA2_contract.address}
     typename: tezlandItems
@@ -417,13 +354,12 @@ contracts:
 
   tezlandDutchAuctions:
     address: ${Dutch_contract.address}
-    typename: tezlandDutchAuctions`);
-        console.log()
+    typename: tezlandDutchAuctions\n`);
 
 
         const end_time = performance.now();
-        console.log(`Deploy ran in ${((end_time - start_time) / 1000).toFixed(1)}s`);
+        console.log(kleur.green(`Deploy ran in ${((end_time - start_time) / 1000).toFixed(1)}s`));
     } catch (error) {
-        console.log(error);
+        console.error(error);
     }
 };
