@@ -13,7 +13,7 @@ export async function upload_place_metadata(metadata: PlaceMetadata): Promise<st
 }
 
 // TODO: use nft.storage!
-export async function upload_item_metadata(minter_address: string, model_url: string): Promise<string> {
+export async function upload_item_metadata(minter_address: string, model_url: string, mesh_size: number): Promise<string> {
     const result = await ipfs_client.add(createItemTokenMetadata({
         name: "My awesome item",
         description: "A nice item",
@@ -22,7 +22,7 @@ export async function upload_item_metadata(minter_address: string, model_url: st
         formats: [
             {
                 mimeType: "model/gltf-binary", // model/gltf+json, model/gltf-binary
-                fileSize: 1024*1024 // Will do for testing...
+                fileSize: mesh_size
             }
         ],
     }));
@@ -30,12 +30,12 @@ export async function upload_item_metadata(minter_address: string, model_url: st
     return `ipfs://${result.path}`;
 }
 
-export async function upload_item_model(file: string): Promise<string> {
+export async function upload_item_model(file: string): Promise<{mesh_url: string, mesh_size: number}> {
     const data: Buffer = fs.readFileSync(file);
 
     const result = await ipfs_client.add(data);
 
-    return `ipfs://${result.path}`;
+    return { mesh_url: `ipfs://${result.path}`, mesh_size: data.length };
 }
 
 export interface ContractMetadata {

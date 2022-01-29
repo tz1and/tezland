@@ -260,11 +260,11 @@ export async function deploy(options: any): Promise<void> {
             console.log(kleur.magenta("Minting tokens for testing...\n"));
 
             const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
-                const mesh_url = await ipfs.upload_item_model(model_path);
+                const { mesh_url, mesh_size } = await ipfs.upload_item_model(model_path);
                 console.log(`item model: ${mesh_url}`);
 
                 // Create item metadata and upload it
-                const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, mesh_url);
+                const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, mesh_url, mesh_size);
                 console.log(`item token metadata: ${item_metadata_url}`);
 
                 batch.with([{
