@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es2016",
+    "target": "ES2016",
     "lib": [
-      "es2019"
+      "ES2016"
     ],
     "module": "commonjs",
     "rootDir": "src",

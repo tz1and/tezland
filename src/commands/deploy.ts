@@ -9,6 +9,7 @@ import { performance } from 'perf_hooks';
 import config from '../user.config';
 import assert from 'assert';
 import kleur from 'kleur';
+import prompt from 'prompt';
 
 
 async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
@@ -61,6 +62,25 @@ async function get_originated_contracts_batch(batch_op: BatchWalletOperation, Te
     return contracts;
 }
 
+async function confirmDeploy(network: string) {
+    const properties = [
+        {
+            name: 'yesno',
+            message: 'Are you sure? (yes/no)',
+            validator: /^(?:yes|no)$/,
+            warning: 'Must respond yes or no',
+            default: 'no'
+        }
+    ];
+
+    prompt.start();
+
+    console.log(kleur.yellow("This will deploy new  contracts to " + network));
+    const { yesno } = await prompt.get(properties);
+
+    if (yesno === "no") throw new Error("Deploy cancelled");
+}
+
 export async function deploy(options: any): Promise<void> {
     // TODO: have this in some helper function.
     if(!options.network) options.network = config.defaultNetwork;
@@ -70,6 +90,9 @@ export async function deploy(options: any): Promise<void> {
     assert(networkConfig.accounts, `deployer account not set for '${options.network}'`)
 
     console.log(kleur.red(`Deploying to '${networkConfig.network}' on ${networkConfig.url} ...\n`));
+
+    if(options.network !== config.defaultNetwork)
+        await confirmDeploy(options.network);
 
     try {
         const start_time = performance.now();

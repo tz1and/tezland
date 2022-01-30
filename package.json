@@ -15,10 +15,12 @@
     "@taquito/signer": "^11.1.0",
     "@taquito/taquito": "^11.1.0",
     "@types/node": "^16.11.12",
+    "@types/prompt": "^1.1.2",
     "commander": "^8.3.0",
     "ipfs-http-client": "^55.0.0",
     "kleur": "^4.1.4",
     "nft.storage": "^5.2.2",
+    "prompt": "^1.2.1",
     "ts-node": "^10.4.0"
   },
   "devDependencies": {
