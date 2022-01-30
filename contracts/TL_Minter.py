@@ -10,10 +10,10 @@ class TL_Minter(pausable_contract.Pausable):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
-            item_id = sp.nat(0),
+            item_id_counter = sp.nat(0),
             places_contract = places_contract,
             metadata = metadata,
-            place_id = sp.nat(0),
+            place_id_counter = sp.nat(0),
             paused = False,
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
@@ -70,14 +70,14 @@ class TL_Minter(pausable_contract.Pausable):
             sp.record(
             address=params.address,
             amount=params.amount,
-            token_id=self.data.item_id,
+            token_id=self.data.item_id_counter,
             metadata={ '' : params.metadata }
             ), 
             sp.mutez(0), 
             c)
         
-        self.data.royalties[self.data.item_id] = sp.record(creator=sp.sender, royalties=params.royalties)
-        self.data.item_id += 1
+        self.data.royalties[self.data.item_id_counter] = sp.record(creator=sp.sender, royalties=params.royalties)
+        self.data.item_id_counter += 1
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
@@ -98,19 +98,19 @@ class TL_Minter(pausable_contract.Pausable):
             sp.record(
             address=params.address,
             amount=1,
-            token_id=self.data.place_id,
+            token_id=self.data.place_id_counter,
             metadata={ '' : params.metadata }
             ), 
             sp.mutez(0), 
             c)
         
-        self.data.place_id += 1
+        self.data.place_id_counter += 1
 
     @sp.onchain_view()
-    def get_item_royalties(self, item_id):
-        sp.set_type(item_id, sp.TNat)
+    def get_item_royalties(self, token_id):
+        sp.set_type(token_id, sp.TNat)
         # sp.result is used to return the view result (the contract storage in this case)
-        sp.result(self.data.royalties[item_id])
+        sp.result(self.data.royalties[token_id])
 
     #
     # Update code

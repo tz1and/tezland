@@ -9,34 +9,53 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
+# TODO: test other item type!!!!!
+# TODO: add permitted_fa2 or a global switch for other item type.
+# TODO: add OPERATORS to World, instead of allowing the risk with the fa2 operators!
+
 # TODO: put error messages into functions?
 # TODO: test operator stuff!
 
+# For tz1and Item tokens.
 itemRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
-    item_amount=sp.TNat, # number of objects to store.
-    item_id=sp.TNat, # object id
+    item_amount=sp.TNat, # number of fa2 tokens to store.
+    token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
     # NOTE: could store an animation index and all kinds of other stuff in item_data
+)
+
+# For any other tokens someone might want to exhibit. These are "place only".
+otherTokenRecordType = sp.TRecord(
+    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
+    token_id=sp.TNat, # the fa2 token id
+    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+    fa2=sp.TAddress # store a fa2 token address
 )
 
 # TODO: reccords in variants are immutable?
 # Create an issue in gitlab: is it a smartpy limitation?
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
+    other = otherTokenRecordType,
     ext = sp.TBytes
 )
 
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
 
-placeItemType = sp.TVariant(
+placeItemListType = sp.TVariant(
     item = sp.TRecord(
         token_id=sp.TNat,
         token_amount=sp.TNat,
         xtz_per_token=sp.TMutez,
         item_data=sp.TBytes
+    ),
+    other = sp.TRecord(
+        token_id=sp.TNat,
+        item_data=sp.TBytes,
+        fa2=sp.TAddress
     ),
     ext = sp.TBytes
 )
@@ -130,7 +149,7 @@ class TL_World(manager_contract.Manageable):
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
-        sp.set_type(params.item_list, sp.TList(placeItemType))
+        sp.set_type(params.item_list, sp.TList(placeItemListType))
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
@@ -161,9 +180,23 @@ class TL_World(manager_contract.Manageable):
                     this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
                         issuer = sp.sender,
                         item_amount = item.token_amount,
-                        item_id = item.token_id,
+                        token_id = item.token_id,
                         xtz_per_item = item.xtz_per_token,
                         item_data = item.item_data))
+
+                with arg.match("other") as other:
+                    sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = "DATA_LEN")
+
+                    # TODO: check permitted_fa2? or check if feature enabled?
+
+                    # transfer external token to this contract. Only support 1 token per placement. no selling.
+                    self.fa2_transfer(other.fa2, sp.self_address, sp.sender, other.token_id, 1)
+
+                    this_place.stored_items[this_place.counter] = sp.variant("other", sp.record(
+                        issuer = sp.sender,
+                        token_id = other.token_id,
+                        item_data = other.item_data,
+                        fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
                     # TDOD: limit data len?
@@ -199,11 +232,16 @@ class TL_World(manager_contract.Manageable):
                 with arg.match("item") as the_item:
                     # transfer all remaining items back to issuer
                     # do multi-transfer by building up a list of transfers
-                    sp.if transferMap.value.contains(the_item.item_id):
-                        transferMap.value[the_item.item_id].amount += the_item.item_amount
+                    sp.if transferMap.value.contains(the_item.token_id):
+                        transferMap.value[the_item.token_id].amount += the_item.item_amount
                     sp.else:
-                        transferMap.value[the_item.item_id] = sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.item_id)
-                # nothing to do here with ext items.
+                        transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.token_id)
+
+                with arg.match("other") as the_other:
+                    # transfer external token back to the issuer. Only support 1 token.
+                    self.fa2_transfer(the_other.fa2, the_other.issuer, sp.self_address, the_other.token_id, 1)
+
+                # nothing to do here with ext items. Just remove them.
             
             del this_place.stored_items[curr]
 
@@ -232,7 +270,7 @@ class TL_World(manager_contract.Manageable):
         # send monies
         sp.if the_item.value.xtz_per_item != sp.tez(0):
             # get the royalties for this item
-            item_royalties = sp.compute(self.minter_get_item_royalties(the_item.value.item_id))
+            item_royalties = sp.compute(self.minter_get_item_royalties(the_item.value.token_id))
             
             fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalties.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
@@ -255,7 +293,7 @@ class TL_World(manager_contract.Manageable):
                 ])
         
         # transfer item to buyer
-        self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.item_id, 1)
+        self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
         
         # reduce the item count in storage or remove it.
         sp.if the_item.value.item_amount > 1:
@@ -322,8 +360,8 @@ class TL_World(manager_contract.Manageable):
     #
     # Misc
     #
-    def fa2_transfer(self, fa2, from_, to_, item_id, item_amount):
-        self.fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=item_id)]))
+    def fa2_transfer(self, fa2, from_, to_, token_id, item_amount):
+        self.fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
 
     def fa2_transfer_multi(self, fa2, from_, transfer_list):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
@@ -350,10 +388,10 @@ class TL_World(manager_contract.Manageable):
                 ).layout(("owner", "token_id"))),
             t = sp.TNat).open_some()
 
-    def minter_get_item_royalties(self, item_id):
+    def minter_get_item_royalties(self, token_id):
         return sp.view("get_item_royalties",
             self.data.minter,
-            item_id,
+            token_id,
             t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
 
     def dao_distribute(self, recipients):
