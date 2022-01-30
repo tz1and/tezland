@@ -10,7 +10,7 @@ import smartpy as sp
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
 # TODO: test other item type!!!!!
-# TODO: add permitted_fa2 or a global switch for other item type.
+# TODO: test other_permitted_fa2!!!
 # TODO: add OPERATORS to World, instead of allowing the risk with the fa2 operators!
 
 # TODO: put error messages into functions?
@@ -82,6 +82,7 @@ class TL_World(manager_contract.Manageable):
             terminus = terminus,
             item_limit = sp.nat(32),
             fees = sp.nat(25),
+            other_permitted_fa2 = sp.set([], t=sp.TAddress),
             places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interaction_counter=sp.TNat,
@@ -102,6 +103,18 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(item_limit, sp.TNat)
         self.onlyManager()
         self.data.item_limit = item_limit
+
+    @sp.entry_point
+    def set_other_permitted_fa2(self, params):
+        """Call to add/remove fa2 contract from
+        token contracts permitted for 'other' type items."""
+        sp.set_type(params.fa2, sp.TAddress)
+        sp.set_type(params.permitted, sp.TBool)
+        self.onlyManager()
+        sp.if params.permitted == True:
+            self.data.other_permitted_fa2.add(params.fa2)
+        sp.else:
+            self.data.other_permitted_fa2.remove(params.fa2)
 
     # Don't use private lambda because we need to be able to update code
     def get_or_create_place(self, lot_id):
@@ -187,7 +200,7 @@ class TL_World(manager_contract.Manageable):
                 with arg.match("other") as other:
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = "DATA_LEN")
 
-                    # TODO: check permitted_fa2? or check if feature enabled?
+                    sp.verify(self.data.other_permitted_fa2.contains(other.fa2), message = "TOKEN_NOT_PERMITTED")
 
                     # transfer external token to this contract. Only support 1 token per placement. no selling.
                     self.fa2_transfer(other.fa2, sp.self_address, sp.sender, other.token_id, 1)
@@ -338,6 +351,12 @@ class TL_World(manager_contract.Manageable):
     @sp.onchain_view()
     def get_item_limit(self):
         sp.result(self.data.item_limit)
+
+    @sp.onchain_view()
+    def get_other_permitted_fa2(self):
+        """Returns the set of permitted fa2 contracts for
+        'other' item type."""
+        sp.result(self.data.other_permitted_fa2)
 
     #
     # Update code
