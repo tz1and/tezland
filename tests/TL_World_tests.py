@@ -9,13 +9,14 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
+    carol = sp.test_account("Carol")
     scenario = sp.test_scenario()
 
     scenario.table_of_contents()
 
     # Let's display the accounts:
     scenario.h1("Accounts")
-    scenario.show([admin, alice, bob])
+    scenario.show([admin, alice, bob, carol])
 
     #
     # create all kinds of contracts for testing
@@ -55,6 +56,7 @@ def test():
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
     # mint some item tokens for testing
+    scenario.h3("minting items")
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
@@ -65,7 +67,11 @@ def test():
         royalties = 250,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
+    item_bob = sp.nat(0)
+    item_alice = sp.nat(1)
+
     # mint some place tokens for testing
+    scenario.h3("minting places")
     minter.mint_Place(address = bob.address,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
 
@@ -75,6 +81,7 @@ def test():
     place_bob = sp.nat(0)
     place_alice = sp.nat(1)
 
+    scenario.h3("minting 0 dao")
     dao_token.mint(address = admin.address,
         amount = 0,
         metadata = fa2_contract.FA2.make_metadata(name = "tz1aND DAO",
@@ -100,12 +107,12 @@ def test():
     #
     # set operators
     #
-    scenario.h2("Add operators")
+    scenario.h2("Add world as operator for items")
     items_tokens.update_operators([
         sp.variant("add_operator", items_tokens.operator_param.make(
             owner = bob.address,
             operator = places.address,
-            token_id = 0
+            token_id = item_bob
         ))
     ]).run(sender = bob, valid = True)
 
@@ -113,7 +120,7 @@ def test():
         sp.variant("add_operator", items_tokens.operator_param.make(
             owner = alice.address,
             operator = places.address,
-            token_id = 1
+            token_id = item_alice
         ))
     ]).run(sender = alice, valid = True)
 
@@ -125,31 +132,31 @@ def test():
     scenario.h2("Placing items")
 
     # place some items not owned
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 500, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 500, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
 
-    # place some items in a lot not owned
-    places.place_items(lot_id = place_alice, owner=sp.some(alice.address), item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = bob, valid = False, exception = "NOT_OPERATOR")
-    places.place_items(lot_id = place_bob, owner=sp.some(bob.address), item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
+    # place some items in a lot not owned (without setting owner)
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
+    ]).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
+    ]).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
     # place some items and make sure tokens are tranferred.
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
 
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
 
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
     scenario.verify(sp.to_int(balance_after) == (balance_before - 1))
 
     # place some more items
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
-    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(0), item_data = position))]).run(sender = bob)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
+    places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(0), item_data = position))]).run(sender = bob)
 
-    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
-    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
 
     #
     # get (buy) items.
@@ -166,14 +173,14 @@ def test():
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.mutez(1500), valid = False, exception = "WRONG_AMOUNT")
 
     # make sure item tokens and dao tokens are transferred 
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = item_bob)))
     dao_balance_alice_before = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
     dao_balance_bob_before = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
     dao_balance_manager_before = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
 
     places.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
 
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = 0)))
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = item_bob)))
     dao_balance_alice_after = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
     dao_balance_bob_after = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
     dao_balance_manager_after = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
@@ -201,25 +208,25 @@ def test():
     places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = bob, valid = False)
 
     # remove items and make sure tokens are transferred
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
 
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = bob)
 
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = 0)))
+    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
     scenario.verify(balance_after == (balance_before + 1))
     
     places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = alice)
 
     #place multiple items
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = alice)
 
     #place items with invalid data
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'))),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'))),
     ]).run(sender = alice, valid = False, exception = "DATA_LEN")
 
     #
@@ -232,7 +239,7 @@ def test():
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [
         sp.variant("ext", sp.utils.bytes_of_string("test_string data1")),
         sp.variant("ext", sp.utils.bytes_of_string("test_string data2")),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = bob)
 
     # TODO: get item
@@ -249,7 +256,7 @@ def test():
     scenario.verify(places.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob)
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
-    places.set_place_props(lot_id = place_bob, owner=sp.some(bob.address), props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
+    places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
     #
     # test place related views
@@ -296,15 +303,15 @@ def test():
     scenario.h3("item limit on place_items")
     places.set_item_limit(10).run(sender = admin)
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
     ]).run(sender = alice, valid = False, exception = 'ITEM_LIMIT')
 
     #
@@ -376,5 +383,99 @@ def test():
     places.set_fees(250).run(sender = admin, valid = False)
     places.set_fees(45).run(sender = admin)
 
+    #
+    # test world operators
+    #
+    scenario.h2("World operators")
 
+    scenario.h3("Change place without op")
+    # alice tries to place an item in bobs place but isn't an op
+    places.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+
+    # alice tries to set place props in bobs place but isn't an op
+    places.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+
+    scenario.h3("Add operator")
+
+    scenario.h4("Valid add operator")
+    # bob makes alice an operator of his place
+    places.update_operators([
+        sp.variant("add_operator", places.operator_param.make(
+            owner = bob.address,
+            operator = alice.address,
+            token_id = place_bob
+        ))
+    ]).run(sender=bob, valid=True)
+
+    # alice can now place/remove items in bobs place, set props
+    places.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=alice, valid=True)
+
+    places.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
+
+    scenario.h4("Invalid add operator")
+    # bob makes himself op of alices place
+    places.update_operators([
+        sp.variant("add_operator", places.operator_param.make(
+            owner = alice.address,
+            operator = bob.address,
+            token_id = place_alice
+        ))
+    ]).run(sender=bob, valid=False, exception="NOT_OWNER")
+
+    # bob is not allowed to place items in alices place.
+    places.place_items(lot_id=place_alice, owner=sp.some(alice.address), item_list=[
+        sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=bob, valid=False, exception="NOT_OPERATOR")
+
+    scenario.h3("No operator after transfer")
+    # bob transfers his place to carol
+    places_tokens.transfer([places_tokens.batch_transfer.item(from_ = bob.address,
+        txs = [
+            sp.record(to_=carol.address,
+                amount=1,
+                token_id=place_bob)
+        ])
+    ]).run(sender=bob)
+
+    # alice won't be an operator anymore
+    places.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+
+    # and also alice will not be operator on carols place
+    places.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+
+    # neither will bob
+    places.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
+        sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=bob, valid=False, exception="NOT_OPERATOR")
+
+    scenario.h3("Invalid remove operator")
+    # alice cant remove herself from operators of bobs (now not owned) place
+    places.update_operators([
+        sp.variant("remove_operator", places.operator_param.make(
+            owner = bob.address,
+            operator = alice.address,
+            token_id = place_bob
+        ))
+    ]).run(sender=alice, valid=False, exception="NOT_OWNER")
+
+    scenario.h3("Valid remove operator")
+    # bob removes alice from operators of his (now not owned) place
+    places.update_operators([
+        sp.variant("remove_operator", places.operator_param.make(
+            owner = bob.address,
+            operator = alice.address,
+            token_id = place_bob
+        ))
+    ]).run(sender=bob, valid=True)
+
+    #
+    # the end.
     scenario.table_of_contents()

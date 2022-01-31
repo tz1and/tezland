@@ -1,14 +1,14 @@
-# The (market)places contract.
+# The World contract.
 #
-# Each marketplace belongs to a place (an FA2 token that is the "land").
-# Items (another type of token) can be stored on your (market)place, either to sell
+# Each lot belongs to a Place (an FA2 token that is the "land").
+# Items (another type of token) can be stored on your Place, either to swap
 # or just to build something nice.
 
 import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
-# TODO: test world operator stuff!!!
+# TODO: think of some more tests for operator.
 # TODO: make World pausable! ext and other items don't call tz1and fa2 transfer!
 
 # For tz1and Item tokens.
@@ -220,12 +220,20 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(lot_id, sp.TNat)
         sp.set_type(owner, sp.TOption(sp.TAddress))
         
-        # caller must be owner or (world) operator of place.
+        # if caller is not the owner, he must be operator.
         sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) != 1:
-            sp.verify(self.operator_set.is_member(self.data.operators,
-                owner.open_some(message = self.error_message.parameter_error()),
-                sp.sender,
-                lot_id) == True, message = self.error_message.not_operator())
+            # if owner is set, verify purpoted owner actually owns the
+            # place and sender is an operator.
+            sp.if owner.is_some():
+                sp.verify(self.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) == 1,
+                    message = self.error_message.not_operator())
+                sp.verify(self.operator_set.is_member(self.data.operators,
+                    owner.open_some(),
+                    sp.sender,
+                    lot_id) == True, message = self.error_message.not_operator())
+            # otherwise, sender is just not the owner.
+            sp.else:
+                sp.failwith("NOT_OWNER")
 
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
