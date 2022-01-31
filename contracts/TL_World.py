@@ -11,10 +11,8 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
 # TODO: test other item type!!!!!
 # TODO: test other_permitted_fa2!!!
-# TODO: add OPERATORS to World, instead of allowing the risk with the fa2 operators!
-
-# TODO: put error messages into functions?
-# TODO: test operator stuff!
+# TODO: test world operator stuff!!!
+# TODO: make World pausable! ext and other items don't call tz1and fa2 transfer!
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -67,9 +65,69 @@ placeDataMinLen = sp.nat(3)
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
-# TODO: make pausable! ext items don't call fa2 transfer!
+class Error_message:
+    def __init__(self):
+        #self.prefix = "WORLD_"
+        self.prefix = ""
+    def make(self, s): return (self.prefix + s)
+    def not_operator(self):         return self.make("NOT_OPERATOR")
+    def not_owner(self):            return self.make("NOT_OWNER")
+    def fee_error(self):            return self.make("FEE_ERROR")
+    def parameter_error(self):      return self.make("PARAM_ERROR")
+    def data_length(self):          return self.make("DATA_LEN")
+    def item_limit(self):           return self.make("ITEM_LIMIT")
+    def token_not_permitted(self):  return self.make("TOKEN_NOT_PERMITTED")
+    def not_for_sale(self):         return self.make("NOT_FOR_SALE")
+    def wrong_amount(self):         return self.make("WRONG_AMOUNT")
+
+#
+# Operator_set from FA2. Lazy set for place operators.
+class Operator_set:
+    def key_type(self):
+        return sp.TRecord(owner = sp.TAddress,
+                          operator = sp.TAddress,
+                          token_id = sp.TNat
+                          ).layout(("owner", ("operator", "token_id")))
+
+    def make(self):
+        return sp.big_map(tkey = self.key_type(), tvalue = sp.TUnit)
+
+    def make_key(self, owner, operator, token_id):
+        metakey = sp.record(owner = owner,
+                            operator = operator,
+                            token_id = token_id)
+        metakey = sp.set_type_expr(metakey, self.key_type())
+        return metakey
+
+    def add(self, set, owner, operator, token_id):
+        set[self.make_key(owner, operator, token_id)] = sp.unit
+    def remove(self, set, owner, operator, token_id):
+        del set[self.make_key(owner, operator, token_id)]
+    def is_member(self, set, owner, operator, token_id):
+        return set.contains(self.make_key(owner, operator, token_id))
+
+#
+# Operator_param from Fa2. Defines type types for the update_operators entry-point.
+class Operator_param:
+    def get_type(self):
+        t = sp.TRecord(
+            owner = sp.TAddress,
+            operator = sp.TAddress,
+            token_id = sp.TNat)
+        return t
+    def make(self, owner, operator, token_id):
+        r = sp.record(owner = owner,
+            operator = operator,
+            token_id = token_id)
+        return sp.set_type_expr(r, self.get_type())
+
+#
+# The World contract.
 class TL_World(manager_contract.Manageable):
     def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
+        self.error_message = Error_message()
+        self.operator_set = Operator_set()
+        self.operator_param = Operator_param()
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
@@ -82,7 +140,8 @@ class TL_World(manager_contract.Manageable):
             terminus = terminus,
             item_limit = sp.nat(32),
             fees = sp.nat(25),
-            other_permitted_fa2 = sp.set([], t=sp.TAddress),
+            other_permitted_fa2 = sp.set(t=sp.TAddress),
+            operators = self.operator_set.make(),
             places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interaction_counter=sp.TNat,
@@ -95,7 +154,7 @@ class TL_World(manager_contract.Manageable):
     def set_fees(self, fees):
         sp.set_type(fees, sp.TNat)
         self.onlyManager()
-        sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
+        sp.verify(fees <= 60, message = self.error_message.fee_error()) # let's not get greedy
         self.data.fees = fees
 
     @sp.entry_point
@@ -116,6 +175,33 @@ class TL_World(manager_contract.Manageable):
         sp.else:
             self.data.other_permitted_fa2.remove(params.fa2)
 
+    @sp.entry_point
+    def update_operators(self, params):
+        sp.set_type(params, sp.TList(
+            sp.TVariant(
+                add_operator = self.operator_param.get_type(),
+                remove_operator = self.operator_param.get_type()
+            )
+        ))
+        sp.for update in params:
+            with update.match_cases() as arg:
+                with arg.match("add_operator") as upd:
+                    # Sender must be the owner
+                    sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                    # Add operator
+                    self.operator_set.add(self.data.operators,
+                        upd.owner,
+                        upd.operator,
+                        upd.token_id)
+                with arg.match("remove_operator") as upd:
+                    # Sender must be the owner
+                    sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                    # Remove operator
+                    self.operator_set.remove(self.data.operators,
+                        upd.owner,
+                        upd.operator,
+                        upd.token_id)
+
     # Don't use private lambda because we need to be able to update code
     def get_or_create_place(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
@@ -135,12 +221,12 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(lot_id, sp.TNat)
         sp.set_type(owner, sp.TOption(sp.TAddress))
         
-        # caller must be owner or operator of place.
+        # caller must be owner or (world) operator of place.
         sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) != 1:
-            sp.verify(self.fa2_is_operator(
-                self.data.places_contract, lot_id,
-                owner.open_some(message = "PARAM_ERROR"),
-                sp.sender) == True, message = "NOT_OPERATOR")
+            sp.verify(self.operator_set.is_member(self.data.operators,
+                owner.open_some(message = self.error_message.parameter_error()),
+                sp.sender,
+                lot_id) == True, message = self.error_message.not_operator())
 
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
@@ -155,7 +241,7 @@ class TL_World(manager_contract.Manageable):
         this_place = self.get_or_create_place(params.lot_id)
 
         # currently we only store the color. 3 bytes.
-        sp.verify(sp.len(params.props) >= placeDataMinLen, message = "DATA_LEN")
+        sp.verify(sp.len(params.props) >= placeDataMinLen, message = self.error_message.data_length())
 
         this_place.place_props = params.props
         this_place.interaction_counter += 1
@@ -172,7 +258,7 @@ class TL_World(manager_contract.Manageable):
         # get the place
         this_place = self.get_or_create_place(params.lot_id)
 
-        sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = "ITEM_LIMIT")
+        sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -180,7 +266,7 @@ class TL_World(manager_contract.Manageable):
         sp.for curr in params.item_list:
             with curr.match_cases() as arg:
                 with arg.match("item") as item:
-                    sp.verify(sp.len(item.item_data) >= itemDataMinLen, message = "DATA_LEN")
+                    sp.verify(sp.len(item.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
                     # transfer item to this contract
                     # do multi-transfer by building up a list of transfers
@@ -198,9 +284,9 @@ class TL_World(manager_contract.Manageable):
                         item_data = item.item_data))
 
                 with arg.match("other") as other:
-                    sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = "DATA_LEN")
+                    sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
-                    sp.verify(self.data.other_permitted_fa2.contains(other.fa2), message = "TOKEN_NOT_PERMITTED")
+                    sp.verify(self.data.other_permitted_fa2.contains(other.fa2), message = self.error_message.token_not_permitted())
 
                     # transfer external token to this contract. Only support 1 token per placement. no selling.
                     self.fa2_transfer(other.fa2, sp.self_address, sp.sender, other.token_id, 1)
@@ -212,8 +298,8 @@ class TL_World(manager_contract.Manageable):
                         fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
-                    # TDOD: limit data len?
-                    #sp.verify(sp.len(ext_data) == 16, message = "DATA_LEN")
+                    # TODO: limit data len?
+                    #sp.verify(sp.len(ext_data) == 16, message = self.error_message.data_length())
                     this_place.stored_items[this_place.counter] = sp.variant("ext", ext_data)
 
             this_place.counter += 1
@@ -277,8 +363,8 @@ class TL_World(manager_contract.Manageable):
         the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item"))
 
         # make sure it's for sale, the transfered amount is correct, etc.
-        sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = "NOT_FOR_SALE")
-        sp.verify(the_item.value.xtz_per_item == sp.amount, message = "WRONG_AMOUNT")
+        sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+        sp.verify(the_item.value.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
 
         # send monies
         sp.if the_item.value.xtz_per_item != sp.tez(0):
@@ -358,6 +444,18 @@ class TL_World(manager_contract.Manageable):
         'other' item type."""
         sp.result(self.data.other_permitted_fa2)
 
+    @sp.onchain_view()
+    def is_operator(self, query):
+        sp.set_type(query,
+            sp.TRecord(token_id = sp.TNat,
+                owner = sp.TAddress,
+                operator = sp.TAddress))
+        sp.result(
+            self.operator_set.is_member(self.data.operators,
+                query.owner,
+                query.operator,
+                query.token_id))
+
     #
     # Update code
     #
@@ -386,16 +484,17 @@ class TL_World(manager_contract.Manageable):
         c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
-    def fa2_is_operator(self, fa2, token_id, owner, operator):
-        return sp.view("is_operator", fa2,
-            sp.set_type_expr(
-                sp.record(token_id = token_id, owner = owner, operator = operator),
-                sp.TRecord(
-                    token_id = sp.TNat,
-                    owner = sp.TAddress,
-                    operator = sp.TAddress
-                ).layout(("owner", ("operator", "token_id")))),
-            t = sp.TBool).open_some()
+    # Not used, World now has it's own operators set.
+    #def fa2_is_operator(self, fa2, token_id, owner, operator):
+    #    return sp.view("is_operator", fa2,
+    #        sp.set_type_expr(
+    #            sp.record(token_id = token_id, owner = owner, operator = operator),
+    #            sp.TRecord(
+    #                token_id = sp.TNat,
+    #                owner = sp.TAddress,
+    #                operator = sp.TAddress
+    #            ).layout(("owner", ("operator", "token_id")))),
+    #        t = sp.TBool).open_some()
 
     def fa2_get_balance(self, fa2, token_id, owner):
         return sp.view("get_balance", fa2,
