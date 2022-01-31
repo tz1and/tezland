@@ -4,13 +4,10 @@
 # Items (another type of token) can be stored on your (market)place, either to sell
 # or just to build something nice.
 
-from ast import operator
 import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
-# TODO: test other item type!!!!!
-# TODO: test other_permitted_fa2!!!
 # TODO: test world operator stuff!!!
 # TODO: make World pausable! ext and other items don't call tz1and fa2 transfer!
 
@@ -167,6 +164,8 @@ class TL_World(manager_contract.Manageable):
     def set_other_permitted_fa2(self, params):
         """Call to add/remove fa2 contract from
         token contracts permitted for 'other' type items."""
+        # TODO: NEVER add Items or Places, lol. Not going to verify,
+        # should probably be.
         sp.set_type(params.fa2, sp.TAddress)
         sp.set_type(params.permitted, sp.TBool)
         self.onlyManager()
@@ -289,7 +288,7 @@ class TL_World(manager_contract.Manageable):
                     sp.verify(self.data.other_permitted_fa2.contains(other.fa2), message = self.error_message.token_not_permitted())
 
                     # transfer external token to this contract. Only support 1 token per placement. no selling.
-                    self.fa2_transfer(other.fa2, sp.self_address, sp.sender, other.token_id, 1)
+                    self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
 
                     this_place.stored_items[this_place.counter] = sp.variant("other", sp.record(
                         issuer = sp.sender,
@@ -338,7 +337,7 @@ class TL_World(manager_contract.Manageable):
 
                 with arg.match("other") as the_other:
                     # transfer external token back to the issuer. Only support 1 token.
-                    self.fa2_transfer(the_other.fa2, the_other.issuer, sp.self_address, the_other.token_id, 1)
+                    self.fa2_transfer(the_other.fa2, sp.self_address, the_other.issuer, the_other.token_id, 1)
 
                 # nothing to do here with ext items. Just remove them.
             
@@ -360,7 +359,7 @@ class TL_World(manager_contract.Manageable):
         this_place = self.data.places[params.lot_id]
 
         # get the item from storage. get_item is only supposed to work for the item variant.
-        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item"))
+        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item")) # TODO: add message
 
         # make sure it's for sale, the transfered amount is correct, etc.
         sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())

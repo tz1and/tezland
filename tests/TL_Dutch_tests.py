@@ -237,7 +237,7 @@ def test():
     permitted_fa2 = dutch.get_permitted_fa2()
     scenario.verify(permitted_fa2.contains(places_tokens.address) == True)
     scenario.verify(permitted_fa2.contains(items_tokens.address) == False)
-    scenario.show(auction_info)
+    scenario.show(permitted_fa2)
 
     # TODO: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
     #auction_info = dutch.get_auction_price(0)

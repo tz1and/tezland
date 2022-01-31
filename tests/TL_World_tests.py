@@ -11,39 +11,46 @@ def test():
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("Places Contract")
     scenario.table_of_contents()
 
     # Let's display the accounts:
-    scenario.h2("Accounts")
+    scenario.h1("Accounts")
     scenario.show([admin, alice, bob])
 
-    # create a FA2 and minter contract for testing
-    scenario.h2("Create test env")
-    scenario.h3("items")
+    #
+    # create all kinds of contracts for testing
+    #
+    scenario.h1("Create test env")
+    scenario.h2("items")
     items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
-    scenario.h3("places")
+    scenario.h2("places")
     places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
-    scenario.h3("minter")
+    scenario.h2("minter")
     minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
-    scenario.h3("dao")
+    scenario.h2("dao")
     dao_token = fa2_contract.FA2(config = fa2_contract.dao_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
-    scenario.h3("preparation")
+    scenario.h2("some other FA2 token")
+    other_token = fa2_contract.FA2(config = fa2_contract.items_config(),
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += other_token
+
+    scenario.h2("preparation")
     items_tokens.set_administrator(minter.address).run(sender = admin)
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
@@ -75,20 +82,25 @@ def test():
             symbol= "tz1aDAO"),
         token_id = 0).run(sender = admin)
 
+    #
     # Test places
+    #
+    scenario.h1("Test World")
 
-    scenario.h2("Test Places")
-
-    # create places contract
-    scenario.h3("Originate places contract")
+    #
+    # create World contract
+    #
+    scenario.h2("Originate World contract")
     places = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, minter.address, dao_token.address,
         sp.now.add_days(60), metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += places
 
     dao_token.set_administrator(places.address).run(sender = admin)
 
+    #
     # set operators
-    scenario.h3("Add operators")
+    #
+    scenario.h2("Add operators")
     items_tokens.update_operators([
         sp.variant("add_operator", items_tokens.operator_param.make(
             owner = bob.address,
@@ -107,8 +119,12 @@ def test():
 
     position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
+    #
+    # Test placing items
+    #
+    scenario.h2("Placing items")
+
     # place some items not owned
-    scenario.h3("Placing items")
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 500, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
 
@@ -135,8 +151,10 @@ def test():
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = 1, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
 
+    #
     # get (buy) items.
-    scenario.h3("Gettting items")
+    #
+    scenario.h2("Gettting items")
 
     # make sure sequence number changes on interaction. need to use compute here to eval immediate.
     check_before_sequence_number = scenario.compute(places.get_place_seqnum(place_bob))
@@ -173,9 +191,12 @@ def test():
     places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
     places.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False) # missing item in map
 
-    # remove items in a lot not owned
-    scenario.h3("Removing items")
+    #
+    # remove items
+    #
+    scenario.h2("Removing items")
     
+    # remove items in a lot not owned
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = alice, valid = False)
     places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = bob, valid = False)
 
@@ -201,38 +222,41 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'))),
     ]).run(sender = alice, valid = False, exception = "DATA_LEN")
 
+    #
     # test ext items
-    scenario.h3("Ext items")
+    #
+    scenario.h2("Ext items")
 
     # place an ext item
-    scenario.h4("Place ext items")
+    scenario.h3("Place ext items")
     places.place_items(lot_id = place_bob, owner=sp.none, item_list = [
         sp.variant("ext", sp.utils.bytes_of_string("test_string data1")),
         sp.variant("ext", sp.utils.bytes_of_string("test_string data2")),
         sp.variant("item", sp.record(token_amount = 1, token_id = 0, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = bob)
 
-    scenario.h4("Remvove ext items")
+    # TODO: get item
+
+    scenario.h3("Remvove ext items")
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [2]).run(sender = bob)
     places.remove_items(lot_id = place_bob, owner=sp.none, item_list = [3, 4]).run(sender = bob)
 
-    scenario.h3("Set place props")
+    #
+    # set place props
+    #
+    scenario.h2("Set place props")
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFF')).run(sender = bob)
     scenario.verify(places.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob)
     places.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
     places.set_place_props(lot_id = place_bob, owner=sp.some(bob.address), props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OPERATOR")
 
-    # test views
-    scenario.h3("Views")
-    scenario.p("It's views")
+    #
+    # test place related views
+    #
+    scenario.h2("Place views")
 
-    scenario.h4("Item limit")
-    item_limit = places.get_item_limit()
-    scenario.verify(item_limit == sp.nat(32))
-    scenario.show(item_limit)
-
-    scenario.h4("Stored items")
+    scenario.h3("Stored items")
     stored_items = places.get_stored_items(place_alice)
     scenario.verify(stored_items.place_props == sp.bytes('0x82b881'))
     scenario.verify(stored_items.stored_items[2].open_variant("item").item_amount == 1)
@@ -244,7 +268,7 @@ def test():
     scenario.verify(sp.len(stored_items_empty.stored_items) == 0)
     scenario.show(stored_items_empty)
 
-    scenario.h4("Sequence numbers")
+    scenario.h3("Sequence numbers")
     sequence_number = scenario.compute(places.get_place_seqnum(place_alice))
     scenario.verify(sequence_number == sp.sha3(sp.pack(sp.pair(sp.nat(3), sp.nat(5)))))
     scenario.show(sequence_number)
@@ -253,16 +277,23 @@ def test():
     scenario.verify(sequence_number_empty == sp.sha3(sp.pack(sp.pair(sp.nat(0), sp.nat(0)))))
     scenario.show(sequence_number_empty)
 
-    # set item limit
-    scenario.h3("Item Limit")
+    #
+    # Test item limit
+    #
+    scenario.h2("Item Limit")
 
-    scenario.h4("set_item_limit")
+    scenario.h3("set_item_limit")
     scenario.verify(places.data.item_limit == 32)
     places.set_item_limit(128).run(sender = bob, valid = False)
     places.set_item_limit(128).run(sender = admin)
     scenario.verify(places.data.item_limit == 128)
 
-    scenario.h4("item limit on place_items")
+    scenario.h3("get_item_limit view")
+    item_limit = places.get_item_limit()
+    scenario.verify(item_limit == sp.nat(128))
+    scenario.show(item_limit)
+
+    scenario.h3("item limit on place_items")
     places.set_item_limit(10).run(sender = admin)
     places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
         sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
@@ -276,8 +307,71 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = 1, xtz_per_token = sp.tez(1), item_data = position)),
     ]).run(sender = alice, valid = False, exception = 'ITEM_LIMIT')
 
-    # set fees
-    scenario.h3("Fees")
+    #
+    # Test other permitted FA2
+    #
+    scenario.h2("Other permitted FA2")
+
+    scenario.h3("Other token mint and operator")
+    other_token.mint(address = alice.address,
+        amount = 50,
+        metadata = sp.map(l = { "" : sp.utils.bytes_of_string("ipfs://Qtesttesttest") }),
+        token_id = 0).run(sender = admin)
+
+    other_token.update_operators([
+        sp.variant("add_operator", other_token.operator_param.make(
+            owner = alice.address,
+            operator = places.address,
+            token_id = 0
+        ))
+    ]).run(sender = alice, valid = True)
+
+    # test set permitted
+    scenario.h3("set_other_permitted_fa2")
+    places.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    scenario.verify(places.data.other_permitted_fa2.contains(other_token.address) == False)
+
+    places.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = admin)
+    scenario.verify(places.data.other_permitted_fa2.contains(other_token.address) == True)
+
+    places.set_other_permitted_fa2(fa2 = other_token.address, permitted = False).run(sender = admin)
+    scenario.verify(places.data.other_permitted_fa2.contains(other_token.address) == False)
+
+    # test unpermitted place_item
+    scenario.h3("Test placing unpermitted 'other' type items")
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position))
+    ]).run(sender = alice, valid = False, exception = "TOKEN_NOT_PERMITTED")
+
+    # test get
+    scenario.h3("get_other_permitted_fa2 view")
+    scenario.verify(places.get_other_permitted_fa2().contains(other_token.address) == False)
+    places.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = admin)
+    scenario.verify(places.get_other_permitted_fa2().contains(other_token.address) == True)
+
+    # test place_item
+    scenario.h3("Test placing/removing/getting permitted 'other' type items")
+
+    scenario.h4("place")
+    places.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position)),
+        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position))
+    ]).run(sender = alice)
+    # TODO: verify token was transferred
+
+    scenario.h4("get")
+    item_counter = places.data.places.get(place_alice).counter
+    places.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.tez(1), valid = False) # TODO: check exception
+    places.get_item(lot_id = place_alice, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False) # TODO: check exception
+
+    scenario.h4("remove")
+    places.remove_items(lot_id = place_alice, owner=sp.none, item_list = [abs(item_counter - 1), abs(item_counter - 2)]).run(sender = alice)
+    # TODO: verify tokens were transferred
+
+    #
+    # test set fees
+    #
+    scenario.h2("Fees")
     places.set_fees(35).run(sender = bob, valid = False)
     places.set_fees(250).run(sender = admin, valid = False)
     places.set_fees(45).run(sender = admin)
