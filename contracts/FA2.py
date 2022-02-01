@@ -10,6 +10,7 @@
 #
 # TODO: bring up to date with latest FA2: https://gitlab.com/SmartPy/smartpy/-/issues/28
 # TODO: check for newer.
+# TODO: is_paused onchain view?
 import smartpy as sp
 #
 # ## Meta-Programming Configuration

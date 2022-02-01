@@ -2,9 +2,11 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
-# TODO: remove regain admin and add a pause function instead?
-# TODO: add a "pause_all" maybe.
+# TODO: test paused
 
+#
+# Minter contract.
+# NOTE: should be pausable for code updates.
 class TL_Minter(pausable_contract.Pausable):
     def __init__(self, manager, items_contract, places_contract, metadata):
         self.init_storage(
@@ -18,38 +20,91 @@ class TL_Minter(pausable_contract.Pausable):
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
 
-    # This lets the manager regain admin to the items FA2 contract.
+    #
+    # Manager-only entry points
+    #
+    # NOTE: I'm not sure this should ever be needed, to be honest.
     @sp.entry_point
-    def regain_admin_Items(self):
-        self.onlyPaused()
+    def set_paused_tokens(self, new_paused):
+        """The manager can pause/unpause items and places contracts"""
+        sp.set_type(new_paused, sp.TBool)
         self.onlyManager()
 
-        c = sp.contract(
-            sp.TAddress,
-            self.data.items_contract, 
-            entry_point = "set_administrator").open_some()
+        # call items contract
+        itemsc = sp.contract(sp.TBool, self.data.items_contract, 
+            entry_point = "set_pause").open_some()
             
-        sp.transfer(
-            self.data.manager, 
-            sp.mutez(0), 
-            c)
+        sp.transfer(new_paused, sp.mutez(0), itemsc)
 
-    # This lets the manager regain admin to the places FA2 contract.
-    @sp.entry_point
-    def regain_admin_Places(self):
-        self.onlyPaused()
+        # call places contract
+        placesc = sp.contract(sp.TBool, self.data.places_contract, 
+            entry_point = "set_pause").open_some()
+            
+        sp.transfer(new_paused, sp.mutez(0), placesc)
+
+    # NOTE: I don't see why this would ever be needed.
+    #@sp.entry_point
+    #def regain_admin_Items(self):
+    #    """This lets the manager regain admin to the items FA2 contract."""
+    #    self.onlyPaused()
+    #    self.onlyManager()
+    #
+    #    c = sp.contract(
+    #        sp.TAddress,
+    #        self.data.items_contract, 
+    #        entry_point = "set_administrator").open_some()
+    #        
+    #    sp.transfer(
+    #        self.data.manager, 
+    #        sp.mutez(0), 
+    #        c)
+
+    #@sp.entry_point
+    #def regain_admin_Places(self):
+    #    """This lets the manager regain admin to the places FA2 contract."""
+    #    self.onlyPaused()
+    #    self.onlyManager()
+    #
+    #    c = sp.contract(
+    #        sp.TAddress,
+    #        self.data.places_contract, 
+    #        entry_point = "set_administrator").open_some()
+    #        
+    #    sp.transfer(
+    #        self.data.manager, 
+    #        sp.mutez(0), 
+    #        c)
+
+    @sp.entry_point(lazify = True)
+    def mint_Place(self, params):
         self.onlyManager()
-
+        self.onlyUnpaused()
+        
         c = sp.contract(
-            sp.TAddress,
+            sp.TRecord(
+            address=sp.TAddress,
+            amount=sp.TNat,
+            token_id=sp.TNat,
+            metadata=sp.TMap(sp.TString, sp.TBytes)
+            ),
             self.data.places_contract, 
-            entry_point = "set_administrator").open_some()
+            entry_point = "mint").open_some()
             
         sp.transfer(
-            self.data.manager, 
+            sp.record(
+            address=params.address,
+            amount=1,
+            token_id=self.data.place_id_counter,
+            metadata={ '' : params.metadata }
+            ), 
             sp.mutez(0), 
             c)
+        
+        self.data.place_id_counter += 1
 
+    #
+    # Public entry points
+    #
     @sp.entry_point(lazify = True)
     def mint_Item(self, params):
         self.onlyUnpaused()
@@ -79,33 +134,9 @@ class TL_Minter(pausable_contract.Pausable):
         self.data.royalties[self.data.item_id_counter] = sp.record(creator=sp.sender, royalties=params.royalties)
         self.data.item_id_counter += 1
 
-    @sp.entry_point(lazify = True)
-    def mint_Place(self, params):
-        self.onlyManager()
-        self.onlyUnpaused()
-        
-        c = sp.contract(
-            sp.TRecord(
-            address=sp.TAddress,
-            amount=sp.TNat,
-            token_id=sp.TNat,
-            metadata=sp.TMap(sp.TString, sp.TBytes)
-            ),
-            self.data.places_contract, 
-            entry_point = "mint").open_some()
-            
-        sp.transfer(
-            sp.record(
-            address=params.address,
-            amount=1,
-            token_id=self.data.place_id_counter,
-            metadata={ '' : params.metadata }
-            ), 
-            sp.mutez(0), 
-            c)
-        
-        self.data.place_id_counter += 1
-
+    #
+    # Views
+    #
     @sp.onchain_view()
     def get_item_royalties(self, token_id):
         sp.set_type(token_id, sp.TNat)

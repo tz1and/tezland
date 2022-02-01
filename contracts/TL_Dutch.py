@@ -5,7 +5,11 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: test royalties for item token
 # TODO: test auction with end price 0!!!!!
 # TODO: use lazy set? probably not, should never allow anything other than places and items.
+# TODO: test paused
 
+#
+# Dutch auction contract.
+# NOTE: should be pausable for code updates.
 class TL_Dutch(pausable_contract.Pausable):
     """A simple dutch auction.
     
@@ -34,7 +38,9 @@ class TL_Dutch(pausable_contract.Pausable):
             ))
         )
 
-
+    #
+    # Manager-only entry points
+    #
     @sp.entry_point
     def set_granularity(self, granularity):
         """Call to set granularity in seconds."""
@@ -65,6 +71,9 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.else:
             self.data.permitted_fa2.remove(params.fa2)
 
+    #
+    # Public entry points
+    #
     @sp.entry_point(lazify = True)
     def create(self, params):
         """Create a dutch auction.

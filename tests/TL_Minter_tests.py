@@ -10,15 +10,15 @@ def test():
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("Places Contract")
+    scenario.h1("Minter Tests")
     scenario.table_of_contents()
 
     # Let's display the accounts:
-    scenario.h2("Accounts")
+    scenario.h1("Accounts")
     scenario.show([admin, alice, bob])
 
     # create a FA2 contract for testing
-    scenario.h2("Create test env")
+    scenario.h1("Create test env")
     items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
@@ -30,7 +30,7 @@ def test():
     scenario += places_tokens
 
     # create minter contract
-    scenario.h2("Test Minter")
+    scenario.h1("Test Minter")
     minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
@@ -40,14 +40,14 @@ def test():
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
     # test manager stuff
-    scenario.h3("set_manager")
+    scenario.h2("set_manager")
     scenario.verify(minter.data.manager == admin.address)
     minter.set_manager(alice.address).run(sender = admin)
     scenario.verify(minter.data.manager == alice.address)
     minter.set_manager(admin.address).run(sender = alice)
 
     # test set_paused
-    scenario.h3("set_paused")
+    scenario.h2("set_paused")
     minter.set_paused(True).run(sender = bob, valid = False)
     minter.set_paused(False).run(sender = alice, valid = False)
     minter.set_paused(True).run(sender = admin)
@@ -56,7 +56,7 @@ def test():
     scenario.verify(minter.data.paused == False)
 
     # test Item minting
-    scenario.h3("mint_Item")
+    scenario.h2("mint_Item")
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
@@ -77,7 +77,7 @@ def test():
     minter.set_paused(False).run(sender = admin)
 
     # test Place minting
-    scenario.h3("mint_Place")
+    scenario.h2("mint_Place")
     minter.mint_Place(address = bob.address,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False)
 
@@ -95,25 +95,46 @@ def test():
     minter.set_paused(False).run(sender = admin)
 
     # test get_item_royalties view
-    scenario.h3("get_item_royalties")
+    scenario.h2("get_item_royalties")
     scenario.p("It's a view")
     view_res = minter.get_item_royalties(sp.nat(0))
     scenario.verify(view_res.royalties == 250)
     scenario.verify(view_res.creator == bob.address)
 
-    # test regain admin
-    scenario.h3("regain_admin_Items")
-    minter.regain_admin_Items().run(sender = admin, valid = False)
-    minter.set_paused(True).run(sender = admin)
-    minter.regain_admin_Items().run(sender = bob, valid = False)
-    minter.regain_admin_Items().run(sender = admin) # admin can only be regained if paused
-    minter.set_paused(False).run(sender = admin)
+    # test set_paused_tokens
+    scenario.h2("set_paused_tokens")
 
-    scenario.h3("regain_admin_Places")
-    minter.regain_admin_Places().run(sender = admin, valid = False)
-    minter.set_paused(True).run(sender = admin)
-    minter.regain_admin_Places().run(sender = bob, valid = False)
-    minter.regain_admin_Places().run(sender = admin) # admin can only be regained if paused
-    minter.set_paused(False).run(sender = admin)
+    # check tokens are unpaused to begin with
+    scenario.verify(items_tokens.data.paused == False)
+    scenario.verify(places_tokens.data.paused == False)
+
+    minter.set_paused_tokens(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    minter.set_paused_tokens(True).run(sender = admin)
+
+    # check tokens are paused
+    scenario.verify(items_tokens.data.paused == True)
+    scenario.verify(places_tokens.data.paused == True)
+
+    minter.set_paused_tokens(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    minter.set_paused_tokens(False).run(sender = admin)
+
+    # check tokens are unpaused
+    scenario.verify(items_tokens.data.paused == False)
+    scenario.verify(places_tokens.data.paused == False)
+
+    # test regain admin
+    #scenario.h2("regain_admin_Items")
+    #minter.regain_admin_Items().run(sender = admin, valid = False)
+    #minter.set_paused(True).run(sender = admin)
+    #minter.regain_admin_Items().run(sender = bob, valid = False)
+    #minter.regain_admin_Items().run(sender = admin) # admin can only be regained if paused
+    #minter.set_paused(False).run(sender = admin)
+
+    #scenario.h2("regain_admin_Places")
+    #minter.regain_admin_Places().run(sender = admin, valid = False)
+    #minter.set_paused(True).run(sender = admin)
+    #minter.regain_admin_Places().run(sender = bob, valid = False)
+    #minter.regain_admin_Places().run(sender = admin) # admin can only be regained if paused
+    #minter.set_paused(False).run(sender = admin)
 
     scenario.table_of_contents()

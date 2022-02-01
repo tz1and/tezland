@@ -12,6 +12,7 @@ def test():
     carol = sp.test_account("Carol")
     scenario = sp.test_scenario()
 
+    scenario.h1("World Tests")
     scenario.table_of_contents()
 
     # Let's display the accounts:

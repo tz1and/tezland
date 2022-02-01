@@ -6,10 +6,10 @@
 
 import smartpy as sp
 
-manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
+pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: think of some more tests for operator.
-# TODO: make World pausable! ext and other items don't call tz1and fa2 transfer!
+# TODO: test paused
 # TODO: rename all update_* entrypoints that update code.
 
 # For tz1and Item tokens.
@@ -134,7 +134,8 @@ class Operator_param:
 
 #
 # The World contract.
-class TL_World(manager_contract.Manageable):
+# NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
+class TL_World(pausable_contract.Pausable):
     def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
         self.error_message = Error_message()
         self.operator_set = Operator_set()
@@ -142,6 +143,7 @@ class TL_World(manager_contract.Manageable):
         self.permitted_fa2_set = Permitted_fa2_set()
         self.init_storage(
             manager = manager,
+            paused = False,
             items_contract = items_contract,
             places_contract = places_contract,
             minter = minter,
@@ -162,6 +164,9 @@ class TL_World(manager_contract.Manageable):
                 ))
             )
 
+    #
+    # Manager-only entry points
+    #
     @sp.entry_point
     def set_fees(self, fees):
         sp.set_type(fees, sp.TNat)
@@ -189,6 +194,9 @@ class TL_World(manager_contract.Manageable):
         sp.else:
             self.permitted_fa2_set.remove(self.data.other_permitted_fa2, params.fa2)
 
+    #
+    # Public entry points
+    #
     @sp.entry_point
     def update_operators(self, params):
         sp.set_type(params, sp.TList(
@@ -197,6 +205,9 @@ class TL_World(manager_contract.Manageable):
                 remove_operator = self.operator_param.get_type()
             )
         ))
+
+        #self.onlyUnpaused() # Probably fine to run when paused.
+
         sp.for update in params:
             with update.match_cases() as arg:
                 with arg.match("add_operator") as upd:
@@ -254,6 +265,8 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
+        self.onlyUnpaused()
+
         # caller must be owner or operator of place.
         self.check_owner_or_operator(params.lot_id, params.owner)
 
@@ -271,6 +284,8 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(params.item_list, sp.TList(placeItemListType))
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
+
+        self.onlyUnpaused()
 
         # caller must be owner or operator of place.
         self.check_owner_or_operator(params.lot_id, params.owner)
@@ -334,6 +349,8 @@ class TL_World(manager_contract.Manageable):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
+        self.onlyUnpaused()
+
         # get the place
         this_place = self.data.places[params.lot_id]
 
@@ -374,6 +391,8 @@ class TL_World(manager_contract.Manageable):
     def get_item(self, params):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.item_id, sp.TNat)
+
+        self.onlyUnpaused()
 
         # get the place
         this_place = self.data.places[params.lot_id]

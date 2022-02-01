@@ -2,6 +2,8 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
+# TODO: add is_paused onchain view?
+
 class Pausable(manager_contract.Manageable):
     #def __init__(self, manager):
     #    self.init_storage(
