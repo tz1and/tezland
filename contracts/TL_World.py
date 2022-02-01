@@ -444,9 +444,8 @@ class TL_World(pausable_contract.Pausable):
     #
     # Views
     #
-    # TODO: rename to get_place_data?
     @sp.onchain_view()
-    def get_stored_items(self, lot_id):
+    def get_place_data(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
         sp.if self.data.places.contains(lot_id) == False:
             sp.result(sp.record(

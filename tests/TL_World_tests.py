@@ -268,14 +268,14 @@ def test():
     scenario.h2("Place views")
 
     scenario.h3("Stored items")
-    stored_items = world.get_stored_items(place_alice)
+    stored_items = world.get_place_data(place_alice)
     scenario.verify(stored_items.place_props == sp.bytes('0x82b881'))
     scenario.verify(stored_items.stored_items[2].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[3].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[4].open_variant("item").item_amount == 1)
     scenario.show(stored_items)
 
-    stored_items_empty = world.get_stored_items(sp.nat(5))
+    stored_items_empty = world.get_place_data(sp.nat(5))
     scenario.verify(sp.len(stored_items_empty.stored_items) == 0)
     scenario.show(stored_items_empty)
 

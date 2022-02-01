@@ -4,7 +4,6 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: test royalties for item token
 # TODO: test auction with end price 0!!!!!
-# TODO: use lazy set? probably not, should never allow anything other than places and items.
 # TODO: test paused
 
 #
@@ -19,7 +18,7 @@ class TL_Dutch(pausable_contract.Pausable):
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
-            permitted_fa2 = sp.set([places_contract], t=sp.TAddress),
+            permitted_fa2 = sp.set([places_contract], t=sp.TAddress), # NOTE: using a standard set, should never allow anything other than places and items.
             minter = minter,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
