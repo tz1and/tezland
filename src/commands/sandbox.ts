@@ -4,7 +4,7 @@ import { TezosToolkit, VIEW_LAMBDA } from '@taquito/taquito';
 import { InMemorySigner } from "@taquito/signer";
 const sleep = require('util').promisify(setTimeout);
 
-const bcdtag = "master"
+const bcdtag = "4.1.0"
 
 export async function start(): Promise<void> {
     console.log(kleur.yellow('starting sandbox...'));
