@@ -3,8 +3,8 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: test royalties for item token
-# TODO: test auction with end price 0!!!!!
 # TODO: test paused
+# TODO: send_if_value makes some slightly ugly code, investigate use of locals
 
 #
 # Dutch auction contract.
@@ -94,6 +94,7 @@ class TL_Dutch(pausable_contract.Pausable):
         # verify inputs
         sp.verify(self.data.permitted_fa2.contains(params.fa2), message = "TOKEN_NOT_PERMITTED")
         sp.verify(params.start_time < params.end_time, message = "INVALID_PARAM")
+        sp.verify(abs(params.end_time - params.start_time) > self.data.granularity, message = "INVALID_PARAM")
         sp.verify(params.start_price > params.end_price, message = "INVALID_PARAM")
 
         # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
@@ -166,8 +167,7 @@ class TL_Dutch(pausable_contract.Pausable):
 
         # Send back overpay, if there was any.
         overpay = sp.amount - ask_price.value
-        sp.if overpay > sp.tez(0):
-            sp.send(sp.sender, overpay)
+        self.send_if_value(sp.sender, overpay)
 
         sp.if ask_price.value != sp.tez(0):
             token_royalties = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
@@ -177,13 +177,12 @@ class TL_Dutch(pausable_contract.Pausable):
             royalties = sp.compute(token_royalties.royalties * fee / (token_royalties.royalties + self.data.fees))
 
             # send royalties to creator, if any.
-            sp.if royalties > 0:
-                sp.send(token_royalties.creator, sp.utils.nat_to_mutez(royalties))
+            self.send_if_value(token_royalties.creator, sp.utils.nat_to_mutez(royalties))
 
             # send management fees
-            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            self.send_if_value(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            sp.send(the_auction.value.owner, ask_price.value - sp.utils.nat_to_mutez(fee))
+            self.send_if_value(the_auction.value.owner, ask_price.value - sp.utils.nat_to_mutez(fee))
 
          # transfer item to buyer
         self.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
@@ -219,6 +218,7 @@ class TL_Dutch(pausable_contract.Pausable):
                 # probably by validating the input in create. to make sure intervals can't be negative.
                 duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
                 time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
+                # NOTE: this can lead to a division by 0. auction duration must be > granularity.
                 mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
                 time_deduction = mutez_per_interval * time_since_start
 
@@ -283,3 +283,7 @@ class TL_Dutch(pausable_contract.Pausable):
             token_royalties.value = self.minter_get_item_royalties(token_id)
         
         return token_royalties.value
+
+    def send_if_value(self, to, amount):
+        sp.if amount > sp.tez(0):
+            sp.send(to, amount)

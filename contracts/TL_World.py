@@ -10,6 +10,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: think of some more tests for operator.
 # TODO: test paused
+# TODO: send_if_value makes some slightly ugly code, investigate use of locals
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -413,21 +414,23 @@ class TL_World(pausable_contract.Pausable):
             royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
 
             # send royalties to creator
-            sp.send(item_royalties.creator, sp.utils.nat_to_mutez(royalties))
+            self.send_if_value(item_royalties.creator, sp.utils.nat_to_mutez(royalties))
             # send management fees
-            sp.send(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            self.send_if_value(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            sp.send(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
+            self.send_if_value(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
 
             sp.if (sp.now < self.data.terminus):
-                # assuming 6 decimals, like tez.
-                manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
+                # Assuming 6 decimals, like tez.
                 user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
-                self.dao_distribute([
-                    sp.record(to_=sp.sender, amount=user_share),
-                    sp.record(to_=the_item.value.issuer, amount=user_share),
-                    sp.record(to_=self.data.manager, amount=manager_share)
-                ])
+                # Only distribute dao if anything is to be distributed.
+                sp.if user_share > 0:
+                    manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
+                    self.dao_distribute([
+                        sp.record(to_=sp.sender, amount=user_share),
+                        sp.record(to_=the_item.value.issuer, amount=user_share),
+                        sp.record(to_=self.data.manager, amount=manager_share)
+                    ])
         
         # transfer item to buyer
         self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
@@ -563,6 +566,10 @@ class TL_World(pausable_contract.Pausable):
             self.data.dao_contract,
             entry_point='distribute').open_some()
         sp.transfer(recipients, sp.mutez(0), c)
+
+    def send_if_value(self, to, amount):
+        sp.if amount > sp.tez(0):
+            sp.send(to, amount)
 
 
 # A a compilation target (produces compiled code)

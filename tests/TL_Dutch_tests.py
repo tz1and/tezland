@@ -95,53 +95,53 @@ def test():
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(100),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(2),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(2),
         fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(120),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(2),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(2),
         fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     # incorrect start/end time
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(120),
-        start_time = sp.now.add_minutes(2),
-        end_time = sp.now.add_minutes(2),
+        start_time = sp.timestamp(0).add_minutes(2),
+        end_time = sp.timestamp(0).add_minutes(2),
         fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now.add_minutes(3),
-        end_time = sp.now.add_minutes(2),
+        start_time = sp.timestamp(0).add_minutes(3),
+        end_time = sp.timestamp(0).add_minutes(2),
         fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     # Wrong owner
     dutch.create(token_id = place_alice,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "NOT_OWNER")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
     # token not permitted
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
@@ -150,8 +150,8 @@ def test():
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address).run(sender = bob)
 
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
@@ -165,8 +165,8 @@ def test():
     dutch.create(token_id = place_alice,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(2),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(2),
         fa2 = places_tokens.address).run(sender = alice)
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
@@ -206,6 +206,43 @@ def test():
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
     scenario.verify(balance_after == (balance_before + 1))
 
+    #
+    # test some auction edge cases
+    #
+    scenario.h3("create/bid edge cases")
+
+    # alice owns bobs place now.
+    # create an auction that for 2 to 1 mutez.
+    # used to fail on fee/royalties transfer.
+    dutch.create(token_id = place_alice,
+        start_price = sp.mutez(2),
+        end_price = sp.mutez(1),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(5),
+        fa2 = places_tokens.address).run(sender = alice)
+
+    dutch.bid(2).run(sender = alice, amount = sp.mutez(1), now=sp.timestamp(0).add_minutes(80), valid = True)
+
+    # create an auction that lasts 5 second.
+    # duration must be > granularity
+    dutch.create(token_id = place_alice,
+        start_price = sp.tez(2),
+        end_price = sp.tez(1),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_seconds(5),
+        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "INVALID_PARAM")
+
+    # create an auction with end price 0.
+    # duration must be > granularity
+    dutch.create(token_id = place_alice,
+        start_price = sp.tez(2),
+        end_price = sp.tez(0),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(5),
+        fa2 = places_tokens.address).run(sender = alice)
+
+    dutch.bid(3).run(sender = alice, amount = sp.mutez(0), now=sp.timestamp(0).add_minutes(80), valid = True)
+
     # TODO: more failure cases?
 
     #
@@ -226,11 +263,11 @@ def test():
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address).run(sender = alice)
 
-    auction_info = dutch.get_auction(2)
+    auction_info = dutch.get_auction(4)
     #scenario.verify(item_limit == sp.nat(64))
     scenario.show(auction_info)
 
@@ -284,6 +321,6 @@ def test():
     dutch.create(token_id = 0,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.now,
-        end_time = sp.now.add_minutes(80),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
         fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "FA2_TOKEN_UNDEFINED")

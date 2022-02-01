@@ -482,5 +482,19 @@ def test():
     ]).run(sender=bob, valid=True)
 
     #
+    # test some swapping edge cases
+    #
+    scenario.h2("place/get item edge cases")
+
+    # place item for 1 mutez
+    world.place_items(lot_id=place_alice, owner=sp.none, item_list=[
+        sp.variant("item", sp.record(token_amount=1, token_id=item_alice, xtz_per_token=sp.mutez(1), item_data=position))
+    ]).run(sender=alice, valid=True)
+
+    # try to get it
+    item_counter = world.data.places.get(place_alice).counter
+    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.mutez(1), valid = True)
+
+    #
     # the end.
     scenario.table_of_contents()

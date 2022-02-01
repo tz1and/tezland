@@ -77,6 +77,9 @@ class TL_Minter(pausable_contract.Pausable):
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
+        sp.set_type(params.address, sp.TAddress)
+        sp.set_type(params.metadata, sp.TBytes)
+
         self.onlyManager()
         self.onlyUnpaused()
         
@@ -107,7 +110,13 @@ class TL_Minter(pausable_contract.Pausable):
     #
     @sp.entry_point(lazify = True)
     def mint_Item(self, params):
+        sp.set_type(params.address, sp.TAddress)
+        sp.set_type(params.amount, sp.TNat)
+        sp.set_type(params.royalties, sp.TNat)
+        sp.set_type(params.metadata, sp.TBytes)
+
         self.onlyUnpaused()
+        
         sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
             message = "PARAM_ERROR")
         
