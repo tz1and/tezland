@@ -496,5 +496,42 @@ def test():
     world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.mutez(1), valid = True)
 
     #
+    # test paused
+    #
+    scenario.h2("pausing")
+    scenario.verify(world.data.paused == False)
+    world.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(True).run(sender = admin)
+    scenario.verify(world.data.paused == True)
+
+    # anything that changes a place or transfers tokens is now disabled
+    world.set_place_props(lot_id=place_bob, owner=sp.none, props=sp.bytes('0xFFFFFFFFFF')).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
+
+    world.place_items(lot_id=place_alice, owner=sp.none, item_list=[
+        sp.variant("item", sp.record(token_amount=1, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ]).run(sender=alice, valid=False, exception="ONLY_UNPAUSED")
+
+    world.get_item(lot_id = place_alice, item_id = 3).run(sender = bob, amount = sp.mutez(1), valid = False, exception = "ONLY_UNPAUSED")
+
+    world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [3]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+
+    # update operators is still allowed
+    world.update_operators([
+        sp.variant("remove_operator", world.operator_param.make(
+            owner = bob.address,
+            operator = alice.address,
+            token_id = place_bob
+        ))
+    ]).run(sender=bob, valid=True)
+
+    world.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(False).run(sender = admin)
+    scenario.verify(world.data.paused == False)
+
+    world.set_place_props(lot_id=place_bob, owner=sp.none, props=sp.bytes('0xFFFFFFFFFF')).run(sender=carol)
+
+    #
     # the end.
     scenario.table_of_contents()

@@ -2,8 +2,6 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
-# TODO: test paused
-
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.

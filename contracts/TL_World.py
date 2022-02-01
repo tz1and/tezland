@@ -9,7 +9,6 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: think of some more tests for operator.
-# TODO: test paused
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
 
 # For tz1and Item tokens.
