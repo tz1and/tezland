@@ -3,7 +3,6 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: test royalties for item token
-# TODO: test paused
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
 
 #

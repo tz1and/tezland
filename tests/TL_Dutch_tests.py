@@ -324,3 +324,31 @@ def test():
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
         fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "FA2_TOKEN_UNDEFINED")
+
+    #
+    # test paused
+    #
+    scenario.h3("pausing")
+    scenario.verify(dutch.data.paused == False)
+    dutch.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(True).run(sender = admin)
+    scenario.verify(dutch.data.paused == True)
+
+    dutch.bid(4).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
+
+    dutch.cancel(4).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+
+    dutch.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(False).run(sender = admin)
+    scenario.verify(dutch.data.paused == False)
+
+    dutch.cancel(4).run(sender = alice)
