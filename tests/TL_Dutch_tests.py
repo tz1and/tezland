@@ -206,7 +206,7 @@ def test():
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
     scenario.verify(balance_after == (balance_before + 1))
 
-    # todo: more failure cases?
+    # TODO: more failure cases?
 
     #
     # views

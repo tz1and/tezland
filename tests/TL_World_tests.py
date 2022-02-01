@@ -242,7 +242,10 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
     ]).run(sender = bob)
 
-    # TODO: get item
+    scenario.h3("Get ext item")
+    item_counter = world.data.places.get(place_bob).counter
+    world.get_item(lot_id = place_bob, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
+    world.get_item(lot_id = place_bob, item_id = abs(item_counter - 3)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
     world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [2]).run(sender = bob)
@@ -334,14 +337,14 @@ def test():
     ]).run(sender = alice, valid = True)
 
     # test set permitted
-    scenario.h3("set_other_permitted_fa2")
-    world.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    scenario.h3("set_other_fa2_permitted")
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
 
-    world.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = admin)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
 
-    world.set_other_permitted_fa2(fa2 = other_token.address, permitted = False).run(sender = admin)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = False).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
 
     # test unpermitted place_item
@@ -352,9 +355,10 @@ def test():
 
     # test get
     scenario.h3("get_other_permitted_fa2 view")
-    scenario.verify(world.get_other_permitted_fa2().contains(other_token.address) == False)
-    world.set_other_permitted_fa2(fa2 = other_token.address, permitted = True).run(sender = admin)
-    scenario.verify(world.get_other_permitted_fa2().contains(other_token.address) == True)
+    scenario.show(world.is_other_fa2_permitted(other_token.address))
+    scenario.verify(world.is_other_fa2_permitted(other_token.address) == False)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = admin)
+    scenario.verify(world.is_other_fa2_permitted(other_token.address) == True)
 
     # test place_item
     scenario.h3("Test placing/removing/getting permitted 'other' type items")
@@ -368,8 +372,8 @@ def test():
 
     scenario.h4("get")
     item_counter = world.data.places.get(place_alice).counter
-    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.tez(1), valid = False) # TODO: check exception
-    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False) # TODO: check exception
+    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
+    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
 
     scenario.h4("remove")
     world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [abs(item_counter - 1), abs(item_counter - 2)]).run(sender = alice)

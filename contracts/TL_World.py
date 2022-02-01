@@ -10,6 +10,7 @@ manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
 # TODO: think of some more tests for operator.
 # TODO: make World pausable! ext and other items don't call tz1and fa2 transfer!
+# TODO: rename all update_* entrypoints that update code.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -29,8 +30,8 @@ otherTokenRecordType = sp.TRecord(
     fa2=sp.TAddress # store a fa2 token address
 )
 
-# TODO: reccords in variants are immutable?
-# Create an issue in gitlab: is it a smartpy limitation?
+# NOTE: reccords in variants are immutable?
+# See: https://gitlab.com/SmartPy/smartpy/-/issues/32
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
@@ -76,6 +77,19 @@ class Error_message:
     def token_not_permitted(self):  return self.make("TOKEN_NOT_PERMITTED")
     def not_for_sale(self):         return self.make("NOT_FOR_SALE")
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
+    def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
+
+#
+# Lazy set of permitted FA2 tokens for 'other' type.
+class Permitted_fa2_set:
+    def make(self):
+        return sp.big_map(tkey = sp.TAddress, tvalue = sp.TUnit)
+    def add(self, set, fa2):
+        set[fa2] = sp.unit
+    def remove(self, set, fa2):
+        del set[fa2]
+    def is_permitted(self, set, fa2):
+        return set.contains(fa2)
 
 #
 # Operator_set from FA2. Lazy set for place operators.
@@ -125,6 +139,7 @@ class TL_World(manager_contract.Manageable):
         self.error_message = Error_message()
         self.operator_set = Operator_set()
         self.operator_param = Operator_param()
+        self.permitted_fa2_set = Permitted_fa2_set()
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
@@ -137,7 +152,7 @@ class TL_World(manager_contract.Manageable):
             terminus = terminus,
             item_limit = sp.nat(32),
             fees = sp.nat(25),
-            other_permitted_fa2 = sp.set(t=sp.TAddress),
+            other_permitted_fa2 = self.permitted_fa2_set.make(),
             operators = self.operator_set.make(),
             places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 counter=sp.TNat,
@@ -161,18 +176,18 @@ class TL_World(manager_contract.Manageable):
         self.data.item_limit = item_limit
 
     @sp.entry_point
-    def set_other_permitted_fa2(self, params):
+    def set_other_fa2_permitted(self, params):
         """Call to add/remove fa2 contract from
         token contracts permitted for 'other' type items."""
-        # TODO: NEVER add Items or Places, lol. Not going to verify,
+        # NOTE: NEVER add Items or Places, lol. Not going to verify,
         # should probably be.
         sp.set_type(params.fa2, sp.TAddress)
         sp.set_type(params.permitted, sp.TBool)
         self.onlyManager()
         sp.if params.permitted == True:
-            self.data.other_permitted_fa2.add(params.fa2)
+            self.permitted_fa2_set.add(self.data.other_permitted_fa2, params.fa2)
         sp.else:
-            self.data.other_permitted_fa2.remove(params.fa2)
+            self.permitted_fa2_set.remove(self.data.other_permitted_fa2, params.fa2)
 
     @sp.entry_point
     def update_operators(self, params):
@@ -203,8 +218,7 @@ class TL_World(manager_contract.Manageable):
 
     # Don't use private lambda because we need to be able to update code
     def get_or_create_place(self, lot_id):
-        sp.set_type(lot_id, sp.TNat)
-
+        #sp.set_type(lot_id, sp.TNat)
         # create new place if it doesn't exist
         sp.if self.data.places.contains(lot_id) == False:
             self.data.places[lot_id] = sp.record(
@@ -217,9 +231,8 @@ class TL_World(manager_contract.Manageable):
 
     # Don't use private lambda because we need to be able to update code
     def check_owner_or_operator(self, lot_id, owner):
-        sp.set_type(lot_id, sp.TNat)
-        sp.set_type(owner, sp.TOption(sp.TAddress))
-        
+        #sp.set_type(lot_id, sp.TNat)
+        #sp.set_type(owner, sp.TOption(sp.TAddress))
         # if caller is not the owner, he must be operator.
         sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) != 1:
             # if owner is set, verify purpoted owner actually owns the
@@ -293,7 +306,8 @@ class TL_World(manager_contract.Manageable):
                 with arg.match("other") as other:
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
-                    sp.verify(self.data.other_permitted_fa2.contains(other.fa2), message = self.error_message.token_not_permitted())
+                    sp.verify(self.permitted_fa2_set.is_permitted(self.data.other_permitted_fa2, other.fa2),
+                        message = self.error_message.token_not_permitted())
 
                     # transfer external token to this contract. Only support 1 token per placement. no selling.
                     self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
@@ -305,7 +319,6 @@ class TL_World(manager_contract.Manageable):
                         fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
-                    # TODO: limit data len?
                     #sp.verify(sp.len(ext_data) == 16, message = self.error_message.data_length())
                     this_place.stored_items[this_place.counter] = sp.variant("ext", ext_data)
 
@@ -357,7 +370,6 @@ class TL_World(manager_contract.Manageable):
         sp.if sp.len(transferMap.value) > 0:
             self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
-    # TODO: allow getting multiple items? could make the code too complicated.
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params.lot_id, sp.TNat)
@@ -367,7 +379,8 @@ class TL_World(manager_contract.Manageable):
         this_place = self.data.places[params.lot_id]
 
         # get the item from storage. get_item is only supposed to work for the item variant.
-        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item")) # TODO: add message
+        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item",
+            message = self.error_message.wrong_item_type()))
 
         # make sure it's for sale, the transfered amount is correct, etc.
         sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
@@ -446,10 +459,11 @@ class TL_World(manager_contract.Manageable):
         sp.result(self.data.item_limit)
 
     @sp.onchain_view()
-    def get_other_permitted_fa2(self):
-        """Returns the set of permitted fa2 contracts for
-        'other' item type."""
-        sp.result(self.data.other_permitted_fa2)
+    def is_other_fa2_permitted(self, fa2):
+        """Returns if an fa2 token is permitted for the
+        'other' type."""
+        sp.set_type(fa2, sp.TAddress)
+        sp.result(self.permitted_fa2_set.is_permitted(self.data.other_permitted_fa2, fa2))
 
     @sp.onchain_view()
     def is_operator(self, query):
@@ -521,7 +535,7 @@ class TL_World(manager_contract.Manageable):
 
     def dao_distribute(self, recipients):
         recipientType = sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat))
-        sp.set_type(recipients, recipientType)
+        #sp.set_type(recipients, recipientType)
         c = sp.contract(
             recipientType,
             self.data.dao_contract,

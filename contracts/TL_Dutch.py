@@ -4,6 +4,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: test royalties for item token
 # TODO: test auction with end price 0!!!!!
+# TODO: use lazy set? probably not, should never allow anything other than places and items.
 
 class TL_Dutch(pausable_contract.Pausable):
     """A simple dutch auction.
