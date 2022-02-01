@@ -147,12 +147,12 @@ class TL_Minter(pausable_contract.Pausable):
     # Update code
     #
     @sp.entry_point
-    def update_mint_Item(self, new_code):
+    def code_update_mint_Item(self, new_code):
         self.onlyManager()
         sp.set_entry_point("mint_Item", new_code)
 
     @sp.entry_point
-    def update_mint_Place(self, new_code):
+    def code_update_mint_Place(self, new_code):
         self.onlyManager()
         sp.set_entry_point("mint_Place", new_code)
 

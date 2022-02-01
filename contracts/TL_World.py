@@ -10,7 +10,6 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: think of some more tests for operator.
 # TODO: test paused
-# TODO: rename all update_* entrypoints that update code.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -500,17 +499,22 @@ class TL_World(pausable_contract.Pausable):
     # Update code
     #
     @sp.entry_point
-    def update_place_items(self, new_code):
+    def code_update_set_place_props(self, new_code):
+        self.onlyManager()
+        sp.set_entry_point("set_place_props", new_code)
+
+    @sp.entry_point
+    def code_update_place_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("place_items", new_code)
 
     @sp.entry_point
-    def update_remove_items(self, new_code):
+    def code_update_remove_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("remove_items", new_code)
 
     @sp.entry_point
-    def update_get_item(self, new_code):
+    def code_update_get_item(self, new_code):
         self.onlyManager()
         sp.set_entry_point("get_item", new_code)
 

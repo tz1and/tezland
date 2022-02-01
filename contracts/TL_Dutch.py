@@ -237,17 +237,17 @@ class TL_Dutch(pausable_contract.Pausable):
     # Update code
     #
     @sp.entry_point
-    def update_create(self, new_code):
+    def code_update_create(self, new_code):
         self.onlyManager()
         sp.set_entry_point("create", new_code)
 
     @sp.entry_point
-    def update_cancel(self, new_code):
+    def code_update_cancel(self, new_code):
         self.onlyManager()
         sp.set_entry_point("cancel", new_code)
 
     @sp.entry_point
-    def update_bid(self, new_code):
+    def code_update_bid(self, new_code):
         self.onlyManager()
         sp.set_entry_point("bid", new_code)
 
