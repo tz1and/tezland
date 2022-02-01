@@ -30,6 +30,7 @@ class FA2_config:
                  lazy_entry_points                  = False,
                  use_token_metadata_offchain_view   = False,
                  allow_burn_tokens                  = False,
+                 operator_burn                      = False,
                  add_distribute                     = False
                  ):
 
@@ -43,6 +44,9 @@ class FA2_config:
 
         self.allow_burn_tokens = allow_burn_tokens
         # Add an entry point that allows to burn tokens.
+
+        self.operator_burn = operator_burn
+        # If operators are allowed to burn tokens.
 
         self.add_distribute = add_distribute
         # Add an entry point for the administrator to transfer mint tokens
@@ -116,6 +120,8 @@ class FA2_config:
             name += "-lep"
         if allow_burn_tokens:
             name += "-burn"
+            if support_operator and operator_burn:
+                name += "-op_burn"
         if add_distribute:
             name += "-distribute"
         self.name = name
@@ -347,7 +353,7 @@ def burn(self, params):
     # check ownership and operators
     sender_verify = (params.address == sp.sender)
     message = self.error_message.not_owner()
-    if self.config.support_operator:
+    if self.config.support_operator and self.config.operator_burn:
         message = self.error_message.not_operator()
         sender_verify |= (self.operator_set.is_member(self.data.operators,
                                                       params.address,
@@ -848,12 +854,13 @@ def add_test(config, is_default = True):
             # TODO
             return
         scenario.h2("Burning tokens")
+        support_operator_burn = config.support_operator and config.operator_burn
         c1.burn(address = alice.address,
             amount = 10,
-            token_id = 0).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
+            token_id = 0).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
         c1.burn(address = bob.address,
             amount = 5,
-            token_id = 0).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
+            token_id = 0).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
         c1.burn(address = alice.address,
             amount = 10,
             token_id = 0).run(sender = alice)
@@ -862,7 +869,7 @@ def add_test(config, is_default = True):
             token_id = 0).run(sender = bob)
         c1.burn(address = bob.address,
             amount = 10,
-            token_id = 0).run(sender = alice, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
+            token_id = 0).run(sender = alice, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
         c1.burn(address = alice.address,
             amount = 100,
             token_id = 0).run(sender = alice, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
@@ -917,13 +924,13 @@ def add_test(config, is_default = True):
         scenario.h2("Burning more token types")
         c1.burn(address = bob.address,
             amount = 10,
-            token_id = 1).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
+            token_id = 1).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
         c1.burn(address = bob.address,
             amount = 1,
             token_id = 1).run(sender = bob)
         c1.burn(address = bob.address,
             amount = 5,
-            token_id = 2).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if config.support_operator else "FA2_NOT_OWNER"))
+            token_id = 2).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
         c1.burn(address = bob.address,
             amount = 1,
             token_id = 2).run(sender = bob)
@@ -1036,7 +1043,7 @@ def add_test(config, is_default = True):
             scenario.p("Operator1 can now burn Alice's tokens 0 and 2")
             c1.burn(address = alice.address,
                 amount = 1,
-                token_id = 2).run(sender = op1)
+                token_id = 2).run(sender = op1, valid = support_operator_burn)
             scenario.p("Operator1 cannot transfer Bob's tokens")
             c1.transfer(
                 [
@@ -1049,7 +1056,7 @@ def add_test(config, is_default = True):
             scenario.p("Operator1 cannot burn Bob's tokens")
             c1.burn(address = bob.address,
                 amount = 10,
-                token_id = 1).run(sender = op1, valid = False, exception = "FA2_NOT_OPERATOR")
+                token_id = 1).run(sender = op1, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
             scenario.p("Operator2 cannot transfer Alice's tokens")
             c1.transfer(
                 [
@@ -1062,7 +1069,7 @@ def add_test(config, is_default = True):
             scenario.p("Operator2 cannot burn Alice's tokens")
             c1.burn(address = alice.address,
                 amount = 10,
-                token_id = 1).run(sender = op2, valid = False, exception = "FA2_NOT_OPERATOR")
+                token_id = 1).run(sender = op2, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
             scenario.p("Alice can remove their operator")
             c1.update_operators([
                 sp.variant("remove_operator", c1.operator_param.make(
