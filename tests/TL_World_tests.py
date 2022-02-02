@@ -85,7 +85,7 @@ def test():
     scenario.h3("minting 0 dao")
     dao_token.mint(address = admin.address,
         amount = 0,
-        metadata = fa2_contract.FA2.make_metadata(name = "tz1aND DAO",
+        metadata = fa2_contract.FA2.make_metadata(name = "tz1and DAO",
             decimals = 6,
             symbol= "tz1aDAO"),
         token_id = 0).run(sender = admin)

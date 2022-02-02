@@ -110,8 +110,8 @@ export async function deploy(options: any): Promise<void> {
         // Items
         //
         const items_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND Items',
-            description: 'tz1aND Item FA2 tokens',
+            name: 'tz1and Items',
+            description: 'tz1and Item FA2 tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -127,8 +127,8 @@ export async function deploy(options: any): Promise<void> {
         // Places
         //
         const places_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND Places',
-            description: 'tz1aND Places FA2 tokens',
+            name: 'tz1and Places',
+            description: 'tz1and Places FA2 tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -144,8 +144,8 @@ export async function deploy(options: any): Promise<void> {
         // DAO
         //
         const dao_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND DAO',
-            description: 'tz1aND Places FA2 tokens',
+            name: 'tz1and DAO',
+            description: 'tz1and DAO FA2 tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -168,8 +168,8 @@ export async function deploy(options: any): Promise<void> {
         // Minter can't be batched because others depend on it.
         //
         const minter_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND Minter',
-            description: 'tz1aND Items and Places minter',
+            name: 'tz1and Minter',
+            description: 'tz1and Items and Places minter',
             interfaces: [],
             version: '1.0.0'
         });
@@ -209,8 +209,8 @@ export async function deploy(options: any): Promise<void> {
         // World (Marketplaces)
         //
         const world_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND World',
-            description: 'tz1aND Virtual World',
+            name: 'tz1and World',
+            description: 'tz1and Virtual World',
             interfaces: [],
             version: '1.0.0'
         });
@@ -230,8 +230,8 @@ export async function deploy(options: any): Promise<void> {
         // Dutch
         //
         const dutch_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1aND Dutch Auctions',
-            description: 'tz1aND Item and Place Dutch auctions',
+            name: 'tz1and Dutch Auctions',
+            description: 'tz1and Places and Items Dutch auctions',
             interfaces: [],
             version: '1.0.0'
         });
@@ -253,7 +253,7 @@ export async function deploy(options: any): Promise<void> {
         console.log("Setting world as dao admin")
         const tokenMetadataMap = new MichelsonMap();
         tokenMetadataMap.set("decimals", char2Bytes("6"));
-        tokenMetadataMap.set("name", char2Bytes("tz1aND DAO"));
+        tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
         tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
 
         const dao_admin_batch = Tezos.wallet.batch();

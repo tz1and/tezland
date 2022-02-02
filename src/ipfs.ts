@@ -37,7 +37,7 @@ export interface ContractMetadata {
 }
 
 // TODO: add to some config or so.
-const metaRepository = 'https://github.com/tz1aND';
+const metaRepository = 'https://github.com/tz1and';
 const metaHomepage = 'www.tz1and.com';
 const metaAcknowledgement = "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
 const metaAuthors = ['852Kerfunke <https://github.com/852Kerfunkle>'];
