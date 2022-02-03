@@ -71,9 +71,9 @@ program
     .alias('d')
     .description('Run the deploy script.')
     .option('-n, --network [network]', 'the network to deploy to (optional)')
-    .action((options) => {
+    .action(async (options) => {
         const deploy = new Deploy(options);
-        deploy.deploy();
+        await deploy.deploy();
     });
 
 try {
