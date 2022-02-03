@@ -1,5 +1,6 @@
 node_modules/
 build/
+deployments/
 tests/test_output/
 ipfsdata/
 assets/

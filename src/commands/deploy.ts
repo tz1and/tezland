@@ -1,117 +1,27 @@
 import * as smartpy from './smartpy';
-import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind, MichelsonMap } from "@taquito/taquito";
-import { InMemorySigner } from "@taquito/signer";
 import * as ipfs from '../ipfs'
-import { OperationContentsAndResultOrigination } from '@taquito/rpc';
-import { BatchWalletOperation } from '@taquito/taquito/dist/types/wallet/batch-operation';
 import { char2Bytes } from '@taquito/utils'
-import { performance } from 'perf_hooks';
-import config from '../user.config';
 import assert from 'assert';
 import kleur from 'kleur';
-import prompt from 'prompt';
+import DeployBase, { DeployContractBatch } from './DeployBase';
+import { MichelsonMap, OpKind, WalletOperationBatch } from '@taquito/taquito';
 
 
-async function deploy_contract(contract_name: string, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>> {
-    var orig_op = await Tezos.contract.originate({
-        code: require(`../../build/${contract_name}.json`),
-        init: require(`../../build/${contract_name}_storage.json`),
-    });
-
-    var contract = await orig_op.contract();
-
-    console.log(`Successfully deployed contract ${contract_name}`);
-    console.log(`>> Transaction hash: ${orig_op.hash}`);
-    console.log(`>> Contract address: ${contract.address}\n`);
-
-    return contract;
-};
-
-function deploy_contract_batch(contract_name: string, batch: WalletOperationBatch) {
-    batch.withOrigination({
-        code: require(`../../build/${contract_name}.json`),
-        init: require(`../../build/${contract_name}_storage.json`),
-    });
-};
-
-// NOTE: only works with single origination per op
-async function get_originated_contracts_batch(batch_op: BatchWalletOperation, Tezos: TezosToolkit): Promise<ContractAbstraction<ContractProvider>[]> {
-    const contracts = [];
-
-    console.log(`Successfully deployed contracts in batch`);
-    console.log(`>> Transaction hash: ${batch_op.opHash}`);
-
-    var results = await batch_op.operationResults();
-    for (const res of results) {
-        if (res.kind === OpKind.ORIGINATION) {
-            const orig_res = res as OperationContentsAndResultOrigination;
-
-            // TODO: check if exists
-            const contract_address = orig_res.metadata.operation_result!.originated_contracts![0];
-
-            console.log(`>> Contract address: ${contract_address}`);
-
-            contracts.push(
-                await Tezos.contract.at(contract_address)
-            );
-        }
-    }
-
-    console.log();
-
-    return contracts;
-}
-
-async function confirmDeploy(network: string) {
-    const properties = [
-        {
-            name: 'yesno',
-            message: 'Are you sure? (yes/no)',
-            validator: /^(?:yes|no)$/,
-            warning: 'Must respond yes or no',
-            default: 'no'
-        }
-    ];
-
-    prompt.start();
-
-    console.log(kleur.yellow("This will deploy new  contracts to " + network));
-    const { yesno } = await prompt.get(properties);
-
-    if (yesno === "no") throw new Error("Deploy cancelled");
-}
-
-export async function deploy(options: any): Promise<void> {
-    // TODO: have this in some helper function.
-    if(!options.network) options.network = config.defaultNetwork;
-    const networkConfig = config.networks[options.network];
-    assert(networkConfig, `Network config not found for '${options.network}'`);
-    const deployerKey = networkConfig.accounts.deployer;
-    assert(networkConfig.accounts, `deployer account not set for '${options.network}'`)
-
-    console.log(kleur.red(`Deploying to '${networkConfig.network}' on ${networkConfig.url} ...\n`));
-
-    if(options.network !== config.defaultNetwork)
-        await confirmDeploy(options.network);
-
-    try {
-        const start_time = performance.now();
-
-        const signer = await InMemorySigner.fromSecretKey(deployerKey);
-        const Tezos = new TezosToolkit(networkConfig.url);
-        Tezos.setProvider({ signer: signer });
-
-        const accountAddress = await signer.publicKeyHash();
+// TODO: finish this stuff!
+// some issues: dependent transactions: setting adming, etc
+export default class Deploy extends DeployBase {
+    protected override async deployDo() {
+        assert(this.tezos);
 
         // prepare batch
-        const fa2_batch = Tezos.wallet.batch();
+        const fa2_batch = new DeployContractBatch(this);
 
         //
         // Items
         //
         const items_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and Items',
-            description: 'tz1and Item FA2 tokens',
+            description: 'tz1and Item FA2 Tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -119,16 +29,16 @@ export async function deploy(options: any): Promise<void> {
         // Compile and deploy Items FA2 contract.
         smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
             `metadata = sp.utils.metadata_of_url("${items_metadata_url}")`,
-            `admin = sp.address("${accountAddress}")`]);
+            `admin = sp.address("${this.accountAddress}")`]);
 
-        deploy_contract_batch("FA2_Items", fa2_batch);
+        fa2_batch.addToBatch("FA2_Items");
 
         //
         // Places
         //
         const places_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and Places',
-            description: 'tz1and Places FA2 tokens',
+            description: 'tz1and Places FA2 Tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -136,16 +46,16 @@ export async function deploy(options: any): Promise<void> {
         // Compile and deploy Places FA2 contract.
         smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
             `metadata = sp.utils.metadata_of_url("${places_metadata_url}")`,
-            `admin = sp.address("${accountAddress}")`]);
+            `admin = sp.address("${this.accountAddress}")`]);
 
-        deploy_contract_batch("FA2_Places", fa2_batch);
+        fa2_batch.addToBatch("FA2_Places");
 
         //
         // DAO
         //
         const dao_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and DAO',
-            description: 'tz1and DAO FA2 tokens',
+            description: 'tz1and DAO FA2 Token',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
         }, true);
@@ -153,20 +63,21 @@ export async function deploy(options: any): Promise<void> {
         // Compile and deploy Places FA2 contract.
         smartpy.compile_newtarget("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
             `metadata = sp.utils.metadata_of_url("${dao_metadata_url}")`,
-            `admin = sp.address("${accountAddress}")`]);
+            `admin = sp.address("${this.accountAddress}")`]);
 
-        deploy_contract_batch("FA2_DAO", fa2_batch);
+        fa2_batch.addToBatch("FA2_DAO");
 
         // send batch.
-        const fa2_batch_op = await fa2_batch.send();
-        await fa2_batch_op.confirmation();
-        const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await get_originated_contracts_batch(fa2_batch_op, Tezos);
+        const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
 
         //
         // Minter
         //
         // Minter can't be batched because others depend on it.
         //
+
+        const minterWasDeployed = this.getDeployment("TL_Minter");
+
         const minter_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and Minter',
             description: 'tz1and Items and Places minter',
@@ -175,35 +86,39 @@ export async function deploy(options: any): Promise<void> {
         });
 
         // Compile and deploy Minter contract.
-        smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`manager = sp.address("${accountAddress}")`,
+        smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`manager = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${minter_metadata_url}")`]);
 
-        const Minter_contract = await deploy_contract("TL_Minter", Tezos);
+        const Minter_contract = await this.deploy_contract("TL_Minter");
 
-        // Set the minter as the token administrator
-        console.log("Setting minter as token admin...")
-        const set_admin_batch = Tezos.wallet.batch();
-        set_admin_batch.with([
-            {
-                kind: OpKind.TRANSACTION,
-                ...items_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
-            },
-            {
-                kind: OpKind.TRANSACTION,
-                ...places_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
-            }
-        ])
+        if (!minterWasDeployed) {
+            // Set the minter as the token administrator
+            console.log("Setting minter as token admin...")
+            const set_admin_batch = this.tezos.wallet.batch();
+            set_admin_batch.with([
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...items_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
+                },
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...places_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
+                }
+            ])
 
-        const set_admin_batch_op = await set_admin_batch.send();
-        await set_admin_batch_op.confirmation();
+            const set_admin_batch_op = await set_admin_batch.send();
+            await set_admin_batch_op.confirmation();
 
-        console.log("Successfully set minter as tokens admin");
-        console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
+            console.log("Successfully set minter as tokens admin");
+            console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
+        }
+
+        const worldWasDeployed = this.getDeployment("TL_World");
 
         // prepare others batch
-        const tezland_batch = Tezos.wallet.batch();
+        const tezland_batch = new DeployContractBatch(this);
 
         //
         // World (Marketplaces)
@@ -216,7 +131,7 @@ export async function deploy(options: any): Promise<void> {
         });
 
         // Compile and deploy Places contract.
-        smartpy.compile_newtarget("TL_World", "TL_World", [`manager = sp.address("${accountAddress}")`,
+        smartpy.compile_newtarget("TL_World", "TL_World", [`manager = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
@@ -224,7 +139,7 @@ export async function deploy(options: any): Promise<void> {
         `terminus = sp.timestamp(${Math.floor(Date.now() / 1000)}).add_days(60)`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
-        await deploy_contract_batch("TL_World", tezland_batch);
+        tezland_batch.addToBatch("TL_World");
 
         //
         // Dutch
@@ -237,49 +152,49 @@ export async function deploy(options: any): Promise<void> {
         });
 
         // Compile and deploy Dutch auction contract.
-        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`manager = sp.address("${accountAddress}")`,
+        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`manager = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
 
-        await deploy_contract_batch("TL_Dutch", tezland_batch);
+        tezland_batch.addToBatch("TL_Dutch");
 
-        const tezland_batch_op = await tezland_batch.send();
-        await tezland_batch_op.confirmation();
-        const [World_contract, Dutch_contract] = await get_originated_contracts_batch(tezland_batch_op, Tezos);
+        const [World_contract, Dutch_contract] = await tezland_batch.deployBatch();
 
-        // Mint 0 dao and set the world as the dao administrator
-        console.log("Setting world as dao admin")
-        const tokenMetadataMap = new MichelsonMap();
-        tokenMetadataMap.set("decimals", char2Bytes("6"));
-        tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
-        tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+        if(!worldWasDeployed) {
+            // Mint 0 dao and set the world as the dao administrator
+            console.log("Setting world as dao admin")
+            const tokenMetadataMap = new MichelsonMap();
+            tokenMetadataMap.set("decimals", char2Bytes("6"));
+            tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
+            tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
 
-        const dao_admin_batch = Tezos.wallet.batch();
-        dao_admin_batch.with([
-            {
-                kind: OpKind.TRANSACTION,
-                ...dao_FA2_contract.methodsObject.mint({
-                    address: accountAddress,
-                    amount: 0,
-                    token_id: 0,
-                    metadata: tokenMetadataMap}).toTransferParams()
-            },
-            {
-                kind: OpKind.TRANSACTION,
-                ...dao_FA2_contract.methods.set_administrator(World_contract.address).toTransferParams()
-            }
-        ])
+            const dao_admin_batch = this.tezos.wallet.batch();
+            dao_admin_batch.with([
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...dao_FA2_contract.methodsObject.mint({
+                        address: this.accountAddress,
+                        amount: 0,
+                        token_id: 0,
+                        metadata: tokenMetadataMap}).toTransferParams()
+                },
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...dao_FA2_contract.methods.set_administrator(World_contract.address).toTransferParams()
+                }
+            ])
 
-        const dao_admin_batch_op = await dao_admin_batch.send();
-        await dao_admin_batch_op.confirmation();
+            const dao_admin_batch_op = await dao_admin_batch.send();
+            await dao_admin_batch_op.confirmation();
 
-        console.log("Successfully set world as dao admin");
-        console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}\n`);
+            console.log("Successfully set world as dao admin");
+            console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}\n`);
+        }
 
         // If this is a test deploy, mint some test items.
-        if(options.network === "sandbox") {
+        if(this.network === "sandbox") {
             console.log(kleur.magenta("Minting tokens for testing...\n"));
 
             const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
@@ -290,7 +205,7 @@ export async function deploy(options: any): Promise<void> {
                 batch.with([{
                     kind: OpKind.TRANSACTION,
                     ...Minter_contract.methodsObject.mint_Item({
-                        address: accountAddress,
+                        address: this.accountAddress,
                         amount: amount,
                         royalties: 250,
                         metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
@@ -303,7 +218,7 @@ export async function deploy(options: any): Promise<void> {
                 const place_metadata_url = await ipfs.upload_place_metadata({
                     name: "Some Place",
                     description: "A nice place",
-                    minter: accountAddress,
+                    minter: this.accountAddress!,
                     centerCoordinates: center,
                     borderCoordinates: border,
                     buildHeight: 10,
@@ -314,14 +229,14 @@ export async function deploy(options: any): Promise<void> {
                 batch.with([{
                     kind: OpKind.TRANSACTION,
                     ...Minter_contract.methodsObject.mint_Place({
-                        address: accountAddress,
+                        address: this.accountAddress,
                         metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')
                     }).toTransferParams()
                 }]);
             }
 
             // prepare batch
-            const mint_batch = Tezos.wallet.batch();
+            const mint_batch = this.tezos.wallet.batch();
 
             await mintNewItem('assets/Lantern.glb', 100, mint_batch);
             await mintNewItem('assets/Fox.glb', 25, mint_batch);
@@ -375,11 +290,5 @@ export async function deploy(options: any): Promise<void> {
   tezlandDutchAuctions:
     address: ${Dutch_contract.address}
     typename: tezlandDutchAuctions\n`);
-
-
-        const end_time = performance.now();
-        console.log(kleur.green(`Deploy ran in ${((end_time - start_time) / 1000).toFixed(1)}s`));
-    } catch (error) {
-        console.error(error);
     }
-};
+}

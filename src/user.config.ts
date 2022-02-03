@@ -1,5 +1,5 @@
-import './config/config';
-const { deployerKey, nftStorageApiKey } = require('../secrets.json');
+import { SmartpyNodeDevConfig } from './config/config';
+const { testnetDeployerKey, deployerKey, nftStorageApiKey } = require('../secrets.json');
 
 const config: SmartpyNodeDevConfig = {
     defaultNetwork: "sandbox",
@@ -16,9 +16,9 @@ const config: SmartpyNodeDevConfig = {
             accounts: { deployer: deployerKey }
         },
         testnet: {
-            url: "https://testnet.api.tez.ie",
-            network: "testnet",
-            accounts: { deployer: deployerKey }
+            url: "https://rpc.hangzhounet.teztnets.xyz",
+            network: "hangzhounet",
+            accounts: { deployer: testnetDeployerKey }
         }
     },
     ipfs: {

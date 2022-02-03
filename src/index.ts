@@ -1,7 +1,7 @@
 import { program } from 'commander';
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
-import * as deploy from './commands/deploy';
+import Deploy from './commands/deploy';
 const packageJson = require('../package.json');
 
 // configuration
@@ -72,7 +72,8 @@ program
     .description('Run the deploy script.')
     .option('-n, --network [network]', 'the network to deploy to (optional)')
     .action((options) => {
-        deploy.deploy(options); //(contract_name);
+        const deploy = new Deploy(options);
+        deploy.deploy();
     });
 
 try {

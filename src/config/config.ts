@@ -1,30 +1,30 @@
-type PrivateKey = string;
-type IpfsUrl = string;
+export type PrivateKey = string;
+export type IpfsUrl = string;
 
-type AccountsConfig = {
+export type AccountsConfig = {
     [accountName: string]: string;
 }
 
-type NetworkConfig = {
+export type NetworkConfig = {
     url: string;
     network: string;
     accounts: AccountsConfig;
 }
 
-type NetworksConfig = {
+export type NetworksConfig = {
     sandbox: NetworkConfig;
     mainnet: NetworkConfig;
 
     [networkName: string]: NetworkConfig;
 }
 
-type IpfsConfig = {
+export type IpfsConfig = {
     localNodeUrl: IpfsUrl;
     nftStorageApiKey: string;
     uploadToLocalIpfs: boolean;
 }
 
-type SmartpyNodeDevConfig = {
+export type SmartpyNodeDevConfig = {
     defaultNetwork: string;
     networks: NetworksConfig;
     ipfs: IpfsConfig;
