@@ -2,7 +2,6 @@ import smartpy as sp
 
 manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
 
-# TODO: add is_paused onchain view?
 
 class Pausable(manager_contract.Manageable):
     #def __init__(self, manager):
@@ -23,4 +22,7 @@ class Pausable(manager_contract.Manageable):
     def set_paused(self, new_paused):
         self.onlyManager()
         self.data.paused = new_paused
-        
+
+    @sp.onchain_view()
+    def is_paused(self):
+        sp.result(self.isPaused())

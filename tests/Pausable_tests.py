@@ -88,3 +88,8 @@ def test():
     pausable.testIsPaused(False).run(sender = alice)
     pausable.testIsPaused(False).run(sender = bob)
     pausable.testIsPaused(False).run(sender = admin)
+
+    scenario.h3("is_paused view")
+    scenario.verify(pausable.is_paused() == False)
+    pausable.set_paused(True).run(sender = admin)
+    scenario.verify(pausable.is_paused() == True)
