@@ -500,22 +500,22 @@ class TL_World(pausable_contract.Pausable):
     # Update code
     #
     @sp.entry_point
-    def code_update_set_place_props(self, new_code):
+    def upgrade_code_set_place_props(self, new_code):
         self.onlyManager()
         sp.set_entry_point("set_place_props", new_code)
 
     @sp.entry_point
-    def code_update_place_items(self, new_code):
+    def upgrade_code_place_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("place_items", new_code)
 
     @sp.entry_point
-    def code_update_remove_items(self, new_code):
+    def upgrade_code_remove_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("remove_items", new_code)
 
     @sp.entry_point
-    def code_update_get_item(self, new_code):
+    def upgrade_code_get_item(self, new_code):
         self.onlyManager()
         sp.set_entry_point("get_item", new_code)
 
