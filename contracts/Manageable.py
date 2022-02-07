@@ -1,5 +1,7 @@
 import smartpy as sp
 
+# TODO: figure out if a get_manager onchain view is useful.
+
 class Manageable(sp.Contract):
     #def __init__(self, manager):
     #    self.init_storage(
