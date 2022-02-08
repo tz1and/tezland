@@ -4,13 +4,13 @@ import { uploadToIpfs } from './storage';
 import { Blob } from 'nft.storage';
 
 
-export async function upload_place_metadata(metadata: PlaceMetadata): Promise<string> {
-    const result = await uploadToIpfs(createPlaceTokenMetadata(metadata), false);
+export async function upload_place_metadata(metadata: PlaceMetadata, localIpfs: boolean): Promise<string> {
+    const result = await uploadToIpfs(createPlaceTokenMetadata(metadata), false, localIpfs);
 
     return result.metdata_uri;
 }
 
-export async function upload_item_metadata(minter_address: string, model_path: string): Promise<string> {
+export async function upload_item_metadata(minter_address: string, model_path: string, localIpfs: boolean): Promise<string> {
     const data: Buffer = fs.readFileSync(model_path);
 
     const result = await uploadToIpfs(createItemTokenMetadata({
@@ -24,7 +24,7 @@ export async function upload_item_metadata(minter_address: string, model_path: s
                 fileSize: data.length
             }
         ],
-    }), false);
+    }), false, localIpfs);
 
     return result.metdata_uri;
 }
@@ -60,8 +60,8 @@ function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean): an
     };
 }
 
-export async function upload_contract_metadata(metadata: ContractMetadata, is_fa2: boolean = false): Promise<string> {
-    const result = await uploadToIpfs(createContractMetadata(metadata, is_fa2), true);
+export async function upload_contract_metadata(metadata: ContractMetadata, localIpfs: boolean, is_fa2: boolean = false): Promise<string> {
+    const result = await uploadToIpfs(createContractMetadata(metadata, is_fa2), true, localIpfs);
 
     console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
 

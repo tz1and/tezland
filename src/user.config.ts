@@ -23,8 +23,7 @@ const config: SmartpyNodeDevConfig = {
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
-        nftStorageApiKey: nftStorageApiKey,
-        uploadToLocalIpfs: true
+        nftStorageApiKey: nftStorageApiKey
     }
 }
 export default config;

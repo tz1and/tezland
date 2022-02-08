@@ -97,6 +97,7 @@ export default class DeployBase {
 
     private networkConfig: NetworkConfig;
     protected network: string;
+    protected isSandboxNet: boolean;
 
     public tezos?: TezosToolkit;
     protected accountAddress?: string;
@@ -110,6 +111,8 @@ export default class DeployBase {
         // set network to deploy to.
         if(!options.network) this.network = config.defaultNetwork;
         else this.network = options.network;
+
+        this.isSandboxNet = this.network === "sandbox";
 
         // get and validate network config.
         this.networkConfig = config.networks[this.network];

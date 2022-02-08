@@ -24,7 +24,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and Item FA2 Tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
-        }, true);
+        }, this.isSandboxNet, true);
 
         // Compile and deploy Items FA2 contract.
         smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
@@ -41,7 +41,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and Places FA2 Tokens',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
-        }, true);
+        }, this.isSandboxNet, true);
 
         // Compile and deploy Places FA2 contract.
         smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
@@ -58,7 +58,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and DAO FA2 Token',
             interfaces: ["TZIP-12"],
             version: '1.0.0'
-        }, true);
+        }, this.isSandboxNet, true);
 
         // Compile and deploy Places FA2 contract.
         smartpy.compile_newtarget("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
@@ -83,7 +83,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and Items and Places minter',
             interfaces: [],
             version: '1.0.0'
-        });
+        }, this.isSandboxNet);
 
         // Compile and deploy Minter contract.
         smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`manager = sp.address("${this.accountAddress}")`,
@@ -128,7 +128,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and Virtual World',
             interfaces: [],
             version: '1.0.0'
-        });
+        }, this.isSandboxNet);
 
         // Compile and deploy Places contract.
         smartpy.compile_newtarget("TL_World", "TL_World", [`manager = sp.address("${this.accountAddress}")`,
@@ -149,7 +149,7 @@ export default class Deploy extends DeployBase {
             description: 'tz1and Places and Items Dutch auctions',
             interfaces: [],
             version: '1.0.0'
-        });
+        }, this.isSandboxNet);
 
         // Compile and deploy Dutch auction contract.
         smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`manager = sp.address("${this.accountAddress}")`,
@@ -194,12 +194,12 @@ export default class Deploy extends DeployBase {
         }
 
         // If this is a test deploy, mint some test items.
-        if(this.network === "sandbox") {
+        if(this.isSandboxNet) {
             console.log(kleur.magenta("Minting tokens for testing...\n"));
 
             const mintNewItem = async (model_path: string, amount: number, batch: WalletOperationBatch) => {
                 // Create item metadata and upload it
-                const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path);
+                const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, this.isSandboxNet);
                 console.log(`item token metadata: ${item_metadata_url}`);
 
                 batch.with([{
@@ -223,7 +223,7 @@ export default class Deploy extends DeployBase {
                     borderCoordinates: border,
                     buildHeight: 10,
                     placeType: "exterior"
-                });
+                }, this.isSandboxNet);
                 console.log(`place token metadata: ${place_metadata_url}`);
 
                 batch.with([{

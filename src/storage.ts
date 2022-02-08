@@ -142,8 +142,7 @@ const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean): 
     return { metdata_uri: `ipfs://${CIDstr}`, cid: CIDstr };
 }
 
-export const uploadToIpfs = (metadata: any, is_contract: boolean): Promise<ResultType> => {
-    // TODO: config.ipfs.uploadToLocalIpfs should depend on the network!
-    const handler: handlerFunction = config.ipfs.uploadToLocalIpfs ? uploadToLocal : uploadToNFTStorage;
+export const uploadToIpfs = (metadata: any, is_contract: boolean, localIpfs: boolean): Promise<ResultType> => {
+    const handler: handlerFunction = localIpfs ? uploadToLocal : uploadToNFTStorage;
     return handler(metadata, is_contract);
 }

@@ -21,7 +21,6 @@ export type NetworksConfig = {
 export type IpfsConfig = {
     localNodeUrl: IpfsUrl;
     nftStorageApiKey: string;
-    uploadToLocalIpfs: boolean;
 }
 
 export type SmartpyNodeDevConfig = {
