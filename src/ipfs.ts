@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import assert = require('assert');
 import { uploadToIpfs } from './storage';
-import { Blob } from 'nft.storage';
+import { File } from 'nft.storage';
 
 
 export async function upload_place_metadata(metadata: PlaceMetadata, localIpfs: boolean): Promise<string> {
@@ -17,7 +17,7 @@ export async function upload_item_metadata(minter_address: string, model_path: s
         name: "My awesome item",
         description: "A nice item",
         minter: minter_address,
-        modelBlob: new Blob([data]),
+        modelBlob: new File([data], "model.glb", {type: "model/gltf-binary"}),
         formats: [
             {
                 mimeType: "model/gltf-binary", // model/gltf+json, model/gltf-binary
@@ -108,7 +108,7 @@ interface ItemMetadata {
     description: string;
     minter: string;
     name: string;
-    modelBlob: Blob;
+    modelBlob: typeof File;
     formats: object[];
 }
 
