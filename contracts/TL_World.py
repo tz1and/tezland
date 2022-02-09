@@ -11,10 +11,9 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # Urgent
 # TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
 # TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
-# TODO: has_permission: should it skip the initial owner check? Maybe not.
-# TODO: use has_permission instead of check_owner_or_permission!
+# TODO: has_permission: should it skip the initial owner check? Maybe not. Depends on the next.
+# TODO: use has_permission instead of check_owner_or_permission?
 # TODO: test set_item_data
-# TODO: test swap_permitted, even if unused right now.
 #
 #
 # Other

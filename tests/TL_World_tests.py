@@ -344,9 +344,15 @@ def test():
 
     world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
+    scenario.verify(world.data.other_permitted_fa2[other_token.address] == False)
+
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = True).run(sender = admin)
+    scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
+    scenario.verify(world.data.other_permitted_fa2[other_token.address] == True)
 
     world.set_other_fa2_permitted(fa2 = other_token.address, permitted = False, swap_permitted = False).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
+    scenario.verify(sp.is_failing(world.data.other_permitted_fa2[other_token.address]))
 
     # test unpermitted place_item
     scenario.h3("Test placing unpermitted 'other' type items")
