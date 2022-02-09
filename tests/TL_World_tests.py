@@ -339,26 +339,26 @@ def test():
 
     # test set permitted
     scenario.h3("set_other_fa2_permitted")
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
 
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = admin)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
 
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = False).run(sender = admin)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = False, swap_permitted = False).run(sender = admin)
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
 
     # test unpermitted place_item
     scenario.h3("Test placing unpermitted 'other' type items")
     world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position))
+        sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
     ]).run(sender = alice, valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     # test get
     scenario.h3("get_other_permitted_fa2 view")
     scenario.show(world.is_other_fa2_permitted(other_token.address))
     scenario.verify(world.is_other_fa2_permitted(other_token.address) == False)
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True).run(sender = admin)
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
     scenario.verify(world.is_other_fa2_permitted(other_token.address) == True)
 
     # test place_item
@@ -366,10 +366,23 @@ def test():
 
     scenario.h4("place")
     world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position)),
-        sp.variant("other", sp.record(token_id = 0, fa2 = other_token.address, item_data = position))
+        sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position)),
+        sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
     ]).run(sender = alice)
     # TODO: verify token was transferred
+
+    # NOTE: make sure other type tokens can only be placed one at a time and aren't swappable, for now.
+    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("other", sp.record(token_id = 0, token_amount=2, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position)),
+    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
+
+    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(1), fa2 = other_token.address, item_data = position)),
+    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
+
+    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+        sp.variant("other", sp.record(token_id = 0, token_amount=22, xtz_per_token=sp.tez(1), fa2 = other_token.address, item_data = position)),
+    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
 
     scenario.h4("get")
     item_counter = world.data.places.get(place_alice).counter

@@ -18,6 +18,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
 # TODO: has_permission should check fa2 token owner, just like check_owner_or_permission!
 # TODO: test has_permission!
+# TODO: test swap_permitted, even if unused right now.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -32,7 +33,9 @@ itemRecordType = sp.TRecord(
 # For any other tokens someone might want to exhibit. These are "place only".
 otherTokenRecordType = sp.TRecord(
     issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
+    item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
+    xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
     fa2=sp.TAddress # store a fa2 token address
 )
@@ -62,6 +65,8 @@ placeItemListType = sp.TVariant(
     ),
     other = sp.TRecord(
         token_id=sp.TNat,
+        token_amount=sp.TNat,
+        xtz_per_token=sp.TMutez,
         item_data=sp.TBytes,
         fa2=sp.TAddress
     ),
@@ -95,13 +100,15 @@ class Error_message:
 # Lazy set of permitted FA2 tokens for 'other' type.
 class Permitted_fa2_set:
     def make(self):
-        return sp.big_map(tkey = sp.TAddress, tvalue = sp.TUnit)
-    def add(self, set, fa2):
-        set[fa2] = sp.unit
+        return sp.big_map(tkey = sp.TAddress, tvalue = sp.TBool)
+    def add(self, set, fa2, allow_swap):
+        set[fa2] = allow_swap
     def remove(self, set, fa2):
         del set[fa2]
     def is_permitted(self, set, fa2):
         return set.contains(fa2)
+    def is_swap_permitted(self, set, fa2):
+        return set[fa2]
 
 #
 # Operator_set from FA2. Lazy set for place permissions.
@@ -201,9 +208,10 @@ class TL_World(pausable_contract.Pausable):
         # should probably be.
         sp.set_type(params.fa2, sp.TAddress)
         sp.set_type(params.permitted, sp.TBool)
+        sp.set_type(params.swap_permitted, sp.TBool)
         self.onlyManager()
         sp.if params.permitted == True:
-            self.permitted_fa2_set.add(self.data.other_permitted_fa2, params.fa2)
+            self.permitted_fa2_set.add(self.data.other_permitted_fa2, params.fa2, params.swap_permitted)
         sp.else:
             self.permitted_fa2_set.remove(self.data.other_permitted_fa2, params.fa2)
 
@@ -333,6 +341,7 @@ class TL_World(pausable_contract.Pausable):
 
                 with arg.match("other") as other:
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    sp.verify((other.token_amount == sp.nat(1)) & (other.xtz_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                     sp.verify(self.permitted_fa2_set.is_permitted(self.data.other_permitted_fa2, other.fa2),
                         message = self.error_message.token_not_permitted())
@@ -342,7 +351,9 @@ class TL_World(pausable_contract.Pausable):
 
                     this_place.stored_items[this_place.counter] = sp.variant("other", sp.record(
                         issuer = sp.sender,
+                        item_amount = sp.nat(1),
                         token_id = other.token_id,
+                        xtz_per_item = sp.tez(0),
                         item_data = other.item_data,
                         fa2 = other.fa2))
 
