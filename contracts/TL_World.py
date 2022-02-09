@@ -8,17 +8,21 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
+# Urgent
+# TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
+# TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
+# TODO: has_permission: should it skip the initial owner check? Maybe not.
+# TODO: use has_permission instead of check_owner_or_permission!
+# TODO: test set_item_data
+# TODO: test swap_permitted, even if unused right now.
+#
+#
+# Other
 # TODO: think of some more tests for permission.
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
 # TODO: check if packing/unpacking michelson maps works well for script variables
-# TODO: turn transferMap into a metaclass
-# TODO: test set_item_data
-# TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
-# TODO: add xtz_per_token to other item type? unused by default. add to permitted fa2
-# TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
-# TODO: has_permission should check fa2 token owner, just like check_owner_or_permission!
-# TODO: test has_permission!
-# TODO: test swap_permitted, even if unused right now.
+# TODO: turn transferMap into a metaclass?
+
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -547,14 +551,22 @@ class TL_World(pausable_contract.Pausable):
     @sp.onchain_view()
     def has_permission(self, query):
         sp.set_type(query,
-            sp.TRecord(token_id = sp.TNat,
+            sp.TRecord(lot_id = sp.TNat,
                 owner = sp.TAddress,
-                permission = sp.TAddress))
-        sp.result(
-            self.permission_set.is_member(self.data.permissions,
-                query.owner,
-                query.permission,
-                query.token_id))
+                permittee = sp.TAddress))
+        
+        # if permittee is the owner, he has permission.
+        sp.if self.fa2_get_balance(self.data.places_contract, query.lot_id, query.permittee) > 0:
+            sp.result(False)
+        sp.else:
+            # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
+            sp.if self.fa2_get_balance(self.data.places_contract, query.lot_id, query.owner) > 0:
+                sp.result(self.permission_set.is_member(self.data.permissions,
+                    query.owner,
+                    query.permittee,
+                    query.lot_id))
+            sp.else:
+                sp.result(False)
 
     #
     # Update code

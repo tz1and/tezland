@@ -412,6 +412,8 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
+
     # alice tries to set place props in bobs place but isn't an op
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
@@ -426,6 +428,8 @@ def test():
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
+
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == True)
 
     # alice can now place/remove items in bobs place, set props
     world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
@@ -443,6 +447,8 @@ def test():
             token_id = place_alice
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
+
+    scenario.verify(world.has_permission(sp.record(lot_id=place_alice, owner=alice.address, permittee=bob.address)) == False)
 
     # bob is not allowed to place items in alices place.
     world.place_items(lot_id=place_alice, owner=sp.some(alice.address), item_list=[
@@ -464,15 +470,21 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
+
     # and also alice will not have persmissions on carols place
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=carol.address, permittee=alice.address)) == False)
+
     # neither will bob
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
+
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=carol.address, permittee=bob.address)) == False)
 
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
@@ -493,6 +505,8 @@ def test():
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
+
+    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
 
     #
     # test some swapping edge cases
