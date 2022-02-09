@@ -10,7 +10,6 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # Urgent
 # TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
-# TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
 # TODO: has_permission: should it skip the initial owner check? Maybe not. Depends on the next.
 # TODO: use has_permission instead of check_owner_or_permission?
 #
@@ -21,6 +20,9 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: check if packing/unpacking michelson maps works well for script variables
 # TODO: turn transferMap into a metaclass?
 
+
+# Some notes:
+# - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -80,6 +82,12 @@ defaultPlaceProps = sp.bytes('0x82b881')
 itemDataMinLen = sp.nat(16)
 placeDataMinLen = sp.nat(3)
 
+#permissionNone      = sp.nat(0)
+#permissionPlace     = sp.nat(1)
+#permissionRemoveOwn = sp.nat(2)
+#permissionRemoveAny = sp.nat(4)
+#permissionFull      = sp.nat(7)
+
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 class Error_message:
@@ -117,26 +125,26 @@ class Permitted_fa2_set:
 class Permission_set:
     def key_type(self):
         return sp.TRecord(owner = sp.TAddress,
-                          permission = sp.TAddress,
+                          permittee = sp.TAddress,
                           token_id = sp.TNat
-                          ).layout(("owner", ("permission", "token_id")))
+                          ).layout(("owner", ("permittee", "token_id")))
 
     def make(self):
         return sp.big_map(tkey = self.key_type(), tvalue = sp.TUnit)
 
-    def make_key(self, owner, permission, token_id):
+    def make_key(self, owner, permittee, token_id):
         metakey = sp.record(owner = owner,
-                            permission = permission,
+                            permittee = permittee,
                             token_id = token_id)
         metakey = sp.set_type_expr(metakey, self.key_type())
         return metakey
 
-    def add(self, set, owner, permission, token_id):
-        set[self.make_key(owner, permission, token_id)] = sp.unit
-    def remove(self, set, owner, permission, token_id):
-        del set[self.make_key(owner, permission, token_id)]
-    def is_member(self, set, owner, permission, token_id):
-        return set.contains(self.make_key(owner, permission, token_id))
+    def add(self, set, owner, permittee, token_id):
+        set[self.make_key(owner, permittee, token_id)] = sp.unit
+    def remove(self, set, owner, permittee, token_id):
+        del set[self.make_key(owner, permittee, token_id)]
+    def is_member(self, set, owner, permittee, token_id):
+        return set.contains(self.make_key(owner, permittee, token_id))
 
 #
 # Operator_param from Fa2. Defines type types for the update_permissions entry-point.
@@ -144,12 +152,12 @@ class Permission_param:
     def get_type(self):
         t = sp.TRecord(
             owner = sp.TAddress,
-            permission = sp.TAddress,
+            permittee = sp.TAddress,
             token_id = sp.TNat)
         return t
-    def make(self, owner, permission, token_id):
+    def make(self, owner, permittee, token_id):
         r = sp.record(owner = owner,
-            permission = permission,
+            permittee = permittee,
             token_id = token_id)
         return sp.set_type_expr(r, self.get_type())
 
@@ -239,7 +247,7 @@ class TL_World(pausable_contract.Pausable):
                     # Add permission
                     self.permission_set.add(self.data.permissions,
                         upd.owner,
-                        upd.permission,
+                        upd.permittee,
                         upd.token_id)
                 with arg.match("remove_permission") as upd:
                     # Sender must be the owner
@@ -247,7 +255,7 @@ class TL_World(pausable_contract.Pausable):
                     # Remove permission
                     self.permission_set.remove(self.data.permissions,
                         upd.owner,
-                        upd.permission,
+                        upd.permittee,
                         upd.token_id)
 
     # Don't use private lambda because we need to be able to update code

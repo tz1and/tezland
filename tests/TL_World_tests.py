@@ -449,7 +449,7 @@ def test():
     world.update_permissions([
         sp.variant("add_permission", world.permission_param.make(
             owner = bob.address,
-            permission = alice.address,
+            permittee = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
@@ -478,7 +478,7 @@ def test():
     world.update_permissions([
         sp.variant("add_permission", world.permission_param.make(
             owner = alice.address,
-            permission = bob.address,
+            permittee = bob.address,
             token_id = place_alice
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
@@ -526,7 +526,7 @@ def test():
     world.update_permissions([
         sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            permission = alice.address,
+            permittee = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=alice, valid=False, exception="NOT_OWNER")
@@ -536,7 +536,7 @@ def test():
     world.update_permissions([
         sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            permission = alice.address,
+            permittee = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
@@ -582,7 +582,7 @@ def test():
     world.update_permissions([
         sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            permission = alice.address,
+            permittee = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
