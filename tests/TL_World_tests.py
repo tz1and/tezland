@@ -155,9 +155,11 @@ def test():
     # place some more items
     world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
     world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(0), item_data = position))]).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].stored_items[0].open_variant('item').issuer == bob.address)
 
     world.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
     world.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
+    scenario.verify(world.data.places[place_alice].stored_items[0].open_variant('item').issuer == alice.address)
 
     #
     # get (buy) items.
@@ -249,8 +251,7 @@ def test():
     world.get_item(lot_id = place_bob, item_id = abs(item_counter - 3)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
-    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [2]).run(sender = bob)
-    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [3, 4]).run(sender = bob)
+    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [abs(item_counter - 3)]).run(sender = bob)
 
     #
     # set place props
@@ -261,6 +262,24 @@ def test():
     world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob)
     world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
     world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OWNER")
+
+    #
+    # set_item_data
+    #
+    scenario.h2("Set item data")
+    new_item_data = sp.bytes("0x01010101010101010101010101010101")
+    world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
+        sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
+        sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
+    ]).run(sender = alice, valid = False, exception = "NOT_OWNER")
+
+    world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
+        sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
+        sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
+    ]).run(sender = bob)
+
+    scenario.verify(world.data.places[place_bob].stored_items[abs(item_counter - 2)].open_variant('ext') == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[abs(item_counter - 1)].open_variant('item').item_data == new_item_data)
 
     #
     # test place related views
@@ -437,10 +456,20 @@ def test():
 
     scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == True)
 
-    # alice can now place/remove items in bobs place, set props
+    # alice can now place/remove items in bobs place, set props, set item data
     world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=True)
+
+    # verify issuer is set correctly.
+    last_item = abs(world.data.places[place_bob].counter - 1)
+    scenario.verify(world.data.places[place_bob].stored_items[last_item].open_variant('item').issuer == alice.address)
+
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_list = [
+        sp.record(item_id = last_item, item_data = new_item_data)
+    ]).run(sender = alice, valid = True)
+
+    scenario.verify(world.data.places[place_bob].stored_items[last_item].open_variant('item').item_data == new_item_data)
 
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
 
