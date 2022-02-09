@@ -389,27 +389,27 @@ def test():
     world.set_fees(45).run(sender = admin)
 
     #
-    # test world operators
+    # test world permissions
     #
-    scenario.h2("World operators")
+    scenario.h2("World permissions")
 
-    scenario.h3("Change place without op")
+    scenario.h3("Change place without perms")
     # alice tries to place an item in bobs place but isn't an op
     world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # alice tries to set place props in bobs place but isn't an op
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    scenario.h3("Add operator")
+    scenario.h3("Add permission")
 
-    scenario.h4("Valid add operator")
-    # bob makes alice an operator of his place
-    world.update_operators([
-        sp.variant("add_operator", world.operator_param.make(
+    scenario.h4("Valid add permission")
+    # bob gives alice permission to his place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make(
             owner = bob.address,
-            operator = alice.address,
+            permission = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
@@ -421,12 +421,12 @@ def test():
 
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
 
-    scenario.h4("Invalid add operator")
-    # bob makes himself op of alices place
-    world.update_operators([
-        sp.variant("add_operator", world.operator_param.make(
+    scenario.h4("Invalid add permission")
+    # bob gives himself permissions to alices place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make(
             owner = alice.address,
-            operator = bob.address,
+            permission = bob.address,
             token_id = place_alice
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
@@ -434,9 +434,9 @@ def test():
     # bob is not allowed to place items in alices place.
     world.place_items(lot_id=place_alice, owner=sp.some(alice.address), item_list=[
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=bob, valid=False, exception="NOT_OPERATOR")
+    ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
 
-    scenario.h3("No operator after transfer")
+    scenario.h3("No permission after transfer")
     # bob transfers his place to carol
     places_tokens.transfer([places_tokens.batch_transfer.item(from_ = bob.address,
         txs = [
@@ -446,37 +446,37 @@ def test():
         ])
     ]).run(sender=bob)
 
-    # alice won't be an operator anymore
+    # alice won't have permission anymore
     world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    # and also alice will not be operator on carols place
+    # and also alice will not have persmissions on carols place
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NOT_OPERATOR")
+    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # neither will bob
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=bob, valid=False, exception="NOT_OPERATOR")
+    ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
 
-    scenario.h3("Invalid remove operator")
-    # alice cant remove herself from operators of bobs (now not owned) place
-    world.update_operators([
-        sp.variant("remove_operator", world.operator_param.make(
+    scenario.h3("Invalid remove permission")
+    # alice cant remove own permission to bobs (now not owned) place
+    world.update_permissions([
+        sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            operator = alice.address,
+            permission = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=alice, valid=False, exception="NOT_OWNER")
 
-    scenario.h3("Valid remove operator")
-    # bob removes alice from operators of his (now not owned) place
-    world.update_operators([
-        sp.variant("remove_operator", world.operator_param.make(
+    scenario.h3("Valid remove permission")
+    # bob removes alice's permissions to his (now not owned) place
+    world.update_permissions([
+        sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            operator = alice.address,
+            permission = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
@@ -516,11 +516,11 @@ def test():
 
     world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [3]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
-    # update operators is still allowed
-    world.update_operators([
-        sp.variant("remove_operator", world.operator_param.make(
+    # update permissions is still allowed
+    world.update_permissions([
+        sp.variant("remove_permission", world.permission_param.make(
             owner = bob.address,
-            operator = alice.address,
+            permission = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)

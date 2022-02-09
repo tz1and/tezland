@@ -8,10 +8,16 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
-# TODO: think of some more tests for operator.
+# TODO: think of some more tests for permission.
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
 # TODO: check if packing/unpacking michelson maps works well for script variables
 # TODO: turn transferMap into a metaclass
+# TODO: test set_item_data
+# TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
+# TODO: add xtz_per_token to other item type? unused by default. add to permitted fa2
+# TODO: place minting: don't make consecutive token ids. exterior places start at 0, while interior places might start at 1000000000
+# TODO: has_permission should check fa2 token owner, just like check_owner_or_permission!
+# TODO: test has_permission!
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -42,6 +48,11 @@ extensibleVariantType = sp.TVariant(
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
 
+updateItemListType = sp.TRecord(
+    item_id=sp.TNat,
+    item_data=sp.TBytes
+)
+
 placeItemListType = sp.TVariant(
     item = sp.TRecord(
         token_id=sp.TNat,
@@ -69,7 +80,7 @@ class Error_message:
         #self.prefix = "WORLD_"
         self.prefix = ""
     def make(self, s): return (self.prefix + s)
-    def not_operator(self):         return self.make("NOT_OPERATOR")
+    def no_permission(self):        return self.make("NO_PERMISSION")
     def not_owner(self):            return self.make("NOT_OWNER")
     def fee_error(self):            return self.make("FEE_ERROR")
     def parameter_error(self):      return self.make("PARAM_ERROR")
@@ -93,43 +104,43 @@ class Permitted_fa2_set:
         return set.contains(fa2)
 
 #
-# Operator_set from FA2. Lazy set for place operators.
-class Operator_set:
+# Operator_set from FA2. Lazy set for place permissions.
+class Permission_set:
     def key_type(self):
         return sp.TRecord(owner = sp.TAddress,
-                          operator = sp.TAddress,
+                          permission = sp.TAddress,
                           token_id = sp.TNat
-                          ).layout(("owner", ("operator", "token_id")))
+                          ).layout(("owner", ("permission", "token_id")))
 
     def make(self):
         return sp.big_map(tkey = self.key_type(), tvalue = sp.TUnit)
 
-    def make_key(self, owner, operator, token_id):
+    def make_key(self, owner, permission, token_id):
         metakey = sp.record(owner = owner,
-                            operator = operator,
+                            permission = permission,
                             token_id = token_id)
         metakey = sp.set_type_expr(metakey, self.key_type())
         return metakey
 
-    def add(self, set, owner, operator, token_id):
-        set[self.make_key(owner, operator, token_id)] = sp.unit
-    def remove(self, set, owner, operator, token_id):
-        del set[self.make_key(owner, operator, token_id)]
-    def is_member(self, set, owner, operator, token_id):
-        return set.contains(self.make_key(owner, operator, token_id))
+    def add(self, set, owner, permission, token_id):
+        set[self.make_key(owner, permission, token_id)] = sp.unit
+    def remove(self, set, owner, permission, token_id):
+        del set[self.make_key(owner, permission, token_id)]
+    def is_member(self, set, owner, permission, token_id):
+        return set.contains(self.make_key(owner, permission, token_id))
 
 #
-# Operator_param from Fa2. Defines type types for the update_operators entry-point.
-class Operator_param:
+# Operator_param from Fa2. Defines type types for the update_permissions entry-point.
+class Permission_param:
     def get_type(self):
         t = sp.TRecord(
             owner = sp.TAddress,
-            operator = sp.TAddress,
+            permission = sp.TAddress,
             token_id = sp.TNat)
         return t
-    def make(self, owner, operator, token_id):
+    def make(self, owner, permission, token_id):
         r = sp.record(owner = owner,
-            operator = operator,
+            permission = permission,
             token_id = token_id)
         return sp.set_type_expr(r, self.get_type())
 
@@ -139,8 +150,8 @@ class Operator_param:
 class TL_World(pausable_contract.Pausable):
     def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
         self.error_message = Error_message()
-        self.operator_set = Operator_set()
-        self.operator_param = Operator_param()
+        self.permission_set = Permission_set()
+        self.permission_param = Permission_param()
         self.permitted_fa2_set = Permitted_fa2_set()
         self.init_storage(
             manager = manager,
@@ -153,10 +164,11 @@ class TL_World(pausable_contract.Pausable):
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
             terminus = terminus,
+            entered = sp.bool(False),
             item_limit = sp.nat(32),
             fees = sp.nat(25),
             other_permitted_fa2 = self.permitted_fa2_set.make(),
-            operators = self.operator_set.make(),
+            permissions = self.permission_set.make(),
             places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 counter=sp.TNat,
                 interaction_counter=sp.TNat,
@@ -199,11 +211,11 @@ class TL_World(pausable_contract.Pausable):
     # Public entry points
     #
     @sp.entry_point
-    def update_operators(self, params):
+    def update_permissions(self, params):
         sp.set_type(params, sp.TList(
             sp.TVariant(
-                add_operator = self.operator_param.get_type(),
-                remove_operator = self.operator_param.get_type()
+                add_permission = self.permission_param.get_type(),
+                remove_permission = self.permission_param.get_type()
             )
         ))
 
@@ -211,21 +223,21 @@ class TL_World(pausable_contract.Pausable):
 
         sp.for update in params:
             with update.match_cases() as arg:
-                with arg.match("add_operator") as upd:
+                with arg.match("add_permission") as upd:
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
-                    # Add operator
-                    self.operator_set.add(self.data.operators,
+                    # Add permission
+                    self.permission_set.add(self.data.permissions,
                         upd.owner,
-                        upd.operator,
+                        upd.permission,
                         upd.token_id)
-                with arg.match("remove_operator") as upd:
+                with arg.match("remove_permission") as upd:
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
-                    # Remove operator
-                    self.operator_set.remove(self.data.operators,
+                    # Remove permission
+                    self.permission_set.remove(self.data.permissions,
                         upd.owner,
-                        upd.operator,
+                        upd.permission,
                         upd.token_id)
 
     # Don't use private lambda because we need to be able to update code
@@ -242,20 +254,20 @@ class TL_World(pausable_contract.Pausable):
         return self.data.places[lot_id]
 
     # Don't use private lambda because we need to be able to update code
-    def check_owner_or_operator(self, lot_id, owner):
+    def check_owner_or_permission(self, lot_id, owner):
         #sp.set_type(lot_id, sp.TNat)
         #sp.set_type(owner, sp.TOption(sp.TAddress))
-        # if caller is not the owner, he must be operator.
+        # if caller is not the owner, he must have permission.
         sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) != 1:
             # if owner is set, verify purpoted owner actually owns the
-            # place and sender is an operator.
+            # place and sender has permission.
             sp.if owner.is_some():
                 sp.verify(self.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) == 1,
-                    message = self.error_message.not_operator())
-                sp.verify(self.operator_set.is_member(self.data.operators,
+                    message = self.error_message.no_permission())
+                sp.verify(self.permission_set.is_member(self.data.permissions,
                     owner.open_some(),
                     sp.sender,
-                    lot_id) == True, message = self.error_message.not_operator())
+                    lot_id) == True, message = self.error_message.no_permission())
             # otherwise, sender is just not the owner.
             sp.else:
                 sp.failwith("NOT_OWNER")
@@ -268,8 +280,8 @@ class TL_World(pausable_contract.Pausable):
 
         self.onlyUnpaused()
 
-        # caller must be owner or operator of place.
-        self.check_owner_or_operator(params.lot_id, params.owner)
+        # caller must be owner or or have permission of place.
+        self.check_owner_or_permission(params.lot_id, params.owner)
 
         # get the place
         this_place = self.get_or_create_place(params.lot_id)
@@ -288,8 +300,8 @@ class TL_World(pausable_contract.Pausable):
 
         self.onlyUnpaused()
 
-        # caller must be owner or operator of place.
-        self.check_owner_or_operator(params.lot_id, params.owner)
+        # caller must be owner or have permission of place.
+        self.check_owner_or_permission(params.lot_id, params.owner)
 
         # get the place
         this_place = self.get_or_create_place(params.lot_id)
@@ -345,6 +357,41 @@ class TL_World(pausable_contract.Pausable):
             self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
+    def set_item_data(self, params):
+        sp.set_type(params.update_list, sp.TList(updateItemListType))
+        sp.set_type(params.lot_id, sp.TNat)
+        sp.set_type(params.owner, sp.TOption(sp.TAddress))
+
+        self.onlyUnpaused()
+
+        # get the place - must exist
+        this_place = self.data.places[params.lot_id]
+
+        # caller must be owner or have permission of place.
+        self.check_owner_or_permission(params.lot_id, params.owner)
+
+        sp.for curr in params.update_list:
+            with this_place.stored_items[curr.item_id].match_cases() as arg:
+                with arg.match("item") as the_item:
+                    # TODO: if data min also applied to ext, this wasn't required
+                    sp.verify(sp.len(curr.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    # sigh - variants are not mutable
+                    item_var = sp.compute(the_item)
+                    item_var.item_data = curr.item_data
+                    this_place.stored_items[curr.item_id] = sp.variant("item", item_var)
+                with arg.match("other") as other:
+                    # TODO: if data min also applied to ext, this wasn't required
+                    sp.verify(sp.len(curr.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    # sigh - variants are not mutable
+                    other_var = sp.compute(other)
+                    other_var.item_data = curr.item_data
+                    this_place.stored_items[curr.item_id] = sp.variant("other", other_var)
+                with arg.match("ext") as ext:
+                    this_place.stored_items[curr.item_id] = sp.variant("ext", curr.item_data)
+
+        this_place.interaction_counter += 1
+
+    @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params.item_list, sp.TList(sp.TNat))
         sp.set_type(params.lot_id, sp.TNat)
@@ -352,13 +399,13 @@ class TL_World(pausable_contract.Pausable):
 
         self.onlyUnpaused()
 
-        # get the place
+        # get the place - must exist
         this_place = self.data.places[params.lot_id]
 
-        # caller must be owner or operator of place.
-        self.check_owner_or_operator(params.lot_id, params.owner)
+        # caller must be owner or have permission of place.
+        self.check_owner_or_permission(params.lot_id, params.owner)
         
-        # TODO: Make it so issuer can remove their items, even if not operator or owner?
+        # TODO: Make it so issuer can remove their items, even if no permission or owner?
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -487,15 +534,15 @@ class TL_World(pausable_contract.Pausable):
         sp.result(self.permitted_fa2_set.is_permitted(self.data.other_permitted_fa2, fa2))
 
     @sp.onchain_view()
-    def is_operator(self, query):
+    def has_permission(self, query):
         sp.set_type(query,
             sp.TRecord(token_id = sp.TNat,
                 owner = sp.TAddress,
-                operator = sp.TAddress))
+                permission = sp.TAddress))
         sp.result(
-            self.operator_set.is_member(self.data.operators,
+            self.permission_set.is_member(self.data.permissions,
                 query.owner,
-                query.operator,
+                query.permission,
                 query.token_id))
 
     #
@@ -510,6 +557,11 @@ class TL_World(pausable_contract.Pausable):
     def upgrade_code_place_items(self, new_code):
         self.onlyManager()
         sp.set_entry_point("place_items", new_code)
+
+    @sp.entry_point
+    def upgrade_code_set_item_data(self, new_code):
+        self.onlyManager()
+        sp.set_entry_point("set_item_data", new_code)
 
     @sp.entry_point
     def upgrade_code_remove_items(self, new_code):

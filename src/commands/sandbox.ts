@@ -10,6 +10,11 @@ export async function start(): Promise<void> {
     console.log(kleur.yellow('starting sandbox...'));
 
     try {
+        /*child.execSync(
+            `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose -f docker-compose.yml pull`,
+            {stdio: 'inherit'}
+        )*/
+
         child.execSync(
             `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose -f docker-compose.yml up -d`,
             {stdio: 'inherit'}
