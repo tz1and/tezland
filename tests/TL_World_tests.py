@@ -139,10 +139,10 @@ def test():
     # place some items in a lot not owned (without setting owner)
     world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    ]).run(sender = bob, valid = False, exception = "NO_PERMISSION")
     world.place_items(lot_id = place_bob, owner=sp.none, item_list = [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = alice, valid = False, exception = "NOT_OWNER")
+    ]).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
     # place some items and make sure tokens are tranferred.
     balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
@@ -261,7 +261,7 @@ def test():
     scenario.verify(world.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
     world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = bob)
     world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF')).run(sender = bob, valid = False, exception = "DATA_LEN")
-    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NOT_OWNER")
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF')).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
     #
     # set_item_data
@@ -271,7 +271,7 @@ def test():
     world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
         sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
         sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
-    ]).run(sender = alice, valid = False, exception = "NOT_OWNER")
+    ]).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
     world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
         sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
@@ -437,7 +437,7 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
@@ -447,14 +447,15 @@ def test():
     scenario.h4("Valid add permission")
     # bob gives alice permission to his place
     world.update_permissions([
-        sp.variant("add_permission", world.permission_param.make(
+        sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
-            token_id = place_bob
+            token_id = place_bob,
+            perm = sp.nat(7)
         ))
     ]).run(sender=bob, valid=True)
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == True)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionFull)
 
     # alice can now place/remove items in bobs place, set props, set item data
     world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
@@ -476,14 +477,15 @@ def test():
     scenario.h4("Invalid add permission")
     # bob gives himself permissions to alices place
     world.update_permissions([
-        sp.variant("add_permission", world.permission_param.make(
+        sp.variant("add_permission", world.permission_param.make_add(
             owner = alice.address,
             permittee = bob.address,
-            token_id = place_alice
+            token_id = place_alice,
+            perm = sp.nat(7)
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_alice, owner=alice.address, permittee=bob.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_alice, owner=sp.some(alice.address), permittee=bob.address)) == places_contract.permissionNone)
 
     # bob is not allowed to place items in alices place.
     world.place_items(lot_id=place_alice, owner=sp.some(alice.address), item_list=[
@@ -505,26 +507,26 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # and also alice will not have persmissions on carols place
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=carol.address, permittee=alice.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # neither will bob
     world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
     ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=carol.address, permittee=bob.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=bob.address)) == places_contract.permissionNone)
 
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
     world.update_permissions([
-        sp.variant("remove_permission", world.permission_param.make(
+        sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob
@@ -534,14 +536,14 @@ def test():
     scenario.h3("Valid remove permission")
     # bob removes alice's permissions to his (now not owned) place
     world.update_permissions([
-        sp.variant("remove_permission", world.permission_param.make(
+        sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob
         ))
     ]).run(sender=bob, valid=True)
 
-    scenario.verify(world.has_permission(sp.record(lot_id=place_bob, owner=bob.address, permittee=alice.address)) == False)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     #
     # test some swapping edge cases
@@ -580,7 +582,7 @@ def test():
 
     # update permissions is still allowed
     world.update_permissions([
-        sp.variant("remove_permission", world.permission_param.make(
+        sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob
