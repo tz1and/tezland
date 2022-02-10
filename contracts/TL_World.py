@@ -124,7 +124,7 @@ class Permitted_fa2_map:
     def is_permitted(self, set, fa2):
         return set.contains(fa2)
     def is_swap_permitted(self, set, fa2):
-        return set[fa2]
+        return set.get(fa2, default_value = False)
 
 #
 # Operator_set from FA2. Lazy set for place permissions.
