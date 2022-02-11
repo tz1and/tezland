@@ -17,7 +17,6 @@ class FA2_utils(sp.Contract):
     @sp.onchain_view()
     def token_amounts(self, params):
         sp.set_type(params, sp.TList(t=places_contract.placeItemListType))
-        # todo put into function
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
         sp.for curr in params:
             with curr.match_cases() as arg:
@@ -31,6 +30,32 @@ class FA2_utils(sp.Contract):
                         token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.token_amount
                     sp.else:
                         token_amts.value[other.token_id] = sp.record(amount = other.token_amount, fa2 = other.fa2)
+        #sp.trace(token_amts.value)
+        sp.result(token_amts.value)
+
+    @sp.onchain_view()
+    def token_amounts_in_storage(self, params):
+        sp.set_type(params.lot_id, sp.TNat)
+        sp.set_type(params.world, sp.TAddress)
+        sp.set_type(params.remove_map, sp.TMap(sp.TAddress, sp.TList(sp.TNat)))
+
+        world_data = sp.compute(self.world_get_place_data(params.world, params.lot_id))
+        token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+        sp.for issuer in params.remove_map.keys():
+            issuer_store = world_data.stored_items[issuer]
+            sp.for item_id in params.remove_map[issuer]:
+                with issuer_store[item_id].match_cases() as arg:
+                    with arg.match("item") as item:
+                        sp.if token_amts.value.contains(item.token_id):
+                            token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.item_amount
+                        sp.else:
+                            token_amts.value[item.token_id] = sp.record(amount = item.item_amount, fa2 = self.data.fa2)
+                    with arg.match("other") as other:
+                        sp.if token_amts.value.contains(other.token_id):
+                            token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.item_amount
+                        sp.else:
+                            token_amts.value[other.token_id] = sp.record(amount = other.item_amount, fa2 = other.fa2)
+        #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
     @sp.onchain_view()
@@ -66,6 +91,15 @@ class FA2_utils(sp.Contract):
                     token_id = sp.TNat
                 ).layout(("owner", "token_id"))),
             t = sp.TNat).open_some()
+
+    def world_get_place_data(self, world, lot_id):
+        return sp.view("get_place_data", world,
+            sp.set_type_expr(
+                lot_id,
+                sp.TNat),
+            t = sp.TRecord(
+                stored_items = places_contract.itemStoreType,
+                place_props = sp.TBytes)).open_some()
 
 
 
@@ -220,7 +254,7 @@ def test():
 
     # utility function for checking correctness of getting item using the FA2_utils contract
     # TODO: also check item in map changed
-    def get_item(lot_id: sp.TNat, item_id: sp.TNat, issuer: sp.TAddress, sender: sp.TestAccount, amount: sp.TMutez, valid: bool = True, message: str = None, owner: sp.TOption = sp.none):
+    def get_item(lot_id: sp.TNat, item_id: sp.TNat, issuer: sp.TAddress, sender: sp.TestAccount, amount: sp.TMutez, valid: bool = True, message: str = None):
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(lot_id))
             tokens_amounts = {scenario.compute(world.data.places[lot_id].stored_items[issuer].get(item_id).open_variant("item").token_id) : sp.record(amount=1, fa2=items_tokens.address)}
@@ -230,6 +264,29 @@ def test():
         prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).interaction_counter)
         world.get_item(lot_id = lot_id, item_id = item_id, issuer = issuer).run(sender = sender, amount = amount, valid = valid, exception = message)
     
+        if valid == True:
+            # check seqnum
+            scenario.verify(before_sequence_number != world.get_place_seqnum(place_bob))
+            # check counter
+            scenario.verify(prev_interaction_counter + 1 == world.data.places[lot_id].interaction_counter)
+            # check tokens were transferred
+            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
+
+    # utility function for checking correctness of removing items using the FA2_utils contract
+    # TODO: make sure item is not in map
+    def remove_items(lot_id: sp.TNat, remove_map, sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
+        if valid == True:
+            before_sequence_number = scenario.compute(world.get_place_seqnum(lot_id))
+            tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, lot_id = lot_id, remove_map = remove_map)))
+            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+        
+        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).interaction_counter)
+        world.remove_items(lot_id = lot_id, owner = lot_owner, remove_map = remove_map).run(sender = sender, valid = valid, exception = message)
+        
         if valid == True:
             # check seqnum
             scenario.verify(before_sequence_number != world.get_place_seqnum(place_bob))
@@ -309,19 +366,13 @@ def test():
     scenario.h2("Removing items")
     
     # remove items in a lot not owned
-    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [0]} ).run(sender = alice, valid = False)
-    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [0]} ).run(sender = bob, valid = False)
+    remove_items(place_bob, {bob.address: [0]}, sender=alice, valid=False)
+    remove_items(place_alice, {alice.address: [0]}, sender=bob, valid=False)
 
-    # remove items and make sure tokens are transferred
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
-
-    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [0]} ).run(sender = bob)
-
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
-    scenario.verify(balance_after == (balance_before + 1))
-    # todo: make sure item is not in map
+    # remove items and make sure tokens are transferred. TODO: remove this
+    remove_items(place_bob, {bob.address: [0]}, sender=bob)
     
-    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [0]} ).run(sender = alice)
+    remove_items(place_alice, {alice.address: [0]}, sender=alice)
 
     #place multiple items
     place_items(place_alice, [
@@ -352,7 +403,7 @@ def test():
     get_item(place_bob, abs(item_counter - 3), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
-    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [abs(item_counter - 3)]} ).run(sender = bob)
+    remove_items(place_bob, {bob.address: [abs(item_counter - 3)]}, sender=bob)
 
     #
     # set place props
@@ -516,8 +567,7 @@ def test():
     get_item(place_alice, abs(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h4("remove")
-    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [abs(item_counter - 1), abs(item_counter - 2)]} ).run(sender = alice)
-    # TODO: verify tokens were transferred
+    remove_items(place_alice, {alice.address: [abs(item_counter - 1), abs(item_counter - 2)]}, sender=alice)
 
     #
     # test set fees
@@ -679,7 +729,7 @@ def test():
 
     get_item(place_alice, 3, alice.address, sender=bob, amount=sp.mutez(1), valid=False, message="ONLY_UNPAUSED")
 
-    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [3]} ).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    remove_items(place_alice, {alice.address: [3]}, sender=alice, valid=False, message="ONLY_UNPAUSED")
 
     # update permissions is still allowed
     world.update_permissions([
