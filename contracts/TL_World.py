@@ -9,11 +9,8 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # Urgent
-# TODO: consider different world permissions? "full access" (can remvoe everything) vs "limited access" (can only removing items placed, no place props)
-# TODO: has_permission: should it skip the initial owner check? Maybe not. Depends on the next.
-# TODO: use has_permission instead of check_owner_or_permission?
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
-# TODO: store issue as index into bigmap or a map from issuer to items.
+# TODO: per place item counter. not to be confused with id counter. make sure to check in item limit.
 #
 #
 # Other
@@ -29,7 +26,6 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
-    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
@@ -39,7 +35,6 @@ itemRecordType = sp.TRecord(
 
 # For any other tokens someone might want to exhibit. These are "place only".
 otherTokenRecordType = sp.TRecord(
-    issuer=sp.TAddress, # Not obviously the owner of the lot, could have been sold/transfered after
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
@@ -52,12 +47,54 @@ otherTokenRecordType = sp.TRecord(
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
-    # TODO: need to store issuer?
     ext = sp.TBytes
 )
 
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
+itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
+itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
+
+class Item_store_map:
+    def make(self):
+        return itemStoreLiteral
+    def get(self, map, issuer):
+        return map[issuer]
+    def get_or_create(self, map, issuer):
+        sp.if ~map.contains(issuer):
+            map[issuer] = itemStoreMapLiteral
+        return map[issuer]
+        #items[counter] = place_item
+    #def set_issuer_map(self, map, counter, issuer, place_item):
+    #def remove(self, map, issuer, item_id):
+    #    items = map.get(issuer, default_value = itemStoreMapLiteral)
+    #    del items[item_id]
+
+defaultPlaceProps = sp.bytes('0x82b881')
+
+placeStorageType = sp.TRecord(
+    next_id=sp.TNat,
+    interaction_counter=sp.TNat,
+    place_props=sp.TBytes,
+    stored_items=itemStoreType
+)
+
+placeStorageDefault = sp.record(
+    next_id = 0,
+    interaction_counter = 0,
+    place_props = defaultPlaceProps, # only set color by default.
+    stored_items=itemStoreLiteral
+)
+
+class Place_store_map:
+    def make(self):
+        return sp.big_map(tkey=sp.TNat, tvalue=placeStorageType)
+    def get(self, map, lot_id):
+        return map.get(lot_id)
+    def get_or_create(self, map, lot_id):
+        sp.if ~map.contains(lot_id):
+            map[lot_id] = placeStorageDefault
+        return map[lot_id]
 
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
@@ -81,18 +118,16 @@ placeItemListType = sp.TVariant(
     ext = sp.TBytes
 )
 
-defaultPlaceProps = sp.bytes('0x82b881')
-
 itemDataMinLen = sp.nat(16)
 placeDataMinLen = sp.nat(3)
 
 # permissions are in ocal, like unix.
 # can be any combination of these.
-permissionNone      = sp.nat(0) # no permissions
-permissionModifyOwn = sp.nat(1) # can edit and remove own items (issuer == sp.sender)
-permissionModifyAll = sp.nat(2) # can edit and remove all items
-permissionPlace     = sp.nat(4) # can place items
-permissionFull      = sp.nat(7) # can do anything, implies set_place_props.
+permissionNone       = sp.nat(0) # no permissions
+permissionModifyOwn  = sp.nat(1) # can edit and remove own items (issuer == sp.sender)
+permissionModifyAll  = sp.nat(2) # can edit and remove all items
+permissionPlaceItems = sp.nat(4) # can place items
+permissionFull       = sp.nat(7) # can do anything, implies set_place_props.
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
@@ -191,6 +226,8 @@ class TL_World(pausable_contract.Pausable):
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
         self.permitted_fa2_map = Permitted_fa2_map()
+        self.place_store_map = Place_store_map()
+        self.item_store_map = Item_store_map()
         self.init_storage(
             manager = manager,
             paused = False,
@@ -207,12 +244,7 @@ class TL_World(pausable_contract.Pausable):
             fees = sp.nat(25),
             other_permitted_fa2 = self.permitted_fa2_map.make(),
             permissions = self.permission_map.make(),
-            places = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
-                counter=sp.TNat,
-                interaction_counter=sp.TNat,
-                place_props=sp.TBytes, # ground color, maybe other stuff later.
-                stored_items=itemStoreMapType
-            ))
+            places = self.place_store_map.make()
         )
 
     #
@@ -281,19 +313,6 @@ class TL_World(pausable_contract.Pausable):
                         upd.token_id)
 
     # Don't use private lambda because we need to be able to update code
-    def get_or_create_place(self, lot_id):
-        #sp.set_type(lot_id, sp.TNat)
-        # create new place if it doesn't exist
-        sp.if self.data.places.contains(lot_id) == False:
-            self.data.places[lot_id] = sp.record(
-                counter = 0,
-                interaction_counter = 0,
-                place_props = defaultPlaceProps, # only set color by default.
-                stored_items=itemStoreMapLiteral
-                )
-        return self.data.places[lot_id]
-
-    # Don't use private lambda because we need to be able to update code
     def get_permissions_self(self, lot_id, owner):
         # TODO: cheaper to duplicate code?
         return sp.compute(sp.view("get_permissions", sp.self_address,
@@ -313,7 +332,7 @@ class TL_World(pausable_contract.Pausable):
         sp.verify(permissions & permissionFull != 0, message = self.error_message.no_permission())
 
         # get the place
-        this_place = self.get_or_create_place(params.lot_id)
+        this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
 
         # currently we only store the color. 3 bytes.
         sp.verify(sp.len(params.props) >= placeDataMinLen, message = self.error_message.data_length())
@@ -331,12 +350,15 @@ class TL_World(pausable_contract.Pausable):
 
         # caller must be owner or have place item permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        sp.verify(permissions & permissionPlace != 0, message = self.error_message.no_permission())
+        sp.verify(permissions & permissionPlaceItems != 0, message = self.error_message.no_permission())
 
         # get the place
-        this_place = self.get_or_create_place(params.lot_id)
+        this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
 
-        sp.verify(sp.len(this_place.stored_items) + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
+        item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
+
+        # TODO: per place item counter. not to be confused with id counter
+        sp.verify(sp.len(item_store) + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -354,8 +376,7 @@ class TL_World(pausable_contract.Pausable):
                     sp.else:
                         transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
-                    this_place.stored_items[this_place.counter] = sp.variant("item", sp.record(
-                        issuer = sp.sender,
+                    item_store[this_place.next_id] = sp.variant("item", sp.record(
                         item_amount = item.token_amount,
                         token_id = item.token_id,
                         xtz_per_item = item.xtz_per_token,
@@ -371,8 +392,7 @@ class TL_World(pausable_contract.Pausable):
                     # transfer external token to this contract. Only support 1 token per placement. no selling.
                     self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
 
-                    this_place.stored_items[this_place.counter] = sp.variant("other", sp.record(
-                        issuer = sp.sender,
+                    item_store[this_place.next_id] = sp.variant("other", sp.record(
                         item_amount = sp.nat(1),
                         token_id = other.token_id,
                         xtz_per_item = sp.tez(0),
@@ -381,9 +401,9 @@ class TL_World(pausable_contract.Pausable):
 
                 with arg.match("ext") as ext_data:
                     #sp.verify(sp.len(ext_data) == 16, message = self.error_message.data_length())
-                    this_place.stored_items[this_place.counter] = sp.variant("ext", ext_data)
+                    item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
-            this_place.counter += 1
+            this_place.next_id += 1
 
         # only transfer if list has items
         sp.if sp.len(transferMap.value) > 0:
@@ -391,80 +411,109 @@ class TL_World(pausable_contract.Pausable):
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
-        sp.set_type(params.update_list, sp.TList(updateItemListType))
+        sp.set_type(params.update_map, sp.TMap(sp.TAddress, sp.TList(updateItemListType)))
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         self.onlyUnpaused()
 
         # get the place - must exist
-        this_place = self.data.places[params.lot_id]
+        this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
-        # caller must be owner or have remove item or remove own item permissions.
-        # TODO: get check permissions and get !permissionRemove to check in loop
+        # caller must be owner or have ModifyAll or ModifyOwn permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        sp.verify(permissions & permissionModifyAll != 0, message = self.error_message.no_permission())
+        hasModifyAll = permissions & permissionModifyAll != 0
+        hasModifyOwn = permissions & permissionModifyOwn != 0
+        sp.verify(hasModifyAll | hasModifyOwn, message = self.error_message.no_permission())
 
-        sp.for curr in params.update_list:
-            with this_place.stored_items[curr.item_id].match_cases() as arg:
-                with arg.match("item") as the_item:
-                    # TODO: if data min also applied to ext, this wasn't required
-                    sp.verify(sp.len(curr.item_data) >= itemDataMinLen, message = self.error_message.data_length())
-                    # sigh - variants are not mutable
-                    item_var = sp.compute(the_item)
-                    item_var.item_data = curr.item_data
-                    this_place.stored_items[curr.item_id] = sp.variant("item", item_var)
-                with arg.match("other") as other:
-                    # TODO: if data min also applied to ext, this wasn't required
-                    sp.verify(sp.len(curr.item_data) >= itemDataMinLen, message = self.error_message.data_length())
-                    # sigh - variants are not mutable
-                    other_var = sp.compute(other)
-                    other_var.item_data = curr.item_data
-                    this_place.stored_items[curr.item_id] = sp.variant("other", other_var)
-                with arg.match("ext") as ext:
-                    this_place.stored_items[curr.item_id] = sp.variant("ext", curr.item_data)
+        # if only ModifyAll permission is given, make sure remove map only contains sender items
+        sp.if hasModifyOwn & ~hasModifyAll:
+            sp.trace("checking all keys")
+            sp.for remove_key in params.update_map.keys():
+                sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
+
+        # update items
+        # TODO: is it better to use keys?
+        sp.for issuer_update in params.update_map.items():
+            issuer = issuer_update.key
+            update_list = issuer_update.value
+            # get item store - must exist
+            item_store = self.item_store_map.get(this_place.stored_items, issuer)
+            
+            sp.for update in update_list:
+                with item_store[update.item_id].match_cases() as arg:
+                    with arg.match("item") as the_item:
+                        # TODO: if data min also applied to ext, this wasn't required
+                        sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                        # sigh - variants are not mutable
+                        item_var = sp.compute(the_item)
+                        item_var.item_data = update.item_data
+                        item_store[update.item_id] = sp.variant("item", item_var)
+                    with arg.match("other") as other:
+                        # TODO: if data min also applied to ext, this wasn't required
+                        sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                        # sigh - variants are not mutable
+                        other_var = sp.compute(other)
+                        other_var.item_data = update.item_data
+                        item_store[update.item_id] = sp.variant("other", other_var)
+                    with arg.match("ext") as ext:
+                        item_store[update.item_id] = sp.variant("ext", update.item_data)
 
         this_place.interaction_counter += 1
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
-        sp.set_type(params.item_list, sp.TList(sp.TNat))
+        sp.set_type(params.remove_map, sp.TMap(sp.TAddress, sp.TList(sp.TNat)))
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.owner, sp.TOption(sp.TAddress))
 
         self.onlyUnpaused()
 
         # get the place - must exist
-        this_place = self.data.places[params.lot_id]
+        this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
-        # caller must be owner or have remove item or remove own item permissions.
-        # TODO: get check permissions and get !permissionRemove to check in loop
+        # caller must be owner or have ModifyAll or ModifyOwn permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        sp.verify(permissions & permissionModifyAll != 0, message = self.error_message.no_permission())
+        hasModifyAll = permissions & permissionModifyAll != 0
+        hasModifyOwn = permissions & permissionModifyOwn != 0
+        sp.verify(hasModifyAll | hasModifyOwn, message = self.error_message.no_permission())
+
+        # if only ModifyAll permission is given, make sure remove map only contains sender items
+        sp.if hasModifyOwn & ~hasModifyAll:
+            sp.trace("checking all keys")
+            sp.for remove_key in params.remove_map.keys():
+                sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
         
-        # TODO: Make it so issuer can remove their items, even if no permission or owner?
+        # TODO: Make it so issuer can remove their items, even if no permission?
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
 
-        # remove the items
-        sp.for curr in params.item_list:
-            with this_place.stored_items[curr].match_cases() as arg:
-                with arg.match("item") as the_item:
-                    # transfer all remaining items back to issuer
-                    # do multi-transfer by building up a list of transfers
-                    sp.if transferMap.value.contains(the_item.token_id):
-                        transferMap.value[the_item.token_id].amount += the_item.item_amount
-                    sp.else:
-                        transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=the_item.issuer, token_id=the_item.token_id)
-
-                with arg.match("other") as the_other:
-                    # transfer external token back to the issuer. Only support 1 token.
-                    self.fa2_transfer(the_other.fa2, sp.self_address, the_other.issuer, the_other.token_id, 1)
-
-                # nothing to do here with ext items. Just remove them.
+        # remove items
+        # TODO: is it better to use keys?
+        sp.for issuer_remove in params.remove_map.items():
+            issuer = issuer_remove.key
+            item_list = issuer_remove.value
+            # get item store - must exist
+            item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
-            del this_place.stored_items[curr]
+            sp.for curr in item_list:
+                with item_store[curr].match_cases() as arg:
+                    with arg.match("item") as the_item:
+                        # transfer all remaining items back to issuer
+                        # do multi-transfer by building up a list of transfers
+                        sp.if transferMap.value.contains(the_item.token_id):
+                            transferMap.value[the_item.token_id].amount += the_item.item_amount
+                        sp.else:
+                            transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=issuer, token_id=the_item.token_id)
+
+                    with arg.match("other") as the_other:
+                        # transfer external token back to the issuer. Only support 1 token.
+                        self.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, 1)
+
+                    # nothing to do here with ext items. Just remove them.
+                
+                del item_store[curr]
 
         this_place.interaction_counter += 1
 
@@ -476,14 +525,18 @@ class TL_World(pausable_contract.Pausable):
     def get_item(self, params):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.item_id, sp.TNat)
+        sp.set_type(params.issuer, sp.TAddress)
 
         self.onlyUnpaused()
 
-        # get the place
-        this_place = self.data.places[params.lot_id]
+        # get the place - must exist
+        this_place = self.place_store_map.get(self.data.places, params.lot_id)
+
+        # get item store - must exist
+        item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
 
         # get the item from storage. get_item is only supposed to work for the item variant.
-        the_item = sp.local("the_item", this_place.stored_items[params.item_id].open_variant("item",
+        the_item = sp.local("the_item", item_store[params.item_id].open_variant("item",
             message = self.error_message.wrong_item_type()))
 
         # make sure it's for sale, the transfered amount is correct, etc.
@@ -503,7 +556,7 @@ class TL_World(pausable_contract.Pausable):
             # send management fees
             self.send_if_value(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            self.send_if_value(the_item.value.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
+            self.send_if_value(params.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
 
             sp.if (sp.now < self.data.terminus):
                 # Assuming 6 decimals, like tez.
@@ -513,7 +566,7 @@ class TL_World(pausable_contract.Pausable):
                     manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
                     self.dao_distribute([
                         sp.record(to_=sp.sender, amount=user_share),
-                        sp.record(to_=the_item.value.issuer, amount=user_share),
+                        sp.record(to_=params.issuer, amount=user_share),
                         sp.record(to_=self.data.manager, amount=manager_share)
                     ])
         
@@ -523,9 +576,9 @@ class TL_World(pausable_contract.Pausable):
         # reduce the item count in storage or remove it.
         sp.if the_item.value.item_amount > 1:
             the_item.value.item_amount = sp.as_nat(the_item.value.item_amount - 1)
-            this_place.stored_items[params.item_id] = sp.variant("item", the_item.value)
+            item_store[params.item_id] = sp.variant("item", the_item.value)
         sp.else:
-            del this_place.stored_items[params.item_id]
+            del item_store[params.item_id]
 
         this_place.interaction_counter += 1
 
@@ -537,7 +590,7 @@ class TL_World(pausable_contract.Pausable):
         sp.set_type(lot_id, sp.TNat)
         sp.if self.data.places.contains(lot_id) == False:
             sp.result(sp.record(
-                stored_items = itemStoreMapLiteral,
+                stored_items = itemStoreLiteral,
                 place_props = defaultPlaceProps))
         sp.else:
             sp.result(sp.record(
@@ -556,7 +609,7 @@ class TL_World(pausable_contract.Pausable):
             this_place = self.data.places[lot_id]
             sp.result(sp.sha3(sp.pack(sp.pair(
                 this_place.interaction_counter,
-                this_place.counter
+                this_place.next_id
             ))))
 
     @sp.onchain_view()

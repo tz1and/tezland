@@ -4,6 +4,71 @@ minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
 
+# utility contract to get token balances
+class FA2_utils(sp.Contract):
+    def __init__(self, fa2):
+        self.init(last_sum = 0, fa2 = fa2)
+
+    @sp.entry_point
+    def reinit(self):
+        self.data.last_sum = 0
+        # It's also nice to make this contract have more than one entry point.
+
+    @sp.onchain_view()
+    def token_amounts(self, params):
+        sp.set_type(params, sp.TList(t=places_contract.placeItemListType))
+        # todo put into function
+        token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+        sp.for curr in params:
+            with curr.match_cases() as arg:
+                with arg.match("item") as item:
+                    sp.if token_amts.value.contains(item.token_id):
+                        token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
+                    sp.else:
+                        token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = self.data.fa2)
+                with arg.match("other") as other:
+                    sp.if token_amts.value.contains(other.token_id):
+                        token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.token_amount
+                    sp.else:
+                        token_amts.value[other.token_id] = sp.record(amount = other.token_amount, fa2 = other.fa2)
+        sp.result(token_amts.value)
+
+    @sp.onchain_view()
+    def get_balances(self, params):
+        sp.set_type(params.tokens, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+        sp.set_type(params.owner, sp.TAddress)
+
+        balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
+        sp.for curr in params.tokens.keys():
+            balances.value[curr] = self.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
+        
+        sp.result(balances.value)
+
+    @sp.onchain_view()
+    def cmp_balances(self, params):
+        sp.set_type(params.bal_a, sp.TMap(sp.TNat, sp.TNat))
+        sp.set_type(params.bal_b, sp.TMap(sp.TNat, sp.TNat))
+        sp.set_type(params.amts, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+
+        sp.verify((sp.len(params.bal_a) == sp.len(params.bal_b)) & (sp.len(params.bal_b) == sp.len(params.amts)))
+
+        sp.for curr in params.bal_a.keys():
+            sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr].amount)
+        
+        sp.result(True)
+
+    def fa2_get_balance(self, fa2, token_id, owner):
+        return sp.view("get_balance", fa2,
+            sp.set_type_expr(
+                sp.record(owner = owner, token_id = token_id),
+                sp.TRecord(
+                    owner = sp.TAddress,
+                    token_id = sp.TNat
+                ).layout(("owner", "token_id"))),
+            t = sp.TNat).open_some()
+
+
+
 @sp.add_test(name = "TL_World_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -28,6 +93,9 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
+
+    items_utils = FA2_utils(items_tokens.address)
+    scenario += items_utils
 
     scenario.h2("places")
     places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
@@ -127,39 +195,76 @@ def test():
 
     position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
+    # utility function for checking correctness of placing item using the FA2_utils contract
+    # TODO: also check item id is in map now
+    def place_items(lot_id: sp.TNat, token_arr: list[sp.TVariant], sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
+        if valid == True:
+            before_sequence_number = scenario.compute(world.get_place_seqnum(lot_id))
+            tokens_amounts = scenario.compute(items_utils.token_amounts(token_arr))
+            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+    
+        prev_next_id = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).next_id)
+        world.place_items(lot_id = lot_id, owner = lot_owner, item_list = token_arr).run(sender = sender, valid = valid, exception = message)
+    
+        if valid == True:
+            # check seqnum
+            scenario.verify(before_sequence_number != world.get_place_seqnum(place_bob))
+            # check counter
+            scenario.verify(prev_next_id + len(token_arr) == world.data.places[lot_id].next_id)
+            # check tokens were transferred
+            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_before, bal_b = balances_sender_after, amts = tokens_amounts)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_after, bal_b = balances_world_before, amts = tokens_amounts)))
+
+    # utility function for checking correctness of getting item using the FA2_utils contract
+    # TODO: also check item in map changed
+    def get_item(lot_id: sp.TNat, item_id: sp.TNat, issuer: sp.TAddress, sender: sp.TestAccount, amount: sp.TMutez, valid: bool = True, message: str = None, owner: sp.TOption = sp.none):
+        if valid == True:
+            before_sequence_number = scenario.compute(world.get_place_seqnum(lot_id))
+            tokens_amounts = {scenario.compute(world.data.places[lot_id].stored_items[issuer].get(item_id).open_variant("item").token_id) : sp.record(amount=1, fa2=items_tokens.address)}
+            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+    
+        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).interaction_counter)
+        world.get_item(lot_id = lot_id, item_id = item_id, issuer = issuer).run(sender = sender, amount = amount, valid = valid, exception = message)
+    
+        if valid == True:
+            # check seqnum
+            scenario.verify(before_sequence_number != world.get_place_seqnum(place_bob))
+            # check counter
+            scenario.verify(prev_interaction_counter + 1 == world.data.places[lot_id].interaction_counter)
+            # check tokens were transferred
+            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
+            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
+            scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
+
     #
     # Test placing items
     #
     scenario.h2("Placing items")
 
     # place some items not owned
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 500, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob, valid = False)
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))], bob, valid = False, message='FA2_NOT_OPERATOR')
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 500, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))], bob, valid = False, message='FA2_INSUFFICIENT_BALANCE')
 
     # place some items in a lot not owned (without setting owner)
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = bob, valid = False, exception = "NO_PERMISSION")
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = alice, valid = False, exception = "NO_PERMISSION")
+    place_items(place_alice, [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))], bob, valid=False, message="NO_PERMISSION")
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))], alice, valid=False, message="NO_PERMISSION")
 
-    # place some items and make sure tokens are tranferred.
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
-
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
-
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
-    scenario.verify(sp.to_int(balance_after) == (balance_before - 1))
+    # place some items and make sure tokens are tranferred. TODO: remove
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))], bob)
 
     # place some more items
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = bob)
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(0), item_data = position))]).run(sender = bob)
-    scenario.verify(world.data.places[place_bob].stored_items[0].open_variant('item').issuer == bob.address)
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 2, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))], bob)
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(0), item_data = position))], bob)
+    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[bob.address][0].open_variant('item')))
 
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [sp.variant("item", sp.record(token_amount = 2, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))]).run(sender = alice)
-    scenario.verify(world.data.places[place_alice].stored_items[0].open_variant('item').issuer == alice.address)
+    place_items(place_alice, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))], alice)
+    place_items(place_alice, [sp.variant("item", sp.record(token_amount = 2, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))], alice)
+    scenario.verify(~sp.is_failing(world.data.places[place_alice].stored_items[alice.address][0].open_variant('item')))
 
     #
     # get (buy) items.
@@ -168,38 +273,35 @@ def test():
 
     # make sure sequence number changes on interaction. need to use compute here to eval immediate.
     check_before_sequence_number = scenario.compute(world.get_place_seqnum(place_bob))
-    world.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
+    get_item(place_bob, 1, bob.address, sender = alice, amount = sp.tez(1))
     scenario.verify(check_before_sequence_number != world.get_place_seqnum(place_bob))
 
     # test wrong amount
-    world.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(15), valid = False, exception = "WRONG_AMOUNT")
-    world.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.mutez(1500), valid = False, exception = "WRONG_AMOUNT")
+    get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(15), valid=False, message="WRONG_AMOUNT")
+    get_item(place_bob, 1, bob.address, sender=alice, amount=sp.mutez(1500), valid=False, message="WRONG_AMOUNT")
 
     # make sure item tokens and dao tokens are transferred 
-    balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = item_bob)))
     dao_balance_alice_before = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
     dao_balance_bob_before = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
     dao_balance_manager_before = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
 
-    world.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1))
+    get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(1))
 
-    balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = alice.address, token_id = item_bob)))
     dao_balance_alice_after = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
     dao_balance_bob_after = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
     dao_balance_manager_after = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
-    scenario.verify(balance_after == (balance_before + 1))
     scenario.verify(dao_balance_alice_after == (dao_balance_alice_before + sp.nat(500000)))
     scenario.verify(dao_balance_bob_after == (dao_balance_bob_before + sp.nat(500000)))
     scenario.verify(dao_balance_manager_after == (dao_balance_manager_before + sp.nat(250000)))
 
     # test not for sale
-    world.get_item(lot_id = place_bob, item_id = 2).run(sender = alice, amount = sp.tez(1), valid = False, exception = "NOT_FOR_SALE")
+    get_item(place_bob, 2, bob.address, sender=alice, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
     # test getting some more items
-    world.get_item(lot_id = place_bob, item_id = 1).run(sender = alice, amount = sp.tez(1), valid = False) # missing item in map
-    world.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
-    world.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1))
-    world.get_item(lot_id = place_alice, item_id = 1).run(sender = bob, amount = sp.tez(1), valid = False) # missing item in map
+    get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(1), valid=False) # missing item in map
+    get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1))
+    get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1))
+    get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1), valid=False) # missing item in map
 
     #
     # remove items
@@ -207,30 +309,29 @@ def test():
     scenario.h2("Removing items")
     
     # remove items in a lot not owned
-    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = alice, valid = False)
-    world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = bob, valid = False)
+    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [0]} ).run(sender = alice, valid = False)
+    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [0]} ).run(sender = bob, valid = False)
 
     # remove items and make sure tokens are transferred
     balance_before = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
 
-    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [0]).run(sender = bob)
+    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [0]} ).run(sender = bob)
 
     balance_after = scenario.compute(items_tokens.get_balance(sp.record(owner = bob.address, token_id = item_bob)))
     scenario.verify(balance_after == (balance_before + 1))
+    # todo: make sure item is not in map
     
-    world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [0]).run(sender = alice)
+    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [0]} ).run(sender = alice)
 
     #place multiple items
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = alice)
+    ], alice)
 
     #place items with invalid data
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'))),
-    ]).run(sender = alice, valid = False, exception = "DATA_LEN")
+    place_items(place_alice, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF')))], sender=alice, valid=False, message="DATA_LEN")
 
     #
     # test ext items
@@ -239,19 +340,19 @@ def test():
 
     # place an ext item
     scenario.h3("Place ext items")
-    world.place_items(lot_id = place_bob, owner=sp.none, item_list = [
+    place_items(place_bob, [
         sp.variant("ext", sp.utils.bytes_of_string("test_string data1")),
         sp.variant("ext", sp.utils.bytes_of_string("test_string data2")),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, xtz_per_token = sp.tez(1), item_data = position))
-    ]).run(sender = bob)
+    ], sender = bob)
 
     scenario.h3("Get ext item")
-    item_counter = world.data.places.get(place_bob).counter
-    world.get_item(lot_id = place_bob, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
-    world.get_item(lot_id = place_bob, item_id = abs(item_counter - 3)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
+    item_counter = world.data.places.get(place_bob).next_id
+    get_item(place_bob, abs(item_counter - 2), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_bob, abs(item_counter - 3), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
-    world.remove_items(lot_id = place_bob, owner=sp.none, item_list = [abs(item_counter - 3)]).run(sender = bob)
+    world.remove_items(lot_id = place_bob, owner=sp.none, remove_map = {bob.address: [abs(item_counter - 3)]} ).run(sender = bob)
 
     #
     # set place props
@@ -268,18 +369,18 @@ def test():
     #
     scenario.h2("Set item data")
     new_item_data = sp.bytes("0x01010101010101010101010101010101")
-    world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
+    world.set_item_data(lot_id = place_bob, owner=sp.none, update_map = {bob.address: [
         sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
         sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
-    ]).run(sender = alice, valid = False, exception = "NO_PERMISSION")
+    ]} ).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
-    world.set_item_data(lot_id = place_bob, owner=sp.none, update_list = [
+    world.set_item_data(lot_id = place_bob, owner=sp.none, update_map = {bob.address: [
         sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
         sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
-    ]).run(sender = bob)
+    ]} ).run(sender = bob)
 
-    scenario.verify(world.data.places[place_bob].stored_items[abs(item_counter - 2)].open_variant('ext') == new_item_data)
-    scenario.verify(world.data.places[place_bob].stored_items[abs(item_counter - 1)].open_variant('item').item_data == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[bob.address][abs(item_counter - 2)].open_variant('ext') == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[bob.address][abs(item_counter - 1)].open_variant('item').item_data == new_item_data)
 
     #
     # test place related views
@@ -289,9 +390,9 @@ def test():
     scenario.h3("Stored items")
     stored_items = world.get_place_data(place_alice)
     scenario.verify(stored_items.place_props == sp.bytes('0x82b881'))
-    scenario.verify(stored_items.stored_items[2].open_variant("item").item_amount == 1)
-    scenario.verify(stored_items.stored_items[3].open_variant("item").item_amount == 1)
-    scenario.verify(stored_items.stored_items[4].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.stored_items[alice.address][2].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.stored_items[alice.address][3].open_variant("item").item_amount == 1)
+    scenario.verify(stored_items.stored_items[alice.address][4].open_variant("item").item_amount == 1)
     scenario.show(stored_items)
 
     stored_items_empty = world.get_place_data(sp.nat(5))
@@ -325,7 +426,7 @@ def test():
 
     scenario.h3("item limit on place_items")
     world.set_item_limit(10).run(sender = admin)
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
@@ -334,8 +435,8 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position)),
-    ]).run(sender = alice, valid = False, exception = 'ITEM_LIMIT')
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, xtz_per_token = sp.tez(1), item_data = position))
+    ], sender=alice, valid=False, message='ITEM_LIMIT')
 
     #
     # Test other permitted FA2
@@ -375,9 +476,9 @@ def test():
 
     # test unpermitted place_item
     scenario.h3("Test placing unpermitted 'other' type items")
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
-    ]).run(sender = alice, valid = False, exception = "TOKEN_NOT_PERMITTED")
+    ], sender=alice, valid=False, message="TOKEN_NOT_PERMITTED")
 
     # test get
     scenario.h3("get_other_permitted_fa2 view")
@@ -390,32 +491,32 @@ def test():
     scenario.h3("Test placing/removing/getting permitted 'other' type items")
 
     scenario.h4("place")
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position)),
         sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
-    ]).run(sender = alice)
+    ], sender=alice)
     # TODO: verify token was transferred
 
     # NOTE: make sure other type tokens can only be placed one at a time and aren't swappable, for now.
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=2, xtz_per_token=sp.tez(0), fa2 = other_token.address, item_data = position)),
-    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
+    ], sender=alice, valid=False, message="PARAM_ERROR")
 
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=1, xtz_per_token=sp.tez(1), fa2 = other_token.address, item_data = position)),
-    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
+    ], sender=alice, valid=False, message="PARAM_ERROR")
 
-    world.place_items(lot_id = place_alice, owner=sp.none, item_list = [
+    place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=22, xtz_per_token=sp.tez(1), fa2 = other_token.address, item_data = position)),
-    ]).run(sender = alice, valid = False, exception = "PARAM_ERROR")
+    ], sender=alice, valid=False, message="PARAM_ERROR")
 
     scenario.h4("get")
-    item_counter = world.data.places.get(place_alice).counter
-    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
-    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 2)).run(sender = bob, amount = sp.tez(1), valid = False, exception = "WRONG_ITEM_TYPE")
+    item_counter = world.data.places.get(place_alice).next_id
+    get_item(place_alice, abs(item_counter - 1), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_alice, abs(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h4("remove")
-    world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [abs(item_counter - 1), abs(item_counter - 2)]).run(sender = alice)
+    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [abs(item_counter - 1), abs(item_counter - 2)]} ).run(sender = alice)
     # TODO: verify tokens were transferred
 
     #
@@ -433,9 +534,9 @@ def test():
 
     scenario.h3("Change place without perms")
     # alice tries to place an item in bobs place but isn't an op
-    world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+    place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
@@ -458,19 +559,19 @@ def test():
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionFull)
 
     # alice can now place/remove items in bobs place, set props, set item data
-    world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+    place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=True)
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
     # verify issuer is set correctly.
-    last_item = abs(world.data.places[place_bob].counter - 1)
-    scenario.verify(world.data.places[place_bob].stored_items[last_item].open_variant('item').issuer == alice.address)
+    last_item = abs(world.data.places[place_bob].next_id - 1)
+    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item].open_variant('item')))
 
-    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_list = [
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {alice.address: [
         sp.record(item_id = last_item, item_data = new_item_data)
-    ]).run(sender = alice, valid = True)
+    ]} ).run(sender = alice, valid = True)
 
-    scenario.verify(world.data.places[place_bob].stored_items[last_item].open_variant('item').item_data == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[alice.address][last_item].open_variant('item').item_data == new_item_data)
 
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
 
@@ -488,9 +589,9 @@ def test():
     scenario.verify(world.get_permissions(sp.record(lot_id=place_alice, owner=sp.some(alice.address), permittee=bob.address)) == places_contract.permissionNone)
 
     # bob is not allowed to place items in alices place.
-    world.place_items(lot_id=place_alice, owner=sp.some(alice.address), item_list=[
+    place_items(place_alice, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
+    ], lot_owner=sp.some(alice.address), sender=bob, valid=False, message="NO_PERMISSION")
 
     scenario.h3("No permission after transfer")
     # bob transfers his place to carol
@@ -503,23 +604,23 @@ def test():
     ]).run(sender=bob)
 
     # alice won't have permission anymore
-    world.place_items(lot_id=place_bob, owner=sp.some(bob.address), item_list=[
+    place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # and also alice will not have persmissions on carols place
-    world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
+    place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    ], lot_owner=sp.some(carol.address), sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # neither will bob
-    world.place_items(lot_id=place_bob, owner=sp.some(carol.address), item_list=[
+    place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=bob, valid=False, exception="NO_PERMISSION")
+    ], lot_owner=sp.some(carol.address), sender=bob, valid=False, message="NO_PERMISSION")
 
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=bob.address)) == places_contract.permissionNone)
 
@@ -551,13 +652,13 @@ def test():
     scenario.h2("place/get item edge cases")
 
     # place item for 1 mutez
-    world.place_items(lot_id=place_alice, owner=sp.none, item_list=[
+    place_items(place_alice, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_alice, xtz_per_token=sp.mutez(1), item_data=position))
-    ]).run(sender=alice, valid=True)
+    ], sender=alice, valid=True)
 
     # try to get it
-    item_counter = world.data.places.get(place_alice).counter
-    world.get_item(lot_id = place_alice, item_id = abs(item_counter - 1)).run(sender = bob, amount = sp.mutez(1), valid = True)
+    item_counter = world.data.places.get(place_alice).next_id
+    get_item(place_alice, abs(item_counter - 1), alice.address, sender=bob, amount=sp.mutez(1), valid=True)
 
     #
     # test paused
@@ -572,13 +673,13 @@ def test():
     # anything that changes a place or transfers tokens is now disabled
     world.set_place_props(lot_id=place_bob, owner=sp.none, props=sp.bytes('0xFFFFFFFFFF')).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
 
-    world.place_items(lot_id=place_alice, owner=sp.none, item_list=[
+    place_items(place_alice, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
-    ]).run(sender=alice, valid=False, exception="ONLY_UNPAUSED")
+    ], sender=alice, valid=False, message="ONLY_UNPAUSED")
 
-    world.get_item(lot_id = place_alice, item_id = 3).run(sender = bob, amount = sp.mutez(1), valid = False, exception = "ONLY_UNPAUSED")
+    get_item(place_alice, 3, alice.address, sender=bob, amount=sp.mutez(1), valid=False, message="ONLY_UNPAUSED")
 
-    world.remove_items(lot_id = place_alice, owner=sp.none, item_list = [3]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    world.remove_items(lot_id = place_alice, owner=sp.none, remove_map = {alice.address: [3]} ).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
     # update permissions is still allowed
     world.update_permissions([
