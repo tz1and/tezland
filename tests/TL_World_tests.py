@@ -408,11 +408,11 @@ def test():
 
     scenario.h3("Get ext item")
     item_counter = world.data.places.get(place_bob).next_id
-    get_item(place_bob, abs(item_counter - 2), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
-    get_item(place_bob, abs(item_counter - 3), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_bob, sp.as_nat(item_counter - 2), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_bob, sp.as_nat(item_counter - 3), bob.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
-    remove_items(place_bob, {bob.address: [abs(item_counter - 3)]}, sender=bob)
+    remove_items(place_bob, {bob.address: [sp.as_nat(item_counter - 3)]}, sender=bob)
 
     #
     # set place props
@@ -430,17 +430,17 @@ def test():
     scenario.h2("Set item data")
     new_item_data = sp.bytes("0x01010101010101010101010101010101")
     world.set_item_data(lot_id = place_bob, owner=sp.none, update_map = {bob.address: [
-        sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
-        sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
+        sp.record(item_id = sp.as_nat(item_counter - 2), item_data = new_item_data),
+        sp.record(item_id = sp.as_nat(item_counter - 1), item_data = new_item_data)
     ]} ).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
     world.set_item_data(lot_id = place_bob, owner=sp.none, update_map = {bob.address: [
-        sp.record(item_id = abs(item_counter - 2), item_data = new_item_data),
-        sp.record(item_id = abs(item_counter - 1), item_data = new_item_data)
+        sp.record(item_id = sp.as_nat(item_counter - 2), item_data = new_item_data),
+        sp.record(item_id = sp.as_nat(item_counter - 1), item_data = new_item_data)
     ]} ).run(sender = bob)
 
-    scenario.verify(world.data.places[place_bob].stored_items[bob.address][abs(item_counter - 2)].open_variant('ext') == new_item_data)
-    scenario.verify(world.data.places[place_bob].stored_items[bob.address][abs(item_counter - 1)].open_variant('item').item_data == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[bob.address][sp.as_nat(item_counter - 2)].open_variant('ext') == new_item_data)
+    scenario.verify(world.data.places[place_bob].stored_items[bob.address][sp.as_nat(item_counter - 1)].open_variant('item').item_data == new_item_data)
 
     #
     # test place related views
@@ -572,11 +572,11 @@ def test():
 
     scenario.h4("get")
     item_counter = world.data.places.get(place_alice).next_id
-    get_item(place_alice, abs(item_counter - 1), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
-    get_item(place_alice, abs(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_alice, sp.as_nat(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h4("remove")
-    remove_items(place_alice, {alice.address: [abs(item_counter - 1), abs(item_counter - 2)]}, sender=alice)
+    remove_items(place_alice, {alice.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}, sender=alice)
 
     #
     # test set fees
@@ -622,7 +622,7 @@ def test():
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionFull)
 
     # get bobs last item to make sure alice can remove
-    bobs_last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    bobs_last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
     scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[bob.address][bobs_last_item]))
 
     place_items(place_bob, [
@@ -630,7 +630,7 @@ def test():
     ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
     # verify issuer is set correctly.
-    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
     scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item]))
 
     world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {alice.address: [
@@ -668,7 +668,7 @@ def test():
     ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
     # verify issuer is set correctly.
-    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
     scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item]))
 
     # can modify own items
@@ -711,7 +711,7 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
-    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
 
     # can modify all items
     world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
@@ -748,7 +748,7 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
-    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
 
     # can modify all items
     world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
@@ -784,7 +784,7 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
-    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
 
     # can't modify all items
     world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
@@ -900,7 +900,7 @@ def test():
 
     # try to get it
     item_counter = world.data.places.get(place_alice).next_id
-    get_item(place_alice, abs(item_counter - 1), alice.address, sender=bob, amount=sp.mutez(1), valid=True)
+    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, sender=bob, amount=sp.mutez(1), valid=True)
 
     #
     # test paused
