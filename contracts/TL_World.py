@@ -11,6 +11,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # Urgent
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
 # TODO: per place item counter. not to be confused with id counter. make sure to check in item limit.
+# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place
 #
 #
 # Other
@@ -121,12 +122,13 @@ placeItemListType = sp.TVariant(
 itemDataMinLen = sp.nat(16)
 placeDataMinLen = sp.nat(3)
 
-# permissions are in ocal, like unix.
+# permissions are in octal, like unix.
 # can be any combination of these.
+# remove and modify own items in all places is always given. to prevent abuse.
 permissionNone       = sp.nat(0) # no permissions
-permissionModifyOwn  = sp.nat(1) # can edit and remove own items (issuer == sp.sender)
+permissionPlaceItems = sp.nat(1) # can place items
 permissionModifyAll  = sp.nat(2) # can edit and remove all items
-permissionPlaceItems = sp.nat(4) # can place items
+permissionProps      = sp.nat(4) # can edit place props
 permissionFull       = sp.nat(7) # can do anything, implies set_place_props.
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
@@ -297,6 +299,7 @@ class TL_World(pausable_contract.Pausable):
                 with arg.match("add_permission") as upd:
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                    sp.verify((upd.perm > permissionNone) & (upd.perm <= permissionFull), message = self.error_message.parameter_error())
                     # Add permission
                     self.permission_map.add(self.data.permissions,
                         upd.owner,
@@ -329,7 +332,7 @@ class TL_World(pausable_contract.Pausable):
 
         # caller must be owner or or have full permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        sp.verify(permissions & permissionFull != 0, message = self.error_message.no_permission())
+        sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # get the place
         this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
@@ -350,7 +353,7 @@ class TL_World(pausable_contract.Pausable):
 
         # caller must be owner or have place item permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        sp.verify(permissions & permissionPlaceItems != 0, message = self.error_message.no_permission())
+        sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
         # get the place
         this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
@@ -422,13 +425,10 @@ class TL_World(pausable_contract.Pausable):
 
         # caller must be owner or have ModifyAll or ModifyOwn permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        hasModifyAll = permissions & permissionModifyAll != 0
-        hasModifyOwn = permissions & permissionModifyOwn != 0
-        sp.verify(hasModifyAll | hasModifyOwn, message = self.error_message.no_permission())
+        hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
-        # if only ModifyAll permission is given, make sure remove map only contains sender items
-        sp.if hasModifyOwn & ~hasModifyAll:
-            sp.trace("checking all keys")
+        # if ModifyAll permission is not given, make sure update map only contains sender items
+        sp.if ~hasModifyAll:
             sp.for remove_key in params.update_map.keys():
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
@@ -474,13 +474,10 @@ class TL_World(pausable_contract.Pausable):
 
         # caller must be owner or have ModifyAll or ModifyOwn permissions.
         permissions = self.get_permissions_self(params.lot_id, params.owner)
-        hasModifyAll = permissions & permissionModifyAll != 0
-        hasModifyOwn = permissions & permissionModifyOwn != 0
-        sp.verify(hasModifyAll | hasModifyOwn, message = self.error_message.no_permission())
+        hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
-        # if only ModifyAll permission is given, make sure remove map only contains sender items
-        sp.if hasModifyOwn & ~hasModifyAll:
-            sp.trace("checking all keys")
+        # if ModifyAll permission is not given, make sure remove map only contains sender items
+        sp.if ~hasModifyAll:
             sp.for remove_key in params.remove_map.keys():
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
         

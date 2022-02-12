@@ -30,6 +30,7 @@ class FA2_utils(sp.Contract):
                         token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.token_amount
                     sp.else:
                         token_amts.value[other.token_id] = sp.record(amount = other.token_amount, fa2 = other.fa2)
+        
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
@@ -55,6 +56,7 @@ class FA2_utils(sp.Contract):
                             token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.item_amount
                         sp.else:
                             token_amts.value[other.token_id] = sp.record(amount = other.item_amount, fa2 = other.fa2)
+
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
@@ -67,6 +69,7 @@ class FA2_utils(sp.Contract):
         sp.for curr in params.tokens.keys():
             balances.value[curr] = self.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
         
+        #sp.trace(balances.value)
         sp.result(balances.value)
 
     @sp.onchain_view()
@@ -74,6 +77,11 @@ class FA2_utils(sp.Contract):
         sp.set_type(params.bal_a, sp.TMap(sp.TNat, sp.TNat))
         sp.set_type(params.bal_b, sp.TMap(sp.TNat, sp.TNat))
         sp.set_type(params.amts, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+
+        #sp.trace("cmp_balances")
+        #sp.trace(params.bal_a)
+        #sp.trace(params.bal_b)
+        #sp.trace(params.amts)
 
         sp.verify((sp.len(params.bal_a) == sp.len(params.bal_b)) & (sp.len(params.bal_b) == sp.len(params.amts)))
 
@@ -293,6 +301,7 @@ def test():
             # check counter
             scenario.verify(prev_interaction_counter + 1 == world.data.places[lot_id].interaction_counter)
             # check tokens were transferred
+            # TODO: breaks when removing tokens from multiple issuers. needs to be map of issuer to map of whatever
             balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
@@ -593,29 +602,36 @@ def test():
     # alice tries to set place props in bobs place but isn't an op
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    scenario.h3("Add permission")
+    scenario.h3("Permissions")
 
-    scenario.h4("Valid add permission")
+    #
+    #
+    #
+    scenario.h4("Full permissions")
     # bob gives alice permission to his place
     world.update_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = sp.nat(7)
+            perm = places_contract.permissionFull
         ))
     ]).run(sender=bob, valid=True)
 
+    # alice can now place/remove items in bobs place, set props and set item data
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionFull)
 
-    # alice can now place/remove items in bobs place, set props, set item data
+    # get bobs last item to make sure alice can remove
+    bobs_last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[bob.address][bobs_last_item]))
+
     place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
     # verify issuer is set correctly.
-    last_item = abs(world.data.places[place_bob].next_id - 1)
-    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item].open_variant('item')))
+    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item]))
 
     world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {alice.address: [
         sp.record(item_id = last_item, item_data = new_item_data)
@@ -625,14 +641,190 @@ def test():
 
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
 
+    # remove place item and one of bobs
+    remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+    # TODO: checking breaks for other owners...
+    #remove_items(place_bob, {bob.address: [bobs_last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+
+    #
+    #
+    #
+    scenario.h4("PlaceItems permissions")
+    # bob gives alice place item permission to his place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = places_contract.permissionPlaceItems
+        ))
+    ]).run(sender=bob, valid=True)
+    
+    # alice can now place items in bobs place, but can't set props or remove bobs items
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionPlaceItems)
+    
+    place_items(place_bob, [
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
+
+    # verify issuer is set correctly.
+    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+    scenario.verify(~sp.is_failing(world.data.places[place_bob].stored_items[alice.address][last_item]))
+
+    # can modify own items
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {alice.address: [
+        sp.record(item_id = last_item, item_data = new_item_data)
+    ]} ).run(sender=alice, valid=True)
+
+    # can't set props
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
+
+    # can remove own items
+    remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+    # can't remove others items
+    remove_items(place_bob, {bob.address: [bobs_last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
+
+    #
+    #
+    #
+    scenario.h4("ModifyAll permissions")
+    # add an item with place permisssions to test
+    place_items(place_bob, [
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
+
+    # bob gives alice place item permission to his place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = places_contract.permissionModifyAll
+        ))
+    ]).run(sender=bob, valid=True)
+    
+    # alice can now modify items in bobs place, but can't set props or place or remove bobs items
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionModifyAll)
+    
+    # can't place items
+    place_items(place_bob, [
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
+
+    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+
+    # can modify all items
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
+        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+    ]} ).run(sender=alice, valid=True)
+
+    # can't set props
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
+
+    # can remove own items
+    remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+    # TODO: checking breaks for other owners...
+    #remove_items(place_bob, {bob.address: [bobs_last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+
+    #
+    #
+    #
+    scenario.h4("Props permissions")
+    # bob gives alice place item permission to his place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = places_contract.permissionProps
+        ))
+    ]).run(sender=bob, valid=True)
+    
+    # alice can now modify items in bobs place, but can't set props or place or remove bobs items
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionProps)
+    
+    # can't place items
+    place_items(place_bob, [
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
+
+    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+
+    # can modify all items
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
+        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+    ]} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
+
+    # can't set props
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
+
+    # can remove own items. no need to test that again...
+    #remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+    # can't remove others items
+    remove_items(place_bob, {bob.address: [bobs_last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
+
+    #
+    #
+    #
+    scenario.h4("Mixed permissions")
+    # bob gives alice place item permission to his place
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = places_contract.permissionPlaceItems | places_contract.permissionProps
+        ))
+    ]).run(sender=bob, valid=True)
+    
+    # alice can now modify items in bobs place, and can place items, but can't set props
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionPlaceItems | places_contract.permissionProps)
+    
+    place_items(place_bob, [
+        sp.variant("item", sp.record(token_amount=2, token_id=item_alice, xtz_per_token=sp.tez(1), item_data=position))
+    ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
+
+    last_item = scenario.compute(abs(world.data.places[place_bob].next_id - 1))
+
+    # can't modify all items
+    world.set_item_data(lot_id = place_bob, owner=sp.some(bob.address), update_map = {bob.address: [
+        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+    ]} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
+
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=True)
+
+    remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
+    # can't remove others items
+    remove_items(place_bob, {bob.address: [bobs_last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
+
     scenario.h4("Invalid add permission")
+    # incorrect perm parameter
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = sp.nat(12)
+        ))
+    ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
+
+    # giving no permissions is invalid. use remove
+    world.update_permissions([
+        sp.variant("add_permission", world.permission_param.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            token_id = place_bob,
+            perm = places_contract.permissionNone
+        ))
+    ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
+
     # bob gives himself permissions to alices place
     world.update_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = alice.address,
             permittee = bob.address,
             token_id = place_alice,
-            perm = sp.nat(7)
+            perm = places_contract.permissionFull
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
 
