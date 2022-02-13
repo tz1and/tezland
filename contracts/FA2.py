@@ -336,7 +336,7 @@ def distribute(self, recipients):
     sp.verify(self.data.all_tokens != 0, 'Token must have been minted') 
     sp.for rec in recipients:
         # this effectively includes the mint function here.
-        self.mint(sp.record(address = rec.to_,
+        self.mint.f(self, sp.record(address = rec.to_,
             amount = rec.amount,
             metadata = {}, # If token 0 has been minted, this isn't used.
             token_id = 0))
