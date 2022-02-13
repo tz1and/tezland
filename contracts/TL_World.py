@@ -10,8 +10,12 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # Urgent
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
-# TODO: per place item counter. not to be confused with id counter. make sure to check in item limit.
-# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place
+# TODO: place item_counter needs to be perfect! sp.as_nat can throw! Test it thoroughly.
+# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
+# TODO: whitelist in dutch auction (also enable/disable auctions for the general public)
+# TODO: sorting out the splitting of dao and team (probably with a proxy contract)
+# TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation) (edited)
+#
 #
 #
 # Other
@@ -75,14 +79,16 @@ defaultPlaceProps = sp.bytes('0x82b881')
 
 placeStorageType = sp.TRecord(
     next_id=sp.TNat,
+    item_counter=sp.TNat,
     interaction_counter=sp.TNat,
     place_props=sp.TBytes,
     stored_items=itemStoreType
 )
 
 placeStorageDefault = sp.record(
-    next_id = 0,
-    interaction_counter = 0,
+    next_id = sp.nat(0),
+    item_counter = sp.nat(0),
+    interaction_counter = sp.nat(0),
     place_props = defaultPlaceProps, # only set color by default.
     stored_items=itemStoreLiteral
 )
@@ -360,8 +366,8 @@ class TL_World(pausable_contract.Pausable):
 
         item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
 
-        # TODO: per place item counter. not to be confused with id counter
-        sp.verify(sp.len(item_store) + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
+        # make sure item limit is not exceeded.
+        sp.verify(this_place.item_counter + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -407,6 +413,7 @@ class TL_World(pausable_contract.Pausable):
                     item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
             this_place.next_id += 1
+            this_place.item_counter += 1
 
         # only transfer if list has items
         sp.if sp.len(transferMap.value) > 0:
@@ -476,12 +483,10 @@ class TL_World(pausable_contract.Pausable):
         permissions = self.get_permissions_self(params.lot_id, params.owner)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
-        # if ModifyAll permission is not given, make sure remove map only contains sender items
+        # if ModifyAll permission is not given, make sure remove map only contains sender items.
         sp.if ~hasModifyAll:
             sp.for remove_key in params.remove_map.keys():
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
-        
-        # TODO: Make it so issuer can remove their items, even if no permission?
 
         # our token transfer map
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
@@ -511,6 +516,7 @@ class TL_World(pausable_contract.Pausable):
                     # nothing to do here with ext items. Just remove them.
                 
                 del item_store[curr]
+                this_place.item_counter = sp.as_nat(this_place.item_counter - 1)
 
         this_place.interaction_counter += 1
 
@@ -576,6 +582,7 @@ class TL_World(pausable_contract.Pausable):
             item_store[params.item_id] = sp.variant("item", the_item.value)
         sp.else:
             del item_store[params.item_id]
+            this_place.item_counter = sp.as_nat(this_place.item_counter - 1)
 
         this_place.interaction_counter += 1
 
