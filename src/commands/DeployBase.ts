@@ -1,4 +1,4 @@
-import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind } from "@taquito/taquito";
+import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind, Wallet } from "@taquito/taquito";
 import { OperationContentsAndResult } from "@taquito/rpc";
 import { InMemorySigner } from "@taquito/signer";
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';
@@ -61,7 +61,7 @@ export class DeployContractBatch {
         return this.get_originated_contracts_batch(results);
     }
 
-    private async get_originated_contracts_batch(results: OperationContentsAndResult[]): Promise<ContractAbstraction<ContractProvider>[]> {
+    private async get_originated_contracts_batch(results: OperationContentsAndResult[]): Promise<ContractAbstraction<Wallet>[]> {
         assert(this.deploy.tezos);
 
         const filtered_contracts = this.contractList.filter(item => !item.address);
@@ -86,7 +86,7 @@ export class DeployContractBatch {
 
         const contracts = [];
         for (const c of this.contractList)
-            contracts.push(await this.deploy.tezos.contract.at(c.address));
+            contracts.push(await this.deploy.tezos.wallet.at(c.address));
 
         return contracts;
     }
@@ -120,7 +120,7 @@ export default class DeployBase {
         assert(this.networkConfig.accounts.deployer, `deployer account not set for '${this.network}'`)
 
         this.deploymentsDir = `./deployments/${this.network}`;
-        
+
         // if sandbox, delete deployments dir
         if(this.isSandboxNet) {
             if (fs.existsSync(this.deploymentsDir)) {
