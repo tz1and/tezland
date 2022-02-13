@@ -120,11 +120,17 @@ export default class DeployBase {
         assert(this.networkConfig.accounts.deployer, `deployer account not set for '${this.network}'`)
 
         this.deploymentsDir = `./deployments/${this.network}`;
+        
         // if sandbox, delete deployments dir
-        if(this.isSandboxNet)
-            if (fs.existsSync(this.deploymentsDir)) fs.rmdirSync(this.deploymentsDir, { recursive: true });
-        else
+        if(this.isSandboxNet) {
+            if (fs.existsSync(this.deploymentsDir)) {
+                fs.rmdirSync(this.deploymentsDir, { recursive: true });
+                fs.mkdirSync(this.deploymentsDir, { recursive: true });
+            }
+        }
+        else {
             if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
+        }
 
         this.deploymentsRegPath =`${this.deploymentsDir}/project.deployments.json`;
         if (fs.existsSync(this.deploymentsRegPath))
