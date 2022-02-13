@@ -12,13 +12,17 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
 # TODO: place item_counter needs to be perfect! sp.as_nat can throw! Test it thoroughly.
 # TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
-# TODO: whitelist in dutch auction (also enable/disable auctions for the general public)
-# TODO: sorting out the splitting of dao and team (probably with a proxy contract)
-# TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation) (edited)
+# TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
+# TODO: set flags in all contracts: exceptions erase-comments (see world)
+# TODO: investigate private lambda deploy issues
+# TODO: inline code for price in dutch auction
 #
 #
 #
 # Other
+# TODO: whitelist in dutch auction (also enable/disable auctions for the general public)
+# TODO: sorting out the splitting of dao and team (probably with a proxy contract)
+# TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation) (edited)
 # TODO: research storage deserialisation limits
 # TODO: think of some more tests for permission.
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
@@ -229,7 +233,9 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata):
+    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-unit"):
+        self.add_flag("exceptions", exception_optimization_level)
+        self.add_flag("erase-comments")
         self.error_message = Error_message()
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
@@ -322,11 +328,20 @@ class TL_World(pausable_contract.Pausable):
                         upd.token_id)
 
     # Don't use private lambda because we need to be able to update code
+    # Also, duplicating code is cheaper at runtime.
     def get_permissions_self(self, lot_id, owner):
-        # TODO: cheaper to duplicate code?
-        return sp.compute(sp.view("get_permissions", sp.self_address,
-            sp.record(lot_id = lot_id, owner = owner, permittee = sp.sender),
-            t = sp.TNat).open_some())
+        permission = sp.local("permission", permissionNone)
+        # if permittee is the owner, he has full permission.
+        sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) > 0:
+            permission.value = permissionFull
+        sp.else:
+            # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
+            sp.if owner.is_some() & (self.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0):
+                permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
+                    owner.open_some(),
+                    sp.sender,
+                    lot_id))
+        return permission.value
 
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
