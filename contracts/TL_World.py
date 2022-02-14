@@ -570,6 +570,7 @@ class TL_World(pausable_contract.Pausable):
             fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalties.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
 
+            # TODO: don't localise nat_to_mutez, is probably a cast and free.
             # send royalties to creator
             send_royalties = sp.compute(sp.utils.nat_to_mutez(royalties))
             self.send_if_value(item_royalties.creator, send_royalties)
@@ -644,7 +645,10 @@ class TL_World(pausable_contract.Pausable):
         """Returns if an fa2 token is permitted for the
         'other' type."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.permitted_fa2_map.is_permitted(self.data.other_permitted_fa2, fa2))
+        sp.result(sp.record(
+            permitted = self.permitted_fa2_map.is_permitted(self.data.other_permitted_fa2, fa2),
+            swap_permitted = self.permitted_fa2_map.is_swap_permitted(self.data.other_permitted_fa2, fa2)
+        ))
 
     @sp.onchain_view()
     def get_permissions(self, query):
