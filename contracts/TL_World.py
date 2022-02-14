@@ -16,7 +16,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: set flags in all contracts: exceptions erase-comments (see world)
 # TODO: investigate private lambda deploy issues
 # TODO: inline code for price in dutch auction
-# TODO: rename xtz_per_token to mutez_per_token.
+# TODO: rename mutez_per_token to mutez_per_token.
 # TODO: reorganise item data. scale last to be able to add scale in all dimentions.
 #
 #
@@ -119,13 +119,13 @@ placeItemListType = sp.TVariant(
     item = sp.TRecord(
         token_id=sp.TNat,
         token_amount=sp.TNat,
-        xtz_per_token=sp.TMutez,
+        mutez_per_token=sp.TMutez,
         item_data=sp.TBytes
     ),
     other = sp.TRecord(
         token_id=sp.TNat,
         token_amount=sp.TNat,
-        xtz_per_token=sp.TMutez,
+        mutez_per_token=sp.TMutez,
         item_data=sp.TBytes,
         fa2=sp.TAddress
     ),
@@ -406,12 +406,12 @@ class TL_World(pausable_contract.Pausable):
                     item_store[this_place.next_id] = sp.variant("item", sp.record(
                         item_amount = item.token_amount,
                         token_id = item.token_id,
-                        xtz_per_item = item.xtz_per_token,
+                        xtz_per_item = item.mutez_per_token,
                         item_data = item.item_data))
 
                 with arg.match("other") as other:
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
-                    sp.verify((other.token_amount == sp.nat(1)) & (other.xtz_per_token == sp.tez(0)), message = self.error_message.parameter_error())
+                    sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                     sp.verify(self.permitted_fa2_map.is_permitted(self.data.other_permitted_fa2, other.fa2),
                         message = self.error_message.token_not_permitted())
