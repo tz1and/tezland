@@ -10,12 +10,14 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # Urgent
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
-# TODO: place item_counter needs to be perfect! sp.as_nat can throw! Test it thoroughly.
+# TODO: Test place counter thoroughly!
 # TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 # TODO: set flags in all contracts: exceptions erase-comments (see world)
 # TODO: investigate private lambda deploy issues
 # TODO: inline code for price in dutch auction
+# TODO: rename xtz_per_token to mutez_per_token.
+# TODO: reorganise item data. scale last to be able to add scale in all dimentions.
 #
 #
 #
@@ -32,6 +34,7 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # Some notes:
 # - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
+# - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -527,7 +530,7 @@ class TL_World(pausable_contract.Pausable):
                     # nothing to do here with ext items. Just remove them.
                 
                 del item_store[curr]
-                this_place.item_counter = sp.as_nat(this_place.item_counter - 1)
+                this_place.item_counter = abs(this_place.item_counter - 1)
 
         this_place.interaction_counter += 1
 
@@ -589,11 +592,11 @@ class TL_World(pausable_contract.Pausable):
         
         # reduce the item count in storage or remove it.
         sp.if the_item.value.item_amount > 1:
-            the_item.value.item_amount = sp.as_nat(the_item.value.item_amount - 1)
+            the_item.value.item_amount = abs(the_item.value.item_amount - 1)
             item_store[params.item_id] = sp.variant("item", the_item.value)
         sp.else:
             del item_store[params.item_id]
-            this_place.item_counter = sp.as_nat(this_place.item_counter - 1)
+            this_place.item_counter = abs(this_place.item_counter - 1)
 
         this_place.interaction_counter += 1
 
