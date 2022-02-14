@@ -543,9 +543,9 @@ def test():
     # test get
     scenario.h3("get_other_permitted_fa2 view")
     scenario.show(world.is_other_fa2_permitted(other_token.address))
-    scenario.verify(world.is_other_fa2_permitted(other_token.address) == False)
+    scenario.verify(world.is_other_fa2_permitted(other_token.address) == sp.record(permitted=False, swap_permitted=False))
     world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
-    scenario.verify(world.is_other_fa2_permitted(other_token.address) == True)
+    scenario.verify(world.is_other_fa2_permitted(other_token.address) == sp.record(permitted=True, swap_permitted=False))
 
     # test place_item
     scenario.h3("Test placing/removing/getting permitted 'other' type items")
