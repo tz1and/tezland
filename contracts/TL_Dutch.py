@@ -3,7 +3,19 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 # TODO: test royalties for item token
-# TODO: send_if_value makes some slightly ugly code, investigate use of locals
+
+
+#
+# Lazy set of permitted FA2 tokens for 'other' type.
+class FA2_set:
+    def make(self, fa2_map):
+        return sp.big_map(l=fa2_map, tkey=sp.TAddress, tvalue=sp.TUnit)
+    def add(self, set, fa2):
+        set[fa2] = sp.unit
+    def remove(self, set, fa2):
+        del set[fa2]
+    def contains(self, set, fa2):
+        return set.contains(fa2)
 
 #
 # Dutch auction contract.
@@ -17,19 +29,19 @@ class TL_Dutch(pausable_contract.Pausable):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
+        self.fa2_set = FA2_set()
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
-            permitted_fa2 = sp.set([places_contract], t=sp.TAddress), # NOTE: using a standard set, should never allow anything other than places and items.
             minter = minter,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             fees = sp.nat(25),
             paused = False,
+            permitted_fa2 = self.fa2_set.make({ places_contract: sp.unit }),
             auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 owner=sp.TAddress,
-                #token_address? to be able to support both items and places
                 token_id=sp.TNat,
                 start_price=sp.TMutez,
                 end_price=sp.TMutez,
@@ -68,9 +80,9 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(params.permitted, sp.TBool)
         self.onlyManager()
         sp.if params.permitted == True:
-            self.data.permitted_fa2.add(params.fa2)
+            self.fa2_set.add(self.data.permitted_fa2, params.fa2)
         sp.else:
-            self.data.permitted_fa2.remove(params.fa2)
+            self.fa2_set.remove(self.data.permitted_fa2, params.fa2)
 
     #
     # Public entry points
@@ -94,7 +106,8 @@ class TL_Dutch(pausable_contract.Pausable):
         self.onlyUnpaused()
 
         # verify inputs
-        sp.verify(self.data.permitted_fa2.contains(params.fa2), message = "TOKEN_NOT_PERMITTED")
+        sp.verify(self.fa2_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
+        sp.verify(params.start_time >= sp.now, message = "INVALID_PARAM")
         sp.verify(params.start_time < params.end_time, message = "INVALID_PARAM")
         sp.verify(abs(params.end_time - params.start_time) > self.data.granularity, message = "INVALID_PARAM")
         sp.verify(params.start_price > params.end_price, message = "INVALID_PARAM")
@@ -229,9 +242,10 @@ class TL_Dutch(pausable_contract.Pausable):
                 sp.result(current_price)
     
     @sp.onchain_view()
-    def get_permitted_fa2(self):
+    def is_fa2_permitted(self, fa2):
         """Returns the set of permitted fa2 contracts."""
-        sp.result(self.data.permitted_fa2)
+        sp.set_type(fa2, sp.TAddress)
+        sp.result(self.fa2_set.contains(self.data.permitted_fa2, fa2))
 
 
     #

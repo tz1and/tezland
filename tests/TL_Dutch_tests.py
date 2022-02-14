@@ -219,7 +219,7 @@ def test():
         end_price = sp.mutez(1),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(5),
-        fa2 = places_tokens.address).run(sender = alice)
+        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
 
     dutch.bid(2).run(sender = alice, amount = sp.mutez(1), now=sp.timestamp(0).add_minutes(80), valid = True)
 
@@ -230,7 +230,7 @@ def test():
         end_price = sp.tez(1),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_seconds(5),
-        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0), valid = False, exception = "INVALID_PARAM")
 
     # create an auction with end price 0.
     # duration must be > granularity
@@ -239,7 +239,7 @@ def test():
         end_price = sp.tez(0),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(5),
-        fa2 = places_tokens.address).run(sender = alice)
+        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
 
     dutch.bid(3).run(sender = alice, amount = sp.mutez(0), now=sp.timestamp(0).add_minutes(80), valid = True)
 
@@ -265,17 +265,16 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice)
+        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
 
     auction_info = dutch.get_auction(4)
     #scenario.verify(item_limit == sp.nat(64))
     scenario.show(auction_info)
 
-    permitted_fa2 = dutch.get_permitted_fa2()
-    scenario.verify(permitted_fa2.contains(places_tokens.address) == True)
-    scenario.verify(permitted_fa2.contains(items_tokens.address) == False)
-    scenario.show(permitted_fa2)
+    scenario.verify(dutch.is_fa2_permitted(places_tokens.address) == True)
+    scenario.verify(dutch.is_fa2_permitted(items_tokens.address) == False)
 
+    # TODO: view simulation with timestamp is now possible. by setting context with scenario
     # TODO: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
     #auction_info = dutch.get_auction_price(0)
     #scenario.show(auction_info)
