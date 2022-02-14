@@ -455,10 +455,8 @@ class TL_World(pausable_contract.Pausable):
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # update items
-        # TODO: is it better to use keys?
-        sp.for issuer_update in params.update_map.items():
-            issuer = issuer_update.key
-            update_list = issuer_update.value
+        sp.for issuer in params.update_map.keys():
+            update_list = params.update_map[issuer]
             # get item store - must exist
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
@@ -507,10 +505,8 @@ class TL_World(pausable_contract.Pausable):
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
 
         # remove items
-        # TODO: is it better to use keys?
-        sp.for issuer_remove in params.remove_map.items():
-            issuer = issuer_remove.key
-            item_list = issuer_remove.value
+        sp.for issuer in params.remove_map.keys():
+            item_list = params.remove_map[issuer]
             # get item store - must exist
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
