@@ -6,7 +6,10 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # Minter contract.
 # NOTE: should be pausable for code updates.
 class TL_Minter(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract, places_contract, metadata):
+    def __init__(self, manager, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
+        self.add_flag("exceptions", exception_optimization_level)
+        self.add_flag("erase-comments")
+        #self.add_flag("initial-cast")
         self.init_storage(
             manager = manager,
             items_contract = items_contract,

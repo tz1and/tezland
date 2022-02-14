@@ -11,17 +11,17 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # Urgent
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
 # TODO: Test place counter thoroughly!
-# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
+# TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 # TODO: set flags in all contracts: exceptions erase-comments (see world)
 # TODO: investigate private lambda deploy issues
 # TODO: inline code for price in dutch auction
-# TODO: rename mutez_per_token to mutez_per_token.
-# TODO: reorganise item data. scale last to be able to add scale in all dimentions.
-#
+# TODO: have a "fees_to" address to split management and fee address. (for all fee-taking contracts)
+# TODO: don't verify permissions upper bound to make room for extra permissions?
 #
 #
 # Other
+# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
 # TODO: whitelist in dutch auction (also enable/disable auctions for the general public)
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation) (edited)
@@ -50,12 +50,13 @@ otherTokenRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 3 floats pos, 1 float scale = 16 bytes
     fa2=sp.TAddress # store a fa2 token address
 )
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
+# TODO: could have this be a record where item_data is common + variant with ext as Unit
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
@@ -236,9 +237,10 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-unit"):
+    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
+        #self.add_flag("initial-cast")
         self.error_message = Error_message()
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
@@ -569,14 +571,17 @@ class TL_World(pausable_contract.Pausable):
             royalties = sp.compute(item_royalties.royalties * fee / (item_royalties.royalties + self.data.fees))
 
             # send royalties to creator
-            self.send_if_value(item_royalties.creator, sp.utils.nat_to_mutez(royalties))
+            send_royalties = sp.compute(sp.utils.nat_to_mutez(royalties))
+            self.send_if_value(item_royalties.creator, send_royalties)
             # send management fees
-            self.send_if_value(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
+            self.send_if_value(self.data.manager, send_mgr_fees)
             # send rest of the value to seller
-            self.send_if_value(params.issuer, sp.amount - sp.utils.nat_to_mutez(fee))
+            send_issuer = sp.compute(sp.amount - sp.utils.nat_to_mutez(fee))
+            self.send_if_value(params.issuer, send_issuer)
 
             sp.if (sp.now < self.data.terminus):
-                # Assuming 6 decimals, like tez.
+                # NOTE: Assuming 6 decimals, like tez.
                 user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
                 # Only distribute dao if anything is to be distributed.
                 sp.if user_share > 0:

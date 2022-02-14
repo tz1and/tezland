@@ -13,7 +13,10 @@ class TL_Dutch(pausable_contract.Pausable):
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
-    def __init__(self, manager, items_contract, places_contract, minter, metadata):
+    def __init__(self, manager, items_contract, places_contract, minter, metadata, exception_optimization_level="default-line"):
+        self.add_flag("exceptions", exception_optimization_level)
+        self.add_flag("erase-comments")
+        #self.add_flag("initial-cast")
         self.init_storage(
             manager = manager,
             items_contract = items_contract,

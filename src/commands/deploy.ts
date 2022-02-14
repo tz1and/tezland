@@ -4,7 +4,7 @@ import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
 import DeployBase, { DeployContractBatch } from './DeployBase';
-import { MichelsonMap, OpKind, WalletOperationBatch } from '@taquito/taquito';
+import { MichelsonMap, OpKind, TransactionWalletOperation, WalletOperationBatch } from '@taquito/taquito';
 
 
 // TODO: finish this stuff!
@@ -235,38 +235,37 @@ export default class Deploy extends DeployBase {
                 }]);
             }
 
-            // prepare batch
-            const mint_batch = this.tezos.wallet.batch();
+            const run_gas_tests = false;
+            if (!run_gas_tests) {
+                // prepare batch
+                const mint_batch = this.tezos.wallet.batch();
 
-            await mintNewItem('assets/Lantern.glb', 100, mint_batch);
-            await mintNewItem('assets/Fox.glb', 25, mint_batch);
-            await mintNewItem('assets/Duck.glb', 75, mint_batch);
-            await mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch);
+                await mintNewItem('assets/Lantern.glb', 100, mint_batch);
+                await mintNewItem('assets/Fox.glb', 25, mint_batch);
+                await mintNewItem('assets/Duck.glb', 75, mint_batch);
+                await mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch);
 
-            // don't mint places for now. use generate map.
-            await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-            await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-            await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
-            await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
+                // don't mint places for now. use generate map.
+                await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+                await mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+                await mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+                await mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch);
 
-            // send batch.
-            const mint_batch_op = await mint_batch.send();
-            await mint_batch_op.confirmation();
+                // send batch.
+                const mint_batch_op = await mint_batch.send();
+                await mint_batch_op.confirmation();
 
-            console.log("Successfully minted items");
-            console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
-        }
+                console.log("Successfully minted items");
+                console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
 
-        // TODO: create deployments folder and write to it
-
-        console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
-        console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
-        console.log("REACT_APP_DAO_CONTRACT=" + dao_FA2_contract.address);
-        console.log("REACT_APP_WORLD_CONTRACT=" + World_contract.address);
-        console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
-        console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
-        console.log()
-        console.log(`contracts:
+                console.log("REACT_APP_ITEM_CONTRACT=" + items_FA2_contract.address);
+                console.log("REACT_APP_PLACE_CONTRACT=" + places_FA2_contract.address);
+                console.log("REACT_APP_DAO_CONTRACT=" + dao_FA2_contract.address);
+                console.log("REACT_APP_WORLD_CONTRACT=" + World_contract.address);
+                console.log("REACT_APP_MINTER_CONTRACT=" + Minter_contract.address);
+                console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + Dutch_contract.address);
+                console.log()
+                console.log(`contracts:
   tezlandItems:
     address: ${items_FA2_contract.address}
     typename: tezlandItems
@@ -290,5 +289,168 @@ export default class Deploy extends DeployBase {
   tezlandDutchAuctions:
     address: ${Dutch_contract.address}
     typename: tezlandDutchAuctions\n`);
+            }
+            else {
+                const mint_batch = this.tezos.wallet.batch();
+                await mintNewItem('assets/Duck.glb', 10000, mint_batch);
+                await mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch);
+                const mint_batch_op = await mint_batch.send();
+                await mint_batch_op.confirmation();
+                console.log();
+
+                const feesToString = async (op: TransactionWalletOperation): Promise<string> => {
+                    const receipt = await op.receipt();
+                    //console.log("totalFee", receipt.totalFee.toNumber());
+                    //console.log("totalGas", receipt.totalGas.toNumber());
+                    //console.log("totalStorage", receipt.totalStorage.toNumber());
+                    //console.log("totalAllocationBurn", receipt.totalAllocationBurn.toNumber());
+                    //console.log("totalOriginationBurn", receipt.totalOriginationBurn.toNumber());
+                    //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
+                    //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
+                    // TODO: figure out how to actually calculate burn.
+                    const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 100 / 1000000;
+                    const totalFee = receipt.totalFee.toNumber() / 1000000;
+                    //const totalGas = receipt.totalGas.toNumber() / 1000000;
+                    //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
+                    return `storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)}`;
+                }
+
+                // set operator
+                const op_op = await items_FA2_contract.methods.update_operators([{
+                    add_operator: {
+                        owner: this.accountAddress,
+                        operator: World_contract.address,
+                        token_id: 0
+                    }
+                }]).send()
+                await op_op.confirmation();
+                console.log("update_operators:\t" + await feesToString(op_op));
+
+                // place one item to make sure storage is set.
+                const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffffff" } }];
+                const setup_storage = await World_contract.methodsObject.place_items({
+                    lot_id: 0, item_list: list_one_item
+                }).send();
+                await setup_storage.confirmation();
+                console.log("create place (item):\t" + await feesToString(setup_storage));
+                /*const transfer_op = await items_FA2_contract.methodsObject.transfer([{
+                    from_: this.accountAddress,
+                    txs: [
+                        {
+                            to_: World_contract.address,
+                            token_id: 0,
+                            amount: 1,
+                        }
+                    ]
+                }]).send();
+                await transfer_op.confirmation();
+
+                // create place
+                const creat_op = await World_contract.methodsObject.set_place_props({ lot_id: 0, props: "ffffff" }).send();
+                await creat_op.confirmation();
+                console.log("create place (props):\t" + await feesToString(creat_op));*/
+
+                // place props
+                const place_props_op = await World_contract.methodsObject.set_place_props({ lot_id: 0, props: "000000" }).send();
+                await place_props_op.confirmation();
+                console.log("set_place_props:\t" + await feesToString(place_props_op));
+                console.log();
+
+                // place one item
+                const place_one_item_op = await World_contract.methodsObject.place_items({
+                    lot_id: 0, item_list: list_one_item
+                }).send();
+                await place_one_item_op.confirmation();
+                console.log("place_items (1):\t" + await feesToString(place_one_item_op));
+
+                // place ten items
+                const list_ten_items = [
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } }
+                ];
+                const place_ten_items_op = await World_contract.methodsObject.place_items({
+                    lot_id: 0, item_list: list_ten_items
+                }).send();
+                await place_ten_items_op.confirmation();
+                console.log("place_items (10):\t" + await feesToString(place_ten_items_op));
+                console.log();
+
+                // set one items data
+                const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
+                map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "00000000000000000000000000000000" }]);
+                const set_item_data_op = await World_contract.methodsObject.set_item_data({
+                    lot_id: 0, update_map: map_update_one_item
+                }).send();
+                await set_item_data_op.confirmation();
+                console.log("set_item_data (1):\t" + await feesToString(set_item_data_op));
+
+                 // set ten items data
+                const map_update_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
+                map_update_ten_items.set(this.accountAddress!, [
+                    { item_id: 1, item_data: "00000000000000000000000000000000" },
+                    { item_id: 2, item_data: "00000000000000000000000000000000" },
+                    { item_id: 3, item_data: "00000000000000000000000000000000" },
+                    { item_id: 4, item_data: "00000000000000000000000000000000" },
+                    { item_id: 5, item_data: "00000000000000000000000000000000" },
+                    { item_id: 6, item_data: "00000000000000000000000000000000" },
+                    { item_id: 7, item_data: "00000000000000000000000000000000" },
+                    { item_id: 8, item_data: "00000000000000000000000000000000" },
+                    { item_id: 9, item_data: "00000000000000000000000000000000" },
+                    { item_id: 10, item_data: "00000000000000000000000000000000" }
+                ]);
+                const set_ten_items_data_op = await World_contract.methodsObject.set_item_data({
+                    lot_id: 0, update_map: map_update_ten_items
+                }).send();
+                await set_ten_items_data_op.confirmation();
+                console.log("set_item_data (10):\t" + await feesToString(set_ten_items_data_op));
+                console.log();
+
+                // remove one item
+                const map_remove_one_item: MichelsonMap<string, number[]> = new MichelsonMap();
+                map_remove_one_item.set(this.accountAddress!, [0]);
+                const remove_one_item_op = await World_contract.methodsObject.remove_items({
+                    lot_id: 0, remove_map: map_remove_one_item
+                }).send();
+                await remove_one_item_op.confirmation();
+                console.log("remove_items (1):\t" + await feesToString(remove_one_item_op));
+
+                // remove ten items
+                const map_remove_ten_items: MichelsonMap<string, number[]> = new MichelsonMap();
+                map_remove_ten_items.set(this.accountAddress!, [1,2,3,4,5,6,7,8,9,10]);
+                const remove_ten_items_op = await World_contract.methodsObject.remove_items({
+                    lot_id: 0, remove_map: map_remove_ten_items
+                }).send();
+                await remove_ten_items_op.confirmation();
+                console.log("remove_items (10):\t" + await feesToString(remove_ten_items_op));
+                console.log();
+
+                // update_permissions
+                const perm_op = await World_contract.methods.update_permissions([{
+                    add_permission: {
+                        owner: this.accountAddress,
+                        permittee: Dutch_contract.address,
+                        token_id: 0,
+                        perm: 7
+                    }
+                }]).send()
+                await perm_op.confirmation();
+                console.log("update_permissions:\t" + await feesToString(perm_op));
+
+                // get item
+                const get_item_op = await World_contract.methodsObject.get_item({
+                    lot_id: 0, issuer: this.accountAddress, item_id: 11
+                }).send({ mutez: true, amount: 1000000 });
+                await get_item_op.confirmation();
+                console.log("get_item:\t\t" + await feesToString(get_item_op));
+            }
+        }
     }
 }
