@@ -2,6 +2,7 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
+
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
@@ -43,7 +44,7 @@ class TL_Minter(pausable_contract.Pausable):
             
         sp.transfer(new_paused, sp.mutez(0), placesc)
 
-    # NOTE: I don't see why this would ever be needed.
+    # TODO: Probably good to have this.
     #@sp.entry_point
     #def regain_admin_Items(self):
     #    """This lets the manager regain admin to the items FA2 contract."""
