@@ -2,6 +2,7 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
+fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
@@ -9,7 +10,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
+class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_contract.Fees):
     """A simple dutch auction.
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
@@ -52,24 +53,6 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
         sp.set_type(granularity, sp.TNat)
         self.onlyManager()
         self.data.granularity = granularity
-
-
-    @sp.entry_point
-    def set_fees(self, update):
-        """Call to set fees in permille or fee recipient.
-        Fees must be <= than 60 permille.
-        """
-        sp.set_type(update, sp.TVariant(
-            update_fees = sp.TNat,
-            update_fees_to = sp.TAddress
-        ))
-        self.onlyManager()
-        with update.match_cases() as arg:
-            with arg.match("update_fees") as upd:
-                sp.verify(upd <= 60, message = "FEE_ERROR") # let's not get greedy
-                self.data.fees = upd
-            with arg.match("update_fees_to") as upd:
-                self.data.fees_to = upd
 
     @sp.entry_point
     def set_permitted_fa2(self, params):

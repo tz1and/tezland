@@ -7,13 +7,13 @@
 import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 
 # Urgent
 # TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
 # TODO: Test place counter thoroughly!
 # TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
-# TODO: have a "fees_to" address to split management and fee address. (for all fee-taking contracts)
 # TODO: don't verify permissions upper bound to make room for extra permissions?
 # TODO: think of some more tests for permission.
 #
@@ -23,7 +23,6 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
-# TODO: send_if_value makes some slightly ugly code, investigate use of locals
 # TODO: check if packing/unpacking michelson maps works well for script variables
 # TODO: turn transferMap into a metaclass?
 
@@ -232,7 +231,7 @@ class Permission_param:
 #
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
-class TL_World(pausable_contract.Pausable):
+class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -257,6 +256,7 @@ class TL_World(pausable_contract.Pausable):
             entered = sp.bool(False),
             item_limit = sp.nat(32),
             fees = sp.nat(25),
+            fees_to = manager,
             other_permitted_fa2 = self.permitted_fa2_map.make(),
             permissions = self.permission_map.make(),
             places = self.place_store_map.make()
@@ -265,13 +265,6 @@ class TL_World(pausable_contract.Pausable):
     #
     # Manager-only entry points
     #
-    @sp.entry_point
-    def set_fees(self, fees):
-        sp.set_type(fees, sp.TNat)
-        self.onlyManager()
-        sp.verify(fees <= 60, message = self.error_message.fee_error()) # let's not get greedy
-        self.data.fees = fees
-
     @sp.entry_point
     def set_item_limit(self, item_limit):
         sp.set_type(item_limit, sp.TNat)

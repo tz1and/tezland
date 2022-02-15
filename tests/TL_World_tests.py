@@ -579,14 +579,6 @@ def test():
     remove_items(place_alice, {alice.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}, sender=alice)
 
     #
-    # test set fees
-    #
-    scenario.h2("Fees")
-    world.set_fees(35).run(sender = bob, valid = False)
-    world.set_fees(250).run(sender = admin, valid = False)
-    world.set_fees(45).run(sender = admin)
-
-    #
     # test world permissions
     #
     scenario.h2("World permissions")

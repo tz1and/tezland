@@ -284,22 +284,6 @@ def test():
     #scenario.show(auction_info)
 
     #
-    # set_fees
-    #
-    scenario.h3("set_fees")
-
-    dutch.set_fees(sp.variant("update_fees", 35)).run(sender = bob, valid = False)
-    dutch.set_fees(sp.variant("update_fees", 250)).run(sender = admin, valid = False)
-    scenario.verify(dutch.data.fees == sp.nat(25))
-    dutch.set_fees(sp.variant("update_fees", 45)).run(sender = admin)
-    scenario.verify(dutch.data.fees == sp.nat(45))
-
-    dutch.set_fees(sp.variant("update_fees_to", bob.address)).run(sender = bob, valid = False)
-    scenario.verify(dutch.data.fees_to == admin.address)
-    dutch.set_fees(sp.variant("update_fees_to", bob.address)).run(sender = admin)
-    scenario.verify(dutch.data.fees_to == bob.address)
-
-    #
     # set_granularity
     #
     scenario.h3("set_granularity")
