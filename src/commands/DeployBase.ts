@@ -11,6 +11,10 @@ import prompt from 'prompt';
 import fs from 'fs';
 
 
+export const sleep = (milliseconds: number) => {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+};
+
 // NOTE: only works with single origination per op
 export class DeployContractBatch {
     private batch: WalletOperationBatch;

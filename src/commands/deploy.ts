@@ -3,7 +3,7 @@ import * as ipfs from '../ipfs'
 import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
-import DeployBase, { DeployContractBatch } from './DeployBase';
+import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
 import { MichelsonMap, OpKind, TransactionWalletOperation, WalletOperationBatch } from '@taquito/taquito';
 
 
@@ -235,7 +235,7 @@ export default class Deploy extends DeployBase {
                 }]);
             }
 
-            const run_gas_tests = false;
+            const run_gas_tests = true;
             if (!run_gas_tests) {
                 // prepare batch
                 const mint_batch = this.tezos.wallet.batch();
@@ -470,7 +470,14 @@ export default class Deploy extends DeployBase {
                 await place_op_op.confirmation();
                 console.log("update_operators:\t" + await feesToString(place_op_op));
 
-                const current_time = Math.floor(Date.now() / 1000);
+                const whitelist_enable_op = await Dutch_contract.methodsObject.manage_whitelist({
+                    whitelist_enabled: false
+                }).send()
+                await whitelist_enable_op.confirmation();
+                console.log("manage_whitelist:\t" + await feesToString(whitelist_enable_op));
+                console.log();
+
+                let current_time = Math.floor(Date.now() / 1000) + 3;
                 const create_auction_op = await Dutch_contract.methodsObject.create({
                     token_id: 0,
                     start_price: 200000,
@@ -481,12 +488,14 @@ export default class Deploy extends DeployBase {
                 }).send();
                 await create_auction_op.confirmation();
                 console.log("create_auction:\t\t" + await feesToString(create_auction_op));
+                await sleep(3000);
 
                 const bid_op = await Dutch_contract.methodsObject.bid(0).send({amount: 200000, mutez: true});
                 await bid_op.confirmation();
                 console.log("bid:\t\t\t" + await feesToString(bid_op));
                 console.log();
 
+                current_time = Math.floor(Date.now() / 1000) + 3;
                 const create_auction1_op = await Dutch_contract.methodsObject.create({
                     token_id: 0,
                     start_price: 200000,
@@ -497,6 +506,7 @@ export default class Deploy extends DeployBase {
                 }).send();
                 await create_auction1_op.confirmation();
                 console.log("create_auction:\t\t" + await feesToString(create_auction1_op));
+                await sleep(3000);
 
                 const cancel_op = await Dutch_contract.methodsObject.cancel(1).send();
                 await cancel_op.confirmation();
