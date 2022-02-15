@@ -168,25 +168,22 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
         sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
 
         # calculate current price and verify amount sent
-        ask_price = sp.local("ask_price", sp.view("get_auction_price",
-            sp.self_address,
-            auction_id,
-            t = sp.TMutez).open_some())
+        ask_price = self.get_auction_price_inline(the_auction.value)
         #sp.trace(sp.now)
-        #sp.trace(ask_price.value)
+        #sp.trace(ask_price)
 
         # check if correct value was sent. probably best to send back overpay instead of cancel.
-        sp.verify(sp.amount >= ask_price.value, message = "WRONG_AMOUNT")
+        sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
 
         # Send back overpay, if there was any.
-        overpay = sp.amount - ask_price.value
+        overpay = sp.amount - ask_price
         self.send_if_value(sp.sender, overpay)
 
-        sp.if ask_price.value != sp.tez(0):
+        sp.if ask_price != sp.tez(0):
             token_royalties = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
 
             # calculate fees
-            fee = sp.compute(sp.utils.mutez_to_nat(ask_price.value) * (token_royalties.royalties + self.data.fees) / sp.nat(1000))
+            fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalties.royalties + self.data.fees) / sp.nat(1000))
             royalties = sp.compute(token_royalties.royalties * fee / (token_royalties.royalties + self.data.fees))
 
             # send royalties to creator, if any.
@@ -195,7 +192,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
             # send management fees
             self.send_if_value(self.data.manager, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            self.send_if_value(the_auction.value.owner, ask_price.value - sp.utils.nat_to_mutez(fee))
+            self.send_if_value(the_auction.value.owner, ask_price - sp.utils.nat_to_mutez(fee))
 
         # transfer item to buyer
         self.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
@@ -204,30 +201,17 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
 
         del self.data.auctions[auction_id]
 
-    #
-    # Views
-    #
-    @sp.onchain_view(pure=True)
-    def get_auction(self, auction_id):
-        """Returns information about an auction."""
-        sp.set_type(auction_id, sp.TNat)
-        sp.result(self.data.auctions[auction_id])
 
-
-    # TODO: method to be inlined here and in bid
-    @sp.onchain_view(pure=True)
-    def get_auction_price(self, auction_id):
-        """Returns the current price of an auction."""
-        sp.set_type(auction_id, sp.TNat)
-        the_auction = self.data.auctions[auction_id]
-
+    # inlined into bid and get_auction_price view
+    def get_auction_price_inline(self, the_auction):
+        result = sp.local("result", sp.tez(0))
         # return start price if it hasn't started
         sp.if sp.now <= the_auction.start_time:
-            sp.result(the_auction.start_price)
+            result.value = the_auction.start_price
         sp.else:
             # return end price if it's over
             sp.if sp.now >= the_auction.end_time:
-                sp.result(the_auction.end_price)
+                result.value = the_auction.end_price
             sp.else:
                 # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
                 # probably by validating the input in create. to make sure intervals can't be negative.
@@ -239,8 +223,28 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
 
                 current_price = the_auction.start_price - sp.utils.nat_to_mutez(time_deduction)
 
-                sp.result(current_price)
-    
+                result.value = current_price
+        return result.value
+
+
+    #
+    # Views
+    #
+    # TODO: does it make sense to even have this?
+    # without being able to get the indices...
+    @sp.onchain_view(pure=True)
+    def get_auction(self, auction_id):
+        """Returns information about an auction."""
+        sp.set_type(auction_id, sp.TNat)
+        sp.result(self.data.auctions[auction_id])
+
+    @sp.onchain_view(pure=True)
+    def get_auction_price(self, auction_id):
+        """Returns the current price of an auction."""
+        sp.set_type(auction_id, sp.TNat)
+        the_auction = sp.local("the_auction", self.data.auctions[auction_id])
+        sp.result(self.get_auction_price_inline(the_auction.value))
+
     @sp.onchain_view(pure=True)
     def is_fa2_permitted(self, fa2):
         """Returns the set of permitted fa2 contracts."""
