@@ -1,6 +1,7 @@
 import smartpy as sp
 
 # TODO: figure out if a get_manager onchain view is useful.
+# TODO: implement "accept_manager"
 
 class Manageable(sp.Contract):
     #def __init__(self, manager):
