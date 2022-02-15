@@ -95,23 +95,24 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
         end_price must be < than start_price.
         end_time must be > than start_time
         """
-        sp.set_type(params.token_id, sp.TNat)
-        sp.set_type(params.start_price, sp.TMutez)
-        sp.set_type(params.end_price, sp.TMutez)
-        sp.set_type(params.start_time, sp.TTimestamp)
-        sp.set_type(params.end_time, sp.TTimestamp)
-        sp.set_type(params.fa2, sp.TAddress)
+        sp.set_type(params, sp.TRecord(
+            token_id = sp.TNat,
+            start_price = sp.TMutez,
+            end_price = sp.TMutez,
+            start_time = sp.TTimestamp,
+            end_time = sp.TTimestamp,
+            fa2 = sp.TAddress
+        ))
 
         self.onlyUnpaused()
         self.onlyManagerIfWhitelistEnabled()
 
         # verify inputs
         sp.verify(self.address_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
-        # TODO: only one verify here. Probably more efficient.
-        sp.verify(params.start_time >= sp.now, message = "INVALID_PARAM")
-        sp.verify(params.start_time < params.end_time, message = "INVALID_PARAM")
-        sp.verify(abs(params.end_time - params.start_time) > self.data.granularity, message = "INVALID_PARAM")
-        sp.verify(params.start_price > params.end_price, message = "INVALID_PARAM")
+        sp.verify((params.start_time >= sp.now) &
+            (params.start_time < params.end_time) &
+            (abs(params.end_time - params.start_time) > self.data.granularity) &
+            (params.start_price > params.end_price), message = "INVALID_PARAM")
 
         # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
         sp.verify(self.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
