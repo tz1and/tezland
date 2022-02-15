@@ -1,26 +1,18 @@
 import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
+# TODO: inline code for price in dutch auction
+# TODO: have a "fees_to" address to split management and fee address. (for all fee-taking contracts)
 
-
-#
-# Lazy set of permitted FA2 tokens for 'other' type.
-class FA2_set:
-    def make(self, fa2_map):
-        return sp.big_map(l=fa2_map, tkey=sp.TAddress, tvalue=sp.TUnit)
-    def add(self, set, fa2):
-        set[fa2] = sp.unit
-    def remove(self, set, fa2):
-        del set[fa2]
-    def contains(self, set, fa2):
-        return set.contains(fa2)
 
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(pausable_contract.Pausable):
+class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
     """A simple dutch auction.
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
@@ -29,7 +21,7 @@ class TL_Dutch(pausable_contract.Pausable):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
-        self.fa2_set = FA2_set()
+        self.address_set = utils.Address_set()
         self.init_storage(
             manager = manager,
             items_contract = items_contract,
@@ -39,7 +31,9 @@ class TL_Dutch(pausable_contract.Pausable):
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             fees = sp.nat(25),
             paused = False,
-            permitted_fa2 = self.fa2_set.make({ places_contract: sp.unit }),
+            whitelist_enabled = True, # TODO: default false?
+            whitelist = self.address_set.make(), # manager doesn't need to be whitelisted
+            permitted_fa2 = self.address_set.make({ places_contract: sp.unit }), # places whitelisted by default.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 owner=sp.TAddress,
                 token_id=sp.TNat,
@@ -80,9 +74,9 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(params.permitted, sp.TBool)
         self.onlyManager()
         sp.if params.permitted == True:
-            self.fa2_set.add(self.data.permitted_fa2, params.fa2)
+            self.address_set.add(self.data.permitted_fa2, params.fa2)
         sp.else:
-            self.fa2_set.remove(self.data.permitted_fa2, params.fa2)
+            self.address_set.remove(self.data.permitted_fa2, params.fa2)
 
     #
     # Public entry points
@@ -104,9 +98,11 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(params.fa2, sp.TAddress)
 
         self.onlyUnpaused()
+        self.onlyManagerIfWhitelistEnabled()
 
         # verify inputs
-        sp.verify(self.fa2_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
+        sp.verify(self.address_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
+        # TODO: only one verify here. Probably more efficient.
         sp.verify(params.start_time >= sp.now, message = "INVALID_PARAM")
         sp.verify(params.start_time < params.end_time, message = "INVALID_PARAM")
         sp.verify(abs(params.end_time - params.start_time) > self.data.granularity, message = "INVALID_PARAM")
@@ -142,6 +138,7 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(auction_id, sp.TNat)
 
         self.onlyUnpaused()
+        # no need to call self.onlyManagerIfWhitelistEnabled() 
 
         the_auction = self.data.auctions[auction_id]
 
@@ -163,6 +160,7 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.set_type(auction_id, sp.TNat)
 
         self.onlyUnpaused()
+        self.onlyWhitelisted()
 
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
 
@@ -199,11 +197,12 @@ class TL_Dutch(pausable_contract.Pausable):
             # send rest of the value to seller
             self.send_if_value(the_auction.value.owner, ask_price.value - sp.utils.nat_to_mutez(fee))
 
-         # transfer item to buyer
+        # transfer item to buyer
         self.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
 
-        del self.data.auctions[auction_id]
+        self.removeFromWhitelist(sp.sender)
 
+        del self.data.auctions[auction_id]
 
     #
     # Views
@@ -215,6 +214,7 @@ class TL_Dutch(pausable_contract.Pausable):
         sp.result(self.data.auctions[auction_id])
 
 
+    # TODO: method to be inlined here and in bid
     @sp.onchain_view()
     def get_auction_price(self, auction_id):
         """Returns the current price of an auction."""
@@ -245,7 +245,7 @@ class TL_Dutch(pausable_contract.Pausable):
     def is_fa2_permitted(self, fa2):
         """Returns the set of permitted fa2 contracts."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.fa2_set.contains(self.data.permitted_fa2, fa2))
+        sp.result(self.address_set.contains(self.data.permitted_fa2, fa2))
 
 
     #

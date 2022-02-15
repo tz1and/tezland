@@ -68,6 +68,10 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 
+    # disable whitelist, it's enabled by defualt
+    dutch.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    scenario.verify(dutch.data.whitelist_enabled == False)
+
     # set operators
     scenario.h3("Add operators")
     places_tokens.update_operators([
@@ -351,3 +355,44 @@ def test():
     scenario.verify(dutch.data.paused == False)
 
     dutch.cancel(4).run(sender = alice)
+
+    #
+    # test whitelist
+    #
+    dutch.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
+    scenario.verify(dutch.data.whitelist_enabled == True)
+    dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = True).run(sender = admin)
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+
+    minter.mint_Place(address = admin.address,
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+    place_admin = sp.nat(2)
+
+    places_tokens.update_operators([
+        sp.variant("add_operator", places_tokens.operator_param.make(
+            owner = admin.address,
+            operator = dutch.address,
+            token_id = place_admin
+        ))
+    ]).run(sender = admin, valid = True)
+
+    dutch.create(token_id = place_admin,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = places_tokens.address).run(sender = admin, valid = True)
+
+    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
+
+    dutch.manage_whitelist(sp.variant("whitelist_add", [alice.address])).run(sender=admin)
+    scenario.verify(dutch.data.whitelist.contains(alice.address))
+
+    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
+    scenario.verify(~dutch.data.whitelist.contains(alice.address))
