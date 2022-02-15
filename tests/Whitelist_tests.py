@@ -163,9 +163,9 @@ def test():
     scenario.h3("views")
 
     scenario.h4("whitelist_enabled")
-    scenario.verify(whitelist.whitelist_enabled() == False)
+    scenario.verify(whitelist.is_whitelist_enabled() == False)
     whitelist.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
-    scenario.verify(whitelist.whitelist_enabled() == True)
+    scenario.verify(whitelist.is_whitelist_enabled() == True)
 
     scenario.h4("is_whitelisted")
     scenario.verify(whitelist.is_whitelisted(bob.address) == False)

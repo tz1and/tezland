@@ -54,6 +54,6 @@ class Whitelist(manager_contract.Manageable):
         sp.result(self.address_set.contains(self.data.whitelist, address))
 
     @sp.onchain_view(pure=True)
-    def whitelist_enabled(self):
+    def is_whitelist_enabled(self):
         """returns true if whitelist is enabled"""
         sp.result(self.data.whitelist_enabled)
