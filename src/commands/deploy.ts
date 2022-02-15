@@ -235,7 +235,7 @@ export default class Deploy extends DeployBase {
                 }]);
             }
 
-            const run_gas_tests = true;
+            const run_gas_tests = false;
             if (!run_gas_tests) {
                 // prepare batch
                 const mint_batch = this.tezos.wallet.batch();
