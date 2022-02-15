@@ -16,7 +16,7 @@ class Whitelist(manager_contract.Manageable):
     def onlyWhitelisted(self):
         """fails if whitelist enabled address is not whitelisted """
         sp.if self.data.whitelist_enabled:
-            sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="NOT_WHITELISTED")
+            sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
 
     def onlyManagerIfWhitelistEnabled(self):
         """fails if whitelist is enabled and sender is not manager"""
@@ -47,13 +47,13 @@ class Whitelist(manager_contract.Manageable):
             with arg.match("whitelist_enabled") as upd:
                 self.data.whitelist_enabled = upd
 
-    @sp.onchain_view
+    @sp.onchain_view(pure=True)
     def is_whitelisted(self, address):
         """returns true if an address is whitelisted"""
         sp.set_type(address, sp.TAddress)
         sp.result(self.address_set.contains(self.data.whitelist, address))
 
-    @sp.onchain_view
+    @sp.onchain_view(pure=True)
     def whitelist_enabled(self):
         """returns true if whitelist is enabled"""
         sp.result(self.data.whitelist_enabled)
