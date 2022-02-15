@@ -177,7 +177,7 @@ export default class DeployBase {
         return { codeJson, initJson };
     }
 
-    protected async deploy_contract(contract_name: string): Promise<ContractAbstraction<ContractProvider>> {
+    protected async deploy_contract(contract_name: string): Promise<ContractAbstraction<Wallet>> {
         assert(this.tezos);
 
         // Check if deployment is in project.deployments.json
@@ -185,26 +185,28 @@ export default class DeployBase {
         const existingDeployment = this.getDeployment(contract_name);
         if(existingDeployment) {
             console.log(`>> Using existing deployment for '${contract_name}': ${existingDeployment}\n`);
-            return this.tezos.contract.at(existingDeployment);
+            return this.tezos.wallet.at(existingDeployment);
         }
 
         const { codeJson, initJson } = this.copyAndReadCode(contract_name);
 
-        var orig_op = await this.tezos.contract.originate({
+        const orig_op = await this.tezos.contract.originate({
             code: codeJson,
             init: initJson,
         });
 
-        var contract = await orig_op.contract();
+        await orig_op.confirmation();
+        const contract_address = orig_op.contractAddress;
+        assert(contract_address);
 
         // Write deployment (name, address) to project.deployments.json
-        this.addDeployment(contract_name, contract.address);
+        this.addDeployment(contract_name, contract_address);
 
         console.log(`Successfully deployed contract ${contract_name}`);
         console.log(`>> Transaction hash: ${orig_op.hash}`);
-        console.log(`>> Contract address: ${contract.address}\n`);
+        console.log(`>> Contract address: ${contract_address}\n`);
 
-        return contract;
+        return this.tezos.wallet.at(contract_address);
     };
 
     private async confirmDeploy() {

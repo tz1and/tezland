@@ -118,7 +118,8 @@ export default class Deploy extends DeployBase {
         const worldWasDeployed = this.getDeployment("TL_World");
 
         // prepare others batch
-        const tezland_batch = new DeployContractBatch(this);
+        // dutch and world are too large now.
+        //const tezland_batch = new DeployContractBatch(this);
 
         //
         // World (Marketplaces)
@@ -139,7 +140,8 @@ export default class Deploy extends DeployBase {
         `terminus = sp.timestamp(${Math.floor(Date.now() / 1000)}).add_days(60)`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
-        tezland_batch.addToBatch("TL_World");
+        //tezland_batch.addToBatch("TL_World");
+        const World_contract = await this.deploy_contract("TL_World");
 
         //
         // Dutch
@@ -158,9 +160,10 @@ export default class Deploy extends DeployBase {
         `minter = sp.address("${Minter_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
 
-        tezland_batch.addToBatch("TL_Dutch");
+        //tezland_batch.addToBatch("TL_Dutch");
+        const Dutch_contract = await this.deploy_contract("TL_Dutch");
 
-        const [World_contract, Dutch_contract] = await tezland_batch.deployBatch();
+        //const [World_contract, Dutch_contract] = await tezland_batch.deployBatch();
 
         if(!worldWasDeployed) {
             // Mint 0 dao and set the world as the dao administrator
