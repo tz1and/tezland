@@ -13,20 +13,16 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # TODO: Test place counter thoroughly!
 # TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
-# TODO: set flags in all contracts: exceptions erase-comments (see world)
-# TODO: investigate private lambda deploy issues
-# TODO: inline code for price in dutch auction
 # TODO: have a "fees_to" address to split management and fee address. (for all fee-taking contracts)
 # TODO: don't verify permissions upper bound to make room for extra permissions?
+# TODO: think of some more tests for permission.
 #
 #
 # Other
 # TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
-# TODO: whitelist in dutch auction (also enable/disable auctions for the general public)
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
-# TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation) (edited)
+# TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
-# TODO: think of some more tests for permission.
 # TODO: send_if_value makes some slightly ugly code, investigate use of locals
 # TODO: check if packing/unpacking michelson maps works well for script variables
 # TODO: turn transferMap into a metaclass?
@@ -609,7 +605,7 @@ class TL_World(pausable_contract.Pausable):
     #
     # Views
     #
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_place_data(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
         sp.if self.data.places.contains(lot_id) == False:
@@ -621,7 +617,7 @@ class TL_World(pausable_contract.Pausable):
                 stored_items = self.data.places[lot_id].stored_items,
                 place_props = self.data.places[lot_id].place_props))
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_place_seqnum(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
         sp.if self.data.places.contains(lot_id) == False:
@@ -636,11 +632,11 @@ class TL_World(pausable_contract.Pausable):
                 this_place.next_id
             ))))
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_item_limit(self):
         sp.result(self.data.item_limit)
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def is_other_fa2_permitted(self, fa2):
         """Returns if an fa2 token is permitted for the
         'other' type."""
@@ -650,7 +646,7 @@ class TL_World(pausable_contract.Pausable):
             swap_permitted = self.permitted_fa2_map.is_swap_permitted(self.data.other_permitted_fa2, fa2)
         ))
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_permissions(self, query):
         sp.set_type(query,
             sp.TRecord(lot_id = sp.TNat,

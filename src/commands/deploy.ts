@@ -326,6 +326,9 @@ export default class Deploy extends DeployBase {
                 await op_op.confirmation();
                 console.log("update_operators:\t" + await feesToString(op_op));
 
+                /**
+                 * World
+                 */
                 // place one item to make sure storage is set.
                 const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffffff" } }];
                 const setup_storage = await World_contract.methodsObject.place_items({
@@ -450,6 +453,54 @@ export default class Deploy extends DeployBase {
                 }).send({ mutez: true, amount: 1000000 });
                 await get_item_op.confirmation();
                 console.log("get_item:\t\t" + await feesToString(get_item_op));
+                console.log();
+                console.log();
+
+                /**
+                 * Auctions
+                 */
+                // set operator
+                const place_op_op = await places_FA2_contract.methods.update_operators([{
+                    add_operator: {
+                        owner: this.accountAddress,
+                        operator: Dutch_contract.address,
+                        token_id: 0
+                    }
+                }]).send()
+                await place_op_op.confirmation();
+                console.log("update_operators:\t" + await feesToString(place_op_op));
+
+                const current_time = Math.floor(Date.now() / 1000);
+                const create_auction_op = await Dutch_contract.methodsObject.create({
+                    token_id: 0,
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString(),
+                    fa2: places_FA2_contract.address
+                }).send();
+                await create_auction_op.confirmation();
+                console.log("create_auction:\t\t" + await feesToString(create_auction_op));
+
+                const bid_op = await Dutch_contract.methodsObject.bid(0).send({amount: 200000, mutez: true});
+                await bid_op.confirmation();
+                console.log("bid:\t\t\t" + await feesToString(bid_op));
+                console.log();
+
+                const create_auction1_op = await Dutch_contract.methodsObject.create({
+                    token_id: 0,
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString(),
+                    fa2: places_FA2_contract.address
+                }).send();
+                await create_auction1_op.confirmation();
+                console.log("create_auction:\t\t" + await feesToString(create_auction1_op));
+
+                const cancel_op = await Dutch_contract.methodsObject.cancel(1).send();
+                await cancel_op.confirmation();
+                console.log("cancel:\t\t\t" + await feesToString(cancel_op));
             }
         }
     }

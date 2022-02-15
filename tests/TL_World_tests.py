@@ -14,7 +14,7 @@ class FA2_utils(sp.Contract):
         self.data.last_sum = 0
         # It's also nice to make this contract have more than one entry point.
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def token_amounts(self, params):
         sp.set_type(params, sp.TList(t=places_contract.placeItemListType))
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
@@ -34,7 +34,7 @@ class FA2_utils(sp.Contract):
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def token_amounts_in_storage(self, params):
         sp.set_type(params.lot_id, sp.TNat)
         sp.set_type(params.world, sp.TAddress)
@@ -60,7 +60,7 @@ class FA2_utils(sp.Contract):
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_balances(self, params):
         sp.set_type(params.tokens, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
         sp.set_type(params.owner, sp.TAddress)
@@ -72,7 +72,7 @@ class FA2_utils(sp.Contract):
         #sp.trace(balances.value)
         sp.result(balances.value)
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def cmp_balances(self, params):
         sp.set_type(params.bal_a, sp.TMap(sp.TNat, sp.TNat))
         sp.set_type(params.bal_b, sp.TMap(sp.TNat, sp.TNat))

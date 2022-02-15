@@ -19,7 +19,7 @@ class UpgradeTest(manager_contract.Manageable):
         sp.set_type(params.val, sp.TInt)
         self.data.counter += params.val
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def test_view(self):
         # sp.result is used to return the view result (the contract storage in this case)
         sp.result(self.data.counter)

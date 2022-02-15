@@ -207,7 +207,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
     #
     # Views
     #
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_auction(self, auction_id):
         """Returns information about an auction."""
         sp.set_type(auction_id, sp.TNat)
@@ -215,7 +215,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
 
 
     # TODO: method to be inlined here and in bid
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_auction_price(self, auction_id):
         """Returns the current price of an auction."""
         sp.set_type(auction_id, sp.TNat)
@@ -241,7 +241,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist):
 
                 sp.result(current_price)
     
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def is_fa2_permitted(self, fa2):
         """Returns the set of permitted fa2 contracts."""
         sp.set_type(fa2, sp.TAddress)

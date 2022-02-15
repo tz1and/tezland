@@ -147,7 +147,7 @@ class TL_Minter(pausable_contract.Pausable):
     #
     # Views
     #
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_item_royalties(self, token_id):
         sp.set_type(token_id, sp.TNat)
         # sp.result is used to return the view result (the contract storage in this case)

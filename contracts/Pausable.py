@@ -23,6 +23,6 @@ class Pausable(manager_contract.Manageable):
         self.onlyManager()
         self.data.paused = new_paused
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def is_paused(self):
         sp.result(self.isPaused())

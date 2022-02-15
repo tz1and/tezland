@@ -611,7 +611,7 @@ class FA2_token_metadata(FA2_core):
 
 
 class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def get_balance(self, req):
         """This is the `get_balance` view defined in TZIP-12."""
         sp.set_type(
@@ -624,26 +624,26 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
         # Change: use map.get with default value to prevent exception
         sp.result(self.data.ledger.get(user, sp.record(balance = 0)).balance)
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def count_tokens(self):
         """Get how many tokens are in this FA2 contract.
         """
         sp.result(self.token_id_set.cardinal(self.data.all_tokens))
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def does_token_exist(self, tok):
         "Ask whether a token ID is exists."
         sp.set_type(tok, sp.TNat)
         sp.result(self.data.token_metadata.contains(tok))
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def all_tokens(self):
         if self.config.assume_consecutive_token_ids:
             sp.result(sp.range(0, self.data.all_tokens))
         else:
             sp.result(self.data.all_tokens.elements())
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def total_supply(self, tok):
         if self.config.store_total_supply:
             sp.result(self.data.total_supply[tok])
@@ -651,7 +651,7 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
             sp.set_type(tok, sp.TNat)
             sp.result("total-supply not supported")
 
-    @sp.onchain_view()
+    @sp.onchain_view(pure=True)
     def is_operator(self, query):
         sp.set_type(query,
                     sp.TRecord(token_id = sp.TNat,
