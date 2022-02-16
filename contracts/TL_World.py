@@ -10,16 +10,14 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 
 # Urgent
-# TODO: store id with permitted fa2, add "permitted" field to be able to remove permitted without deleting
 # TODO: Test place counter thoroughly!
 # TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
-# TODO: don't verify permissions upper bound to make room for extra permissions?
 # TODO: think of some more tests for permission.
+# TODO: start distribution of DAO token at a later date?
 #
 #
 # Other
-# TODO: add permissionCanSell - or named differently. controls if someone can place items for sale in your place.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
@@ -138,7 +136,8 @@ permissionNone       = sp.nat(0) # no permissions
 permissionPlaceItems = sp.nat(1) # can place items
 permissionModifyAll  = sp.nat(2) # can edit and remove all items
 permissionProps      = sp.nat(4) # can edit place props
-permissionFull       = sp.nat(7) # can do anything, implies set_place_props.
+permissionCanSell    = sp.nat(8) # can place items that are for sale. # TODO: not implemented.
+permissionFull       = sp.nat(15) # has full permissions.
 
 transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
@@ -201,7 +200,7 @@ class Permission_map:
         return set.get(self.make_key(owner, permittee, token_id), default_value = permissionNone)
 
 #
-# Operator_param from Fa2. Defines type types for the update_permissions entry-point.
+# Operator_param from Fa2. Defines type types for the set_permissions entry-point.
 class Permission_param:
     def get_add_type(self):
         t = sp.TRecord(
@@ -255,6 +254,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             terminus = terminus,
             entered = sp.bool(False),
             item_limit = sp.nat(32),
+            max_permission = permissionFull, # must be (power of 2)-1
             fees = sp.nat(25),
             fees_to = manager,
             other_permitted_fa2 = self.permitted_fa2_map.make(),
@@ -266,13 +266,20 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     # Manager-only entry points
     #
     @sp.entry_point
-    def set_item_limit(self, item_limit):
+    def update_item_limit(self, item_limit):
         sp.set_type(item_limit, sp.TNat)
         self.onlyManager()
         self.data.item_limit = item_limit
 
     @sp.entry_point
+    def update_max_permission(self, max_permission):
+        sp.set_type(max_permission, sp.TNat)
+        self.onlyManager()
+        self.data.max_permission = max_permission
+
+    @sp.entry_point
     def set_other_fa2_permitted(self, params):
+        # TODO: remwrite as list of variant!
         """Call to add/remove fa2 contract from
         token contracts permitted for 'other' type items."""
         # NOTE: NEVER add Items or Places, lol. Not going to verify,
@@ -290,7 +297,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     # Public entry points
     #
     @sp.entry_point
-    def update_permissions(self, params):
+    def set_permissions(self, params):
         sp.set_type(params, sp.TList(
             sp.TVariant(
                 add_permission = self.permission_param.get_add_type(),
@@ -305,7 +312,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
                 with arg.match("add_permission") as upd:
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
-                    sp.verify((upd.perm > permissionNone) & (upd.perm <= permissionFull), message = self.error_message.parameter_error())
+                    sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = self.error_message.parameter_error())
                     # Add permission
                     self.permission_map.add(self.data.permissions,
                         upd.owner,
@@ -323,17 +330,17 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
 
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
-    def get_permissions_self(self, lot_id, owner):
+    def get_permissions_inline(self, lot_id, owner, permittee):
         permission = sp.local("permission", permissionNone)
         # if permittee is the owner, he has full permission.
-        sp.if self.fa2_get_balance(self.data.places_contract, lot_id, sp.sender) > 0:
-            permission.value = permissionFull
+        sp.if self.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0:
+            permission.value = self.data.max_permission
         sp.else:
             # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
             sp.if owner.is_some() & (self.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0):
                 permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
                     owner.open_some(),
-                    sp.sender,
+                    permittee,
                     lot_id))
         return permission.value
 
@@ -346,7 +353,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         self.onlyUnpaused()
 
         # caller must be owner or or have full permissions.
-        permissions = self.get_permissions_self(params.lot_id, params.owner)
+        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # get the place
@@ -367,7 +374,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         self.onlyUnpaused()
 
         # caller must be owner or have place item permissions.
-        permissions = self.get_permissions_self(params.lot_id, params.owner)
+        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
         # get the place
@@ -440,7 +447,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
         # caller must be owner or have ModifyAll or ModifyOwn permissions.
-        permissions = self.get_permissions_self(params.lot_id, params.owner)
+        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # if ModifyAll permission is not given, make sure update map only contains sender items
@@ -487,7 +494,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
         # caller must be owner or have ModifyAll or ModifyOwn permissions.
-        permissions = self.get_permissions_self(params.lot_id, params.owner)
+        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # if ModifyAll permission is not given, make sure remove map only contains sender items.
@@ -645,19 +652,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             sp.TRecord(lot_id = sp.TNat,
                 owner = sp.TOption(sp.TAddress),
                 permittee = sp.TAddress))
-        
-        # if permittee is the owner, he has full permission.
-        sp.if self.fa2_get_balance(self.data.places_contract, query.lot_id, query.permittee) > 0:
-            sp.result(permissionFull)
-        sp.else:
-            # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            sp.if query.owner.is_some() & (self.fa2_get_balance(self.data.places_contract, query.lot_id, query.owner.open_some()) > 0):
-                sp.result(self.permission_map.get_octal(self.data.permissions,
-                    query.owner.open_some(),
-                    query.permittee,
-                    query.lot_id))
-            sp.else:
-                sp.result(permissionNone)
+        sp.result(self.get_permissions_inline(query.lot_id, query.owner, query.permittee))
 
     #
     # Update code

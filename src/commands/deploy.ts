@@ -438,8 +438,8 @@ export default class Deploy extends DeployBase {
                 console.log("remove_items (10):\t" + await feesToString(remove_ten_items_op));
                 console.log();
 
-                // update_permissions
-                const perm_op = await World_contract.methods.update_permissions([{
+                // set_permissions
+                const perm_op = await World_contract.methods.set_permissions([{
                     add_permission: {
                         owner: this.accountAddress,
                         permittee: Dutch_contract.address,
@@ -448,7 +448,7 @@ export default class Deploy extends DeployBase {
                     }
                 }]).send()
                 await perm_op.confirmation();
-                console.log("update_permissions:\t" + await feesToString(perm_op));
+                console.log("set_permissions:\t" + await feesToString(perm_op));
 
                 // get item
                 const get_item_op = await World_contract.methodsObject.get_item({
@@ -473,9 +473,9 @@ export default class Deploy extends DeployBase {
                 await place_op_op.confirmation();
                 console.log("update_operators:\t" + await feesToString(place_op_op));
 
-                const whitelist_enable_op = await Dutch_contract.methodsObject.manage_whitelist({
+                const whitelist_enable_op = await Dutch_contract.methodsObject.manage_whitelist([{
                     whitelist_enabled: false
-                }).send()
+                }]).send()
                 await whitelist_enable_op.confirmation();
                 console.log("manage_whitelist:\t" + await feesToString(whitelist_enable_op));
                 console.log();

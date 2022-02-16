@@ -473,11 +473,16 @@ def test():
     #
     scenario.h2("Item Limit")
 
-    scenario.h3("set_item_limit")
+    scenario.h3("set_global_limits")
     scenario.verify(world.data.item_limit == 32)
-    world.set_item_limit(128).run(sender = bob, valid = False)
-    world.set_item_limit(128).run(sender = admin)
+    world.update_item_limit(128).run(sender = bob, valid = False)
+    world.update_item_limit(128).run(sender = admin)
     scenario.verify(world.data.item_limit == 128)
+
+    scenario.verify(world.data.max_permission == places_contract.permissionFull)
+    world.update_max_permission(127).run(sender = bob, valid = False)
+    world.update_max_permission(127).run(sender = admin)
+    scenario.verify(world.data.max_permission == 127)
 
     scenario.h3("get_item_limit view")
     item_limit = world.get_item_limit()
@@ -485,7 +490,7 @@ def test():
     scenario.show(item_limit)
 
     scenario.h3("item limit on place_items")
-    world.set_item_limit(10).run(sender = admin)
+    world.update_item_limit(10).run(sender = admin)
     place_items(place_alice, [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position)),
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position)),
@@ -601,7 +606,7 @@ def test():
     #
     scenario.h4("Full permissions")
     # bob gives alice permission to his place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -643,7 +648,7 @@ def test():
     #
     scenario.h4("PlaceItems permissions")
     # bob gives alice place item permission to his place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -686,7 +691,7 @@ def test():
     ], lot_owner=sp.some(bob.address), sender=alice, valid=True)
 
     # bob gives alice place item permission to his place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -723,7 +728,7 @@ def test():
     #
     scenario.h4("Props permissions")
     # bob gives alice place item permission to his place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -760,7 +765,7 @@ def test():
     #
     scenario.h4("Mixed permissions")
     # bob gives alice place item permission to his place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -791,17 +796,17 @@ def test():
 
     scenario.h4("Invalid add permission")
     # incorrect perm parameter
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = sp.nat(12)
+            perm = world.data.max_permission + 1
         ))
     ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
 
     # giving no permissions is invalid. use remove
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = bob.address,
             permittee = alice.address,
@@ -811,7 +816,7 @@ def test():
     ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
 
     # bob gives himself permissions to alices place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("add_permission", world.permission_param.make_add(
             owner = alice.address,
             permittee = bob.address,
@@ -860,7 +865,7 @@ def test():
 
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
@@ -870,7 +875,7 @@ def test():
 
     scenario.h3("Valid remove permission")
     # bob removes alice's permissions to his (now not owned) place
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
@@ -916,7 +921,7 @@ def test():
     remove_items(place_alice, {alice.address: [3]}, sender=alice, valid=False, message="ONLY_UNPAUSED")
 
     # update permissions is still allowed
-    world.update_permissions([
+    world.set_permissions([
         sp.variant("remove_permission", world.permission_param.make_remove(
             owner = bob.address,
             permittee = alice.address,
