@@ -32,17 +32,19 @@ def test():
     scenario += fees
 
     #
-    # set_fees
+    # update_fees
     #
-    scenario.h3("set_fees")
+    scenario.h3("update_fees")
 
-    fees.set_fees(sp.variant("update_fees", 35)).run(sender = bob, valid = False)
-    fees.set_fees(sp.variant("update_fees", 250)).run(sender = admin, valid = False)
+    fees.update_fees(35).run(sender = bob, valid = False)
+    fees.update_fees(250).run(sender = admin, valid = False)
     scenario.verify(fees.data.fees == sp.nat(25))
-    fees.set_fees(sp.variant("update_fees", 45)).run(sender = admin)
+    fees.update_fees(45).run(sender = admin)
     scenario.verify(fees.data.fees == sp.nat(45))
 
-    fees.set_fees(sp.variant("update_fees_to", bob.address)).run(sender = bob, valid = False)
+    scenario.h3("update_fees_to")
+
+    fees.update_fees_to(bob.address).run(sender = bob, valid = False)
     scenario.verify(fees.data.fees_to == admin.address)
-    fees.set_fees(sp.variant("update_fees_to", bob.address)).run(sender = admin)
+    fees.update_fees_to(bob.address).run(sender = admin)
     scenario.verify(fees.data.fees_to == bob.address)

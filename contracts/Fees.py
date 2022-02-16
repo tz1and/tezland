@@ -10,18 +10,20 @@ class Fees(manager_contract.Manageable):
     #        )
 
     @sp.entry_point
-    def set_fees(self, update):
+    def update_fees(self, fees):
         """Call to set fees in permille or fee recipient.
         Fees must be <= than 60 permille.
         """
-        sp.set_type(update, sp.TVariant(
-            update_fees = sp.TNat,
-            update_fees_to = sp.TAddress
-        ))
+        sp.set_type(fees, sp.TNat)
         self.onlyManager()
-        with update.match_cases() as arg:
-            with arg.match("update_fees") as upd:
-                sp.verify(upd <= 60, message = "FEE_ERROR") # let's not get greedy
-                self.data.fees = upd
-            with arg.match("update_fees_to") as upd:
-                self.data.fees_to = upd
+        sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
+        self.data.fees = fees
+
+    @sp.entry_point
+    def update_fees_to(self, fees_to):
+        """Set fee recipient.
+        """
+        sp.set_type(fees_to, sp.TAddress)
+        self.onlyManager()
+        self.data.fees_to = fees_to
+
