@@ -30,22 +30,23 @@ class Whitelist(manager_contract.Manageable):
         self.address_set.remove(self.data.whitelist, address)
 
     @sp.entry_point
-    def manage_whitelist(self, update):
+    def manage_whitelist(self, updates):
         """Manage the whitelist"""
-        sp.set_type(update, sp.TVariant(
+        sp.set_type(updates, sp.TList(sp.TVariant(
             whitelist_add=sp.TList(sp.TAddress),
             whitelist_remove=sp.TList(sp.TAddress),
-            whitelist_enabled=sp.TBool))
+            whitelist_enabled=sp.TBool)))
         self.onlyManager()
-        with update.match_cases() as arg:
-            with arg.match("whitelist_add") as upd:
-                sp.for addr in upd:
-                    self.address_set.add(self.data.whitelist, addr)
-            with arg.match("whitelist_remove") as upd:
-                sp.for addr in upd:
-                    self.address_set.remove(self.data.whitelist, addr)
-            with arg.match("whitelist_enabled") as upd:
-                self.data.whitelist_enabled = upd
+        sp.for update in updates:
+            with update.match_cases() as arg:
+                with arg.match("whitelist_add") as upd:
+                    sp.for addr in upd:
+                        self.address_set.add(self.data.whitelist, addr)
+                with arg.match("whitelist_remove") as upd:
+                    sp.for addr in upd:
+                        self.address_set.remove(self.data.whitelist, addr)
+                with arg.match("whitelist_enabled") as upd:
+                    self.data.whitelist_enabled = upd
 
     @sp.onchain_view(pure=True)
     def is_whitelisted(self, address):

@@ -73,7 +73,7 @@ def test():
     whitelist.testIsWhitelisted(True).run(sender = admin, valid = False)
 
     # add to whitelist
-    whitelist.manage_whitelist(sp.variant("whitelist_add", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_add", [bob.address, admin.address])]).run(sender=admin)
 
     whitelist.testIsWhitelisted(False).run(sender = bob, valid = False)
     whitelist.testIsWhitelisted(True).run(sender = bob, valid = True)
@@ -91,15 +91,15 @@ def test():
     whitelist.testOnlyWhitelisted().run(sender = admin, valid = True)
 
     # disable whitelisted
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
 
     whitelist.testOnlyWhitelisted().run(sender = bob, valid = True)
     whitelist.testOnlyWhitelisted().run(sender = alice, valid = True)
     whitelist.testOnlyWhitelisted().run(sender = admin, valid = True)
 
     # enabled whitelist and remove
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
-    whitelist.manage_whitelist(sp.variant("whitelist_remove", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_remove", [bob.address, admin.address])]).run(sender=admin)
 
     whitelist.testOnlyWhitelisted().run(sender = bob, valid = False)
     whitelist.testOnlyWhitelisted().run(sender = alice, valid = False)
@@ -113,7 +113,7 @@ def test():
     whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = alice, valid = False)
     whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = admin, valid = True)
 
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
 
     whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = bob, valid = True)
     whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = alice, valid = True)
@@ -123,7 +123,7 @@ def test():
     #
     scenario.h3("removeFromWhitelist")
 
-    whitelist.manage_whitelist(sp.variant("whitelist_add", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_add", [bob.address, admin.address])]).run(sender=admin)
     scenario.verify(whitelist.data.whitelist.contains(bob.address))
     scenario.verify(~whitelist.data.whitelist.contains(alice.address))
     scenario.verify(whitelist.data.whitelist.contains(admin.address))
@@ -139,23 +139,23 @@ def test():
     #
     scenario.h3("manage_whitelist")
 
-    whitelist.manage_whitelist(sp.variant("whitelist_add", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_add", [bob.address, admin.address])]).run(sender=admin)
     scenario.verify(whitelist.data.whitelist.contains(bob.address))
     scenario.verify(~whitelist.data.whitelist.contains(alice.address))
     scenario.verify(whitelist.data.whitelist.contains(admin.address))
 
-    whitelist.manage_whitelist(sp.variant("whitelist_remove", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_remove", [bob.address, admin.address])]).run(sender=admin)
     scenario.verify(~whitelist.data.whitelist.contains(bob.address))
     scenario.verify(~whitelist.data.whitelist.contains(alice.address))
     scenario.verify(~whitelist.data.whitelist.contains(admin.address))
 
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
     scenario.verify(whitelist.data.whitelist_enabled == False)
 
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
     scenario.verify(whitelist.data.whitelist_enabled == True)
 
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
     scenario.verify(whitelist.data.whitelist_enabled == False)
 
     #
@@ -164,7 +164,7 @@ def test():
 
     scenario.h4("whitelist_enabled")
     scenario.verify(whitelist.is_whitelist_enabled() == False)
-    whitelist.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
     scenario.verify(whitelist.is_whitelist_enabled() == True)
 
     scenario.h4("is_whitelisted")
@@ -172,7 +172,7 @@ def test():
     scenario.verify(whitelist.is_whitelisted(alice.address) == False)
     scenario.verify(whitelist.is_whitelisted(admin.address) == False)
 
-    whitelist.manage_whitelist(sp.variant("whitelist_add", [bob.address, admin.address])).run(sender=admin)
+    whitelist.manage_whitelist([sp.variant("whitelist_add", [bob.address, admin.address])]).run(sender=admin)
     scenario.verify(whitelist.is_whitelisted(bob.address) == True)
     scenario.verify(whitelist.is_whitelisted(alice.address) == False)
     scenario.verify(whitelist.is_whitelisted(admin.address) == True)

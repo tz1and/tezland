@@ -69,7 +69,7 @@ def test():
     scenario += dutch
 
     # disable whitelist, it's enabled by defualt
-    dutch.manage_whitelist(sp.variant("whitelist_enabled", False)).run(sender=admin)
+    dutch.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
     scenario.verify(dutch.data.whitelist_enabled == False)
 
     # set operators
@@ -348,7 +348,7 @@ def test():
     #
     # test whitelist
     #
-    dutch.manage_whitelist(sp.variant("whitelist_enabled", True)).run(sender=admin)
+    dutch.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
     scenario.verify(dutch.data.whitelist_enabled == True)
     dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = True).run(sender = admin)
 
@@ -380,7 +380,7 @@ def test():
 
     dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
 
-    dutch.manage_whitelist(sp.variant("whitelist_add", [alice.address])).run(sender=admin)
+    dutch.manage_whitelist([sp.variant("whitelist_add", [alice.address])]).run(sender=admin)
     scenario.verify(dutch.data.whitelist.contains(alice.address))
 
     dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
