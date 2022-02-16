@@ -250,9 +250,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             minter = minter,
             dao_contract = dao_contract,
             metadata = metadata,
-            # in local testing, I could get up to 2000-3000 items per map before things started to fail,
-            # so there's plenty of room ahead.
-            terminus = terminus,
+            bootstrap_dao = False,
+            terminus = sp.timestamp(0),
             entered = sp.bool(False),
             item_limit = sp.nat(32),
             max_permission = permissionFull, # must be (power of 2)-1
@@ -260,6 +259,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             fees_to = manager,
             other_permitted_fa2 = self.permitted_fa2_map.make(),
             permissions = self.permission_map.make(),
+            # in local testing, I could get up to 2000-3000 items per map before things started to fail,
+            # so there's plenty of room ahead.
             places = self.place_store_map.make()
         )
 
@@ -278,6 +279,16 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         self.onlyManager()
         sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
+
+    @sp.entry_point
+    def bootstrap_dao(self):
+        """Begin bootstrapping the DAO.
+        Starts distributing the dao token for swaps.
+        Sets the terminus to now + 60 days."""
+        self.onlyManager()
+        sp.verify(self.data.bootstrap_dao == False, message=self.error_message.no_permission())
+        self.data.bootstrap_dao = True
+        self.data.terminus = sp.now.add_days(60)
 
     @sp.entry_point
     def set_other_fa2_permitted(self, params):
@@ -579,7 +590,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             send_issuer = sp.compute(sp.amount - sp.utils.nat_to_mutez(fee))
             self.send_if_value(params.issuer, send_issuer)
 
-            sp.if (sp.now < self.data.terminus):
+            sp.if self.data.bootstrap_dao & (sp.now < self.data.terminus):
                 # NOTE: Assuming 6 decimals, like tez.
                 user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
                 # Only distribute dao if anything is to be distributed.
