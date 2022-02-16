@@ -284,6 +284,8 @@ export default class Deploy extends DeployBase {
     private async deployDevWorld(contracts: PostDeployContracts) {
         assert(this.tezos);
 
+        console.log(kleur.bgGreen("Deploying dev world"));
+
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
@@ -340,6 +342,8 @@ export default class Deploy extends DeployBase {
 
     private async gasTestSuite(contracts: PostDeployContracts) {
         assert(this.tezos);
+
+        console.log(kleur.bgGreen("Running gas test suite"));
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
@@ -563,7 +567,51 @@ export default class Deploy extends DeployBase {
         console.log("cancel:\t\t\t" + await feesToString(cancel_op));
     }
 
-    private async stressTestSingle(contracts: PostDeployContracts) {}
-    
-    private async stressTestMulti(contracts: PostDeployContracts) {}
+    private async stressTestSingle(contracts: PostDeployContracts, token_id: number = 0) {
+        assert(this.tezos);
+
+        console.log(kleur.bgGreen("Single Place stress test"));
+
+        const mint_batch = this.tezos.wallet.batch();
+        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
+        await this.mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
+        const mint_batch_op = await mint_batch.send();
+        await mint_batch_op.confirmation();
+
+        // set operator
+        const op_op = await contracts.items_FA2_contract.methods.update_operators([{
+            add_operator: {
+                owner: this.accountAddress,
+                operator: contracts.World_contract.address,
+                token_id: token_id
+            }
+        }]).send()
+        await op_op.confirmation();
+
+        const set_item_limit_op = await contracts.World_contract.methodsObject.update_item_limit(10000).send();
+        await set_item_limit_op.confirmation();
+
+        const item_list = [];
+        for (let i = 0; i < 100; ++i)
+            item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } });
+
+        for (let i = 0; i < 10; ++i) {
+            console.log("Placing batch: ", i + 1);
+            const place_ten_items_op = await contracts.World_contract.methodsObject.place_items({
+                lot_id: 0, item_list: item_list
+            }).send();
+            await place_ten_items_op.confirmation();
+        }
+    }
+
+    private async stressTestMulti(contracts: PostDeployContracts) {
+        for (let i = 0; i < 1000; ++i) {
+            try {
+                await this.stressTestSingle(contracts, i);
+            } catch {
+                console.log(kleur.red("stressTestSingle failed: " + i));
+            }
+            await sleep(10000);
+        }
+    }
 }
