@@ -570,7 +570,7 @@ export default class Deploy extends DeployBase {
     private async stressTestSingle(contracts: PostDeployContracts, token_id: number = 0) {
         assert(this.tezos);
 
-        console.log(kleur.bgGreen("Single Place stress test"));
+        console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
@@ -598,7 +598,7 @@ export default class Deploy extends DeployBase {
         for (let i = 0; i < 10; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.World_contract.methodsObject.place_items({
-                lot_id: 0, item_list: item_list
+                lot_id: token_id, item_list: item_list
             }).send();
             await place_ten_items_op.confirmation();
         }
@@ -611,7 +611,6 @@ export default class Deploy extends DeployBase {
             } catch {
                 console.log(kleur.red("stressTestSingle failed: " + i));
             }
-            await sleep(10000);
         }
     }
 }
