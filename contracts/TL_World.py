@@ -8,13 +8,14 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
 # TODO: Test place counter thoroughly!
 # TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 # TODO: think of some more tests for permission.
-# TODO: start distribution of DAO token at a later date?
+# TODO: start distribution of DAO token at a later date.
 #
 #
 # Other
@@ -275,6 +276,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     def update_max_permission(self, max_permission):
         sp.set_type(max_permission, sp.TNat)
         self.onlyManager()
+        sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
 
     @sp.entry_point

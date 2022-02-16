@@ -11,3 +11,6 @@ class Address_set:
         del set[fa2]
     def contains(self, set, fa2):
         return set.contains(fa2)
+
+def isPowerOfTwoMinusOne(x):
+    return ((x + 1) & x) == sp.nat(0)

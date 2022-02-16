@@ -481,6 +481,7 @@ def test():
 
     scenario.verify(world.data.max_permission == places_contract.permissionFull)
     world.update_max_permission(127).run(sender = bob, valid = False)
+    world.update_max_permission(96).run(sender = admin, valid = False, exception="PARAM_ERROR")
     world.update_max_permission(127).run(sender = admin)
     scenario.verify(world.data.max_permission == 127)
 
