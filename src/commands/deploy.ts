@@ -567,7 +567,7 @@ export default class Deploy extends DeployBase {
         console.log("cancel:\t\t\t" + await feesToString(cancel_op));
     }
 
-    private async stressTestSingle(contracts: PostDeployContracts, token_id: number = 0) {
+    private async stressTestSingle(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {
         assert(this.tezos);
 
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
@@ -592,22 +592,27 @@ export default class Deploy extends DeployBase {
         await set_item_limit_op.confirmation();
 
         const item_list = [];
-        for (let i = 0; i < 100; ++i)
+        for (let i = 0; i < per_batch; ++i)
             item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } });
 
-        for (let i = 0; i < 10; ++i) {
+        for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.World_contract.methodsObject.place_items({
                 lot_id: token_id, item_list: item_list
             }).send();
             await place_ten_items_op.confirmation();
         }
+
+        /*const place_items_op = await contracts.World_contract.methodsObject.place_items({
+            lot_id: token_id, item_list: [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffffff" } }]
+        }).send();
+        await place_items_op.confirmation();*/
     }
 
     private async stressTestMulti(contracts: PostDeployContracts) {
         for (let i = 0; i < 1000; ++i) {
             try {
-                await this.stressTestSingle(contracts, i);
+                await this.stressTestSingle(contracts, 100, 10, i);
             } catch {
                 console.log(kleur.red("stressTestSingle failed: " + i));
             }
