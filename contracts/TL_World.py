@@ -11,11 +11,12 @@ fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
+# TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
+# TODO: think of some more tests for permission.
 # TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
-# TODO: think of some more tests for permission.
-# TODO: start distribution of DAO token at a later date.
+# TODO: investgate using a "metadata map" for item data.
 #
 #
 # Other
@@ -71,11 +72,9 @@ class Item_store_map:
         sp.if ~map.contains(issuer):
             map[issuer] = itemStoreMapLiteral
         return map[issuer]
-        #items[counter] = place_item
-    #def set_issuer_map(self, map, counter, issuer, place_item):
-    #def remove(self, map, issuer, item_id):
-    #    items = map.get(issuer, default_value = itemStoreMapLiteral)
-    #    del items[item_id]
+    def remove_if_empty(self, map, issuer):
+        sp.if map.contains(issuer) & (sp.len(map[issuer]) == 0):
+            del map[issuer]
 
 defaultPlaceProps = sp.bytes('0x82b881')
 
@@ -543,6 +542,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
                 del item_store[curr]
                 this_place.item_counter = abs(this_place.item_counter - 1)
 
+            self.item_store_map.remove_if_empty(this_place.stored_items, issuer)
+
         this_place.interaction_counter += 1
 
         # only transfer if list has items
@@ -612,6 +613,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         sp.else:
             del item_store[params.item_id]
             this_place.item_counter = abs(this_place.item_counter - 1)
+        
+        self.item_store_map.remove_if_empty(this_place.stored_items, params.issuer)
 
         this_place.interaction_counter += 1
 
