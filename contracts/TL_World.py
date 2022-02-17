@@ -45,7 +45,7 @@ otherTokenRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 3 floats pos, 1 float scale = 16 bytes
+    item_data=sp.TBytes, # we store the transforms as half floats. 3 floats for euler angles, 3 floats pos, 1 float scale = 14 bytes
     fa2=sp.TAddress # store a fa2 token address
 )
 
@@ -126,7 +126,7 @@ placeItemListType = sp.TVariant(
     ext = sp.TBytes
 )
 
-itemDataMinLen = sp.nat(16)
+itemDataMinLen = sp.nat(14)
 placeDataMinLen = sp.nat(3)
 
 # permissions are in octal, like unix.

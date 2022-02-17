@@ -235,7 +235,7 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
-    position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
+    position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
     # utility function for checking correctness of placing item using the FA2_utils contract
     # TODO: also check item id is in map now
@@ -453,7 +453,7 @@ def test():
     # set_item_data
     #
     scenario.h2("Set item data")
-    new_item_data = sp.bytes("0x01010101010101010101010101010101")
+    new_item_data = sp.bytes("0x010101010101010101010101010101")
     world.set_item_data(lot_id = place_bob, owner=sp.none, update_map = {bob.address: [
         sp.record(item_id = sp.as_nat(item_counter - 2), item_data = new_item_data),
         sp.record(item_id = sp.as_nat(item_counter - 1), item_data = new_item_data)
