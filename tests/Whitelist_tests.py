@@ -22,15 +22,9 @@ class WhitelistTests(whitelist_contract.Whitelist):
     @sp.entry_point
     def testRemoveFromWhitelist(self, address):
         """NOTE: removeFromWhitelist is an inline-only function
-        so no need to check if manager."""
+        so no need to check if admin."""
         sp.set_type(address, sp.TAddress)
         self.removeFromWhitelist(address)
-
-    @sp.entry_point
-    def testIsManager(self, address):
-        sp.set_type(address, sp.TAddress)
-        sp.if ~self.isAdministrator(address):
-            sp.verify(False, "error")
 
 
 @sp.add_test(name = "Whitelist_tests", profile = True)

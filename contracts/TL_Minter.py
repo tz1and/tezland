@@ -27,7 +27,7 @@ class TL_Minter(pausable_contract.Pausable):
     # NOTE: I'm not sure this should ever be needed, to be honest.
     @sp.entry_point
     def set_paused_tokens(self, new_paused):
-        """The manager can pause/unpause items and places contracts"""
+        """The admin can pause/unpause items and places contracts"""
         sp.set_type(new_paused, sp.TBool)
         self.onlyAdministrator()
 
@@ -46,7 +46,7 @@ class TL_Minter(pausable_contract.Pausable):
     # TODO: Probably good to have this.
     #@sp.entry_point
     #def regain_admin_Items(self):
-    #    """This lets the manager regain admin to the items FA2 contract."""
+    #    """This lets the admin regain admin to the items FA2 contract."""
     #    self.onlyPaused()
     #    self.onlyAdministrator()
     #
@@ -56,13 +56,13 @@ class TL_Minter(pausable_contract.Pausable):
     #        entry_point = "set_administrator").open_some()
     #        
     #    sp.transfer(
-    #        self.data.manager, 
+    #        self.data.administrator, 
     #        sp.mutez(0), 
     #        c)
 
     #@sp.entry_point
     #def regain_admin_Places(self):
-    #    """This lets the manager regain admin to the places FA2 contract."""
+    #    """This lets the admin regain admin to the places FA2 contract."""
     #    self.onlyPaused()
     #    self.onlyAdministrator()
     #
@@ -72,7 +72,7 @@ class TL_Minter(pausable_contract.Pausable):
     #        entry_point = "set_administrator").open_some()
     #        
     #    sp.transfer(
-    #        self.data.manager, 
+    #        self.data.administrator, 
     #        sp.mutez(0), 
     #        c)
 

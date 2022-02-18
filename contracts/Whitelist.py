@@ -23,7 +23,7 @@ class Whitelist(admin_contract.Administrable):
             sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
 
     def onlyAdminIfWhitelistEnabled(self):
-        """fails if whitelist is enabled and sender is not manager"""
+        """fails if whitelist is enabled and sender is not admin"""
         sp.if self.data.whitelist_enabled:
             self.onlyAdministrator()
 

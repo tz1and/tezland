@@ -39,7 +39,7 @@ def test():
     items_tokens.set_administrator(minter.address).run(sender = admin)
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
-    # test manager stuff
+    # test admin stuff
     scenario.h2("transfer_administrator")
     scenario.verify(minter.data.administrator == admin.address)
     minter.transfer_administrator(alice.address).run(sender = admin)
