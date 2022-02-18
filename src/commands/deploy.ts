@@ -97,7 +97,7 @@ export default class Deploy extends DeployBase {
         }, this.isSandboxNet);
 
         // Compile and deploy Minter contract.
-        smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`manager = sp.address("${this.accountAddress}")`,
+        smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${minter_metadata_url}")`]);
@@ -143,7 +143,7 @@ export default class Deploy extends DeployBase {
         }, this.isSandboxNet);
 
         // Compile and deploy Places contract.
-        smartpy.compile_newtarget("TL_World", "TL_World", [`manager = sp.address("${this.accountAddress}")`,
+        smartpy.compile_newtarget("TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
@@ -165,7 +165,7 @@ export default class Deploy extends DeployBase {
         }, this.isSandboxNet);
 
         // Compile and deploy Dutch auction contract.
-        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`manager = sp.address("${this.accountAddress}")`,
+        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `minter = sp.address("${Minter_contract.address}")`,
