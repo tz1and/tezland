@@ -36,8 +36,9 @@ def test():
     scenario += minter
 
     # set items_tokens and places_tokens administrator to minter contract
-    items_tokens.set_administrator(minter.address).run(sender = admin)
-    places_tokens.set_administrator(minter.address).run(sender = admin)
+    items_tokens.transfer_administrator(minter.address).run(sender = admin)
+    places_tokens.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
 
     # test admin stuff
     scenario.h2("transfer_administrator")
@@ -103,22 +104,22 @@ def test():
     scenario.verify(view_res.royalties == 250)
     scenario.verify(view_res.creator == bob.address)
 
-    # test set_paused_tokens
-    scenario.h2("set_paused_tokens")
+    # test pause_all_fa2
+    scenario.h2("pause_all_fa2")
 
     # check tokens are unpaused to begin with
     scenario.verify(items_tokens.data.paused == False)
     scenario.verify(places_tokens.data.paused == False)
 
-    minter.set_paused_tokens(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-    minter.set_paused_tokens(True).run(sender = admin)
+    minter.pause_all_fa2(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    minter.pause_all_fa2(True).run(sender = admin)
 
     # check tokens are paused
     scenario.verify(items_tokens.data.paused == True)
     scenario.verify(places_tokens.data.paused == True)
 
-    minter.set_paused_tokens(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    minter.set_paused_tokens(False).run(sender = admin)
+    minter.pause_all_fa2(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    minter.pause_all_fa2(False).run(sender = admin)
 
     # check tokens are unpaused
     scenario.verify(items_tokens.data.paused == False)

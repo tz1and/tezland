@@ -163,8 +163,9 @@ def test():
     scenario += other_token
 
     scenario.h2("preparation")
-    items_tokens.set_administrator(minter.address).run(sender = admin)
-    places_tokens.set_administrator(minter.address).run(sender = admin)
+    items_tokens.transfer_administrator(minter.address).run(sender = admin)
+    places_tokens.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
@@ -213,7 +214,8 @@ def test():
         sp.now.add_days(60), metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += world
 
-    dao_token.set_administrator(world.address).run(sender = admin)
+    dao_token.transfer_administrator(world.address).run(sender = admin)
+    world.accept_fa2_administrator([dao_token.address]).run(sender = admin)
 
     #
     # set operators

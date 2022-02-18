@@ -111,11 +111,15 @@ export default class Deploy extends DeployBase {
             set_admin_batch.with([
                 {
                     kind: OpKind.TRANSACTION,
-                    ...items_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
+                    ...items_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
                 },
                 {
                     kind: OpKind.TRANSACTION,
-                    ...places_FA2_contract.methods.set_administrator(Minter_contract.address).toTransferParams()
+                    ...places_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
+                },
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...Minter_contract.methods.accept_fa2_administrator([places_FA2_contract.address, items_FA2_contract.address]).toTransferParams()
                 }
             ])
 
@@ -196,7 +200,11 @@ export default class Deploy extends DeployBase {
                 },
                 {
                     kind: OpKind.TRANSACTION,
-                    ...dao_FA2_contract.methods.set_administrator(World_contract.address).toTransferParams()
+                    ...dao_FA2_contract.methods.transfer_administrator(World_contract.address).toTransferParams()
+                },
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...World_contract.methods.accept_fa2_administrator([dao_FA2_contract.address]).toTransferParams()
                 }
             ])
 

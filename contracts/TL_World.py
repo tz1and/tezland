@@ -8,6 +8,7 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
@@ -235,7 +236,7 @@ class Permission_param:
 #
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
-class TL_World(pausable_contract.Pausable, fees_contract.Fees):
+class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Administration):
     def __init__(self, administrator, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -265,6 +266,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         fees_contract.Fees.__init__(self, administrator = administrator)
+        fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points

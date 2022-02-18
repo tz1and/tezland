@@ -34,8 +34,9 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
-    items_tokens.set_administrator(minter.address).run(sender = admin)
-    places_tokens.set_administrator(minter.address).run(sender = admin)
+    items_tokens.transfer_administrator(minter.address).run(sender = admin)
+    places_tokens.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
 
     # mint some item tokens for testing
     #minter.mint_Item(address = bob.address,

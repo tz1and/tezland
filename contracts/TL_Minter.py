@@ -1,12 +1,13 @@
 import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 
 
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
-class TL_Minter(pausable_contract.Pausable):
+class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -20,61 +21,24 @@ class TL_Minter(pausable_contract.Pausable):
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
+        fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points
     #
     # NOTE: I'm not sure this should ever be needed, to be honest.
     @sp.entry_point
-    def set_paused_tokens(self, new_paused):
+    def pause_all_fa2(self, new_paused):
         """The admin can pause/unpause items and places contracts"""
         sp.set_type(new_paused, sp.TBool)
         self.onlyAdministrator()
 
-        # call items contract
-        itemsc = sp.contract(sp.TBool, self.data.items_contract, 
-            entry_point = "set_pause").open_some()
-            
-        sp.transfer(new_paused, sp.mutez(0), itemsc)
-
-        # call places contract
-        placesc = sp.contract(sp.TBool, self.data.places_contract, 
-            entry_point = "set_pause").open_some()
-            
-        sp.transfer(new_paused, sp.mutez(0), placesc)
-
-    # TODO: Probably good to have this.
-    #@sp.entry_point
-    #def regain_admin_Items(self):
-    #    """This lets the admin regain admin to the items FA2 contract."""
-    #    self.onlyPaused()
-    #    self.onlyAdministrator()
-    #
-    #    c = sp.contract(
-    #        sp.TAddress,
-    #        self.data.items_contract, 
-    #        entry_point = "set_administrator").open_some()
-    #        
-    #    sp.transfer(
-    #        self.data.administrator, 
-    #        sp.mutez(0), 
-    #        c)
-
-    #@sp.entry_point
-    #def regain_admin_Places(self):
-    #    """This lets the admin regain admin to the places FA2 contract."""
-    #    self.onlyPaused()
-    #    self.onlyAdministrator()
-    #
-    #    c = sp.contract(
-    #        sp.TAddress,
-    #        self.data.places_contract, 
-    #        entry_point = "set_administrator").open_some()
-    #        
-    #    sp.transfer(
-    #        self.data.administrator, 
-    #        sp.mutez(0), 
-    #        c)
+        sp.for fa2 in [self.data.items_contract, self.data.places_contract]:
+            # call items contract
+            set_paused_handle = sp.contract(sp.TBool, fa2, 
+                entry_point = "set_paused").open_some()
+                
+            sp.transfer(new_paused, sp.mutez(0), set_paused_handle)
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):

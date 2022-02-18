@@ -12,6 +12,9 @@
 # TODO: check for newer.
 # TODO: is_paused onchain view?
 import smartpy as sp
+
+pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+
 #
 # ## Meta-Programming Configuration
 #
@@ -348,7 +351,7 @@ def distribute(self, recipients):
 def burn(self, params):
     sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
 
-    sp.verify(~self.is_paused(), message = self.error_message.paused())
+    sp.verify(~self.isPaused(), message = self.error_message.paused())
     
     # check ownership and operators
     sender_verify = (params.address == sp.sender)
@@ -432,7 +435,7 @@ class FA2_core(sp.Contract):
 
     @sp.entry_point
     def transfer(self, params):
-        sp.verify( ~self.is_paused(), message = self.error_message.paused() )
+        sp.verify( ~self.isPaused(), message = self.error_message.paused() )
         sp.set_type(params, self.batch_transfer.get_type())
         sp.for transfer in params:
            current_from = transfer.from_
@@ -472,7 +475,7 @@ class FA2_core(sp.Contract):
     @sp.entry_point
     def balance_of(self, params):
         # paused may mean that balances are meaningless:
-        sp.verify( ~self.is_paused(), message = self.error_message.paused())
+        sp.verify( ~self.isPaused(), message = self.error_message.paused())
         sp.set_type(params, Balance_of.entry_point_type())
         def f_process_request(req):
             user = self.ledger_key.make(req.owner, req.token_id)
@@ -527,41 +530,23 @@ class FA2_core(sp.Contract):
             sp.failwith(self.error_message.operators_unsupported())
 
     # this is not part of the standard but can be supported through inheritance.
-    def is_paused(self):
+    def isPaused(self):
         return sp.bool(False)
 
     # this is not part of the standard but can be supported through inheritance.
-    def is_administrator(self, sender):
+    def isAdministrator(self, sender):
         return sp.bool(False)
-
-class FA2_administrator(FA2_core):
-    def is_administrator(self, sender):
-        return sender == self.data.administrator
-
-    @sp.entry_point
-    def set_administrator(self, params):
-        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
-        self.data.administrator = params
-
-class FA2_pause(FA2_core):
-    def is_paused(self):
-        return self.data.paused
-
-    @sp.entry_point
-    def set_pause(self, params):
-        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
-        self.data.paused = params
 
 class FA2_change_metadata(FA2_core):
     @sp.entry_point
     def set_metadata(self, k, v):
-        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
+        sp.verify(self.isAdministrator(sp.sender), message = self.error_message.not_admin())
         self.data.metadata[k] = v
 
 class FA2_mint(FA2_core):
     @sp.entry_point
     def mint(self, params):
-        sp.verify(self.is_administrator(sp.sender), message = self.error_message.not_admin())
+        sp.verify(self.isAdministrator(sp.sender), message = self.error_message.not_admin())
         # We don't check for pauseness because we're the admin.
         if self.config.single_asset:
             sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
@@ -610,7 +595,7 @@ class FA2_token_metadata(FA2_core):
         }))
 
 
-class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, FA2_pause, FA2_core):
+class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
     @sp.onchain_view(pure=True)
     def get_balance(self, req):
         """This is the `get_balance` view defined in TZIP-12."""
@@ -726,7 +711,8 @@ class FA2(FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_administrator, 
             }
         }
         self.init_metadata("metadata_base", metadata_base)
-        FA2_core.__init__(self, config, metadata, paused = False, administrator = admin)
+        FA2_core.__init__(self, config, metadata)
+        pausable_contract.Pausable.__init__(self, administrator = admin)
 
 ## ## Tests
 ##
