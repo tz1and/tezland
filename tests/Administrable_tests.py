@@ -53,17 +53,21 @@ def test():
     administrable.testIsAdmin(admin.address).run(sender = admin)
 
     scenario.h3("transfer_administrator")
-    administrable.transfer_administrator(bob.address).run(sender = bob, valid = False)
-    administrable.transfer_administrator(bob.address).run(sender = alice, valid = False)
+    administrable.transfer_administrator(bob.address).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    administrable.transfer_administrator(bob.address).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     administrable.transfer_administrator(bob.address).run(sender = admin)
 
     scenario.verify(administrable.data.proposed_administrator == sp.some(bob.address))
 
-    administrable.accept_administrator().run(sender = admin, valid = False)
-    administrable.accept_administrator().run(sender = alice, valid = False)
+    administrable.accept_administrator().run(sender = admin, valid = False, exception = "NOT_PROPOSED_ADMIN")
+    administrable.accept_administrator().run(sender = alice, valid = False, exception = "NOT_PROPOSED_ADMIN")
     administrable.accept_administrator().run(sender = bob)
 
     scenario.verify(administrable.data.proposed_administrator == sp.none)
     scenario.verify(administrable.data.administrator == bob.address)
 
-    administrable.transfer_administrator(admin.address).run(sender = admin, valid = False)
+    administrable.transfer_administrator(admin.address).run(sender = admin, valid = False, exception = "ONLY_ADMIN")
+
+    administrable.accept_administrator().run(sender = admin, valid = False, exception = "NO_ADMIN_TRANSFER")
+    administrable.accept_administrator().run(sender = alice, valid = False, exception = "NO_ADMIN_TRANSFER")
+    administrable.accept_administrator().run(sender = bob, valid = False, exception = "NO_ADMIN_TRANSFER")
