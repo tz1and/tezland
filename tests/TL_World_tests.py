@@ -312,7 +312,7 @@ def test():
     #
     scenario.h2("Bootstrap DAO")
 
-    world.bootstrap_dao().run(sender=bob, valid=False, exception="ONLY_MANAGER")
+    world.bootstrap_dao().run(sender=bob, valid=False, exception="ONLY_ADMIN")
     world.bootstrap_dao().run(sender=admin, now=sp.timestamp(0))
     scenario.verify(world.data.bootstrap_dao == True)
     scenario.verify(world.data.terminus == sp.now.add_days(60))
@@ -550,7 +550,7 @@ def test():
 
     # test set permitted
     scenario.h3("set_other_fa2_permitted")
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
 
     world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
@@ -930,8 +930,8 @@ def test():
     #
     scenario.h2("pausing")
     scenario.verify(world.data.paused == False)
-    world.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
-    world.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    world.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     world.set_paused(True).run(sender = admin)
     scenario.verify(world.data.paused == True)
 
@@ -955,8 +955,8 @@ def test():
         ))
     ]).run(sender=bob, valid=True)
 
-    world.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
-    world.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    world.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    world.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     world.set_paused(False).run(sender = admin)
     scenario.verify(world.data.paused == False)
 

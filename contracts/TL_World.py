@@ -11,6 +11,11 @@ fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
+# TODO: send_if_value: use with
+# TODO: layouts on all complex types.
+# TODO: single entrypoint for code upgrades
+# TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
+# TODO: should I do chunking?
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
@@ -231,7 +236,7 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(pausable_contract.Pausable, fees_contract.Fees):
-    def __init__(self, manager, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, minter, dao_contract, terminus, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
@@ -242,8 +247,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         self.place_store_map = Place_store_map()
         self.item_store_map = Item_store_map()
         self.init_storage(
-            manager = manager,
-            paused = False,
             items_contract = items_contract,
             places_contract = places_contract,
             minter = minter,
@@ -254,14 +257,14 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             entered = sp.bool(False),
             item_limit = sp.nat(32),
             max_permission = permissionFull, # must be (power of 2)-1
-            fees = sp.nat(25),
-            fees_to = manager,
             other_permitted_fa2 = self.permitted_fa2_map.make(),
             permissions = self.permission_map.make(),
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
             places = self.place_store_map.make()
         )
+        pausable_contract.Pausable.__init__(self, administrator = administrator)
+        fees_contract.Fees.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points
@@ -269,13 +272,13 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     @sp.entry_point
     def update_item_limit(self, item_limit):
         sp.set_type(item_limit, sp.TNat)
-        self.onlyManager()
+        self.onlyAdministrator()
         self.data.item_limit = item_limit
 
     @sp.entry_point
     def update_max_permission(self, max_permission):
         sp.set_type(max_permission, sp.TNat)
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
 
@@ -284,7 +287,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         """Begin bootstrapping the DAO.
         Starts distributing the dao token for swaps.
         Sets the terminus to now + 60 days."""
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.verify(self.data.bootstrap_dao == False, message=self.error_message.no_permission())
         self.data.bootstrap_dao = True
         self.data.terminus = sp.now.add_days(60)
@@ -299,7 +302,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
         sp.set_type(params.fa2, sp.TAddress)
         sp.set_type(params.permitted, sp.TBool)
         sp.set_type(params.swap_permitted, sp.TBool)
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.if params.permitted == True:
             self.permitted_fa2_map.add(self.data.other_permitted_fa2, params.fa2, params.swap_permitted)
         sp.else:
@@ -586,7 +589,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
             self.send_if_value(item_royalties.creator, send_royalties)
             # send management fees
             send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-            self.send_if_value(self.data.manager, send_mgr_fees)
+            self.send_if_value(self.data.fees_to, send_mgr_fees)
             # send rest of the value to seller
             send_issuer = sp.compute(sp.amount - sp.utils.nat_to_mutez(fee))
             self.send_if_value(params.issuer, send_issuer)
@@ -600,7 +603,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
                     self.dao_distribute([
                         sp.record(to_=sp.sender, amount=user_share),
                         sp.record(to_=params.issuer, amount=user_share),
-                        sp.record(to_=self.data.manager, amount=manager_share)
+                        sp.record(to_=self.data.fees_to, amount=manager_share)
                     ])
         
         # transfer item to buyer
@@ -675,27 +678,27 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees):
     #
     @sp.entry_point
     def upgrade_code_set_place_props(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("set_place_props", new_code)
 
     @sp.entry_point
     def upgrade_code_place_items(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("place_items", new_code)
 
     @sp.entry_point
     def upgrade_code_set_item_data(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("set_item_data", new_code)
 
     @sp.entry_point
     def upgrade_code_remove_items(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("remove_items", new_code)
 
     @sp.entry_point
     def upgrade_code_get_item(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("get_item", new_code)
 
     #

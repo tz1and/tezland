@@ -40,11 +40,13 @@ def test():
     places_tokens.set_administrator(minter.address).run(sender = admin)
 
     # test manager stuff
-    scenario.h2("set_manager")
-    scenario.verify(minter.data.manager == admin.address)
-    minter.set_manager(alice.address).run(sender = admin)
-    scenario.verify(minter.data.manager == alice.address)
-    minter.set_manager(admin.address).run(sender = alice)
+    scenario.h2("transfer_administrator")
+    scenario.verify(minter.data.administrator == admin.address)
+    minter.transfer_administrator(alice.address).run(sender = admin)
+    minter.accept_administrator().run(sender = alice)
+    scenario.verify(minter.data.administrator == alice.address)
+    minter.transfer_administrator(admin.address).run(sender = alice)
+    minter.accept_administrator().run(sender = admin)
 
     # test set_paused
     scenario.h2("set_paused")
@@ -108,14 +110,14 @@ def test():
     scenario.verify(items_tokens.data.paused == False)
     scenario.verify(places_tokens.data.paused == False)
 
-    minter.set_paused_tokens(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    minter.set_paused_tokens(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     minter.set_paused_tokens(True).run(sender = admin)
 
     # check tokens are paused
     scenario.verify(items_tokens.data.paused == True)
     scenario.verify(places_tokens.data.paused == True)
 
-    minter.set_paused_tokens(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    minter.set_paused_tokens(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     minter.set_paused_tokens(False).run(sender = admin)
 
     # check tokens are unpaused

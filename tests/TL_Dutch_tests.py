@@ -300,7 +300,7 @@ def test():
     # set_permitted_fa2
     #
     scenario.h3("set_permitted_fa2")
-    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == False)
 
     dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = admin)
@@ -322,8 +322,8 @@ def test():
     #
     scenario.h3("pausing")
     scenario.verify(dutch.data.paused == False)
-    dutch.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
-    dutch.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    dutch.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     dutch.set_paused(True).run(sender = admin)
     scenario.verify(dutch.data.paused == True)
 
@@ -338,8 +338,8 @@ def test():
         end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
-    dutch.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_MANAGER")
-    dutch.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+    dutch.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    dutch.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     dutch.set_paused(False).run(sender = admin)
     scenario.verify(dutch.data.paused == False)
 
@@ -357,7 +357,7 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_MANAGER")
+        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
 
     minter.mint_Place(address = admin.address,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)

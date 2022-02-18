@@ -1,16 +1,10 @@
 import smartpy as sp
 
 whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 class WhitelistTests(whitelist_contract.Whitelist):
-    def __init__(self, manager):
-        self.address_set = utils.Address_set()
-        self.init_storage(
-            manager = manager,
-            whitelist_enabled = True,
-            whitelist = self.address_set.make()
-        )
+    def __init__(self, administrator):
+        whitelist_contract.Whitelist.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def testIsWhitelisted(self, whitelisted):
@@ -22,8 +16,8 @@ class WhitelistTests(whitelist_contract.Whitelist):
         self.onlyWhitelisted()
 
     @sp.entry_point
-    def testOnlyManagerIfWhitelistEnabled(self):
-        self.onlyManagerIfWhitelistEnabled()
+    def testOnlyAdminIfWhitelistEnabled(self):
+        self.onlyAdminIfWhitelistEnabled()
 
     @sp.entry_point
     def testRemoveFromWhitelist(self, address):
@@ -35,7 +29,7 @@ class WhitelistTests(whitelist_contract.Whitelist):
     @sp.entry_point
     def testIsManager(self, address):
         sp.set_type(address, sp.TAddress)
-        sp.if ~self.isManager(address):
+        sp.if ~self.isAdministrator(address):
             sp.verify(False, "error")
 
 
@@ -59,7 +53,7 @@ def test():
     whitelist = WhitelistTests(admin.address)
     scenario += whitelist
 
-    scenario.verify(whitelist.data.manager == admin.address)
+    scenario.verify(whitelist.data.administrator == admin.address)
 
     #
     #
@@ -107,17 +101,17 @@ def test():
 
     #
     #
-    scenario.h3("onlyManagerIfWhitelistEnabled")
+    scenario.h3("onlyAdminIfWhitelistEnabled")
 
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = bob, valid = False)
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = alice, valid = False)
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = admin, valid = True)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = bob, valid = False)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = alice, valid = False)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = admin, valid = True)
 
     whitelist.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
 
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = bob, valid = True)
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = alice, valid = True)
-    whitelist.testOnlyManagerIfWhitelistEnabled().run(sender = admin, valid = True)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = bob, valid = True)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = alice, valid = True)
+    whitelist.testOnlyAdminIfWhitelistEnabled().run(sender = admin, valid = True)
 
     #
     #

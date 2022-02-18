@@ -1,13 +1,17 @@
 import smartpy as sp
 
-manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
+admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-class Whitelist(manager_contract.Manageable):
-    #def __init__(self, manager):
-    #    self.init_storage(
-    #        managers = sp.set([manager], t = sp.TAddress)
-    #        )
+class Whitelist(admin_contract.Administrable):
+    def __init__(self, administrator):
+        self.address_set = utils.Address_set()
+        self.update_initial_storage(
+            whitelist_enabled = True, # enabled by default
+            whitelist = self.address_set.make(), # administrator doesn't need to be whitelisted
+        )
+        admin_contract.Administrable.__init__(self, administrator = administrator)
 
     def isWhitelisted(self, address):
         """if an address is whitelisted"""
@@ -18,10 +22,10 @@ class Whitelist(manager_contract.Manageable):
         sp.if self.data.whitelist_enabled:
             sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
 
-    def onlyManagerIfWhitelistEnabled(self):
+    def onlyAdminIfWhitelistEnabled(self):
         """fails if whitelist is enabled and sender is not manager"""
         sp.if self.data.whitelist_enabled:
-            self.onlyManager()
+            self.onlyAdministrator()
 
     def removeFromWhitelist(self, address):
         """removes an address from the whitelist"""
@@ -36,7 +40,7 @@ class Whitelist(manager_contract.Manageable):
             whitelist_add=sp.TList(sp.TAddress),
             whitelist_remove=sp.TList(sp.TAddress),
             whitelist_enabled=sp.TBool)))
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.for update in updates:
             with update.match_cases() as arg:
                 with arg.match("whitelist_add") as upd:

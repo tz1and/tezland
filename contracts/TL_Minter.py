@@ -7,20 +7,19 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 # Minter contract.
 # NOTE: should be pausable for code updates.
 class TL_Minter(pausable_contract.Pausable):
-    def __init__(self, manager, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
         self.init_storage(
-            manager = manager,
             items_contract = items_contract,
             item_id_counter = sp.nat(0),
             places_contract = places_contract,
             metadata = metadata,
             place_id_counter = sp.nat(0),
-            paused = False,
             royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
+        pausable_contract.Pausable.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points
@@ -30,7 +29,7 @@ class TL_Minter(pausable_contract.Pausable):
     def set_paused_tokens(self, new_paused):
         """The manager can pause/unpause items and places contracts"""
         sp.set_type(new_paused, sp.TBool)
-        self.onlyManager()
+        self.onlyAdministrator()
 
         # call items contract
         itemsc = sp.contract(sp.TBool, self.data.items_contract, 
@@ -49,7 +48,7 @@ class TL_Minter(pausable_contract.Pausable):
     #def regain_admin_Items(self):
     #    """This lets the manager regain admin to the items FA2 contract."""
     #    self.onlyPaused()
-    #    self.onlyManager()
+    #    self.onlyAdministrator()
     #
     #    c = sp.contract(
     #        sp.TAddress,
@@ -65,7 +64,7 @@ class TL_Minter(pausable_contract.Pausable):
     #def regain_admin_Places(self):
     #    """This lets the manager regain admin to the places FA2 contract."""
     #    self.onlyPaused()
-    #    self.onlyManager()
+    #    self.onlyAdministrator()
     #
     #    c = sp.contract(
     #        sp.TAddress,
@@ -82,7 +81,7 @@ class TL_Minter(pausable_contract.Pausable):
         sp.set_type(params.address, sp.TAddress)
         sp.set_type(params.metadata, sp.TBytes)
 
-        self.onlyManager()
+        self.onlyAdministrator()
         self.onlyUnpaused()
         
         c = sp.contract(
@@ -159,12 +158,12 @@ class TL_Minter(pausable_contract.Pausable):
     #
     @sp.entry_point
     def upgrade_code_mint_Item(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("mint_Item", new_code)
 
     @sp.entry_point
     def upgrade_code_mint_Place(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("mint_Place", new_code)
 
 # A a compilation target (produces compiled code)

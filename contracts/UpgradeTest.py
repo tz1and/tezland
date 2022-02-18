@@ -1,17 +1,17 @@
 import smartpy as sp
 
-manager_contract = sp.io.import_script_from_url("file:contracts/Manageable.py")
+admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
-class UpgradeTest(manager_contract.Manageable):
-    def __init__(self, manager):
+class UpgradeTest(admin_contract.Administrable):
+    def __init__(self, administrator):
         self.init_storage(
-            manager = manager,
             counter = sp.int(0)
-            )
+        )
+        admin_contract.Administrable.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def update_entry(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("test_entry", new_code)
 
     @sp.entry_point(lazify = True)

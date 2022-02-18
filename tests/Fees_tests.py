@@ -1,14 +1,10 @@
 import smartpy as sp
 
-manager_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+admin_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 
-class FeesTest(manager_contract.Fees):
-    def __init__(self, manager):
-        self.init_storage(
-            manager = manager,
-            fees = sp.nat(25),
-            fees_to = manager,
-        )
+class FeesTest(admin_contract.Fees):
+    def __init__(self, administrator):
+        admin_contract.Fees.__init__(self, administrator = administrator)
 
 
 @sp.add_test(name = "Fees_tests", profile = True)

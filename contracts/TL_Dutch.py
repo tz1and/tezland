@@ -15,23 +15,17 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
-    def __init__(self, manager, items_contract, places_contract, minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
         self.address_set = utils.Address_set()
         self.init_storage(
-            manager = manager,
             items_contract = items_contract,
             minter = minter,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
-            fees = sp.nat(25),
-            fees_to = manager,
-            paused = False,
-            whitelist_enabled = True, # enabled by default
-            whitelist = self.address_set.make(), # manager doesn't need to be whitelisted
             permitted_fa2 = self.address_set.make({ places_contract: sp.unit }), # places whitelisted by default.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 owner=sp.TAddress,
@@ -43,6 +37,9 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
                 fa2=sp.TAddress
             ))
         )
+        pausable_contract.Pausable.__init__(self, administrator = administrator)
+        whitelist_contract.Whitelist.__init__(self, administrator = administrator)
+        fees_contract.Fees.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points
@@ -51,7 +48,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
     def set_granularity(self, granularity):
         """Call to set granularity in seconds."""
         sp.set_type(granularity, sp.TNat)
-        self.onlyManager()
+        self.onlyAdministrator()
         self.data.granularity = granularity
 
     @sp.entry_point
@@ -60,7 +57,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         token contracts permitted for auctions."""
         sp.set_type(params.fa2, sp.TAddress)
         sp.set_type(params.permitted, sp.TBool)
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.if params.permitted == True:
             self.address_set.add(self.data.permitted_fa2, params.fa2)
         sp.else:
@@ -88,7 +85,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         ))
 
         self.onlyUnpaused()
-        self.onlyManagerIfWhitelistEnabled()
+        self.onlyAdminIfWhitelistEnabled()
 
         # verify inputs
         sp.verify(self.address_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
@@ -127,7 +124,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         sp.set_type(auction_id, sp.TNat)
 
         self.onlyUnpaused()
-        # no need to call self.onlyManagerIfWhitelistEnabled() 
+        # no need to call self.onlyAdminIfWhitelistEnabled() 
 
         the_auction = self.data.auctions[auction_id]
 
@@ -246,17 +243,17 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
     #
     @sp.entry_point
     def upgrade_code_create(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("create", new_code)
 
     @sp.entry_point
     def upgrade_code_cancel(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("cancel", new_code)
 
     @sp.entry_point
     def upgrade_code_bid(self, new_code):
-        self.onlyManager()
+        self.onlyAdministrator()
         sp.set_entry_point("bid", new_code)
 
 
