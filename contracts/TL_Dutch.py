@@ -17,14 +17,13 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
-    def __init__(self, administrator, items_contract, places_contract, minter, metadata, exception_optimization_level="default-unit"):
+    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
         self.address_set = utils.Address_set()
         self.init_storage(
             items_contract = items_contract,
-            minter = minter,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.

@@ -238,7 +238,7 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Administration):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, terminus, metadata, exception_optimization_level="default-unit"):
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")

@@ -217,7 +217,7 @@ def test():
     #
     scenario.h2("Originate World contract")
     world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
-        sp.now.add_days(60), metadata = sp.utils.metadata_of_url("https://example.com"))
+        metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += world
 
     dao_token.transfer_administrator(world.address).run(sender = admin)

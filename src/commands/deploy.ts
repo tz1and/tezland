@@ -96,6 +96,7 @@ export default class Deploy extends DeployBase {
             version: '1.0.0'
         }, this.isSandboxNet);
 
+        // TODO: deploy minter and dutch in batch.
         // Compile and deploy Minter contract.
         smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
@@ -151,7 +152,6 @@ export default class Deploy extends DeployBase {
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `dao_contract = sp.address("${dao_FA2_contract.address}")`,
-        `terminus = sp.timestamp(${Math.floor(Date.now() / 1000)}).add_days(60)`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
         //tezland_batch.addToBatch("TL_World");
@@ -171,7 +171,6 @@ export default class Deploy extends DeployBase {
         smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `minter = sp.address("${Minter_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
 
         //tezland_batch.addToBatch("TL_Dutch");
