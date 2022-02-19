@@ -17,7 +17,7 @@ class AdministrableTest(admin_contract.Administrable):
             sp.verify(False, "error")
 
 
-@sp.add_test(name = "Manageable_tests", profile = True)
+@sp.add_test(name = "Administrable_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")

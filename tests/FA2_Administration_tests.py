@@ -8,21 +8,21 @@ class FA2_AdministrationTest(fa2_admin.FA2_Administration):
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
 
-@sp.add_test(name = "Manageable_tests", profile = True)
+@sp.add_test(name = "FA2_Administration_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("fa2_admin contract")
+    scenario.h1("FA2_Administration contract")
     scenario.table_of_contents()
 
     # Let's display the accounts:
     scenario.h2("Accounts")
     scenario.show([admin, alice, bob])
 
-    scenario.h2("Test fa2_admin")
+    scenario.h2("Test FA2_Administration")
 
     scenario.h3("Contract origination")
     # create token for testing
@@ -67,4 +67,3 @@ def test():
 
     scenario.verify(places_tokens.data.administrator == bob.address)
     scenario.verify(places_tokens.data.proposed_administrator == sp.none)
-
