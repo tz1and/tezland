@@ -559,35 +559,22 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
-    # test set permitted
-    scenario.h3("set_other_fa2_permitted")
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
-
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
-    scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
-    scenario.verify(world.data.other_permitted_fa2[other_token.address] == False)
-
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = True).run(sender = admin)
-    scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == True)
-    scenario.verify(world.data.other_permitted_fa2[other_token.address] == True)
-
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = False, swap_permitted = False).run(sender = admin)
-    scenario.verify(world.data.other_permitted_fa2.contains(other_token.address) == False)
-    scenario.verify(sp.is_failing(world.data.other_permitted_fa2[other_token.address]))
-
     # test unpermitted place_item
     scenario.h3("Test placing unpermitted 'other' type items")
     place_items(place_alice, [
         sp.variant("other", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
     ], sender=alice, valid=False, message="TOKEN_NOT_PERMITTED")
 
-    # test get
-    scenario.h3("get_other_permitted_fa2 view")
-    scenario.show(world.is_other_fa2_permitted(other_token.address))
-    scenario.verify(world.is_other_fa2_permitted(other_token.address) == sp.record(permitted=False, swap_permitted=False))
-    world.set_other_fa2_permitted(fa2 = other_token.address, permitted = True, swap_permitted = False).run(sender = admin)
-    scenario.verify(world.is_other_fa2_permitted(other_token.address) == sp.record(permitted=True, swap_permitted=False))
+    scenario.h3("set_fa2_permitted")
+    add_permitted = sp.list([sp.variant("add_permitted",
+        sp.record(
+            fa2 = other_token.address,
+            props = sp.record(
+                swap_allowed = True,
+                has_royalties = False,
+                royalties_view = True)))])
+
+    world.set_fa2_permitted(add_permitted).run(sender = admin)
 
     # test place_item
     scenario.h3("Test placing/removing/getting permitted 'other' type items")

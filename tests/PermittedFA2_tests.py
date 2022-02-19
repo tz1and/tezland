@@ -1,0 +1,76 @@
+import smartpy as sp
+
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
+
+class PermittedFA2Test(permitted_fa2.PermittedFA2):
+    def __init__(self, administrator):
+        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
+
+    # test helpers
+
+
+@sp.add_test(name = "PermittedFA2_tests", profile = True)
+def test():
+    admin = sp.test_account("Administrator")
+    alice = sp.test_account("Alice")
+    bob   = sp.test_account("Robert")
+    carol   = sp.test_account("Carol")
+    scenario = sp.test_scenario()
+
+    scenario.h1("PermittedFA2 contract")
+    scenario.table_of_contents()
+
+    # Let's display the accounts:
+    scenario.h2("Accounts")
+    scenario.show([admin, alice, bob])
+
+    scenario.h2("Test PermittedFA2")
+
+    scenario.h3("Contract origination")
+
+    permitted = PermittedFA2Test(admin.address)
+    scenario += permitted
+
+    scenario.h4("some other FA2 token")
+    other_token = fa2_contract.FA2(config = fa2_contract.items_config(),
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += other_token
+
+    # test set permitted
+    scenario.h3("set_fa2_permitted")
+    add_permitted = sp.list([sp.variant("add_permitted",
+        sp.record(
+            fa2 = other_token.address,
+            props = sp.record(
+                swap_allowed = True,
+                has_royalties = False,
+                royalties_view = True)))])
+
+    remove_permitted = sp.list([sp.variant("remove_permitted", other_token.address)])
+
+    # no permission
+    permitted.set_fa2_permitted(add_permitted).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == False)
+
+    # add
+    permitted.set_fa2_permitted(add_permitted).run(sender = admin)
+    scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == True)
+    scenario.verify(permitted.data.permitted_fa2[other_token.address].swap_allowed == True)
+
+    # remove
+    permitted.set_fa2_permitted(remove_permitted).run(sender = admin)
+    scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == False)
+    scenario.verify(sp.is_failing(permitted.data.permitted_fa2[other_token.address]))
+
+    # test get
+    scenario.h3("get_fa2_permitted view")
+    scenario.verify(sp.is_failing(permitted.get_fa2_permitted(other_token.address)))
+    permitted.set_fa2_permitted(add_permitted).run(sender = admin)
+    scenario.verify(permitted.get_fa2_permitted(other_token.address) == sp.record(swap_allowed = True, has_royalties = False, royalties_view = True))
+
+    scenario.h3("is_fa2_permitted view")
+    scenario.verify(permitted.is_fa2_permitted(other_token.address) == True)
+    permitted.set_fa2_permitted(remove_permitted).run(sender = admin)
+    scenario.verify(permitted.is_fa2_permitted(other_token.address) == False)

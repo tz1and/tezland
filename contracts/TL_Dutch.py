@@ -3,16 +3,17 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
 # TODO: permitted FA2 mixin that has info about it's royalty views.
+# TODO: layouts
 
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_contract.Fees):
+class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_contract.Fees, permitted_fa2.PermittedFA2):
     """A simple dutch auction.
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
@@ -21,13 +22,11 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
-        self.address_set = utils.Address_set()
         self.init_storage(
             items_contract = items_contract,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
-            permitted_fa2 = self.address_set.make({ places_contract: sp.unit }), # places whitelisted by default.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
                 owner=sp.TAddress,
                 token_id=sp.TNat,
@@ -42,6 +41,12 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         whitelist_contract.Whitelist.__init__(self, administrator = administrator)
         fees_contract.Fees.__init__(self, administrator = administrator)
 
+        default_permitted = { places_contract : sp.record(
+            swap_allowed = True,
+            has_royalties = False,
+            royalties_view = False) }
+        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
+
     #
     # Manager-only entry points
     #
@@ -51,18 +56,6 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         sp.set_type(granularity, sp.TNat)
         self.onlyAdministrator()
         self.data.granularity = granularity
-
-    @sp.entry_point
-    def set_permitted_fa2(self, params):
-        """Call to add/remove fa2 contract from
-        token contracts permitted for auctions."""
-        sp.set_type(params.fa2, sp.TAddress)
-        sp.set_type(params.permitted, sp.TBool)
-        self.onlyAdministrator()
-        sp.if params.permitted == True:
-            self.address_set.add(self.data.permitted_fa2, params.fa2)
-        sp.else:
-            self.address_set.remove(self.data.permitted_fa2, params.fa2)
 
     #
     # Public entry points
@@ -236,13 +229,6 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         sp.set_type(auction_id, sp.TNat)
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
         sp.result(self.get_auction_price_inline(the_auction.value))
-
-    @sp.onchain_view(pure=True)
-    def is_fa2_permitted(self, fa2):
-        """Returns the set of permitted fa2 contracts."""
-        sp.set_type(fa2, sp.TAddress)
-        sp.result(self.address_set.contains(self.data.permitted_fa2, fa2))
-
 
     #
     # Update code

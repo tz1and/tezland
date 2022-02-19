@@ -8,6 +8,7 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
@@ -159,24 +160,9 @@ class Error_message:
     def parameter_error(self):      return self.make("PARAM_ERROR")
     def data_length(self):          return self.make("DATA_LEN")
     def item_limit(self):           return self.make("ITEM_LIMIT")
-    def token_not_permitted(self):  return self.make("TOKEN_NOT_PERMITTED")
     def not_for_sale(self):         return self.make("NOT_FOR_SALE")
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
-
-#
-# Lazy set of permitted FA2 tokens for 'other' type.
-class Permitted_fa2_map:
-    def make(self):
-        return sp.big_map(tkey = sp.TAddress, tvalue = sp.TBool)
-    def add(self, set, fa2, allow_swap):
-        set[fa2] = allow_swap
-    def remove(self, set, fa2):
-        del set[fa2]
-    def is_permitted(self, set, fa2):
-        return set.contains(fa2)
-    def is_swap_permitted(self, set, fa2):
-        return set.get(fa2, default_value = False)
 
 #
 # Operator_set from FA2. Lazy set for place permissions.
@@ -237,7 +223,7 @@ class Permission_param:
 #
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
-class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Administration):
+class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.PermittedFA2, fa2_admin.FA2_Administration):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -246,7 +232,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
         self.error_message = Error_message()
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
-        self.permitted_fa2_map = Permitted_fa2_map()
         self.place_store_map = Place_store_map()
         self.item_store_map = Item_store_map()
         self.init_storage(
@@ -259,7 +244,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
             entered = sp.bool(False),
             item_limit = sp.nat(32),
             max_permission = permissionFull, # must be (power of 2)-1
-            other_permitted_fa2 = self.permitted_fa2_map.make(),
             permissions = self.permission_map.make(),
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
             # so there's plenty of room ahead.
@@ -267,6 +251,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
         )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         fees_contract.Fees.__init__(self, administrator = administrator)
+        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
     #
@@ -294,24 +279,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
         sp.verify(self.data.bootstrap_dao == False, message=self.error_message.no_permission())
         self.data.bootstrap_dao = True
         self.data.terminus = sp.now.add_days(60)
-
-    @sp.entry_point
-    def set_other_fa2_permitted(self, params):
-        # TODO: remwrite as list of variant!
-        """Call to add/remove fa2 contract from
-        token contracts permitted for 'other' type items."""
-        # NOTE: NEVER add Items or Places, lol. Not going to verify,
-        # should probably be.
-        sp.set_type(params, sp.TRecord(
-            fa2 = sp.TAddress,
-            permitted = sp.TBool,
-            swap_permitted = sp.TBool,
-        ).layout(("fa2", ("permitted", "swap_permitted"))))
-        self.onlyAdministrator()
-        sp.if params.permitted == True:
-            self.permitted_fa2_map.add(self.data.other_permitted_fa2, params.fa2, params.swap_permitted)
-        sp.else:
-            self.permitted_fa2_map.remove(self.data.other_permitted_fa2, params.fa2)
 
     #
     # Public entry points
@@ -435,9 +402,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
                     sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
-                    # Check if FA2 token is permitted.
-                    sp.verify(self.permitted_fa2_map.is_permitted(self.data.other_permitted_fa2, other.fa2),
-                        message = self.error_message.token_not_permitted())
+                    # Check if FA2 token is permitted and get props.
+                    fa2_props = self.getPermittedFA2Props(other.fa2)
 
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
                     self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
@@ -688,16 +654,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
     @sp.onchain_view(pure=True)
     def get_item_limit(self):
         sp.result(self.data.item_limit)
-
-    @sp.onchain_view(pure=True)
-    def is_other_fa2_permitted(self, fa2):
-        """Returns if an fa2 token is permitted for the
-        'other' type."""
-        sp.set_type(fa2, sp.TAddress)
-        sp.result(sp.record(
-            permitted = self.permitted_fa2_map.is_permitted(self.data.other_permitted_fa2, fa2),
-            swap_permitted = self.permitted_fa2_map.is_swap_permitted(self.data.other_permitted_fa2, fa2)
-        ))
 
     @sp.onchain_view(pure=True)
     def get_permissions(self, query):

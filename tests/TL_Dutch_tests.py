@@ -282,9 +282,6 @@ def test():
     #scenario.verify(item_limit == sp.nat(64))
     scenario.show(auction_info)
 
-    scenario.verify(dutch.is_fa2_permitted(places_tokens.address) == True)
-    scenario.verify(dutch.is_fa2_permitted(items_tokens.address) == False)
-
     # TODO: view simulation with timestamp is now possible. by setting context with scenario
     # TODO: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
     #auction_info = dutch.get_auction_price(0)
@@ -336,7 +333,6 @@ def test():
     #
     dutch.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
     scenario.verify(dutch.data.whitelist_enabled == True)
-    dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = True).run(sender = admin)
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
@@ -378,17 +374,26 @@ def test():
     #
     # set_permitted_fa2
     #
-    scenario.h3("set_permitted_fa2")
-    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == False)
+    scenario.h3("set_fa2_permitted")
 
-    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = admin)
-    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == True)
+    dutch.create(token_id = item_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = items_tokens.address).run(sender = bob, now = sp.timestamp(0), valid = False, exception = "TOKEN_NOT_PERMITTED")
 
-    dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = False).run(sender = admin)
-    scenario.verify(dutch.data.permitted_fa2.contains(places_tokens.address) == False)
+    add_permitted = sp.list([sp.variant("add_permitted",
+        sp.record(
+            fa2 = items_tokens.address,
+            props = sp.record(
+                swap_allowed = True,
+                has_royalties = False,
+                royalties_view = True)))])
 
-    # Fails, but passes the TOKEN_NOT_PERMITTED test.
+    dutch.set_fa2_permitted(add_permitted).run(sender = admin)
+    scenario.verify(dutch.data.permitted_fa2.contains(places_tokens.address) == True)
+
     dutch.create(token_id = item_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
