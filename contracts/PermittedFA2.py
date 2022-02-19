@@ -39,6 +39,12 @@ class Permitted_fa2_param:
     def make_remove(self, fa2):
         return sp.set_type_expr(fa2, self.get_remove_type())
 
+
+# NOTE:
+# When a permitted FA2 is removed, that will break swaps, auctions, etc.
+# I think this is desired. But make sure to give a good error message.
+
+
 class PermittedFA2(admin_contract.Administrable):
     def __init__(self, administrator, default_permitted = {}):
         self.permitted_fa2_map = Permitted_fa2_map()
@@ -47,6 +53,11 @@ class PermittedFA2(admin_contract.Administrable):
             permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
         )
         admin_contract.Administrable.__init__(self, administrator = administrator)
+
+    def onlyPermittedFA2(self, fa2):
+        """Fails if not permitted"""
+        sp.verify(self.permitted_fa2_map.is_permitted(self.data.permitted_fa2, fa2),
+            message = "TOKEN_NOT_PERMITTED")
 
     def getPermittedFA2Props(self, fa2):
         """Returns permitted props or fails if not permitted"""

@@ -7,7 +7,7 @@ permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
 # TODO: test royalties for item token
-# TODO: permitted FA2 mixin that has info about it's royalty views.
+# TODO: allow auctions on other FA2, based on props.
 # TODO: layouts
 
 #
@@ -82,7 +82,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         self.onlyAdminIfWhitelistEnabled()
 
         # verify inputs
-        sp.verify(self.address_set.contains(self.data.permitted_fa2, params.fa2), message = "TOKEN_NOT_PERMITTED")
+        self.onlyPermittedFA2(params.fa2)
         sp.verify((params.start_time >= sp.now) &
             (params.start_time < params.end_time) &
             (abs(params.end_time - params.start_time) > self.data.granularity) &

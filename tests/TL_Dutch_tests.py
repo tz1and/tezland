@@ -392,7 +392,6 @@ def test():
                 royalties_view = True)))])
 
     dutch.set_fa2_permitted(add_permitted).run(sender = admin)
-    scenario.verify(dutch.data.permitted_fa2.contains(places_tokens.address) == True)
 
     dutch.create(token_id = item_bob,
         start_price = sp.tez(100),

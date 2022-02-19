@@ -14,9 +14,6 @@ fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: turn permissions into mixin. have some utility functions for checking.
-# TODO: permitted fa2: store "has_royalties_view", or something like that
-# TODO: send_if_value: use with
 # TODO: single entrypoint for code upgrades
 # TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
@@ -28,6 +25,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 #
 #
 # Other
+# TODO: allow placing and swapping other FA2, based on props.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
@@ -403,7 +401,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                     sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                     # Check if FA2 token is permitted and get props.
-                    fa2_props = self.getPermittedFA2Props(other.fa2)
+                    # TODO: decide based on props if swapping is allowed.
+                    fa2_props = self.onlyPermittedFA2Props(other.fa2)
 
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
                     self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)

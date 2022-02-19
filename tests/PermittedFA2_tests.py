@@ -8,6 +8,13 @@ class PermittedFA2Test(permitted_fa2.PermittedFA2):
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
 
     # test helpers
+    @sp.entry_point
+    def testOnlyPermittedFA2(self, fa2):
+        self.onlyPermittedFA2(fa2)
+
+    @sp.entry_point
+    def testGetPermittedFA2Props(self, fa2):
+        self.getPermittedFA2Props(fa2)
 
 
 @sp.add_test(name = "PermittedFA2_tests", profile = True)
@@ -74,3 +81,13 @@ def test():
     scenario.verify(permitted.is_fa2_permitted(other_token.address) == True)
     permitted.set_fa2_permitted(remove_permitted).run(sender = admin)
     scenario.verify(permitted.is_fa2_permitted(other_token.address) == False)
+
+    scenario.h3("testOnlyPermittedFA2")
+    permitted.testOnlyPermittedFA2(other_token.address).run(sender = admin, valid = False, exception = "TOKEN_NOT_PERMITTED")
+    permitted.set_fa2_permitted(add_permitted).run(sender = admin)
+    permitted.testOnlyPermittedFA2(other_token.address).run(sender = admin)
+
+    scenario.h3("testGetPermittedFA2Props")
+    permitted.testOnlyPermittedFA2(other_token.address).run(sender = admin)
+    permitted.set_fa2_permitted(remove_permitted).run(sender = admin)
+    permitted.testOnlyPermittedFA2(other_token.address).run(sender = admin, valid = False, exception = "TOKEN_NOT_PERMITTED")
