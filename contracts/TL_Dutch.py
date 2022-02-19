@@ -3,9 +3,11 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
+# TODO: permitted FA2 mixin that has info about it's royalty views.
 
 #
 # Dutch auction contract.
@@ -15,7 +17,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
-    def __init__(self, administrator, items_contract, places_contract, minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, minter, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         #self.add_flag("initial-cast")
@@ -166,14 +168,19 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         self.send_if_value(sp.sender, overpay)
 
         sp.if ask_price != sp.tez(0):
-            token_royalties = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
+            token_royalty_info = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
 
-            # calculate fees
-            fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalties.royalties + self.data.fees) / sp.nat(1000))
-            royalties = sp.compute(token_royalties.royalties * fee / (token_royalties.royalties + self.data.fees))
+            # Calculate fees.
+            fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalty_info.royalties + self.data.fees) / sp.nat(1000))
+            royalties = sp.compute(token_royalty_info.royalties * fee / (token_royalty_info.royalties + self.data.fees))
 
-            # send royalties to creator, if any.
-            self.send_if_value(token_royalties.creator, sp.utils.nat_to_mutez(royalties))
+            # If there are any royalties to be paid.
+            sp.if royalties > sp.nat(0):
+                # Pay each contributor his relative share.
+                sp.for contributor in token_royalty_info.contributors.items():
+                    # Calculate amount to be paid from relative share.
+                    absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
+                    self.send_if_value(contributor.key, absolute_amount)
 
             # send management fees
             self.send_if_value(self.data.fees_to, sp.utils.nat_to_mutez(abs(fee - royalties)))
@@ -274,21 +281,22 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
                 ).layout(("owner", "token_id"))),
             t = sp.TNat).open_some()
 
-    def minter_get_item_royalties(self, token_id):
-        return sp.view("get_item_royalties",
-            self.data.minter,
-            token_id,
-            t = sp.TRecord(creator=sp.TAddress, royalties=sp.TNat)).open_some()
+    def fa2_get_token_royalties(self, fa2, token_id):
+        return sp.view("get_token_royalties", fa2,
+            sp.set_type_expr(token_id, sp.TNat),
+            t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()
 
     def get_royalties_if_item(self, token_id, auction_fa2):
         sp.set_type(token_id, sp.TNat)
         sp.set_type(auction_fa2, sp.TAddress)
 
-        token_royalties = sp.local("token_royalties", sp.record(creator=sp.self_address, royalties=0))
+        token_royalty_info = sp.local("token_royalty_info",
+            sp.record(royalties=0, contributors={}),
+            t=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
         sp.if (auction_fa2 == self.data.items_contract):
-            token_royalties.value = self.minter_get_item_royalties(token_id)
+            token_royalty_info.value = self.fa2_get_token_royalties(auction_fa2, token_id)
         
-        return token_royalties.value
+        return token_royalty_info.value
 
     def send_if_value(self, to, amount):
         sp.if amount > sp.tez(0):

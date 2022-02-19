@@ -16,14 +16,12 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: turn permissions into mixin. have some utility functions for checking.
 # TODO: permitted fa2: store "has_royalties_view", or something like that
 # TODO: send_if_value: use with
-# TODO: layouts on all complex types.
 # TODO: single entrypoint for code upgrades
 # TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
-# TODO: look into adding royalties into FA2
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 # TODO: investgate using a "metadata map" for item data.
 #

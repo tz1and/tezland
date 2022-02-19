@@ -39,15 +39,13 @@ def test():
     minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
 
     # mint some item tokens for testing
-    #minter.mint_Item(address = bob.address,
-    #    amount = 4,
-    #    royalties = 250,
-    #    metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
+    minter.mint_Item(address = bob.address,
+        amount = 4,
+        royalties = 250,
+        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
-    #minter.mint_Item(address = alice.address,
-    #    amount = 25,
-    #    royalties = 250,
-    #    metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
+    item_bob = sp.nat(0)
 
     # mint some place tokens for testing
     minter.mint_Place(address = bob.address,
@@ -75,6 +73,14 @@ def test():
 
     # set operators
     scenario.h3("Add operators")
+    items_tokens.update_operators([
+        sp.variant("add_operator", places_tokens.operator_param.make(
+            owner = bob.address,
+            operator = dutch.address,
+            token_id = item_bob
+        ))
+    ]).run(sender = bob, valid = True)
+
     places_tokens.update_operators([
         sp.variant("add_operator", places_tokens.operator_param.make(
             owner = bob.address,
@@ -298,27 +304,6 @@ def test():
     scenario.table_of_contents()
 
     #
-    # set_permitted_fa2
-    #
-    scenario.h3("set_permitted_fa2")
-    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == False)
-
-    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = admin)
-    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == True)
-
-    dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = False).run(sender = admin)
-    scenario.verify(dutch.data.permitted_fa2.contains(places_tokens.address) == False)
-
-    # Fails, but passes the TOKEN_NOT_PERMITTED test.
-    dutch.create(token_id = 0,
-        start_price = sp.tez(100),
-        end_price = sp.tez(20),
-        start_time = sp.timestamp(0),
-        end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "FA2_TOKEN_UNDEFINED")
-
-    #
     # test paused
     #
     scenario.h3("pausing")
@@ -386,3 +371,31 @@ def test():
 
     dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
     scenario.verify(~dutch.data.whitelist.contains(alice.address))
+
+    dutch.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
+    scenario.verify(dutch.data.whitelist_enabled == False)
+
+    #
+    # set_permitted_fa2
+    #
+    scenario.h3("set_permitted_fa2")
+    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == False)
+
+    dutch.set_permitted_fa2(fa2 = items_tokens.address, permitted = True).run(sender = admin)
+    scenario.verify(dutch.data.permitted_fa2.contains(items_tokens.address) == True)
+
+    dutch.set_permitted_fa2(fa2 = places_tokens.address, permitted = False).run(sender = admin)
+    scenario.verify(dutch.data.permitted_fa2.contains(places_tokens.address) == False)
+
+    # Fails, but passes the TOKEN_NOT_PERMITTED test.
+    dutch.create(token_id = item_bob,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = items_tokens.address).run(sender = bob, now = sp.timestamp(0))
+
+    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
+
+    # TODO: check roaylaties paid, token transferred
