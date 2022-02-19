@@ -14,6 +14,7 @@
 import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
 #
 # ## Meta-Programming Configuration
@@ -34,7 +35,8 @@ class FA2_config:
                  use_token_metadata_offchain_view   = False,
                  allow_burn_tokens                  = False,
                  operator_burn                      = False,
-                 add_distribute                     = False
+                 add_distribute                     = False,
+                 royalties                          = False
                  ):
 
         if debug_mode:
@@ -54,6 +56,10 @@ class FA2_config:
         self.add_distribute = add_distribute
         # Add an entry point for the administrator to transfer mint tokens
         # to a list of recipients
+
+        # TODO: disallow royalties in some cases.
+        self.royalties = royalties
+        # Add token royalties mixin
 
         self.use_token_metadata_offchain_view = use_token_metadata_offchain_view
         # Include offchain view for accessing the token metadata (requires TZIP-016 contract metadata)
@@ -127,6 +133,8 @@ class FA2_config:
                 name += "-op_burn"
         if add_distribute:
             name += "-distribute"
+        if royalties:
+            name += "-royalties"
         self.name = name
 
 ## ## Auxiliary Classes and Values
@@ -331,60 +339,6 @@ def mutez_transfer(contract, params):
     sp.send(params.destination, params.amount)
 
 ##
-## Change: add distribute
-## `distribute` is an optional entry-point, used for distributing a DAO token.
-## only supposed to work with single asset token type.
-def distribute(self, recipients):
-    sp.set_type(recipients, sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat)))
-    sp.verify(self.data.all_tokens != 0, 'Token must have been minted') 
-    sp.for rec in recipients:
-        # this effectively includes the mint function here.
-        self.mint.f(self, sp.record(address = rec.to_,
-            amount = rec.amount,
-            metadata = {}, # If token 0 has been minted, this isn't used.
-            token_id = 0))
-
-##
-## Change: add burn
-## `burn` is an optional entry-point, hence we define it “outside” the
-## class:
-def burn(self, params):
-    sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
-
-    sp.verify(~self.isPaused(), message = self.error_message.paused())
-    
-    # check ownership and operators
-    sender_verify = (params.address == sp.sender)
-    message = self.error_message.not_owner()
-    if self.config.support_operator and self.config.operator_burn:
-        message = self.error_message.not_operator()
-        sender_verify |= (self.operator_set.is_member(self.data.operators,
-                                                      params.address,
-                                                      sp.sender,
-                                                      params.token_id))
-    sp.verify(sender_verify, message = message)
-
-    # Fail if token doesn't exist.
-    sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
-        sp.failwith(self.error_message.token_undefined())
-
-    # Update balance
-    user = self.ledger_key.make(params.address, params.token_id)
-    sp.if self.data.ledger.contains(user):
-        # Check balance
-        sp.verify((self.data.ledger[user].balance >= params.amount),
-            message = self.error_message.insufficient_balance())
-        # The user has sufficient banlance, subtract from it.
-        self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
-    sp.else:
-        # If the user doesn't have a balance, fail.
-        sp.failwith(self.error_message.insufficient_balance())
-
-    # Update total supply
-    if self.config.store_total_supply:
-        self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
-
-##
 ## The `FA2` class builds a contract according to an `FA2_config` and an
 ## administrator address.
 ## It is inheriting from `FA2_core` which implements the strict
@@ -411,10 +365,6 @@ class FA2_core(sp.Contract):
         self.batch_transfer    = Batch_transfer(self.config)
         if self.config.add_mutez_transfer:
             self.transfer_mutez = sp.entry_point(mutez_transfer)
-        if self.config.allow_burn_tokens:
-            self.burn = sp.entry_point(burn)
-        if self.config.add_distribute:
-            self.distribute = sp.entry_point(distribute)
         if self.config.lazy_entry_points:
             self.add_flag("lazy-entry-points")
         self.add_flag("initial-cast")
@@ -556,6 +506,8 @@ class FA2_mint(FA2_core):
                 ~ self.token_id_set.contains(self.data.all_tokens, params.token_id),
                 message = "NFT-asset: cannot mint twice same token"
             )
+        if self.config.royalties:
+            self.validateRoyalties(params.royalties)
         user = self.ledger_key.make(params.address, params.token_id)
         sp.if self.data.ledger.contains(user):
             self.data.ledger[user].balance += params.amount
@@ -569,6 +521,8 @@ class FA2_mint(FA2_core):
             )
         if self.config.store_total_supply:
             self.data.total_supply[params.token_id] = params.amount + self.data.total_supply.get(params.token_id, default_value = 0)
+        if self.config.royalties:
+            self.setRoyalties(token_id = params.token_id, royalties = params.royalties)
 
 class FA2_token_metadata(FA2_core):
     def set_token_metadata_view(self):
@@ -594,7 +548,63 @@ class FA2_token_metadata(FA2_core):
             "symbol" : sp.utils.bytes_of_string(symbol)
         }))
 
+##
+## Change: add distribute
+## FA2_distribute can be added with extend_instance
+class FA2_distribute(FA2_core):
+    @sp.entry_point
+    def distribute(self, recipients):
+        sp.set_type(recipients, sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat)))
+        sp.verify(self.data.all_tokens != 0, 'Token must have been minted') 
+        sp.for rec in recipients:
+            # this effectively includes the mint function here.
+            self.mint.f(self, sp.record(address = rec.to_,
+                amount = rec.amount,
+                metadata = {}, # If token 0 has been minted, this isn't used.
+                token_id = 0))
 
+##
+## Change: add burn
+## FA2_burn can be added with extend_instance
+class FA2_burn(FA2_core):
+    @sp.entry_point
+    def burn(self, params):
+        sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
+
+        sp.verify(~self.isPaused(), message = self.error_message.paused())
+        
+        # check ownership and operators
+        sender_verify = (params.address == sp.sender)
+        message = self.error_message.not_owner()
+        if self.config.support_operator and self.config.operator_burn:
+            message = self.error_message.not_operator()
+            sender_verify |= (self.operator_set.is_member(self.data.operators,
+                                                        params.address,
+                                                        sp.sender,
+                                                        params.token_id))
+        sp.verify(sender_verify, message = message)
+
+        # Fail if token doesn't exist.
+        sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
+            sp.failwith(self.error_message.token_undefined())
+
+        # Update balance
+        user = self.ledger_key.make(params.address, params.token_id)
+        sp.if self.data.ledger.contains(user):
+            # Check balance
+            sp.verify((self.data.ledger[user].balance >= params.amount),
+                message = self.error_message.insufficient_balance())
+            # The user has sufficient banlance, subtract from it.
+            self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
+        sp.else:
+            # If the user doesn't have a balance, fail.
+            sp.failwith(self.error_message.insufficient_balance())
+
+        # Update total supply
+        if self.config.store_total_supply:
+            self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
+
+# NOTE: pausable_contract.Pausable needs to come first. It also include Administrable.
 class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
     @sp.onchain_view(pure=True)
     def get_balance(self, req):
@@ -711,8 +721,24 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
             }
         }
         self.init_metadata("metadata_base", metadata_base)
+        # Add FA2 extension mixins
+        if config.allow_burn_tokens:
+            self.extend_instance(FA2_burn, False)
+        if config.add_distribute:
+            self.extend_instance(FA2_distribute, False)
         FA2_core.__init__(self, config, metadata)
+        # Add pausable, administrable and mybe royalties
         pausable_contract.Pausable.__init__(self, administrator = admin)
+        if config.royalties:
+            self.extend_instance(fa2_royalties.FA2_Royalties, True)
+    
+    def extend_instance(self, cls, init, **kwargs):
+        """Apply mixins to a class instance after creation"""
+        base_cls = self.__class__
+        base_cls_name = self.__class__.__name__
+        self.__class__ = type(base_cls_name, (base_cls, cls),{})
+        if init:
+            cls.__init__(self, **kwargs)
 
 ## ## Tests
 ##
@@ -784,11 +810,21 @@ def add_test(config, is_default = True):
         c1.mint(address = alice.address,
                             amount = 50,
                             metadata = tok0_md,
+                            royalties = sp.record(
+                                royalties=sp.nat(150),
+                                contributors= sp.map({
+                                    alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter")
+                                })),
                             token_id = 0).run(sender = admin)
         # Mint a second time
         c1.mint(address = alice.address,
                             amount = 50,
                             metadata = tok0_md,
+                            royalties = sp.record(
+                                royalties=sp.nat(150),
+                                contributors= sp.map({
+                                    alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter")
+                                })),
                             token_id = 0).run(sender = admin)
         scenario.h2("Transfers Alice -> Bob")
         c1.transfer(
@@ -880,6 +916,11 @@ def add_test(config, is_default = True):
         c1.mint(address = bob.address,
                             amount = 100,
                             metadata = tok1_md,
+                            royalties = sp.record(
+                                royalties=sp.nat(150),
+                                contributors= sp.map({
+                                    bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter")
+                                })),
                             token_id = 1).run(sender = admin)
         tok2_md = FA2.make_metadata(
             name = "The Token Number Three",
@@ -888,6 +929,11 @@ def add_test(config, is_default = True):
         c1.mint(address = bob.address,
                             amount = 200,
                             metadata = tok2_md,
+                            royalties = sp.record(
+                                royalties=sp.nat(150),
+                                contributors= sp.map({
+                                    bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter")
+                                })),
                             token_id = 2).run(sender = admin)
         scenario.h3("Multi-token Transfer Bob -> Alice")
         c1.transfer(
@@ -1193,7 +1239,8 @@ def items_config():
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True),
-        add_distribute = global_parameter("add_distribute", False)
+        add_distribute = global_parameter("add_distribute", False),
+        royalties = global_parameter("royalties", True)
     )
 
 def places_config():
@@ -1213,7 +1260,8 @@ def places_config():
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
-        add_distribute = global_parameter("add_distribute", False)
+        add_distribute = global_parameter("add_distribute", False),
+        royalties = global_parameter("royalties", False)
     )
 
 def dao_config():
@@ -1233,7 +1281,8 @@ def dao_config():
         lazy_entry_points = global_parameter("lazy_entry_points", False),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
-        add_distribute = global_parameter("add_distribute", True)
+        add_distribute = global_parameter("add_distribute", True),
+        royalties = global_parameter("royalties", False)
     )
 
 
