@@ -554,7 +554,9 @@ class FA2_token_metadata(FA2_core):
 class FA2_distribute(FA2_core):
     @sp.entry_point
     def distribute(self, recipients):
-        sp.set_type(recipients, sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat)))
+        sp.set_type(recipients, sp.TList(sp.TRecord(
+            to_=sp.TAddress, amount=sp.TNat
+        ).layout(("to_", "amount"))))
         sp.verify(self.data.all_tokens != 0, 'Token must have been minted') 
         sp.for rec in recipients:
             # this effectively includes the mint function here.
@@ -569,7 +571,9 @@ class FA2_distribute(FA2_core):
 class FA2_burn(FA2_core):
     @sp.entry_point
     def burn(self, params):
-        sp.set_type(params, sp.TRecord(token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat))
+        sp.set_type(params, sp.TRecord(
+            token_id=sp.TNat, address=sp.TAddress, amount=sp.TNat
+        ).layout(("address", ("amount", "token_id"))))
 
         sp.verify(~self.isPaused(), message = self.error_message.paused())
         

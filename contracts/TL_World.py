@@ -47,7 +47,7 @@ itemRecordType = sp.TRecord(
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
     # NOTE: could store an animation index and all kinds of other stuff in item_data
-)
+).layout(("item_amount", ("token_id", ("xtz_per_item", "item_data"))))
 
 # For any other tokens someone might want to exhibit. These are "place only".
 otherTokenRecordType = sp.TRecord(
@@ -56,7 +56,7 @@ otherTokenRecordType = sp.TRecord(
     xtz_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # we store the transforms as half floats. 3 floats for euler angles, 3 floats pos, 1 float scale = 14 bytes
     fa2=sp.TAddress # store a fa2 token address
-)
+).layout(("item_amount", ("token_id", ("xtz_per_item", ("item_data", "fa2")))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
@@ -65,7 +65,7 @@ extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
     ext = sp.TBytes
-)
+).layout(("item", ("other", "ext")))
 
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
@@ -93,7 +93,7 @@ placeStorageType = sp.TRecord(
     interaction_counter=sp.TNat,
     place_props=sp.TBytes,
     stored_items=itemStoreType
-)
+).layout(("next_id", ("item_counter", ("interaction_counter", ("place_props", "stored_items")))))
 
 placeStorageDefault = sp.record(
     next_id = sp.nat(0),
@@ -116,7 +116,7 @@ class Place_store_map:
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
     item_data=sp.TBytes
-)
+).layout(("item_id", "item_data"))
 
 placeItemListType = sp.TVariant(
     item = sp.TRecord(
@@ -124,16 +124,16 @@ placeItemListType = sp.TVariant(
         token_amount=sp.TNat,
         mutez_per_token=sp.TMutez,
         item_data=sp.TBytes
-    ),
+    ).layout(("token_id", ("token_amount", ("mutez_per_token", "item_data")))),
     other = sp.TRecord(
         token_id=sp.TNat,
         token_amount=sp.TNat,
         mutez_per_token=sp.TMutez,
         item_data=sp.TBytes,
         fa2=sp.TAddress
-    ),
+    ).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "fa2"))))),
     ext = sp.TBytes
-)
+).layout(("item", ("other", "ext")))
 
 itemDataMinLen = sp.nat(14)
 placeDataMinLen = sp.nat(3)
@@ -216,7 +216,7 @@ class Permission_param:
             owner = sp.TAddress,
             permittee = sp.TAddress,
             token_id = sp.TNat,
-            perm = sp.TNat)
+            perm = sp.TNat).layout(("owner", ("permittee", ("token_id", "perm"))))
         return t
     def make_add(self, owner, permittee, token_id, perm):
         r = sp.record(owner = owner,
@@ -228,7 +228,7 @@ class Permission_param:
         t = sp.TRecord(
             owner = sp.TAddress,
             permittee = sp.TAddress,
-            token_id = sp.TNat)
+            token_id = sp.TNat).layout(("owner", ("permittee", "token_id")))
         return t
     def make_remove(self, owner, permittee, token_id):
         r = sp.record(owner = owner,
@@ -745,7 +745,10 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
         self.fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
 
     def fa2_transfer_multi(self, fa2, from_, transfer_list):
-        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(transferListItemType))), fa2, entry_point='transfer').open_some()
+        fa2TransferListType = sp.TList(sp.TRecord(
+            from_=sp.TAddress, txs=sp.TList(transferListItemType)
+        ).layout(("from_", "txs")))
+        c = sp.contract(fa2TransferListType, fa2, entry_point='transfer').open_some()
         sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
     # Not used, World now has it's own operators set.
@@ -776,7 +779,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, fa2_admin.FA2_Adm
             t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()
 
     def dao_distribute(self, recipients):
-        recipientType = sp.TList(sp.TRecord(to_=sp.TAddress, amount=sp.TNat))
+        recipientType = sp.TList(sp.TRecord(
+            to_=sp.TAddress, amount=sp.TNat
+        ).layout(("to_", "amount")))
         #sp.set_type(recipients, recipientType)
         c = sp.contract(
             recipientType,
