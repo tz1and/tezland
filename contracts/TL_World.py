@@ -402,7 +402,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
 
                     # Check if FA2 token is permitted and get props.
                     # TODO: decide based on props if swapping is allowed.
-                    fa2_props = self.onlyPermittedFA2Props(other.fa2)
+                    fa2_props = self.getPermittedFA2Props(other.fa2)
 
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
                     self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
