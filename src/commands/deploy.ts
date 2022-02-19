@@ -150,7 +150,6 @@ export default class Deploy extends DeployBase {
         smartpy.compile_newtarget("TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `minter = sp.address("${Minter_contract.address}")`,
         `dao_contract = sp.address("${dao_FA2_contract.address}")`,
         `terminus = sp.timestamp(${Math.floor(Date.now() / 1000)}).add_days(60)`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
@@ -252,9 +251,14 @@ export default class Deploy extends DeployBase {
     }
 
     private async mintNewItem(model_path: string, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+        assert(this.accountAddress);
+
         // Create item metadata and upload it
         const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, this.isSandboxNet);
         console.log(`item token metadata: ${item_metadata_url}`);
+
+        const contributors: MichelsonMap<string, any> = new MichelsonMap();
+        contributors.set(this.accountAddress, { relative_royalties: 1000, role: "minter" });
 
         batch.with([{
             kind: OpKind.TRANSACTION,
@@ -262,6 +266,7 @@ export default class Deploy extends DeployBase {
                 address: this.accountAddress,
                 amount: amount,
                 royalties: 250,
+                contributors: contributors,
                 metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
             }).toTransferParams()
         }]);

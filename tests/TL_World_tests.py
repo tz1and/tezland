@@ -4,6 +4,10 @@ minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
 
+
+#TODO: test royalties, fees, issuer being paid, lol
+
+
 # utility contract to get token balances
 class FA2_utils(sp.Contract):
     def __init__(self, fa2):
@@ -172,11 +176,13 @@ def test():
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
+        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     minter.mint_Item(address = alice.address,
         amount = 25,
         royalties = 250,
+        contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
     item_bob = sp.nat(0)
@@ -210,7 +216,7 @@ def test():
     # create World contract
     #
     scenario.h2("Originate World contract")
-    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, minter.address, dao_token.address,
+    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
         sp.now.add_days(60), metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += world
 
@@ -539,6 +545,9 @@ def test():
     scenario.h3("Other token mint and operator")
     other_token.mint(address = alice.address,
         amount = 50,
+        royalties = sp.record(
+            royalties = 250,
+            contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") }),
         metadata = sp.map(l = { "" : sp.utils.bytes_of_string("ipfs://Qtesttesttest") }),
         token_id = 0).run(sender = admin)
 

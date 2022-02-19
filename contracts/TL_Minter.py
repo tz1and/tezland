@@ -2,6 +2,7 @@ import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
+fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
 
 #
@@ -18,7 +19,6 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
             places_contract = places_contract,
             metadata = metadata,
             place_id_counter = sp.nat(0),
-            royalties = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(creator=sp.TAddress, royalties=sp.TNat))
             )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
@@ -26,7 +26,6 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
     #
     # Manager-only entry points
     #
-    # NOTE: I'm not sure this should ever be needed, to be honest.
     @sp.entry_point
     def pause_all_fa2(self, new_paused):
         """The admin can pause/unpause items and places contracts"""
@@ -78,6 +77,7 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
         sp.set_type(params.address, sp.TAddress)
         sp.set_type(params.amount, sp.TNat)
         sp.set_type(params.royalties, sp.TNat)
+        sp.set_type(params.contributors, fa2_royalties.FA2_Royalties.CONTRIBUTOR_MAP_TYPE)
         sp.set_type(params.metadata, sp.TBytes)
 
         self.onlyUnpaused()
@@ -90,6 +90,7 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
             address=sp.TAddress,
             amount=sp.TNat,
             token_id=sp.TNat,
+            royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE,
             metadata=sp.TMap(sp.TString, sp.TBytes)
             ),
             self.data.items_contract, 
@@ -100,22 +101,15 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
             address=params.address,
             amount=params.amount,
             token_id=self.data.item_id_counter,
+            royalties=sp.record(
+                royalties=params.royalties,
+                contributors=params.contributors),
             metadata={ '' : params.metadata }
             ), 
             sp.mutez(0), 
             c)
         
-        self.data.royalties[self.data.item_id_counter] = sp.record(creator=sp.sender, royalties=params.royalties)
         self.data.item_id_counter += 1
-
-    #
-    # Views
-    #
-    @sp.onchain_view(pure=True)
-    def get_item_royalties(self, token_id):
-        sp.set_type(token_id, sp.TNat)
-        # sp.result is used to return the view result (the contract storage in this case)
-        sp.result(self.data.royalties[token_id])
 
     #
     # Update code
