@@ -14,6 +14,7 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
+# TODO: do "user = sp.set_type_expr(user, sp.TAddress)" in helpers methods
 # TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
 # TODO: test issuer map removal.

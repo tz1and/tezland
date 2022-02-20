@@ -6,8 +6,6 @@ fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
-# TODO: add layout to FA2 mint
-
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
@@ -54,24 +52,22 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
         self.onlyAdministrator()
         self.onlyUnpaused()
         
-        # TODO: add layout to FA2 mint
         c = sp.contract(
             sp.TRecord(
                 address=sp.TAddress,
                 amount=sp.TNat,
                 token_id=sp.TNat,
                 metadata=sp.TMap(sp.TString, sp.TBytes)
-            ),
+            ).layout(("address", ("amount", ("token_id", "metadata")))),
             self.data.places_contract, 
             entry_point = "mint").open_some()
             
         sp.transfer(
             sp.record(
-            address=params.address,
-            amount=1,
-            token_id=self.data.place_id_counter,
-            metadata={ '' : params.metadata }
-            ), 
+                address=params.address,
+                amount=1,
+                token_id=self.data.place_id_counter,
+                metadata={ '' : params.metadata }), 
             sp.mutez(0), 
             c)
         
@@ -95,35 +91,27 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
         sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
             message = "PARAM_ERROR")
         
-        # TODO: add layout to FA2 mint
         c = sp.contract(
             sp.TRecord(
                 address=sp.TAddress,
                 amount=sp.TNat,
                 token_id=sp.TNat,
-                royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE,
-                metadata=sp.TMap(sp.TString, sp.TBytes)
-            ),
+                metadata=sp.TMap(sp.TString, sp.TBytes),
+                royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE
+            ).layout(("address", ("amount", ("token_id", ("metadata", "royalties"))))),
             self.data.items_contract, 
             entry_point = "mint").open_some()
             
         sp.transfer(
             sp.record(
-            address=params.address,
-            amount=params.amount,
-            token_id=self.data.item_id_counter,
-            royalties=sp.record(
-                royalties=params.royalties,
-                contributors=params.contributors),
-            metadata={ '' : params.metadata }
-            ), 
+                address=params.address,
+                amount=params.amount,
+                token_id=self.data.item_id_counter,
+                metadata={ '' : params.metadata },
+                royalties=sp.record(
+                    royalties=params.royalties,
+                    contributors=params.contributors)), 
             sp.mutez(0), 
             c)
         
         self.data.item_id_counter += 1
-
-# A a compilation target (produces compiled code)
-#sp.add_compilation_target("TL_Minter", TL_Minter(
-    #sp.address("tz1UQpm4CRWUTY9GBxmU8bWR8rxMHCu7jxjV"), # Manager
-#    sp.address("tz1UQpm4CRWUTY9GBxmU8bWR8rxMHCu7jxjV") # Items
-#    ))
