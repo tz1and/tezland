@@ -621,8 +621,9 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
         if config.use_token_metadata_offchain_view:
             self.set_token_metadata_view()
             list_of_views = list_of_views + [self.token_metadata]
-        if config.royalties:
-            list_of_views = list_of_views + [self.get_token_royalties]
+        # TODO: add view
+        #if config.royalties:
+        #    list_of_views = list_of_views + [self.get_token_royalties]
 
         metadata_base = {
             "version": config.name # will be changed if using fatoo.
