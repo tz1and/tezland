@@ -208,38 +208,35 @@ export default class Deploy extends DeployBase {
             console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}\n`);
         }
 
-        // If this is a test deploy, mint some test items.
+        // If this is a sandbox deploy, run the post deploy tasks.
         if(this.isSandboxNet) {
-            console.log(kleur.magenta("Minting tokens for testing...\n"));
-
-            this.runPostDeply(DeployMode.DevWorld,
-                {
-                    items_FA2_contract: items_FA2_contract,
-                    places_FA2_contract: places_FA2_contract,
-                    dao_FA2_contract: dao_FA2_contract,
-                    Minter_contract: Minter_contract,
-                    World_contract: World_contract,
-                    Dutch_contract: Dutch_contract
-                }
-            );
+            await this.runPostDeply(DeployMode.DevWorld, {
+                items_FA2_contract: items_FA2_contract,
+                places_FA2_contract: places_FA2_contract,
+                dao_FA2_contract: dao_FA2_contract,
+                Minter_contract: Minter_contract,
+                World_contract: World_contract,
+                Dutch_contract: Dutch_contract
+            });
         }
     }
 
     private async runPostDeply(
         deploy_mode: DeployMode,
         contracts: PostDeployContracts) {
+        console.log(kleur.magenta("Running post deploy tasks...\n"));
         switch (deploy_mode) {
             case DeployMode.DevWorld:
-                this.deployDevWorld(contracts);
+                await this.deployDevWorld(contracts);
                 break;
             case DeployMode.GasTest:
-                this.gasTestSuite(contracts);
+                await this.gasTestSuite(contracts);
                 break;
             case DeployMode.StressTestSingle:
-                this.stressTestSingle(contracts);
+                await this.stressTestSingle(contracts);
                 break;
             case DeployMode.StressTestMulti:
-                this.stressTestMulti(contracts);
+                await this.stressTestMulti(contracts);
                 break;
         }
     }

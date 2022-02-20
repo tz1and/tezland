@@ -9,12 +9,14 @@ fa2_contract.add_test(fa2_contract.dao_config())
 
 # test all config
 # TODO: fix tests for burn disabled
-fa2_contract.add_test(fa2_contract.FA2_config(debug_mode = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(single_asset = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(non_fungible = True, add_mutez_transfer = True, allow_burn_tokens = True))
-fa2_contract.add_test(fa2_contract.FA2_config(force_layouts = False, allow_burn_tokens = True))
-fa2_contract.add_test(fa2_contract.FA2_config(debug_mode = True, support_operator = False, allow_burn_tokens = True))
-fa2_contract.add_test(fa2_contract.FA2_config(assume_consecutive_token_ids = False, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(add_mutez_transfer = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(lazy_entry_points = True, allow_burn_tokens = True))
+
+fa2_contract.add_test(fa2_contract.FA2_config(single_asset = True, allow_burn_tokens = True, operator_burn = True))
+fa2_contract.add_test(fa2_contract.FA2_config(non_fungible = True, add_mutez_transfer = True, allow_burn_tokens = True, operator_burn = True))
+fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = True, allow_burn_tokens = True, operator_burn = True))
+fa2_contract.add_test(fa2_contract.FA2_config(add_mutez_transfer = True, allow_burn_tokens = True, operator_burn = True))
+fa2_contract.add_test(fa2_contract.FA2_config(lazy_entry_points = True, allow_burn_tokens = True, operator_burn = True))
