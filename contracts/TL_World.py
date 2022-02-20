@@ -14,7 +14,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
@@ -36,6 +35,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
 # - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
 # - DON'T add Items or Places, to permitted_fa2.
+# - every upgradeable entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
@@ -68,6 +68,11 @@ itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
 itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
+
+# Optional extension argument type.
+# Map val can contain about anything and be
+# unpacked with sp.unpack.
+extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 
 class Item_store_map:
     def make(self):
@@ -337,8 +342,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.set_type(params, sp.TRecord(
             lot_id =  sp.TNat,
             owner =  sp.TOption(sp.TAddress),
-            props =  sp.TBytes
-        ).layout(("lot_id", ("owner", "props"))))
+            props =  sp.TBytes,
+            extension = extensionArgType
+        ).layout(("lot_id", ("owner", ("props", "extension")))))
 
         self.onlyUnpaused()
 
@@ -361,8 +367,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.set_type(params, sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            item_list = sp.TList(placeItemListType)
-        ).layout(("lot_id", ("owner", "item_list"))))
+            item_list = sp.TList(placeItemListType),
+            extension = extensionArgType
+        ).layout(("lot_id", ("owner", ("item_list", "extension")))))
 
         self.onlyUnpaused()
 
@@ -438,8 +445,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.set_type(params, sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            update_map = sp.TMap(sp.TAddress, sp.TList(updateItemListType))
-        ).layout(("lot_id", ("owner", "update_map"))))
+            update_map = sp.TMap(sp.TAddress, sp.TList(updateItemListType)),
+            extension = extensionArgType
+        ).layout(("lot_id", ("owner", ("update_map", "extension")))))
 
         self.onlyUnpaused()
 
@@ -488,8 +496,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.set_type(params, sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            remove_map = sp.TMap(sp.TAddress, sp.TList(sp.TNat))
-        ).layout(("lot_id", ("owner", "remove_map"))))
+            remove_map = sp.TMap(sp.TAddress, sp.TList(sp.TNat)),
+            extension = extensionArgType
+        ).layout(("lot_id", ("owner", ("remove_map", "extension")))))
 
         self.onlyUnpaused()
 
@@ -549,8 +558,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.set_type(params, sp.TRecord(
             lot_id = sp.TNat,
             item_id = sp.TNat,
-            issuer = sp.TAddress
-        ).layout(("lot_id", ("item_id", "issuer"))))
+            issuer = sp.TAddress,
+            extension = extensionArgType
+        ).layout(("lot_id", ("item_id", ("issuer", "extension")))))
 
         self.onlyUnpaused()
 
