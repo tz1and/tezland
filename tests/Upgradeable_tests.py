@@ -37,7 +37,7 @@ def test():
     scenario = sp.test_scenario()
 
     # create upgrade contract
-    upgrade = UpgradeableTest(admin.address) #admin.address, 
+    upgrade = UpgradeableTest(admin.address)
     scenario += upgrade
 
     # test entry
@@ -48,8 +48,14 @@ def test():
     scenario.verify(upgrade.data.counter == sp.int(4))
 
     # update
-    upgrade.update_ep(ep_name = sp.variant('test_entry', sp.unit), new_code = sp.utils.wrap_entry_point("test_entry", test_entry_uodate)).run(sender = admin)
-    upgrade.update_ep(ep_name = sp.variant('another_entry', sp.unit), new_code = sp.utils.wrap_entry_point("another_entry", another_entry_update)).run(sender = admin)
+    upgrade_test_entry = sp.record(ep_name = sp.variant('test_entry', sp.unit), new_code = sp.utils.wrap_entry_point("test_entry", test_entry_uodate))
+    upgrade_another_entry = sp.record(ep_name = sp.variant('another_entry', sp.unit), new_code = sp.utils.wrap_entry_point("another_entry", another_entry_update))
+
+    upgrade.update_ep(upgrade_test_entry).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    upgrade.update_ep(upgrade_another_entry).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+
+    upgrade.update_ep(upgrade_test_entry).run(sender = admin)
+    upgrade.update_ep(upgrade_another_entry).run(sender = admin)
 
     # test updated entrypoints
     upgrade.test_entry(val = sp.int(5)).run(sender = alice)

@@ -3,12 +3,13 @@ import smartpy as sp
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
+upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
-class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
+class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgradeable.Upgradeable):
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -22,6 +23,8 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
             )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
+        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+            entrypoints = ['mint_Item', 'mint_Place'])
 
     #
     # Manager-only entry points
@@ -110,19 +113,6 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration):
             c)
         
         self.data.item_id_counter += 1
-
-    #
-    # Update code
-    #
-    @sp.entry_point
-    def upgrade_code_mint_Item(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("mint_Item", new_code)
-
-    @sp.entry_point
-    def upgrade_code_mint_Place(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("mint_Place", new_code)
 
 # A a compilation target (produces compiled code)
 #sp.add_compilation_target("TL_Minter", TL_Minter(

@@ -5,6 +5,7 @@ whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
+upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 # TODO: test royalties for item token
 # TODO: allow auctions on other FA2, based on props.
@@ -13,7 +14,8 @@ fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_contract.Fees, permitted_fa2.PermittedFA2):
+class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
+    fees_contract.Fees, upgradeable.Upgradeable, permitted_fa2.PermittedFA2):
     """A simple dutch auction.
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
@@ -40,6 +42,8 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         whitelist_contract.Whitelist.__init__(self, administrator = administrator)
         fees_contract.Fees.__init__(self, administrator = administrator)
+        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+            entrypoints = ['create', 'cancel', 'bid'])
 
         default_permitted = { places_contract : sp.record(
             swap_allowed = True,
@@ -229,25 +233,6 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist, fees_co
         sp.set_type(auction_id, sp.TNat)
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
         sp.result(self.get_auction_price_inline(the_auction.value))
-
-    #
-    # Update code
-    #
-    @sp.entry_point
-    def upgrade_code_create(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("create", new_code)
-
-    @sp.entry_point
-    def upgrade_code_cancel(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("cancel", new_code)
-
-    @sp.entry_point
-    def upgrade_code_bid(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("bid", new_code)
-
 
     #
     # Misc

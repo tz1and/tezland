@@ -11,6 +11,7 @@ fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
+upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
@@ -221,7 +222,8 @@ class Permission_param:
 #
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
-class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.PermittedFA2, fa2_admin.FA2_Administration):
+class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.PermittedFA2,
+    upgradeable.Upgradeable, fa2_admin.FA2_Administration):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -250,6 +252,8 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         fees_contract.Fees.__init__(self, administrator = administrator)
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
+        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+            entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
     #
@@ -662,34 +666,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
             permittee = sp.TAddress
         ).layout(("lot_id", ("owner", "permittee"))))
         sp.result(self.get_permissions_inline(query.lot_id, query.owner, query.permittee))
-
-    #
-    # Update code
-    #
-    @sp.entry_point
-    def upgrade_code_set_place_props(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("set_place_props", new_code)
-
-    @sp.entry_point
-    def upgrade_code_place_items(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("place_items", new_code)
-
-    @sp.entry_point
-    def upgrade_code_set_item_data(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("set_item_data", new_code)
-
-    @sp.entry_point
-    def upgrade_code_remove_items(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("remove_items", new_code)
-
-    @sp.entry_point
-    def upgrade_code_get_item(self, new_code):
-        self.onlyAdministrator()
-        sp.set_entry_point("get_item", new_code)
 
     #
     # Misc
