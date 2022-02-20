@@ -84,10 +84,10 @@ export default class Deploy extends DeployBase {
         //
         // Minter
         //
-        // Minter can't be batched because others depend on it.
-        //
-
         const minterWasDeployed = this.getDeployment("TL_Minter");
+
+        // prepare minter/dutch batch
+        const tezland_batch = new DeployContractBatch(this);
 
         const minter_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and Minter',
@@ -96,14 +96,35 @@ export default class Deploy extends DeployBase {
             version: '1.0.0'
         }, this.isSandboxNet);
 
-        // TODO: deploy minter and dutch in batch.
         // Compile and deploy Minter contract.
         smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
         `items_contract = sp.address("${items_FA2_contract.address}")`,
         `places_contract = sp.address("${places_FA2_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${minter_metadata_url}")`]);
 
-        const Minter_contract = await this.deploy_contract("TL_Minter");
+        tezland_batch.addToBatch("TL_Minter");
+        //const Minter_contract = await this.deploy_contract("TL_Minter");
+
+        //
+        // Dutch
+        //
+        const dutch_metadata_url = await ipfs.upload_contract_metadata({
+            name: 'tz1and Dutch Auctions',
+            description: 'tz1and Places and Items Dutch auctions',
+            interfaces: [],
+            version: '1.0.0'
+        }, this.isSandboxNet);
+
+        // Compile and deploy Dutch auction contract.
+        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
+        `items_contract = sp.address("${items_FA2_contract.address}")`,
+        `places_contract = sp.address("${places_FA2_contract.address}")`,
+        `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
+
+        tezland_batch.addToBatch("TL_Dutch");
+        //const Dutch_contract = await this.deploy_contract("TL_Dutch");
+
+        const [Minter_contract, Dutch_contract] = await tezland_batch.deployBatch();
 
         if (!minterWasDeployed) {
             // Set the minter as the token administrator
@@ -131,15 +152,11 @@ export default class Deploy extends DeployBase {
             console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
         }
 
-        const worldWasDeployed = this.getDeployment("TL_World");
-
-        // prepare others batch
-        // dutch and world are too large now.
-        //const tezland_batch = new DeployContractBatch(this);
-
         //
         // World (Marketplaces)
         //
+        const worldWasDeployed = this.getDeployment("TL_World");
+
         const world_metadata_url = await ipfs.upload_contract_metadata({
             name: 'tz1and World',
             description: 'tz1and Virtual World',
@@ -154,29 +171,7 @@ export default class Deploy extends DeployBase {
         `dao_contract = sp.address("${dao_FA2_contract.address}")`,
         `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
 
-        //tezland_batch.addToBatch("TL_World");
         const World_contract = await this.deploy_contract("TL_World");
-
-        //
-        // Dutch
-        //
-        const dutch_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1and Dutch Auctions',
-            description: 'tz1and Places and Items Dutch auctions',
-            interfaces: [],
-            version: '1.0.0'
-        }, this.isSandboxNet);
-
-        // Compile and deploy Dutch auction contract.
-        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
-        `items_contract = sp.address("${items_FA2_contract.address}")`,
-        `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
-
-        //tezland_batch.addToBatch("TL_Dutch");
-        const Dutch_contract = await this.deploy_contract("TL_Dutch");
-
-        //const [World_contract, Dutch_contract] = await tezland_batch.deployBatch();
 
         if(!worldWasDeployed) {
             // Mint 0 dao and set the world as the dao administrator
