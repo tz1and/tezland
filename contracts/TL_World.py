@@ -10,12 +10,10 @@ pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
-fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: single entrypoint for code upgrades
 # TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
 # TODO: test issuer map removal.
@@ -145,8 +143,6 @@ permissionModifyAll  = sp.nat(2) # can edit and remove all items
 permissionProps      = sp.nat(4) # can edit place props
 permissionCanSell    = sp.nat(8) # can place items that are for sale. # TODO: not implemented.
 permissionFull       = sp.nat(15) # has full permissions.
-
-transferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
 
 class Error_message:
     def __init__(self):
@@ -320,11 +316,11 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
     def get_permissions_inline(self, lot_id, owner, permittee):
         permission = sp.local("permission", permissionNone)
         # if permittee is the owner, he has full permission.
-        sp.if self.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0:
+        sp.if utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0:
             permission.value = self.data.max_permission
         sp.else:
             # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            sp.if owner.is_some() & (self.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0):
+            sp.if owner.is_some() & (utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0):
                 permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
                     owner.open_some(),
                     permittee,
@@ -378,7 +374,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         sp.verify(this_place.item_counter + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
 
         # For each item in the list.
         sp.for curr in params.item_list:
@@ -409,7 +405,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                     fa2_props = self.getPermittedFA2Props(other.fa2)
 
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
-                    self.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
+                    utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
 
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("other", sp.record(
@@ -430,7 +426,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
 
         # only transfer if list has items
         sp.if sp.len(transferMap.value) > 0:
-            self.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
+            utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
@@ -505,7 +501,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = transferListItemType))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
 
         # Remove items.
         sp.for issuer in params.remove_map.keys():
@@ -525,7 +521,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
 
                     with arg.match("other") as the_other:
                         # transfer external token back to the issuer. Only support 1 token.
-                        self.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, 1)
+                        utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, 1)
 
                     # Nothing to do here with ext items. Just remove them.
                 
@@ -541,7 +537,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
 
         # Only transfer if transfer map has items.
         sp.if sp.len(transferMap.value) > 0:
-            self.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
+            utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):
@@ -570,7 +566,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         # Transfer royalties, etc.
         sp.if the_item.value.xtz_per_item != sp.tez(0):
             # Get the royalties for this item
-            item_royalty_info = sp.compute(self.fa2_get_token_royalties(self.data.items_contract, the_item.value.token_id))
+            item_royalty_info = sp.compute(utils.fa2_get_token_royalties(self.data.items_contract, the_item.value.token_id))
             
             # Calculate fee and royalties.
             fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
@@ -582,16 +578,16 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                 sp.for contributor in item_royalty_info.contributors.items():
                     # Calculate amount to be paid from relative share.
                     absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                    self.send_if_value(contributor.key, absolute_amount)
+                    utils.send_if_value(contributor.key, absolute_amount)
 
             # TODO: don't localise nat_to_mutez, is probably a cast and free.
             # Send management fees.
             send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-            self.send_if_value(self.data.fees_to, send_mgr_fees)
+            utils.send_if_value(self.data.fees_to, send_mgr_fees)
 
             # Send rest of the value to seller.
             send_issuer = sp.compute(sp.amount - sp.utils.nat_to_mutez(fee))
-            self.send_if_value(params.issuer, send_issuer)
+            utils.send_if_value(params.issuer, send_issuer)
 
             # Distribute DAO tokens.
             # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
@@ -608,7 +604,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                     ])
         
         # Transfer item to buyer.
-        self.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
+        utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
         
         # Reduce the item count in storage or remove it.
         sp.if the_item.value.item_amount > 1:
@@ -670,43 +666,6 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
     #
     # Misc
     #
-    def fa2_transfer(self, fa2, from_, to_, token_id, item_amount):
-        self.fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
-
-    def fa2_transfer_multi(self, fa2, from_, transfer_list):
-        fa2TransferListType = sp.TList(sp.TRecord(
-            from_=sp.TAddress, txs=sp.TList(transferListItemType)
-        ).layout(("from_", "txs")))
-        c = sp.contract(fa2TransferListType, fa2, entry_point='transfer').open_some()
-        sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
-
-    # Not used, World now has it's own operators set.
-    #def fa2_is_operator(self, fa2, token_id, owner, operator):
-    #    return sp.view("is_operator", fa2,
-    #        sp.set_type_expr(
-    #            sp.record(token_id = token_id, owner = owner, operator = operator),
-    #            sp.TRecord(
-    #                token_id = sp.TNat,
-    #                owner = sp.TAddress,
-    #                operator = sp.TAddress
-    #            ).layout(("owner", ("operator", "token_id")))),
-    #        t = sp.TBool).open_some()
-
-    def fa2_get_balance(self, fa2, token_id, owner):
-        return sp.view("get_balance", fa2,
-            sp.set_type_expr(
-                sp.record(owner = owner, token_id = token_id),
-                sp.TRecord(
-                    owner = sp.TAddress,
-                    token_id = sp.TNat
-                ).layout(("owner", "token_id"))),
-            t = sp.TNat).open_some()
-
-    def fa2_get_token_royalties(self, fa2, token_id):
-        return sp.view("get_token_royalties", fa2,
-            sp.set_type_expr(token_id, sp.TNat),
-            t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()
-
     def dao_distribute(self, recipients):
         recipientType = sp.TList(sp.TRecord(
             to_=sp.TAddress, amount=sp.TNat
@@ -717,7 +676,3 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
             self.data.dao_contract,
             entry_point='distribute').open_some()
         sp.transfer(recipients, sp.mutez(0), c)
-
-    def send_if_value(self, to, amount):
-        sp.if amount > sp.tez(0):
-            sp.send(to, amount)

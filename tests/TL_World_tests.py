@@ -3,6 +3,7 @@ import smartpy as sp
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 #TODO: test royalties, fees, issuer being paid, lol
@@ -71,7 +72,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
         sp.for curr in params.tokens.keys():
-            balances.value[curr] = self.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
+            balances.value[curr] = utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -93,16 +94,6 @@ class FA2_utils(sp.Contract):
             sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr].amount)
         
         sp.result(True)
-
-    def fa2_get_balance(self, fa2, token_id, owner):
-        return sp.view("get_balance", fa2,
-            sp.set_type_expr(
-                sp.record(owner = owner, token_id = token_id),
-                sp.TRecord(
-                    owner = sp.TAddress,
-                    token_id = sp.TNat
-                ).layout(("owner", "token_id"))),
-            t = sp.TNat).open_some()
 
     def world_get_place_data(self, world, lot_id):
         return sp.view("get_place_data", world,

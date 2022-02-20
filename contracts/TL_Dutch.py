@@ -6,6 +6,7 @@ fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
 # TODO: allow auctions on other FA2, based on props.
@@ -93,7 +94,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
             (params.start_price > params.end_price), message = "INVALID_PARAM")
 
         # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
-        sp.verify(self.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
+        sp.verify(utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
 
         # Create auction
         self.data.auctions[self.data.auction_id] = sp.record(
@@ -109,7 +110,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         self.data.auction_id += 1
 
         # Transfer token (place)
-        self.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
+        utils.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
 
 
     @sp.entry_point(lazify = True)
@@ -129,7 +130,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # transfer token back to auction owner.
-        self.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
+        utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
         del self.data.auctions[auction_id]
 
@@ -161,10 +162,10 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
         # Send back overpay, if there was any.
         overpay = sp.amount - ask_price
-        self.send_if_value(sp.sender, overpay)
+        utils.send_if_value(sp.sender, overpay)
 
         sp.if ask_price != sp.tez(0):
-            token_royalty_info = sp.compute(self.get_royalties_if_item(the_auction.value.token_id, the_auction.value.fa2))
+            token_royalty_info = sp.compute(self.get_royalties_if_item_inline(the_auction.value.token_id, the_auction.value.fa2))
 
             # Calculate fees.
             fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalty_info.royalties + self.data.fees) / sp.nat(1000))
@@ -176,23 +177,23 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
                 sp.for contributor in token_royalty_info.contributors.items():
                     # Calculate amount to be paid from relative share.
                     absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                    self.send_if_value(contributor.key, absolute_amount)
+                    utils.send_if_value(contributor.key, absolute_amount)
 
             # send management fees
-            self.send_if_value(self.data.fees_to, sp.utils.nat_to_mutez(abs(fee - royalties)))
+            utils.send_if_value(self.data.fees_to, sp.utils.nat_to_mutez(abs(fee - royalties)))
             # send rest of the value to seller
-            self.send_if_value(the_auction.value.owner, ask_price - sp.utils.nat_to_mutez(fee))
+            utils.send_if_value(the_auction.value.owner, ask_price - sp.utils.nat_to_mutez(fee))
 
         # transfer item to buyer
-        self.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
+        utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
 
         self.removeFromWhitelist(sp.sender)
 
         del self.data.auctions[auction_id]
 
 
-    # inlined into bid and get_auction_price view
     def get_auction_price_inline(self, the_auction):
+        """Inlined into bid and get_auction_price view"""
         result = sp.local("result", sp.tez(0))
         # return start price if it hasn't started
         sp.if sp.now <= the_auction.start_time:
@@ -216,6 +217,19 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         return result.value
 
 
+    def get_royalties_if_item_inline(self, token_id, auction_fa2):
+        """Inlined into bid to be upgradeable."""
+        sp.set_type(token_id, sp.TNat)
+        sp.set_type(auction_fa2, sp.TAddress)
+
+        token_royalty_info = sp.local("token_royalty_info",
+            sp.record(royalties=0, contributors={}),
+            t=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
+        sp.if (auction_fa2 == self.data.items_contract):
+            token_royalty_info.value = utils.fa2_get_token_royalties(auction_fa2, token_id)
+        
+        return token_royalty_info.value
+
     #
     # Views
     #
@@ -233,41 +247,3 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         sp.set_type(auction_id, sp.TNat)
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
         sp.result(self.get_auction_price_inline(the_auction.value))
-
-    #
-    # Misc
-    #
-    def fa2_transfer(self, fa2, from_, to_, token_id, item_amount):
-        c = sp.contract(sp.TList(sp.TRecord(from_=sp.TAddress, txs=sp.TList(sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))))), fa2, entry_point='transfer').open_some()
-        sp.transfer(sp.list([sp.record(from_=from_, txs=sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))]), sp.mutez(0), c)
-
-    def fa2_get_balance(self, fa2, token_id, owner):
-        return sp.view("get_balance", fa2,
-            sp.set_type_expr(
-                sp.record(owner = owner, token_id = token_id),
-                sp.TRecord(
-                    owner = sp.TAddress,
-                    token_id = sp.TNat
-                ).layout(("owner", "token_id"))),
-            t = sp.TNat).open_some()
-
-    def fa2_get_token_royalties(self, fa2, token_id):
-        return sp.view("get_token_royalties", fa2,
-            sp.set_type_expr(token_id, sp.TNat),
-            t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()
-
-    def get_royalties_if_item(self, token_id, auction_fa2):
-        sp.set_type(token_id, sp.TNat)
-        sp.set_type(auction_fa2, sp.TAddress)
-
-        token_royalty_info = sp.local("token_royalty_info",
-            sp.record(royalties=0, contributors={}),
-            t=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
-        sp.if (auction_fa2 == self.data.items_contract):
-            token_royalty_info.value = self.fa2_get_token_royalties(auction_fa2, token_id)
-        
-        return token_royalty_info.value
-
-    def send_if_value(self, to, amount):
-        sp.if amount > sp.tez(0):
-            sp.send(to, amount)
