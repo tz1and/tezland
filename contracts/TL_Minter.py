@@ -6,6 +6,8 @@ fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
+# TODO: add layout to FA2 mint
+
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
@@ -44,18 +46,21 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
-        sp.set_type(params.address, sp.TAddress)
-        sp.set_type(params.metadata, sp.TBytes)
+        sp.set_type(params, sp.TRecord(
+            address = sp.TAddress,
+            metadata = sp.TBytes
+        ).layout(("address", "metadata")))
 
         self.onlyAdministrator()
         self.onlyUnpaused()
         
+        # TODO: add layout to FA2 mint
         c = sp.contract(
             sp.TRecord(
-            address=sp.TAddress,
-            amount=sp.TNat,
-            token_id=sp.TNat,
-            metadata=sp.TMap(sp.TString, sp.TBytes)
+                address=sp.TAddress,
+                amount=sp.TNat,
+                token_id=sp.TNat,
+                metadata=sp.TMap(sp.TString, sp.TBytes)
             ),
             self.data.places_contract, 
             entry_point = "mint").open_some()
@@ -77,24 +82,27 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
     #
     @sp.entry_point(lazify = True)
     def mint_Item(self, params):
-        sp.set_type(params.address, sp.TAddress)
-        sp.set_type(params.amount, sp.TNat)
-        sp.set_type(params.royalties, sp.TNat)
-        sp.set_type(params.contributors, fa2_royalties.FA2_Royalties.CONTRIBUTOR_MAP_TYPE)
-        sp.set_type(params.metadata, sp.TBytes)
+        sp.set_type(params, sp.TRecord(
+            address = sp.TAddress,
+            amount = sp.TNat,
+            royalties = sp.TNat,
+            contributors = fa2_royalties.FA2_Royalties.CONTRIBUTOR_MAP_TYPE,
+            metadata = sp.TBytes
+        ).layout(("address", ("amount", ("royalties", ("contributors", "metadata"))))))
 
         self.onlyUnpaused()
         
         sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
             message = "PARAM_ERROR")
         
+        # TODO: add layout to FA2 mint
         c = sp.contract(
             sp.TRecord(
-            address=sp.TAddress,
-            amount=sp.TNat,
-            token_id=sp.TNat,
-            royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE,
-            metadata=sp.TMap(sp.TString, sp.TBytes)
+                address=sp.TAddress,
+                amount=sp.TNat,
+                token_id=sp.TNat,
+                royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE,
+                metadata=sp.TMap(sp.TString, sp.TBytes)
             ),
             self.data.items_contract, 
             entry_point = "mint").open_some()

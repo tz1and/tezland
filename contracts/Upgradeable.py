@@ -2,6 +2,8 @@ import smartpy as sp
 
 admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
+# TODO: update_ep variant layout
+
 class Upgradeable(admin_contract.Administrable):
     def __init__(self, administrator, entrypoints: list[str]):
         self.upgradeable_entrypoints = entrypoints

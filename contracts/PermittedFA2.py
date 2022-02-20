@@ -76,7 +76,6 @@ class PermittedFA2(admin_contract.Administrable):
 
         self.onlyAdministrator()
         
-        # NOTE: DON'T add Items or Places, lol. Not going to verify, should probably be.
         # TODO: validate?
         
         sp.for update in params:

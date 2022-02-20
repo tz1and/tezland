@@ -13,7 +13,10 @@ class FA2_Administration(admin_contract.Administrable):
         """Proposes to transfer the FA2 token contracts administator to another
         minter contract.
         """
-        sp.set_type(transfer_list, sp.TList(sp.TRecord(fa2 = sp.TAddress, proposed_fa2_administrator = sp.TAddress)))
+        sp.set_type(transfer_list, sp.TList(sp.TRecord(
+            fa2 = sp.TAddress,
+            proposed_fa2_administrator = sp.TAddress
+        ).layout(("fa2", "proposed_fa2_administrator"))))
         self.onlyAdministrator()
 
         sp.for transfer in transfer_list:

@@ -35,6 +35,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # Some notes:
 # - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
 # - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
+# - DON'T add Items or Places, to permitted_fa2.
 
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(

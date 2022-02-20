@@ -39,7 +39,8 @@ class Whitelist(admin_contract.Administrable):
         sp.set_type(updates, sp.TList(sp.TVariant(
             whitelist_add=sp.TList(sp.TAddress),
             whitelist_remove=sp.TList(sp.TAddress),
-            whitelist_enabled=sp.TBool)))
+            whitelist_enabled=sp.TBool
+        ).layout(("whitelist_add", ("whitelist_remove", "whitelist_enabled")))))
         self.onlyAdministrator()
         sp.for update in updates:
             with update.match_cases() as arg:

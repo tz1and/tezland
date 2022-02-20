@@ -21,6 +21,17 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
+    AUCTION_TYPE = sp.TRecord(
+        owner=sp.TAddress,
+        token_id=sp.TNat,
+        start_price=sp.TMutez,
+        end_price=sp.TMutez,
+        start_time=sp.TTimestamp,
+        end_time=sp.TTimestamp,
+        fa2=sp.TAddress
+    ).layout(("owner", ("token_id", ("start_price",
+        ("end_price", ("start_time", ("end_time", "fa2")))))))
+
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -30,15 +41,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
             metadata = metadata,
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
-            auctions = sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
-                owner=sp.TAddress,
-                token_id=sp.TNat,
-                start_price=sp.TMutez,
-                end_price=sp.TMutez,
-                start_time=sp.TTimestamp,
-                end_time=sp.TTimestamp,
-                fa2=sp.TAddress
-            ))
+            auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
         )
         pausable_contract.Pausable.__init__(self, administrator = administrator)
         whitelist_contract.Whitelist.__init__(self, administrator = administrator)
@@ -81,7 +84,8 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
             start_time = sp.TTimestamp,
             end_time = sp.TTimestamp,
             fa2 = sp.TAddress
-        ))
+        ).layout(("token_id", ("start_price", ("end_price",
+            ("start_time", ("end_time", "fa2")))))))
 
         self.onlyUnpaused()
         self.onlyAdminIfWhitelistEnabled()
