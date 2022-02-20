@@ -198,6 +198,9 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
     def get_auction_price_inline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
+        the_auction = sp.set_type_expr(the_auction, TL_Dutch.AUCTION_TYPE)
+        
+        # Local var for the result.
         result = sp.local("result", sp.tez(0))
         # return start price if it hasn't started
         sp.if sp.now <= the_auction.start_time:
@@ -223,8 +226,8 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
     def get_royalties_if_item_inline(self, token_id, auction_fa2):
         """Inlined into bid to be upgradeable."""
-        sp.set_type(token_id, sp.TNat)
-        sp.set_type(auction_fa2, sp.TAddress)
+        token_id = sp.set_type_expr(token_id, sp.TNat)
+        auction_fa2 = sp.set_type_expr(auction_fa2, sp.TAddress)
 
         token_royalty_info = sp.local("token_royalty_info",
             sp.record(royalties=0, contributors={}),

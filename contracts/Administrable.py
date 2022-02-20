@@ -16,6 +16,7 @@ class Administrable(sp.Contract):
         )
 
     def isAdministrator(self, address):
+        address = sp.set_type_expr(address, sp.TAddress)
         return self.data.administrator == address
 
     def onlyAdministrator(self):

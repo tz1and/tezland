@@ -15,6 +15,7 @@ class Whitelist(admin_contract.Administrable):
 
     def isWhitelisted(self, address):
         """if an address is whitelisted"""
+        address = sp.set_type_expr(address, sp.TAddress)
         return self.address_set.contains(self.data.whitelist, address)
 
     def onlyWhitelisted(self):
@@ -29,6 +30,7 @@ class Whitelist(admin_contract.Administrable):
 
     def removeFromWhitelist(self, address):
         """removes an address from the whitelist"""
+        address = sp.set_type_expr(address, sp.TAddress)
         # NOTE: probably ok to skip the check and always remove from whitelist.
         #sp.if self.data.whitelist_enabled:
         self.address_set.remove(self.data.whitelist, address)

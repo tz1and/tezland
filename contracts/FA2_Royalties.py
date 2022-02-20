@@ -27,7 +27,7 @@ class FA2_Royalties(sp.Contract):
 
     def validateRoyalties(self, royalties):
         """Inline function to validate royalties."""
-        # royalties is of ROYALTIES_TYPE
+        royalties = sp.set_type_expr(royalties, FA2_Royalties.ROYALTIES_TYPE)
         # Make sure absolute royalties and splits are in valid range.
         sp.verify((royalties.royalties >= FA2_Royalties.MIN_ROYALTIES) &
             (royalties.royalties <= FA2_Royalties.MAX_ROYALTIES), message="FA2_ROYALTIES_ERROR")
@@ -42,6 +42,8 @@ class FA2_Royalties(sp.Contract):
 
     def setRoyalties(self, token_id, royalties):
         """Inline function to be used in mint."""
+        royalties = sp.set_type_expr(royalties, FA2_Royalties.ROYALTIES_TYPE)
+        token_id = sp.set_type_expr(token_id, sp.TNat)
         # royalties is of ROYALTIES_TYPE
         self.data.token_royalties[token_id] = royalties
 

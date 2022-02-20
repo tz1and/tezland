@@ -2,6 +2,8 @@ import smartpy as sp
 
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
+# TODO: token_id = sp.set_type_expr(token_id, sp.TNat)
+
 #
 # Lazy set of permitted FA2 tokens for 'other' type.
 class Address_set:

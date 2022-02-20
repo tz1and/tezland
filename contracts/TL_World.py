@@ -14,7 +14,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: do "user = sp.set_type_expr(user, sp.TAddress)" in helpers methods
 # TODO: make room for merkle proofs in get_item. for verification with KT1NffZ1mqqcXrwYY3ZNaAYxhYkyiDvvTZ3C. in general, maybe add a general map string -> bytes to some of the entry points?
 # TODO: should I do chunking?
 # TODO: test issuer map removal.
@@ -316,8 +315,12 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
     def get_permissions_inline(self, lot_id, owner, permittee):
+        lot_id = sp.set_type_expr(lot_id, sp.TNat)
+        owner = sp.set_type_expr(owner, sp.TOption(sp.TAddress))
+        permittee = sp.set_type_expr(permittee, sp.TAddress)
+        # Local var for permissions.
         permission = sp.local("permission", permissionNone)
-        # if permittee is the owner, he has full permission.
+        # If permittee is the owner, he has full permission.
         sp.if utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0:
             permission.value = self.data.max_permission
         sp.else:
@@ -672,7 +675,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         recipientType = sp.TList(sp.TRecord(
             to_=sp.TAddress, amount=sp.TNat
         ).layout(("to_", "amount")))
-        #sp.set_type(recipients, recipientType)
+        recipients = sp.set_type_expr(recipients, recipientType)
         c = sp.contract(
             recipientType,
             self.data.dao_contract,
