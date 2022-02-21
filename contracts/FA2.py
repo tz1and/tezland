@@ -9,8 +9,7 @@
 # <https://assets.tqtezos.com/docs/token-contracts/fa2/1-fa2-smartpy/>.
 #
 # TODO: bring up to date with latest FA2: https://gitlab.com/SmartPy/smartpy/-/issues/28
-# TODO: check for newer.
-# TODO: is_paused onchain view?
+# TODO: test ledger, metadata, extra removal.
 import smartpy as sp
 
 pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
@@ -375,9 +374,11 @@ class FA2_core(sp.Contract):
         sp.for transfer in params:
            current_from = transfer.from_
            sp.for tx in transfer.txs:
+                # Check token type constraints.
                 if self.config.single_asset:
                     sp.verify(tx.token_id == 0, message = "single-asset: token-id <> 0")
 
+                # Check owner and operator.
                 sender_verify = (current_from == sp.sender)
                 message = self.error_message.not_operator()
                 sender_verify |= (self.operator_set.is_member(self.data.operators,
@@ -385,20 +386,29 @@ class FA2_core(sp.Contract):
                                                               sp.sender,
                                                               tx.token_id))
                 sp.verify(sender_verify, message = message)
-                sp.verify(
-                    self.data.token_metadata.contains(tx.token_id),
-                    message = self.error_message.token_undefined()
-                )
-                # If amount is 0 we do nothing now:
+
+                # Check token exists.
+                sp.verify(self.data.token_metadata.contains(tx.token_id),
+                    message = self.error_message.token_undefined())
+
+                # Ignore 0 transfers.
                 sp.if (tx.amount > 0):
                     from_user = sp.compute(self.ledger_key.make(current_from, tx.token_id))
-                    sp.verify(
-                        (self.data.ledger[from_user].balance >= tx.amount),
+                    from_user_balance = sp.compute(self.data.ledger[from_user].balance)
+
+                    # Make sure from_user has sufficient balance.
+                    sp.verify(from_user_balance >= tx.amount,
                         message = self.error_message.insufficient_balance())
+                    
+                    # Update from_user balance, or remove from ledger.
+                    from_user_new_balance = sp.compute(sp.as_nat(from_user_balance - tx.amount))
+                    sp.if from_user_new_balance > 0:
+                        self.data.ledger[from_user].balance = from_user_new_balance
+                    sp.else:
+                        del self.data.ledger[from_user]
+                    
+                    # Update to_user balance or add to ledger.
                     to_user = sp.compute(self.ledger_key.make(tx.to_, tx.token_id))
-                    # TODO: could delete from_ledger if balance becomes 0.
-                    self.data.ledger[from_user].balance = sp.as_nat(
-                        self.data.ledger[from_user].balance - tx.amount)
                     sp.if self.data.ledger.contains(to_user):
                         self.data.ledger[to_user].balance += tx.amount
                     sp.else:
@@ -460,14 +470,6 @@ class FA2_core(sp.Contract):
                                              upd.operator,
                                              upd.token_id)
 
-    # this is not part of the standard but can be supported through inheritance.
-    def isPaused(self):
-        return sp.bool(False)
-
-    # this is not part of the standard but can be supported through inheritance.
-    def isAdministrator(self, sender):
-        return sp.bool(False)
-
 class FA2_change_metadata(FA2_core):
     @sp.entry_point
     def set_metadata(self, k, v):
@@ -491,21 +493,27 @@ class FA2_mint(FA2_core):
 
         sp.verify(self.isAdministrator(sp.sender), message = self.error_message.not_admin())
         # We don't check for pauseness because we're the admin.
+
+        # Check token type constraints.
         if self.config.single_asset:
             sp.verify(params.token_id == 0, message = "single-asset: token-id <> 0")
         if self.config.non_fungible:
             sp.verify(params.amount == 1, message = "NFT-asset: amount <> 1")
-            sp.verify(
-                ~ self.token_id_set.contains(self.data.all_tokens, params.token_id),
-                message = "NFT-asset: cannot mint twice same token"
-            )
+            sp.verify(~ self.token_id_set.contains(self.data.all_tokens, params.token_id),
+                message = "NFT-asset: cannot mint twice same token")
+
+        # Validate royalties.
         if self.config.royalties:
             self.validateRoyalties(params.royalties)
+
+        # Update balance
         user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
             self.data.ledger[user].balance += params.amount
         sp.else:
             self.data.ledger[user] = Ledger_value.make(params.amount)
+        
+        # Add token metadata, if it doesn't exist.
         sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
             self.token_id_set.add(self.data.all_tokens, params.token_id)
             self.data.token_metadata[params.token_id] = sp.record(
@@ -587,17 +595,22 @@ class FA2_burn(FA2_core):
         sp.verify(sender_verify, message = message)
 
         # Fail if token doesn't exist.
+        # TODO: check token_metadata instead?
         sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
             sp.failwith(self.error_message.token_undefined())
 
         # Update balance
         user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
-            # Check balance
-            sp.verify((self.data.ledger[user].balance >= params.amount),
+            # Check balance.
+            balance = sp.compute(self.data.ledger[user].balance)
+            sp.verify((balance >= params.amount),
                 message = self.error_message.insufficient_balance())
+            
             # The user has sufficient banlance, subtract from it.
-            new_balance = sp.compute(sp.as_nat(self.data.ledger[user].balance - params.amount))
+            new_balance = sp.compute(sp.as_nat(balance - params.amount))
+
+            # If balance becomes 0, delete from ledger.
             sp.if new_balance > 0:
                 self.data.ledger[user].balance = new_balance
             sp.else:
@@ -609,10 +622,11 @@ class FA2_burn(FA2_core):
         # Update total supply
         if self.config.store_total_supply:
             new_total_supply = sp.compute(sp.as_nat(self.data.token_extra[params.token_id].total_supply - params.amount))
-            # don't delete token_extra or token_metadata for single_asset
+            # Don't delete token_extra or token_metadata for single_asset
             if self.config.single_asset:
                 self.data.token_extra[params.token_id].total_supply = new_total_supply
             else:
+                # If total supply becomes 0, delete token_extra and token_metadata.
                 sp.if new_total_supply > 0:
                     self.data.token_extra[params.token_id].total_supply = new_total_supply
                 sp.else:
