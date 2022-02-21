@@ -5,6 +5,7 @@ import assert from 'assert';
 import kleur from 'kleur';
 import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from '@taquito/taquito';
+import fs from 'fs';
 
 
 enum DeployMode { DevWorld, GasTest, StressTestSingle, StressTestMulti };
@@ -21,6 +22,28 @@ type PostDeployContracts = {
 // TODO: finish this stuff!
 // some issues: dependent transactions: setting adming, etc
 export default class Deploy extends DeployBase {
+    // Compiles metadata, uploads it and then compiles again with metadata set.
+    // Note: target_args needs to exclude metadata.
+    private async compile_contract(target_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
+        var metadata_url;
+        if (metadata === undefined) {
+            // Compile metadata
+            smartpy.compile_metadata(target_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
+
+            const metadtaFile = `${target_name}_metadata.json`;
+            const metadtaPath = `./build/${metadtaFile}`;
+            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
+
+            metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
+        }
+        else {
+            metadata_url = await ipfs.upload_contract_metadata(metadata, this.isSandboxNet);
+        }
+
+        // Compile contract with metadata set.
+        smartpy.compile_newtarget(target_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
+    }
+
     protected override async deployDo() {
         assert(this.tezos);
 
@@ -30,16 +53,7 @@ export default class Deploy extends DeployBase {
         //
         // Items
         //
-        const items_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1and Items',
-            description: 'tz1and Item FA2 Tokens',
-            interfaces: ["TZIP-12"],
-            version: '1.0.0'
-        }, this.isSandboxNet, true);
-
-        // Compile and deploy Items FA2 contract.
-        smartpy.compile_newtarget("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
-            `metadata = sp.utils.metadata_of_url("${items_metadata_url}")`,
+        await this.compile_contract("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Items");
@@ -47,16 +61,7 @@ export default class Deploy extends DeployBase {
         //
         // Places
         //
-        const places_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1and Places',
-            description: 'tz1and Places FA2 Tokens',
-            interfaces: ["TZIP-12"],
-            version: '1.0.0'
-        }, this.isSandboxNet, true);
-
-        // Compile and deploy Places FA2 contract.
-        smartpy.compile_newtarget("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
-            `metadata = sp.utils.metadata_of_url("${places_metadata_url}")`,
+        await this.compile_contract("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Places");
@@ -64,16 +69,7 @@ export default class Deploy extends DeployBase {
         //
         // DAO
         //
-        const dao_metadata_url = await ipfs.upload_contract_metadata({
-            name: 'tz1and DAO',
-            description: 'tz1and DAO FA2 Token',
-            interfaces: ["TZIP-12"],
-            version: '1.0.0'
-        }, this.isSandboxNet, true);
-
-        // Compile and deploy Places FA2 contract.
-        smartpy.compile_newtarget("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
-            `metadata = sp.utils.metadata_of_url("${dao_metadata_url}")`,
+        await this.compile_contract("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_DAO");
@@ -89,18 +85,18 @@ export default class Deploy extends DeployBase {
         // prepare minter/dutch batch
         const tezland_batch = new DeployContractBatch(this);
 
-        const minter_metadata_url = await ipfs.upload_contract_metadata({
+        const minter_metadata = {
             name: 'tz1and Minter',
             description: 'tz1and Items and Places minter',
             interfaces: [],
             version: '1.0.0'
-        }, this.isSandboxNet);
+        };
 
         // Compile and deploy Minter contract.
-        smartpy.compile_newtarget("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
-        `items_contract = sp.address("${items_FA2_contract.address}")`,
-        `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `metadata = sp.utils.metadata_of_url("${minter_metadata_url}")`]);
+        await this.compile_contract("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
+            `items_contract = sp.address("${items_FA2_contract.address}")`,
+            `places_contract = sp.address("${places_FA2_contract.address}")`],
+            minter_metadata);
 
         tezland_batch.addToBatch("TL_Minter");
         //const Minter_contract = await this.deploy_contract("TL_Minter");
@@ -108,18 +104,18 @@ export default class Deploy extends DeployBase {
         //
         // Dutch
         //
-        const dutch_metadata_url = await ipfs.upload_contract_metadata({
+        const dutch_metadata = {
             name: 'tz1and Dutch Auctions',
             description: 'tz1and Places and Items Dutch auctions',
             interfaces: [],
             version: '1.0.0'
-        }, this.isSandboxNet);
+        };
 
         // Compile and deploy Dutch auction contract.
-        smartpy.compile_newtarget("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
-        `items_contract = sp.address("${items_FA2_contract.address}")`,
-        `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `metadata = sp.utils.metadata_of_url("${dutch_metadata_url}")`]);
+        await this.compile_contract("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
+            `items_contract = sp.address("${items_FA2_contract.address}")`,
+            `places_contract = sp.address("${places_FA2_contract.address}")`],
+            dutch_metadata);
 
         tezland_batch.addToBatch("TL_Dutch");
         //const Dutch_contract = await this.deploy_contract("TL_Dutch");
@@ -157,19 +153,19 @@ export default class Deploy extends DeployBase {
         //
         const worldWasDeployed = this.getDeployment("TL_World");
 
-        const world_metadata_url = await ipfs.upload_contract_metadata({
+        const world_metadata = {
             name: 'tz1and World',
             description: 'tz1and Virtual World',
             interfaces: [],
             version: '1.0.0'
-        }, this.isSandboxNet);
+        };
 
         // Compile and deploy Places contract.
-        smartpy.compile_newtarget("TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
-        `items_contract = sp.address("${items_FA2_contract.address}")`,
-        `places_contract = sp.address("${places_FA2_contract.address}")`,
-        `dao_contract = sp.address("${dao_FA2_contract.address}")`,
-        `metadata = sp.utils.metadata_of_url("${world_metadata_url}")`]);
+        await this.compile_contract("TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
+            `items_contract = sp.address("${items_FA2_contract.address}")`,
+            `places_contract = sp.address("${places_FA2_contract.address}")`,
+            `dao_contract = sp.address("${dao_FA2_contract.address}")`],
+            world_metadata);
 
         const World_contract = await this.deploy_contract("TL_World");
 

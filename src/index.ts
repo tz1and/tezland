@@ -53,15 +53,6 @@ program
         smartpy.test(contract_names);
     });
 
-program
-    .command('compile')
-    .alias('c')
-    .description('Compile contract.')
-    .argument('<contract_name>', 'name of contract')
-    .action((contract_name) => {
-        smartpy.compile(contract_name);
-    });
-
 //
 // Deploying
 //

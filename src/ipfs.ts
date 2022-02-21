@@ -36,22 +36,25 @@ export interface ContractMetadata {
     version: string;
 }
 
+export async function upload_metadata(metadata: any, localIpfs: boolean): Promise<string> {
+    const result = await uploadToIpfs(metadata, true, localIpfs);
+
+    console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
+
+    return result.metdata_uri;
+}
+
 // TODO: add to some config or so.
 const metaRepository = 'https://github.com/tz1and';
 const metaHomepage = 'https://www.tz1and.com';
-const metaAcknowledgement = "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
 const metaAuthors = ['852Kerfunke <https://github.com/852Kerfunkle>'];
 const metaLicense = { name: "MIT" };
 
-function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean): any {
-
-    const description = is_fa2 ? metadata.description + metaAcknowledgement : metadata.description;
-    const authors = is_fa2 ? metaAuthors.concat('Seb Mondet <https://seb.mondet.org>') : metaAuthors;
-
+function createContractMetadata(metadata: ContractMetadata): any {
     return {
         name: metadata.name,
-        description: description,
-        authors: authors,
+        description: metadata.description,
+        authors: metaAuthors,
         homepage: metaHomepage,
         repository: metaRepository,
         license: metaLicense,
@@ -60,8 +63,8 @@ function createContractMetadata(metadata: ContractMetadata, is_fa2: boolean): an
     };
 }
 
-export async function upload_contract_metadata(metadata: ContractMetadata, localIpfs: boolean, is_fa2: boolean = false): Promise<string> {
-    const result = await uploadToIpfs(createContractMetadata(metadata, is_fa2), true, localIpfs);
+export async function upload_contract_metadata(metadata: ContractMetadata, localIpfs: boolean): Promise<string> {
+    const result = await uploadToIpfs(createContractMetadata(metadata), true, localIpfs);
 
     console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
 

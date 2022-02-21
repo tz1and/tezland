@@ -37,35 +37,43 @@ export function test_single(contract_name: string) {
     }
 }
 
-export function compile(contract_name: string) {
+export function compile_metadata(target_name: string, contract_name: string, target_args: string[]): void {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
-    try {
-        // Build artifact directory.
-        const tmp_out_dir = "./build/tmp_contract_build"
-        const contract_in = `./contracts/${contract_name}.py`
+    // Build artifact directory.
+    const target_out_dir = "./build/targets"
+    const tmp_out_dir = "./build/tmp_contract_build"
 
-        // cleanup
-        fs.rmSync(tmp_out_dir, {recursive: true})
+    // Make target dir if it doesn't exist
+    if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir, { recursive: true });
 
-        child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    // write the compilation target
+    fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
+${contract_name}_contract = sp.io.import_script_from_url("file:contracts/${contract_name}.py")
+sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract_name}(
+    ${target_args.join(', ')}
+    ))`)
 
-        console.log(`Extracting Michelson contract and storage ...`)
+    // cleanup
+    if (fs.existsSync(tmp_out_dir)) fs.rmSync(tmp_out_dir, {recursive: true})
 
-        const contract_out = `${contract_name}.json`
-        const storage_out = `${contract_name}_storage.json`
-        const contract_compiled = `${contract_name}/step_000_cont_0_contract.json`
-        const storage_compiled = `${contract_name}/step_000_cont_0_storage.json`
+    console.log(`Compiling metadata for ${target_name}`)
 
-        fs.copyFileSync(`${tmp_out_dir}/${contract_compiled}`, `./build/${contract_out}`)
-        fs.copyFileSync(`${tmp_out_dir}/${storage_compiled}`, `./build/${storage_out}`)
+    const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-        console.log(kleur.green(`Michelson contract written to ${contract_out}`))
-        console.log()
+    child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
-    } catch(err) {
-        console.log('failed: ' + err)
+    console.log(`Extracting metadata ...`)
+
+    const metadata_out = `${target_name}_metadata.json`
+    const metadata_compiled = `${target_name}/step_000_cont_0_metadata.metadata_base.json`
+
+    if (fs.existsSync(`${tmp_out_dir}/${metadata_compiled}`)) {
+        fs.copyFileSync(`${tmp_out_dir}/${metadata_compiled}`, `./build/${metadata_out}`)
+        console.log(kleur.green(`Metadata written to ${metadata_out}`))
     }
+
+    console.log()
 }
 
 export function compile_newtarget(target_name: string, contract_name: string, target_args: string[]): void {
@@ -74,8 +82,6 @@ export function compile_newtarget(target_name: string, contract_name: string, ta
     // Build artifact directory.
     const target_out_dir = "./build/targets"
     const tmp_out_dir = "./build/tmp_contract_build"
-
-    console.log(`Building ${target_name} target`)
 
     // Make target dir if it doesn't exist
     if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir, { recursive: true });
@@ -104,9 +110,10 @@ sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract
     const storage_compiled = `${target_name}/step_000_cont_0_storage.json`
 
     fs.copyFileSync(`${tmp_out_dir}/${contract_compiled}`, `./build/${contract_out}`)
-    fs.copyFileSync(`${tmp_out_dir}/${storage_compiled}`, `./build/${storage_out}`)
-
     console.log(kleur.green(`Michelson contract written to ${contract_out}`))
+
+    fs.copyFileSync(`${tmp_out_dir}/${storage_compiled}`, `./build/${storage_out}`)
     console.log(kleur.green(`Michelson storage written to ${storage_out}`))
+
     console.log()
 }

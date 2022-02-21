@@ -31,8 +31,14 @@ class FA2_config:
                  allow_burn_tokens                  = False,
                  operator_burn                      = False,
                  add_distribute                     = False,
-                 royalties                          = False
+                 royalties                          = False,
+                 metadata_name                      = "FA2",
+                 metadata_description               = "An FA2 implementation.",
                  ):
+
+        self.metadata_name = metadata_name
+        self.metadata_description = metadata_description
+        # Name and description
 
         self.allow_burn_tokens = allow_burn_tokens
         # Add an entry point that allows to burn tokens.
@@ -542,7 +548,7 @@ class FA2_token_metadata(FA2_core):
             sp.set_type(tok, sp.TNat)
             sp.result(self.data.token_metadata[tok])
 
-        self.token_metadata = sp.offchain_view(pure = True, doc = "Get Token Metadata")(token_metadata)
+        self.token_metadata = sp.onchain_view(pure = True, doc = "Get Token Metadata")(token_metadata)
 
     # make_metadataThis is what we want to modify for the token metadata. HEN puts it all on IPFS.
     def make_metadata(symbol, name, decimals):
@@ -650,18 +656,18 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
 
     @sp.onchain_view(pure=True)
     def count_tokens(self):
-        """Get how many tokens are in this FA2 contract.
-        """
+        """Get how many tokens are in this FA2 contract."""
         sp.result(self.token_id_set.cardinal(self.data.all_tokens))
 
     @sp.onchain_view(pure=True)
     def does_token_exist(self, tok):
-        "Ask whether a token ID is exists."
+        """Ask whether a token ID is exists."""
         sp.set_type(tok, sp.TNat)
         sp.result(self.data.token_metadata.contains(tok))
 
     @sp.onchain_view(pure=True)
     def total_supply(self, tok):
+        """Returns the total supply of a token."""
         sp.set_type(tok, sp.TNat)
         if self.config.store_total_supply:
             sp.result(self.data.token_extra[tok].total_supply)
@@ -670,6 +676,7 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
 
     @sp.onchain_view(pure=True)
     def is_operator(self, query):
+        """Returns if address is operator of a token."""
         sp.set_type(query,
                     sp.TRecord(token_id = sp.TNat,
                                owner = sp.TAddress,
@@ -683,6 +690,17 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
         )
 
     def __init__(self, config, metadata, admin):
+         # Add FA2 extension mixins
+        if config.allow_burn_tokens:
+            self.extend_instance(FA2_burn, False)
+        if config.add_distribute:
+            self.extend_instance(FA2_distribute, False)
+        FA2_core.__init__(self, config, metadata)
+        # Add pausable, administrable and mybe royalties
+        pausable_contract.Pausable.__init__(self, administrator = admin)
+        if config.royalties:
+            self.extend_instance(fa2_royalties.FA2_Royalties, True)
+        
         # Let's show off some meta-programming:
         list_of_views = [
             self.get_balance
@@ -696,27 +714,25 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
         if config.use_token_metadata_offchain_view:
             self.set_token_metadata_view()
             list_of_views = list_of_views + [self.token_metadata]
-        # TODO: add view
-        #if config.royalties:
-        #    list_of_views = list_of_views + [self.get_token_royalties]
+        if config.royalties:
+            list_of_views = list_of_views + [self.get_token_royalties]
 
         metadata_base = {
-            "version": config.name # will be changed if using fatoo.
+            "name": config.metadata_name
+            , "version": "1.0.0"
             , "description" : (
-                "This is a didactic reference implementation of FA2,"
-                + " a.k.a. TZIP-012, using SmartPy.\n\n"
-                + "This particular contract uses the configuration named: "
-                + config.name + "."
+                config.metadata_description + "\n\nBased on Seb Mondet's FA2 implementation: https://gitlab.com/smondet/fa2-smartpy.git"
             )
             , "interfaces": ["TZIP-012", "TZIP-016"]
             , "authors": [
+                '852Kerfunke <https://github.com/852Kerfunkle>',
                 "Seb Mondet <https://seb.mondet.org>"
             ]
-            , "homepage": "https://gitlab.com/smondet/fa2-smartpy"
+            , "homepage": 'https://www.tz1and.com'
             , "views": list_of_views
             , "source": {
                 "tools": ["SmartPy"]
-                , "location": "https://gitlab.com/smondet/fa2-smartpy.git"
+                , "location": "https://github.com/tz1and"
             }
             , "permissions": {
                 "operator":
@@ -724,22 +740,8 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
                 , "receiver": "owner-no-hook"
                 , "sender": "owner-no-hook"
             }
-            , "fa2-smartpy": {
-                "configuration" :
-                dict([(k, getattr(config, k)) for k in dir(config) if "__" not in k])
-            }
         }
         self.init_metadata("metadata_base", metadata_base)
-        # Add FA2 extension mixins
-        if config.allow_burn_tokens:
-            self.extend_instance(FA2_burn, False)
-        if config.add_distribute:
-            self.extend_instance(FA2_distribute, False)
-        FA2_core.__init__(self, config, metadata)
-        # Add pausable, administrable and mybe royalties
-        pausable_contract.Pausable.__init__(self, administrator = admin)
-        if config.royalties:
-            self.extend_instance(fa2_royalties.FA2_Royalties, True)
     
     def extend_instance(self, cls, init, **kwargs):
         """Apply mixins to a class instance after creation"""
@@ -1233,12 +1235,14 @@ def global_parameter(env_var, default):
 def items_config():
     # Items is a multi-asset, fungible token, (that doesn't stores the total supply) an allows burning.
     return FA2_config(
+        metadata_name = "tz1and Items",
+        metadata_description = "tz1and Item FA2 Tokens",
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", True),
         lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True),
         add_distribute = global_parameter("add_distribute", False),
         royalties = global_parameter("royalties", True)
@@ -1247,12 +1251,14 @@ def items_config():
 def places_config():
     # Places is a multi-asset, non-fungible token. No burning allowed.
     return FA2_config(
+        metadata_name = "tz1and Places",
+        metadata_description = "tz1and Places FA2 Tokens",
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", True),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", False),
         lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", False),
         royalties = global_parameter("royalties", False)
@@ -1261,12 +1267,14 @@ def places_config():
 def dao_config():
     # Places is a multi-asset, non-fungible token. No burning allowed.
     return FA2_config(
+        metadata_name = "tz1and DAO",
+        metadata_description = "tz1and DAO FA2 Token",
         single_asset = global_parameter("single_asset", True),
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", True),
         lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", True),
         royalties = global_parameter("royalties", False)
