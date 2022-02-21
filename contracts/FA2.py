@@ -77,6 +77,10 @@ class FA2_config:
         if self.add_distribute and not (self.single_asset and not self.non_fungible):
             raise Exception('add_distribute can only be used with single_asset && !non_fungible')
 
+        # royalties can't be used with single asset
+        if self.royalties and self.single_asset:
+            raise Exception('royalties can not be used with single_asset')
+
         name = "FA2"
         if single_asset:
             name += "-single_asset"
