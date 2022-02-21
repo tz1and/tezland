@@ -20,11 +20,6 @@ class FA2_Royalties(sp.Contract):
     MAX_ROYALTIES = sp.nat(250)
     MAX_CONTRIBUTORS = sp.nat(3)
 
-    def __init__(self):
-        self.update_initial_storage(
-            token_royalties=sp.big_map(tkey=sp.TNat, tvalue=FA2_Royalties.ROYALTIES_TYPE)
-        )
-
     def validateRoyalties(self, royalties):
         """Inline function to validate royalties."""
         royalties = sp.set_type_expr(royalties, FA2_Royalties.ROYALTIES_TYPE)
@@ -40,17 +35,14 @@ class FA2_Royalties(sp.Contract):
             # TODO: require minter role?
         sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_ERROR")
 
-    def setRoyalties(self, token_id, royalties):
-        """Inline function to be used in mint."""
-        royalties = sp.set_type_expr(royalties, FA2_Royalties.ROYALTIES_TYPE)
-        token_id = sp.set_type_expr(token_id, sp.TNat)
-        # royalties is of ROYALTIES_TYPE
-        self.data.token_royalties[token_id] = royalties
-
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, token_id):
         """Returns the token royalties information"""
         sp.set_type(token_id, sp.TNat)
-        sp.result(self.data.token_royalties.get(token_id, default_value=sp.record(royalties=sp.nat(0), contributors={})))
+        # TODO: should this fail if token doesn't exist?
+        sp.if self.data.token_extra.contains(token_id):
+            sp.result(self.data.token_extra[token_id].royalty_info)
+        sp.else:
+            sp.result(sp.record(royalties=sp.nat(0), contributors={}))
 
     # TODO: implement versum views?

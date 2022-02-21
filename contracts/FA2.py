@@ -175,13 +175,18 @@ class Operator_param:
 class Ledger_key:
     def __init__(self, config):
         self.config = config
+    def get_type(self):
+        if self.config.single_asset:
+            return sp.TAddress
+        else:
+            return sp.TPair(sp.TAddress, sp.TNat)
     def make(self, user, token):
         user = sp.set_type_expr(user, sp.TAddress)
         token = sp.set_type_expr(token, token_id_type)
         if self.config.single_asset:
-            result = user
+            result = sp.set_type_expr(user, self.get_type())
         else:
-            result = sp.pair(user, token)
+            result = sp.set_type_expr(sp.pair(user, token), self.get_type())
         return result
 
 ## For now a value in the ledger is just the user's balance. Previous
@@ -246,10 +251,42 @@ class Token_meta_data:
         self.config = config
 
     def get_type(self):
-        return sp.TRecord(token_id = sp.TNat, token_info = sp.TMap(sp.TString, sp.TBytes))
+        return sp.TRecord(
+            token_id = sp.TNat,
+            token_info = sp.TMap(sp.TString, sp.TBytes)
+        ).layout(("token_id", "token_info"))
 
-    def set_type_and_layout(self, expr):
-        sp.set_type(expr, self.get_type())
+class Token_extra_data:
+    def __init__(self, config):
+        self.config = config
+
+    def get_type(self):
+        if self.config.royalties and self.config.store_total_supply:
+            return sp.TRecord(
+                total_supply = sp.TNat,
+                royalty_info = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE
+            ).layout(("total_supply", "royalty_info"))
+        elif self.config.royalties:
+            return sp.TRecord(
+                royalty_info = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE
+            )
+        else:
+            return sp.TRecord(
+                total_supply = sp.TNat,
+            )
+
+    def get_default(self):
+        if self.config.royalties and self.config.store_total_supply:
+            return sp.record(
+                total_supply = sp.nat(0),
+                royalty_info = sp.record(royalties=sp.nat(0), contributors={})
+            )
+        elif self.config.royalties:
+            return sp.record(
+                royalty_info = sp.record(royalties=sp.nat(0), contributors={})
+            )
+        else:
+            return sp.record(total_supply = sp.nat(0))
 
 ## The set of all tokens is represented by a `nat` if we assume that token-ids
 ## are consecutive, or by an actual `(set nat)` if not.
@@ -313,7 +350,7 @@ class FA2_core(sp.Contract):
         self.add_flag("initial-cast")
         self.exception_optimization_level = "default-line"
         self.init(
-            ledger = sp.big_map(tvalue = Ledger_value.get_type()),
+            ledger = sp.big_map(tkey = self.ledger_key.get_type(), tvalue = Ledger_value.get_type()),
             token_metadata = sp.big_map(tkey = sp.TNat, tvalue = self.token_meta_data.get_type()),
             operators = self.operator_set.make(),
             all_tokens = self.token_id_set.empty(),
@@ -321,9 +358,10 @@ class FA2_core(sp.Contract):
             **extra_storage
         )
 
-        if self.config.store_total_supply:
+        if self.config.store_total_supply or self.config.royalties:
+            self.token_extra_data = Token_extra_data(self.config)
             self.update_initial_storage(
-                total_supply = sp.big_map(tkey = sp.TNat, tvalue = sp.TNat),
+                token_extra = sp.big_map(tkey = sp.TNat, tvalue = self.token_extra_data.get_type()),
             )
 
     @sp.entry_point
@@ -349,11 +387,12 @@ class FA2_core(sp.Contract):
                 )
                 # If amount is 0 we do nothing now:
                 sp.if (tx.amount > 0):
-                    from_user = self.ledger_key.make(current_from, tx.token_id)
+                    from_user = sp.compute(self.ledger_key.make(current_from, tx.token_id))
                     sp.verify(
                         (self.data.ledger[from_user].balance >= tx.amount),
                         message = self.error_message.insufficient_balance())
-                    to_user = self.ledger_key.make(tx.to_, tx.token_id)
+                    to_user = sp.compute(self.ledger_key.make(tx.to_, tx.token_id))
+                    # TODO: could delete from_ledger if balance becomes 0.
                     self.data.ledger[from_user].balance = sp.as_nat(
                         self.data.ledger[from_user].balance - tx.amount)
                     sp.if self.data.ledger.contains(to_user):
@@ -369,7 +408,7 @@ class FA2_core(sp.Contract):
         sp.verify( ~self.isPaused(), message = self.error_message.paused())
         sp.set_type(params, Balance_of.entry_point_type())
         def f_process_request(req):
-            user = self.ledger_key.make(req.owner, req.token_id)
+            user = sp.compute(self.ledger_key.make(req.owner, req.token_id))
             sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
             sp.if self.data.ledger.contains(user):
                 balance = self.data.ledger[user].balance
@@ -458,7 +497,7 @@ class FA2_mint(FA2_core):
             )
         if self.config.royalties:
             self.validateRoyalties(params.royalties)
-        user = self.ledger_key.make(params.address, params.token_id)
+        user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
             self.data.ledger[user].balance += params.amount
         sp.else:
@@ -469,10 +508,15 @@ class FA2_mint(FA2_core):
                 token_id    = params.token_id,
                 token_info  = params.metadata
             )
-        if self.config.store_total_supply:
-            self.data.total_supply[params.token_id] = params.amount + self.data.total_supply.get(params.token_id, default_value = 0)
-        if self.config.royalties:
-            self.setRoyalties(token_id = params.token_id, royalties = params.royalties)
+
+        # Royalties, total supply.
+        if self.config.store_total_supply or self.config.royalties:
+            token_extra = sp.compute(self.data.token_extra.get(params.token_id, default_value = self.token_extra_data.get_default()))
+            if self.config.store_total_supply:
+                token_extra.total_supply += params.amount
+            if self.config.royalties:
+                token_extra.royalty_info = params.royalties
+            self.data.token_extra[params.token_id] = token_extra
 
 class FA2_token_metadata(FA2_core):
     def set_token_metadata_view(self):
@@ -543,20 +587,33 @@ class FA2_burn(FA2_core):
             sp.failwith(self.error_message.token_undefined())
 
         # Update balance
-        user = self.ledger_key.make(params.address, params.token_id)
+        user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
             # Check balance
             sp.verify((self.data.ledger[user].balance >= params.amount),
                 message = self.error_message.insufficient_balance())
             # The user has sufficient banlance, subtract from it.
-            self.data.ledger[user].balance = sp.as_nat(self.data.ledger[user].balance - params.amount)
+            new_balance = sp.compute(sp.as_nat(self.data.ledger[user].balance - params.amount))
+            sp.if new_balance > 0:
+                self.data.ledger[user].balance = new_balance
+            sp.else:
+                del self.data.ledger[user]
         sp.else:
             # If the user doesn't have a balance, fail.
             sp.failwith(self.error_message.insufficient_balance())
 
         # Update total supply
         if self.config.store_total_supply:
-            self.data.total_supply[params.token_id] = sp.as_nat(self.data.total_supply.get(params.token_id, default_value = 0) - params.amount)
+            new_total_supply = sp.compute(sp.as_nat(self.data.token_extra[params.token_id].total_supply - params.amount))
+            # don't delete token_extra or token_metadata for single_asset
+            if self.config.single_asset:
+                self.data.token_extra[params.token_id].total_supply = new_total_supply
+            else:
+                sp.if new_total_supply > 0:
+                    self.data.token_extra[params.token_id].total_supply = new_total_supply
+                sp.else:
+                    del self.data.token_extra[params.token_id]
+                    del self.data.token_metadata[params.token_id]
 
 # NOTE: pausable_contract.Pausable needs to come first. It also include Administrable.
 class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
@@ -587,10 +644,10 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
 
     @sp.onchain_view(pure=True)
     def total_supply(self, tok):
+        sp.set_type(tok, sp.TNat)
         if self.config.store_total_supply:
-            sp.result(self.data.total_supply[tok])
+            sp.result(self.data.token_extra[tok].total_supply)
         else:
-            sp.set_type(tok, sp.TNat)
             sp.result("total-supply not supported")
 
     @sp.onchain_view(pure=True)
@@ -798,7 +855,8 @@ def add_test(config, is_default = True):
                 sp.record(to_ = darryl.address, amount = 50 ),
                 sp.record(to_ = eve.address, amount = 50 )
             ]).run(sender = admin)
-            scenario.verify(c1.data.total_supply[0] == 200)
+            if config.store_total_supply:
+                scenario.verify(c1.data.token_extra[0].total_supply == 200)
             scenario.verify(c1.data.ledger[c1.ledger_key.make(darryl.address, 0)].balance == 50)
             scenario.verify(c1.data.ledger[c1.ledger_key.make(eve.address, 0)].balance == 50)
             c1.distribute([
@@ -810,6 +868,8 @@ def add_test(config, is_default = True):
             return
         scenario.h2("Burning tokens")
         support_operator_burn = config.operator_burn
+        if config.store_total_supply:
+            supply_before = scenario.compute(c1.data.token_extra[0].total_supply)
         c1.burn(address = alice.address,
             amount = 10,
             token_id = 0).run(sender = admin, valid = False, exception = ("FA2_NOT_OPERATOR" if support_operator_burn else "FA2_NOT_OWNER"))
@@ -834,6 +894,8 @@ def add_test(config, is_default = True):
         c1.burn(address = alice.address,
             amount = 100,
             token_id = 1).run(sender = alice, valid = False, exception = "FA2_TOKEN_UNDEFINED")
+        if config.store_total_supply:
+            scenario.verify(supply_before == c1.data.token_extra[0].total_supply + 15)
         scenario.verify(
             c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10
         )
@@ -1156,8 +1218,8 @@ def items_config():
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
-        store_total_supply = global_parameter("store_total_supply", False),
-        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        store_total_supply = global_parameter("store_total_supply", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", True),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True),
         add_distribute = global_parameter("add_distribute", False),
@@ -1171,7 +1233,7 @@ def places_config():
         non_fungible = global_parameter("non_fungible", True),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", False),
-        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        lazy_entry_points = global_parameter("lazy_entry_points", True),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", False),
@@ -1185,7 +1247,7 @@ def dao_config():
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", True),
-        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        lazy_entry_points = global_parameter("lazy_entry_points", True),
         use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", True),

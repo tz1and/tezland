@@ -4,7 +4,11 @@ fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
 class FA2_RoyaltiesTest(fa2_royalties.FA2_Royalties):
     def __init__(self):
-        fa2_royalties.FA2_Royalties.__init__(self)
+        self.init_storage(
+            token_extra=sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
+                royalty_info = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE
+            ))
+        )
 
     @sp.entry_point
     def testValidateRoyalties(self, royalties):
@@ -15,7 +19,7 @@ class FA2_RoyaltiesTest(fa2_royalties.FA2_Royalties):
     def testSetRoyalties(self, params):
         sp.set_type(params.token_id, sp.TNat)
         sp.set_type(params.royalties, fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
-        self.setRoyalties(params.token_id, params.royalties)
+        self.data.token_extra[params.token_id] = sp.record(royalty_info = params.royalties)
 
 
 @sp.add_test(name = "FA2_Royalties_tests", profile = True)
@@ -108,13 +112,13 @@ def test():
     scenario.h3("testSetRoyalties")
 
     fa2_royalties.testSetRoyalties(token_id = sp.nat(0), royalties = royalties_valid1).run(sender = admin)
-    scenario.verify(fa2_royalties.data.token_royalties.contains(sp.nat(0)))
+    scenario.verify(fa2_royalties.data.token_extra.contains(sp.nat(0)))
 
     fa2_royalties.testSetRoyalties(token_id = sp.nat(1), royalties = royalties_valid2).run(sender = admin)
-    scenario.verify(fa2_royalties.data.token_royalties.contains(sp.nat(1)))
+    scenario.verify(fa2_royalties.data.token_extra.contains(sp.nat(1)))
 
     fa2_royalties.testSetRoyalties(token_id = sp.nat(2), royalties = royalties_valid3).run(sender = admin)
-    scenario.verify(fa2_royalties.data.token_royalties.contains(sp.nat(2)))
+    scenario.verify(fa2_royalties.data.token_extra.contains(sp.nat(2)))
 
     scenario.h3("get_token_royalties")
     
