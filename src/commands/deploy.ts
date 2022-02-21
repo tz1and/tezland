@@ -344,6 +344,23 @@ export default class Deploy extends DeployBase {
     typename: tezlandDutchAuctions\n`);
     }
 
+    private async feesToString (op: TransactionWalletOperation): Promise<string> {
+        const receipt = await op.receipt();
+        //console.log("totalFee", receipt.totalFee.toNumber());
+        //console.log("totalGas", receipt.totalGas.toNumber());
+        //console.log("totalStorage", receipt.totalStorage.toNumber());
+        //console.log("totalAllocationBurn", receipt.totalAllocationBurn.toNumber());
+        //console.log("totalOriginationBurn", receipt.totalOriginationBurn.toNumber());
+        //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
+        //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
+        // TODO: figure out how to actually calculate burn.
+        const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 100 / 1000000;
+        const totalFee = receipt.totalFee.toNumber() / 1000000;
+        //const totalGas = receipt.totalGas.toNumber() / 1000000;
+        //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
+        return `storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)}`;
+    }
+
     private async gasTestSuite(contracts: PostDeployContracts) {
         assert(this.tezos);
 
@@ -356,23 +373,6 @@ export default class Deploy extends DeployBase {
         await mint_batch_op.confirmation();
         console.log();
 
-        const feesToString = async (op: TransactionWalletOperation): Promise<string> => {
-            const receipt = await op.receipt();
-            //console.log("totalFee", receipt.totalFee.toNumber());
-            //console.log("totalGas", receipt.totalGas.toNumber());
-            //console.log("totalStorage", receipt.totalStorage.toNumber());
-            //console.log("totalAllocationBurn", receipt.totalAllocationBurn.toNumber());
-            //console.log("totalOriginationBurn", receipt.totalOriginationBurn.toNumber());
-            //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
-            //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
-            // TODO: figure out how to actually calculate burn.
-            const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 100 / 1000000;
-            const totalFee = receipt.totalFee.toNumber() / 1000000;
-            //const totalGas = receipt.totalGas.toNumber() / 1000000;
-            //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
-            return `storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)}`;
-        }
-
         // set operator
         const op_op = await contracts.items_FA2_contract.methods.update_operators([{
             add_operator: {
@@ -382,7 +382,7 @@ export default class Deploy extends DeployBase {
             }
         }]).send()
         await op_op.confirmation();
-        console.log("update_operators:\t" + await feesToString(op_op));
+        console.log("update_operators:\t" + await this.feesToString(op_op));
 
         /**
          * World
@@ -393,7 +393,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, item_list: list_one_item
         }).send();
         await setup_storage.confirmation();
-        console.log("create place (item):\t" + await feesToString(setup_storage));
+        console.log("create place (item):\t" + await this.feesToString(setup_storage));
         /*const transfer_op = await items_FA2_contract.methodsObject.transfer([{
             from_: this.accountAddress,
             txs: [
@@ -414,7 +414,7 @@ export default class Deploy extends DeployBase {
         // place props
         const place_props_op = await contracts.World_contract.methodsObject.set_place_props({ lot_id: 0, props: "000000" }).send();
         await place_props_op.confirmation();
-        console.log("set_place_props:\t" + await feesToString(place_props_op));
+        console.log("set_place_props:\t" + await this.feesToString(place_props_op));
         console.log();
 
         // place one item
@@ -422,7 +422,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, item_list: list_one_item
         }).send();
         await place_one_item_op.confirmation();
-        console.log("place_items (1):\t" + await feesToString(place_one_item_op));
+        console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
 
         // place ten items
         const list_ten_items = [
@@ -441,7 +441,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, item_list: list_ten_items
         }).send();
         await place_ten_items_op.confirmation();
-        console.log("place_items (10):\t" + await feesToString(place_ten_items_op));
+        console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
         console.log();
 
         // set one items data
@@ -451,7 +451,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, update_map: map_update_one_item
         }).send();
         await set_item_data_op.confirmation();
-        console.log("set_item_data (1):\t" + await feesToString(set_item_data_op));
+        console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
 
             // set ten items data
         const map_update_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
@@ -471,7 +471,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, update_map: map_update_ten_items
         }).send();
         await set_ten_items_data_op.confirmation();
-        console.log("set_item_data (10):\t" + await feesToString(set_ten_items_data_op));
+        console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
         console.log();
 
         // remove one item
@@ -481,7 +481,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, remove_map: map_remove_one_item
         }).send();
         await remove_one_item_op.confirmation();
-        console.log("remove_items (1):\t" + await feesToString(remove_one_item_op));
+        console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
 
         // remove ten items
         const map_remove_ten_items: MichelsonMap<string, number[]> = new MichelsonMap();
@@ -490,7 +490,7 @@ export default class Deploy extends DeployBase {
             lot_id: 0, remove_map: map_remove_ten_items
         }).send();
         await remove_ten_items_op.confirmation();
-        console.log("remove_items (10):\t" + await feesToString(remove_ten_items_op));
+        console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
         console.log();
 
         // set_permissions
@@ -503,14 +503,14 @@ export default class Deploy extends DeployBase {
             }
         }]).send()
         await perm_op.confirmation();
-        console.log("set_permissions:\t" + await feesToString(perm_op));
+        console.log("set_permissions:\t" + await this.feesToString(perm_op));
 
         // get item
         const get_item_op = await contracts.World_contract.methodsObject.get_item({
             lot_id: 0, issuer: this.accountAddress, item_id: 11
         }).send({ mutez: true, amount: 1000000 });
         await get_item_op.confirmation();
-        console.log("get_item:\t\t" + await feesToString(get_item_op));
+        console.log("get_item:\t\t" + await this.feesToString(get_item_op));
         console.log();
         console.log();
 
@@ -526,13 +526,13 @@ export default class Deploy extends DeployBase {
             }
         }]).send()
         await place_op_op.confirmation();
-        console.log("update_operators:\t" + await feesToString(place_op_op));
+        console.log("update_operators:\t" + await this.feesToString(place_op_op));
 
         const whitelist_enable_op = await contracts.Dutch_contract.methodsObject.manage_whitelist([{
             whitelist_enabled: false
         }]).send()
         await whitelist_enable_op.confirmation();
-        console.log("manage_whitelist:\t" + await feesToString(whitelist_enable_op));
+        console.log("manage_whitelist:\t" + await this.feesToString(whitelist_enable_op));
         console.log();
 
         let current_time = Math.floor(Date.now() / 1000) + 3;
@@ -545,12 +545,12 @@ export default class Deploy extends DeployBase {
             fa2: contracts.places_FA2_contract.address
         }).send();
         await create_auction_op.confirmation();
-        console.log("create_auction:\t\t" + await feesToString(create_auction_op));
+        console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
         await sleep(3000);
 
         const bid_op = await contracts.Dutch_contract.methodsObject.bid(0).send({amount: 200000, mutez: true});
         await bid_op.confirmation();
-        console.log("bid:\t\t\t" + await feesToString(bid_op));
+        console.log("bid:\t\t\t" + await this.feesToString(bid_op));
         console.log();
 
         current_time = Math.floor(Date.now() / 1000) + 3;
@@ -563,12 +563,12 @@ export default class Deploy extends DeployBase {
             fa2: contracts.places_FA2_contract.address
         }).send();
         await create_auction1_op.confirmation();
-        console.log("create_auction:\t\t" + await feesToString(create_auction1_op));
+        console.log("create_auction:\t\t" + await this.feesToString(create_auction1_op));
         await sleep(3000);
 
         const cancel_op = await contracts.Dutch_contract.methodsObject.cancel(1).send();
         await cancel_op.confirmation();
-        console.log("cancel:\t\t\t" + await feesToString(cancel_op));
+        console.log("cancel:\t\t\t" + await this.feesToString(cancel_op));
     }
 
     private async mintAndPlace(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {
@@ -602,6 +602,7 @@ export default class Deploy extends DeployBase {
                 lot_id: token_id, item_list: item_list
             }).send();
             await place_ten_items_op.confirmation();
+            console.log("place_items:\t" + await this.feesToString(place_ten_items_op));
         }
 
         /*const place_items_op = await contracts.World_contract.methodsObject.place_items({
