@@ -1241,8 +1241,8 @@ def items_config():
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", True),
-        lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", True),
         add_distribute = global_parameter("add_distribute", False),
         royalties = global_parameter("royalties", True)
@@ -1257,8 +1257,8 @@ def places_config():
         non_fungible = global_parameter("non_fungible", True),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", False),
-        lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", False),
         royalties = global_parameter("royalties", False)
@@ -1273,8 +1273,8 @@ def dao_config():
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
         store_total_supply = global_parameter("store_total_supply", True),
-        lazy_entry_points = global_parameter("lazy_entry_points", True),
-        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", True),
+        lazy_entry_points = global_parameter("lazy_entry_points", False),
+        use_token_metadata_offchain_view = global_parameter("use_token_metadata_offchain_view", False),
         allow_burn_tokens = global_parameter("allow_burn_tokens", False),
         add_distribute = global_parameter("add_distribute", True),
         royalties = global_parameter("royalties", False)
