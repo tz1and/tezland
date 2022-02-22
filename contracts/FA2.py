@@ -1236,7 +1236,7 @@ def items_config():
     # Items is a multi-asset, fungible token, (that doesn't stores the total supply) an allows burning.
     return FA2_config(
         metadata_name = "tz1and Items",
-        metadata_description = "tz1and Item FA2 Tokens",
+        metadata_description = "tz1and Item FA2 Tokens.",
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
@@ -1252,7 +1252,7 @@ def places_config():
     # Places is a multi-asset, non-fungible token. No burning allowed.
     return FA2_config(
         metadata_name = "tz1and Places",
-        metadata_description = "tz1and Places FA2 Tokens",
+        metadata_description = "tz1and Places FA2 Tokens.",
         single_asset = global_parameter("single_asset", False),
         non_fungible = global_parameter("non_fungible", True),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),
@@ -1268,7 +1268,7 @@ def dao_config():
     # Places is a multi-asset, non-fungible token. No burning allowed.
     return FA2_config(
         metadata_name = "tz1and DAO",
-        metadata_description = "tz1and DAO FA2 Token",
+        metadata_description = "tz1and DAO FA2 Token.",
         single_asset = global_parameter("single_asset", True),
         non_fungible = global_parameter("non_fungible", False),
         add_mutez_transfer = global_parameter("add_mutez_transfer", False),

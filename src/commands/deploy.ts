@@ -88,7 +88,7 @@ export default class Deploy extends DeployBase {
         const minter_metadata = {
             name: 'tz1and Minter',
             description: 'tz1and Items and Places minter',
-            interfaces: [],
+            interfaces: ["TZIP-016"],
             version: '1.0.0'
         };
 
@@ -107,7 +107,7 @@ export default class Deploy extends DeployBase {
         const dutch_metadata = {
             name: 'tz1and Dutch Auctions',
             description: 'tz1and Places and Items Dutch auctions',
-            interfaces: [],
+            interfaces: ["TZIP-016"],
             version: '1.0.0'
         };
 
@@ -156,7 +156,7 @@ export default class Deploy extends DeployBase {
         const world_metadata = {
             name: 'tz1and World',
             description: 'tz1and Virtual World',
-            interfaces: [],
+            interfaces: ["TZIP-016"],
             version: '1.0.0'
         };
 
