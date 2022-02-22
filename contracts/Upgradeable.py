@@ -9,7 +9,8 @@ class Upgradeable(admin_contract.Administrable):
         self.upgradeable_entrypoints = entrypoints
         admin_contract.Administrable.__init__(self, administrator = administrator)
 
-    @sp.entry_point
+    # Never lazify this entrypoint.
+    @sp.entry_point(lazify=False)
     def update_ep(self, params):
         # Build a variant from upgradeable_entrypoints.
         sp.set_type(params.ep_name, sp.TVariant(
