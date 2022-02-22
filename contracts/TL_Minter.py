@@ -13,7 +13,7 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
-        #self.add_flag("initial-cast")
+        
         self.init_storage(
             items_contract = items_contract,
             item_id_counter = sp.nat(0),

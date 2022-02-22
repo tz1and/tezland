@@ -226,11 +226,16 @@ class Permission_param:
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.PermittedFA2,
     upgradeable.Upgradeable, fa2_admin.FA2_Administration):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-unit"):
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
+        # Not a win at all in terms of gas, especially on the simpler eps.
+        #self.add_flag("lazy-entry-points")
+        # No noticeable effect on gas.
         #self.add_flag("initial-cast")
-        #self.add_flag("simplify-via-michel") # removes all annots...
+        # Makes much smaller code but removes annots from eps.
+        #self.add_flag("simplify-via-michel")
+        
         self.error_message = Error_message()
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()

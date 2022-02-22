@@ -35,7 +35,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-unit"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
-        #self.add_flag("initial-cast")
+        
         self.init_storage(
             items_contract = items_contract,
             metadata = metadata,
