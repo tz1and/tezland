@@ -105,7 +105,7 @@ services:
   flextesa:
     restart: always
     image: oxheadalpha/flextesa:20220127  # prev: 20211207 #20211119 with hangzhou # 20210602 granada
-    command: hangzbox start
+    command: ${SANDBOX_TYPE} start
     environment:
       - block_time=10
       - flextesa_node_cors_origin=*
