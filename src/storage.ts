@@ -3,11 +3,13 @@
 
 import { Blob, NFTStorage, Service, Token } from 'nft.storage'
 import * as ipfs from 'ipfs-http-client';
+import { TimeoutError } from 'ipfs-utils/src/http'
 import { performance } from 'perf_hooks';
 import config from './user.config';
+//import { Blockstore } from 'nft.storage/dist/src/platform';
 
 
-const ipfs_client = ipfs.create({ url: config.ipfs.localNodeUrl });
+const ipfs_client = ipfs.create({ url: config.ipfs.localNodeUrl, timeout: 10000 });
 
 
 const validateTZip12 = ({ name, description, decimals }: { name: string, description: string, decimals: number}) => {
@@ -32,7 +34,6 @@ const validateTZip12 = ({ name, description, decimals }: { name: string, descrip
 class NFTStorageTZip extends NFTStorage {
     static override async encodeNFT(input: any) {
         validateTZip12(input)
-
         return Token.Token.encode(input)
     }
 
@@ -46,11 +47,20 @@ class NFTStorageTZip extends NFTStorage {
         return NFTStorageTZip.store(this, token)
     }
 
-    static override async storeBlob(service: Service, blob: Blob) {
-        const { cid, car } = await NFTStorageTZip.encodeBlob(blob)
-        await NFTStorage.storeCar(service, car)
-        return cid.toString()
-    }
+    /*static override async storeBlob(service: Service, blob: Blob) {
+        const blockstore = new Blockstore()
+        let cidString
+
+        try {
+            const { cid, car } = await NFTStorageTZip.encodeBlob(blob, { blockstore })
+            await NFTStorageTZip.storeCar(service, car)
+            cidString = cid.toString()
+        } finally {
+            await blockstore.close()
+        }
+
+        return cidString
+    }*/
 }
 
 // Upload to NFTStorage without validation. For contract metadata.
@@ -69,11 +79,20 @@ class NFTStorageNoValidation extends NFTStorage {
         return NFTStorageNoValidation.store(this, token)
     }
 
-    static override async storeBlob(service: Service, blob: Blob) {
-        const { cid, car } = await NFTStorageNoValidation.encodeBlob(blob)
-        await NFTStorage.storeCar(service, car)
-        return cid.toString()
-    }
+    /*static override async storeBlob(service: Service, blob: Blob) {
+        const blockstore = new Blockstore()
+        let cidString
+
+        try {
+            const { cid, car } = await NFTStorageNoValidation.encodeBlob(blob, { blockstore })
+            await NFTStorageNoValidation.storeCar(service, car)
+            cidString = cid.toString()
+        } finally {
+            await blockstore.close()
+        }
+
+        return cidString
+    }*/
 }
 
 // if it's a directory path, get the root file
@@ -81,13 +100,27 @@ class NFTStorageNoValidation extends NFTStorage {
 async function get_root_file_from_dir(cid: string): Promise<string> {
     console.log("get_root_file_from_dir: ", cid)
     try {
-        for await(const entry of ipfs_client.ls(cid)) {
-            //console.log(entry)
-            if(entry.type === 'file') {
-                return entry.cid.toString();
+        const max_num_retries = 5;
+        let num_retries = 0;
+        while(num_retries < max_num_retries) {
+            try {
+                for await (const entry of ipfs_client.ls(cid)) {
+                    //console.log(entry)
+                    if (entry.type === 'file') {
+                        return entry.cid.toString();
+                    }
+                }
+                throw new Error("Failed to get root file from dir");
+            } catch (e) {
+                if (e instanceof TimeoutError) {
+                    num_retries++
+                    console.log("retrying ipfs.ls");
+                } else {
+                    throw e; // let others bubble up
+                }
             }
         }
-        throw new Error("Failed to get root file from dir");
+        throw new Error("Failed to get root file from dir. Retries = " + max_num_retries);
     } catch(e: any) {
         throw new Error("Failed to get root file from dir: " + e.message);
     }
