@@ -127,10 +127,10 @@ export default class DeployBase {
 
         // if sandbox, delete deployments dir
         if(this.isSandboxNet) {
-            if (fs.existsSync(this.deploymentsDir)) {
+            if (fs.existsSync(this.deploymentsDir))
                 fs.rmdirSync(this.deploymentsDir, { recursive: true });
-                fs.mkdirSync(this.deploymentsDir, { recursive: true });
-            }
+            
+            fs.mkdirSync(this.deploymentsDir, { recursive: true });
         }
         else {
             if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
