@@ -46,7 +46,7 @@ itemRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 4 floats for quat, 1 float scale, 3 floats pos = 16 bytes
+    item_data=sp.TBytes, # we store the transforms as half floats. 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
     # NOTE: could store an animation index and all kinds of other stuff in item_data
 ).layout(("item_amount", ("token_id", ("xtz_per_item", "item_data"))))
 
@@ -437,7 +437,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                         fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
-                    #sp.verify(sp.len(ext_data) == 16, message = self.error_message.data_length())
+                    #sp.verify(sp.len(ext_data) >= itemDataMinLen, message = self.error_message.data_length())
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
