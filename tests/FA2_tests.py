@@ -13,7 +13,7 @@ fa2_contract.add_test(fa2_contract.FA2_config(single_asset = True, allow_burn_to
 fa2_contract.add_test(fa2_contract.FA2_config(non_fungible = True, add_mutez_transfer = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = False, royalties = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = True, allow_burn_tokens = True))
-fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = True, royalties = True, allow_burn_tokens = True))
+#fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = True, royalties = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(add_mutez_transfer = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(lazy_entry_points = True, allow_burn_tokens = True))
 
