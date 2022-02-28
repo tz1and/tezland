@@ -14,6 +14,10 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
+# TODO: FA2 burn: remove address if operator burn is not supported.
+# TODO: add is_administrator view to administrable.
+# TODO: place permissions: increase seq num (interaction counter)?
+# TODO: use metadata builder for all other contracts.
 # TODO: should I do chunking?
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
@@ -51,7 +55,7 @@ otherTokenRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 3 floats for euler angles, 3 floats pos, 1 float scale = 14 bytes
+    item_data=sp.TBytes, # we store the transforms as half floats. 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
     fa2=sp.TAddress # store a fa2 token address
 ).layout(("item_amount", ("token_id", ("xtz_per_item", ("item_data", "fa2")))))
 
@@ -137,7 +141,7 @@ placeItemListType = sp.TVariant(
     ext = sp.TBytes
 ).layout(("item", ("other", "ext")))
 
-itemDataMinLen = sp.nat(14)
+itemDataMinLen = sp.nat(15)
 placeDataMinLen = sp.nat(3)
 
 # permissions are in octal, like unix.
