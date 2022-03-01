@@ -126,6 +126,7 @@ function createItemTokenMetadata(metadata: ItemMetadata): any {
         symbol: 'Item',
         artifactUri: metadata.modelBlob,
         decimals: 0,
-        formats: metadata.formats
+        formats: metadata.formats,
+        baseScale: 1
     };
 }
