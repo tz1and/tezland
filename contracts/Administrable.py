@@ -48,3 +48,9 @@ class Administrable(sp.Contract):
 
         # Reset the proposed administrator value
         self.data.proposed_administrator = sp.none
+
+    @sp.onchain_view(pure=True)
+    def get_administrator(self):
+        """Returns the administrator.
+        """
+        sp.result(self.data.administrator)

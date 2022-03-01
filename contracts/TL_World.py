@@ -15,7 +15,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
 # TODO: FA2 burn: remove address if operator burn is not supported.
-# TODO: add is_administrator/get_administrator view to administrable.
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: should I do chunking?

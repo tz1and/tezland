@@ -71,3 +71,8 @@ def test():
     administrable.accept_administrator().run(sender = admin, valid = False, exception = "NO_ADMIN_TRANSFER")
     administrable.accept_administrator().run(sender = alice, valid = False, exception = "NO_ADMIN_TRANSFER")
     administrable.accept_administrator().run(sender = bob, valid = False, exception = "NO_ADMIN_TRANSFER")
+
+    scenario.h3("get_administrator view")
+
+    scenario.verify(administrable.get_administrator() != admin.address)
+    scenario.verify(administrable.get_administrator() == bob.address)
