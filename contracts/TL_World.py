@@ -14,24 +14,28 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: FA2 burn: remove address if operator burn is not supported.
+# TODO: allow placing and swapping other FA2, based on props.
+# TODO: get_place_data return entire placeStorageType?
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
-# TODO: should I do chunking?
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
-# TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
-# TODO: investgate using a "metadata map" for item data.
+# TODO: FA2 burn: remove address if operator burn is not supported.
 #
 #
 # Other
-# TODO: allow placing and swapping other FA2, based on props.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
+# TODO: investgate using a "metadata map" for item data.
 # TODO: check if packing/unpacking michelson maps works well for script variables
 # TODO: turn transferMap into a metaclass?
+#
+#
+# V2
+# TODO: should I do chunking? I could make room for it right now by hashing pair (place, chunk) and storing chunks in separate bigmap.
+# TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 
 
 # Some notes:
