@@ -52,8 +52,7 @@ def test():
             fa2 = other_token.address,
             props = sp.record(
                 swap_allowed = True,
-                has_royalties = False,
-                royalties_view = True)))])
+                royalties_kind = sp.variant("tz1and", sp.unit))))])
 
     remove_permitted = sp.list([sp.variant("remove_permitted", other_token.address)])
 
@@ -75,7 +74,7 @@ def test():
     scenario.h3("get_fa2_permitted view")
     scenario.verify(sp.is_failing(permitted.get_fa2_permitted(other_token.address)))
     permitted.set_fa2_permitted(add_permitted).run(sender = admin)
-    scenario.verify(permitted.get_fa2_permitted(other_token.address) == sp.record(swap_allowed = True, has_royalties = False, royalties_view = True))
+    scenario.verify(permitted.get_fa2_permitted(other_token.address) == sp.record(swap_allowed = True, royalties_kind = sp.variant("tz1and", sp.unit)))
 
     scenario.h3("is_fa2_permitted view")
     scenario.verify(permitted.is_fa2_permitted(other_token.address) == True)

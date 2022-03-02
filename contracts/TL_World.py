@@ -14,7 +14,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: allow placing and swapping other FA2, based on props.
 # TODO: get_place_data return entire placeStorageType?
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
@@ -25,6 +24,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 #
 #
 # Other
+# TODO: Allow swapping other FA2, based on props. See Dutch getRoyaltiesInline for getting royalties.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
@@ -583,6 +583,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
 
         # Get the item from storage. Currently, get_item is only supposed to work for the item variant.
+        # TODO: Allow swapping other FA2, based on props. See Dutch getRoyaltiesInline for royalties.
         the_item = sp.local("the_item", item_store[params.item_id].open_variant("item",
             message = self.error_message.wrong_item_type()))
 
@@ -593,7 +594,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         # Transfer royalties, etc.
         sp.if the_item.value.xtz_per_item != sp.tez(0):
             # Get the royalties for this item
-            item_royalty_info = sp.compute(utils.fa2_get_token_royalties(self.data.items_contract, the_item.value.token_id))
+            item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
             
             # Calculate fee and royalties.
             fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalty_info.royalties + self.data.fees) / sp.nat(1000))

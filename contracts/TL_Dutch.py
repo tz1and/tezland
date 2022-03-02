@@ -9,7 +9,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
-# TODO: allow auctions on other FA2, based on props.
 # TODO: layouts
 
 #
@@ -51,8 +50,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
         default_permitted = { places_contract : sp.record(
             swap_allowed = True,
-            has_royalties = False,
-            royalties_view = False) }
+            royalties_kind = sp.variant("none", sp.unit) )}
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
 
     #
@@ -157,7 +155,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
 
         # calculate current price and verify amount sent
-        ask_price = self.get_auction_price_inline(the_auction.value)
+        ask_price = self.getAuctionPriceInline(the_auction.value)
         #sp.trace(sp.now)
         #sp.trace(ask_price)
 
@@ -169,7 +167,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         utils.send_if_value(sp.sender, overpay)
 
         sp.if ask_price != sp.tez(0):
-            token_royalty_info = sp.compute(self.get_royalties_if_item_inline(the_auction.value.token_id, the_auction.value.fa2))
+            token_royalty_info = sp.compute(self.getRoyaltiesInline(the_auction.value.token_id, the_auction.value.fa2))
 
             # Calculate fees.
             fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalty_info.royalties + self.data.fees) / sp.nat(1000))
@@ -196,7 +194,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         del self.data.auctions[auction_id]
 
 
-    def get_auction_price_inline(self, the_auction):
+    def getAuctionPriceInline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
         the_auction = sp.set_type_expr(the_auction, TL_Dutch.AUCTION_TYPE)
         
@@ -224,16 +222,40 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         return result.value
 
 
-    def get_royalties_if_item_inline(self, token_id, auction_fa2):
+    def getRoyaltiesInline(self, token_id, auction_fa2):
         """Inlined into bid to be upgradeable."""
         token_id = sp.set_type_expr(token_id, sp.TNat)
         auction_fa2 = sp.set_type_expr(auction_fa2, sp.TAddress)
 
+        fa2_props = self.getPermittedFA2Props(auction_fa2)
+
+        # In the dutch auction contract, this should never happen. Check it anyway.
+        sp.verify(fa2_props.swap_allowed == True, message="SWAP_NOT_ALLOWED")
+
         token_royalty_info = sp.local("token_royalty_info",
             sp.record(royalties=0, contributors={}),
             t=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
-        sp.if (auction_fa2 == self.data.items_contract):
-            token_royalty_info.value = utils.fa2_get_token_royalties(auction_fa2, token_id)
+
+        with fa2_props.royalties_kind.match_cases() as arg:
+            #with arg.match("none"): # none is implied to return default royalty info
+            with arg.match("tz1and"):
+                token_royalty_info.value = utils.tz1and_items_get_royalties(auction_fa2, token_id)
+            with arg.match("combined"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("versum"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other1"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other2"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other3"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other4"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other5"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+            with arg.match("other6"):
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
         
         return token_royalty_info.value
 
@@ -253,4 +275,4 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
         """Returns the current price of an auction."""
         sp.set_type(auction_id, sp.TNat)
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
-        sp.result(self.get_auction_price_inline(the_auction.value))
+        sp.result(self.getAuctionPriceInline(the_auction.value))

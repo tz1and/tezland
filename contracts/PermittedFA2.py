@@ -4,11 +4,23 @@ admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 # TODO: is_fa2_permitted/get_fa2_permitted is probably not needed? maybe for interop...
 
+royaltiesKindVariantType = sp.TVariant(
+    none = sp.TUnit,
+    tz1and = sp.TUnit, # tz1and style royalties, similar to versum. This may be used in Dutch auctions.
+    combined = sp.TUnit, # versum style royalties, but combined into one view.
+    versum = sp.TUnit, # versum style, 3 separate views.
+    other1 = sp.TUnit, # reserved for other marketplaces to be extensible
+    other2 = sp.TUnit, # reserved
+    other3 = sp.TUnit, # reserved
+    other4 = sp.TUnit, # reserved
+    other5 = sp.TUnit, # reserved
+    other6 = sp.TUnit  # reserved
+)
+
 permittedFA2MapValueType = sp.TRecord(
     swap_allowed = sp.TBool, # If the token is allowed to be swapped. This is a little extra.
-    has_royalties = sp.TBool, # If the token has royalties.
-    royalties_view = sp.TBool # If the token has a tz1and-like royalties view.
-).layout(("swap_allowed", ("has_royalties", "royalties_view")))
+    royalties_kind = royaltiesKindVariantType, # If the token has royalties and what kind they are.
+).layout(("swap_allowed", "royalties_kind"))
 
 #
 # Lazy map of permitted FA2 tokens for 'other' type.
@@ -22,7 +34,7 @@ class Permitted_fa2_map:
     def is_permitted(self, map, fa2):
         return map.contains(fa2)
     def get_props(self, map, fa2):
-        return map.get(fa2)
+        return map.get(fa2, message = "TOKEN_NOT_PERMITTED")
 
 class Permitted_fa2_param:
     def get_add_type(self):
@@ -63,8 +75,6 @@ class PermittedFA2(admin_contract.Administrable):
     def getPermittedFA2Props(self, fa2):
         """Returns permitted props or fails if not permitted"""
         fa2 = sp.set_type_expr(fa2, sp.TAddress)
-        sp.verify(self.permitted_fa2_map.is_permitted(self.data.permitted_fa2, fa2),
-            message = "TOKEN_NOT_PERMITTED")
         return sp.compute(self.permitted_fa2_map.get_props(self.data.permitted_fa2, fa2))
 
     @sp.entry_point

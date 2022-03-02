@@ -27,7 +27,7 @@ def send_if_value(to, amount):
 
 #
 # tz1and fa2 extension royalties
-def fa2_get_token_royalties(fa2, token_id):
+def tz1and_items_get_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
         t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()

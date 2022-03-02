@@ -562,8 +562,7 @@ def test():
             fa2 = other_token.address,
             props = sp.record(
                 swap_allowed = True,
-                has_royalties = False,
-                royalties_view = True)))])
+                royalties_kind = sp.variant("none", sp.unit))))])
 
     world.set_fa2_permitted(add_permitted).run(sender = admin)
 
@@ -575,7 +574,6 @@ def test():
         sp.variant("other", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), fa2 = other_token.address, item_data = position)),
         sp.variant("other", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
     ], sender=alice)
-    # TODO: verify token was transferred
 
     # NOTE: make sure other type tokens can only be placed one at a time and aren't swappable, for now.
     place_items(place_alice, [

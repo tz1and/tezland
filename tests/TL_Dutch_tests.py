@@ -388,8 +388,7 @@ def test():
             fa2 = items_tokens.address,
             props = sp.record(
                 swap_allowed = True,
-                has_royalties = False,
-                royalties_view = True)))])
+                royalties_kind = sp.variant("tz1and", sp.unit))))])
 
     dutch.set_fa2_permitted(add_permitted).run(sender = admin)
 
