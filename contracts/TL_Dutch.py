@@ -9,7 +9,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
-# TODO: layouts
 
 # Optional extension argument type.
 # Map val can contain about anything and be

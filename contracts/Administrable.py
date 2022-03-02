@@ -1,8 +1,5 @@
 import smartpy as sp
 
-# TODO: figure out if a get_manager onchain view is useful.
-# TODO: implement "accept_manager"
-
 class Administrable(sp.Contract):
     def __init__(self, administrator):
         # TODO: figure out how to init the type in subclasses

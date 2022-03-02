@@ -7,7 +7,6 @@ class FA2_Administration(admin_contract.Administrable):
     def __init__(self, administrator):
         admin_contract.Administrable.__init__(self, administrator = administrator)
 
-    # TODO: test
     @sp.entry_point
     def transfer_fa2_administrator(self, transfer_list):
         """Proposes to transfer the FA2 token contracts administator to another
@@ -32,7 +31,6 @@ class FA2_Administration(admin_contract.Administrable):
                 amount=sp.mutez(0),
                 destination=fa2_transfer_administrator_handle)
 
-    # TODO: test
     @sp.entry_point
     def accept_fa2_administrator(self, accept_list):
         """Accepts the FA2 contracts administrator responsabilities.

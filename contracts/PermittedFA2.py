@@ -88,8 +88,6 @@ class PermittedFA2(admin_contract.Administrable):
 
         self.onlyAdministrator()
         
-        # TODO: validate?
-        
         sp.for update in params:
             with update.match_cases() as arg:
                 with arg.match("add_permitted") as upd:

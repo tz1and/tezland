@@ -64,7 +64,6 @@ otherTokenRecordType = sp.TRecord(
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
-# TODO: could have this be a record where item_data is common + variant with ext as Unit
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
