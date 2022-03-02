@@ -108,14 +108,16 @@ def test():
         end_price = sp.tez(100),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(2),
-        fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(120),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(2),
-        fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     # incorrect start/end time
     dutch.create(token_id = place_bob,
@@ -123,14 +125,16 @@ def test():
         end_price = sp.tez(120),
         start_time = sp.timestamp(0).add_minutes(2),
         end_time = sp.timestamp(0).add_minutes(2),
-        fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.timestamp(0).add_minutes(3),
         end_time = sp.timestamp(0).add_minutes(2),
-        fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     # Wrong owner
     dutch.create(token_id = place_alice,
@@ -138,14 +142,16 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = bob, valid = False, exception = "NOT_OWNER")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "NOT_OWNER")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "NOT_OWNER")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
     # token not permitted
     dutch.create(token_id = place_bob,
@@ -153,7 +159,8 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = items_tokens.address).run(sender = bob, valid = False, exception = "TOKEN_NOT_PERMITTED")
+        fa2 = items_tokens.address,
+        extension = sp.none).run(sender = bob, valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
 
@@ -163,7 +170,8 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = bob)
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = bob)
 
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = bob.address, token_id = place_bob)))
     scenario.verify(sp.to_int(balance_after) == (balance_before - 1))
@@ -178,16 +186,17 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(2),
-        fa2 = places_tokens.address).run(sender = alice)
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice)
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
 
     # not owner
-    dutch.cancel(1).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    dutch.cancel(auction_id = 1, extension = sp.none).run(sender = bob, valid = False, exception = "NOT_OWNER")
     # valid
-    dutch.cancel(1).run(sender = alice)
+    dutch.cancel(auction_id = 1, extension = sp.none).run(sender = alice)
     # already cancelled, wrong state
-    dutch.cancel(1).run(sender = alice, valid = False) # missing item in map
+    dutch.cancel(auction_id = 1, extension = sp.none).run(sender = alice, valid = False) # missing item in map
 
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
     scenario.verify(balance_after == (balance_before + 1))
@@ -198,21 +207,21 @@ def test():
     scenario.h3("Bid")
 
     # try a couple of wrong amount bids at several times
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(1), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(2), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(20), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(40), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(60), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(80), valid = False)
-    dutch.bid(0).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(81), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(1), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(2), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(20), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(40), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(60), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(80), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(81), valid = False)
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
 
     # valid
-    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = True)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = True)
     # valid but wrong state
-    dutch.bid(0).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = False)
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = alice, amount = sp.tez(22), now=sp.timestamp(0).add_minutes(80), valid = False)
 
     balance_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
     scenario.verify(balance_after == (balance_before + 1))
@@ -230,9 +239,10 @@ def test():
         end_price = sp.mutez(1),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(5),
-        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, now=sp.timestamp(0))
 
-    dutch.bid(2).run(sender = alice, amount = sp.mutez(1), now=sp.timestamp(0).add_minutes(80), valid = True)
+    dutch.bid(auction_id = 2, extension = sp.none).run(sender = alice, amount = sp.mutez(1), now=sp.timestamp(0).add_minutes(80), valid = True)
 
     # create an auction that lasts 5 second.
     # duration must be > granularity
@@ -241,7 +251,8 @@ def test():
         end_price = sp.tez(1),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_seconds(5),
-        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0), valid = False, exception = "INVALID_PARAM")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, now=sp.timestamp(0), valid = False, exception = "INVALID_PARAM")
 
     # create an auction with end price 0.
     # duration must be > granularity
@@ -250,9 +261,10 @@ def test():
         end_price = sp.tez(0),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(5),
-        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, now=sp.timestamp(0))
 
-    dutch.bid(3).run(sender = alice, amount = sp.mutez(0), now=sp.timestamp(0).add_minutes(80), valid = True)
+    dutch.bid(auction_id = 3, extension = sp.none).run(sender = alice, amount = sp.mutez(0), now=sp.timestamp(0).add_minutes(80), valid = True)
 
     # TODO: more failure cases?
 
@@ -276,7 +288,8 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice, now=sp.timestamp(0))
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, now=sp.timestamp(0))
 
     auction_info = dutch.get_auction(4)
     #scenario.verify(item_limit == sp.nat(64))
@@ -310,23 +323,24 @@ def test():
     dutch.set_paused(True).run(sender = admin)
     scenario.verify(dutch.data.paused == True)
 
-    dutch.bid(4).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
+    dutch.bid(auction_id = 4, extension = sp.none).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
 
-    dutch.cancel(4).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    dutch.cancel(auction_id = 4, extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
     dutch.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     dutch.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     dutch.set_paused(False).run(sender = admin)
     scenario.verify(dutch.data.paused == False)
 
-    dutch.cancel(4).run(sender = alice)
+    dutch.cancel(auction_id = 4, extension = sp.none).run(sender = alice)
 
     #
     # test whitelist
@@ -339,7 +353,8 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
 
     minter.mint_Place(address = admin.address,
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
@@ -358,14 +373,15 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = places_tokens.address).run(sender = admin, valid = True)
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = admin, valid = True)
 
-    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
+    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
 
     dutch.manage_whitelist([sp.variant("whitelist_add", [alice.address])]).run(sender=admin)
     scenario.verify(dutch.data.whitelist.contains(alice.address))
 
-    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
+    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
     scenario.verify(~dutch.data.whitelist.contains(alice.address))
 
     dutch.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
@@ -381,7 +397,8 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = items_tokens.address).run(sender = bob, now = sp.timestamp(0), valid = False, exception = "TOKEN_NOT_PERMITTED")
+        fa2 = items_tokens.address,
+        extension = sp.none).run(sender = bob, now = sp.timestamp(0), valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     add_permitted = sp.list([sp.variant("add_permitted",
         sp.record(
@@ -397,8 +414,9 @@ def test():
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
-        fa2 = items_tokens.address).run(sender = bob, now = sp.timestamp(0))
+        fa2 = items_tokens.address,
+        extension = sp.none).run(sender = bob, now = sp.timestamp(0))
 
-    dutch.bid(abs(dutch.data.auction_id - 1)).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
+    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
 
     # TODO: check roaylaties paid, token transferred

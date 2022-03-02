@@ -11,6 +11,11 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: test royalties for item token
 # TODO: layouts
 
+# Optional extension argument type.
+# Map val can contain about anything and be
+# unpacked with sp.unpack.
+extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
+
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
@@ -81,9 +86,10 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
             end_price = sp.TMutez,
             start_time = sp.TTimestamp,
             end_time = sp.TTimestamp,
-            fa2 = sp.TAddress
+            fa2 = sp.TAddress,
+            extension = extensionArgType
         ).layout(("token_id", ("start_price", ("end_price",
-            ("start_time", ("end_time", "fa2")))))))
+            ("start_time", ("end_time", ("fa2", "extension"))))))))
 
         self.onlyUnpaused()
         self.onlyAdminIfWhitelistEnabled()
@@ -116,40 +122,46 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
 
     @sp.entry_point(lazify = True)
-    def cancel(self, auction_id):
+    def cancel(self, params):
         """Cancel an auction.
 
         Given it is owned.
         Token is transferred back to auction owner.
         """
-        sp.set_type(auction_id, sp.TNat)
+        sp.set_type(params, sp.TRecord(
+            auction_id = sp.TNat,
+            extension = extensionArgType
+        ).layout(("auction_id", "extension")))
 
         self.onlyUnpaused()
         # no need to call self.onlyAdminIfWhitelistEnabled() 
 
-        the_auction = self.data.auctions[auction_id]
+        the_auction = self.data.auctions[params.auction_id]
 
         sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # transfer token back to auction owner.
         utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
-        del self.data.auctions[auction_id]
+        del self.data.auctions[params.auction_id]
 
 
     @sp.entry_point(lazify = True)
-    def bid(self, auction_id):
+    def bid(self, params):
         """Bid on an auction.
 
         The first valid bid (value >= ask_price) gets the token.
         Overpay is transferred back to sender.
         """
-        sp.set_type(auction_id, sp.TNat)
+        sp.set_type(params, sp.TRecord(
+            auction_id = sp.TNat,
+            extension = extensionArgType
+        ).layout(("auction_id", "extension")))
 
         self.onlyUnpaused()
         self.onlyWhitelisted()
 
-        the_auction = sp.local("the_auction", self.data.auctions[auction_id])
+        the_auction = sp.local("the_auction", self.data.auctions[params.auction_id])
 
         # check auction has started
         sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
@@ -191,7 +203,7 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
 
         self.removeFromWhitelist(sp.sender)
 
-        del self.data.auctions[auction_id]
+        del self.data.auctions[params.auction_id]
 
 
     def getAuctionPriceInline(self, the_auction):
