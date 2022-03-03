@@ -14,7 +14,7 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: get_place_data return entire placeStorageType?
+# TODO: change itemDataMinLen to be version + 3 floats = 7 bytes. that should be the bare minimum.
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
@@ -336,7 +336,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
 
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
-    def get_permissions_inline(self, lot_id, owner, permittee):
+    def getPermissionsInline(self, lot_id, owner, permittee):
         lot_id = sp.set_type_expr(lot_id, sp.TNat)
         owner = sp.set_type_expr(owner, sp.TOption(sp.TAddress))
         permittee = sp.set_type_expr(permittee, sp.TAddress)
@@ -366,7 +366,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         self.onlyUnpaused()
 
         # Caller must have Full permissions.
-        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # Get or create the place.
@@ -391,7 +391,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         self.onlyUnpaused()
 
         # Caller must have PlaceItems permissions.
-        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
         # Get or create the place.
@@ -472,7 +472,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
@@ -523,7 +523,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
         this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.get_permissions_inline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
@@ -660,13 +660,9 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
     def get_place_data(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
         sp.if self.data.places.contains(lot_id) == False:
-            sp.result(sp.record(
-                stored_items = itemStoreLiteral,
-                place_props = defaultPlaceProps))
+            sp.result(sp.set_type_expr(placeStorageDefault, placeStorageType))
         sp.else:
-            sp.result(sp.record(
-                stored_items = self.data.places[lot_id].stored_items,
-                place_props = self.data.places[lot_id].place_props))
+            sp.result(sp.set_type_expr(self.data.places[lot_id], placeStorageType))
 
     @sp.onchain_view(pure=True)
     def get_place_seqnum(self, lot_id):
@@ -694,7 +690,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
             owner = sp.TOption(sp.TAddress),
             permittee = sp.TAddress
         ).layout(("lot_id", ("owner", "permittee"))))
-        sp.result(self.get_permissions_inline(query.lot_id, query.owner, query.permittee))
+        sp.result(self.getPermissionsInline(query.lot_id, query.owner, query.permittee))
 
     #
     # Misc

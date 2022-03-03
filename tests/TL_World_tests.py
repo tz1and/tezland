@@ -100,9 +100,7 @@ class FA2_utils(sp.Contract):
             sp.set_type_expr(
                 lot_id,
                 sp.TNat),
-            t = sp.TRecord(
-                stored_items = places_contract.itemStoreType,
-                place_props = sp.TBytes)).open_some()
+            t = places_contract.placeStorageType).open_some()
 
 
 
