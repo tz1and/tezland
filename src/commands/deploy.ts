@@ -8,7 +8,7 @@ import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, 
 import fs from 'fs';
 
 
-enum DeployMode { DevWorld, GasTest, StressTestSingle, StressTestMulti };
+enum DeployMode { None, DevWorld, GasTest, StressTestSingle, StressTestMulti };
 
 type PostDeployContracts = {
     items_FA2_contract: ContractAbstraction<Wallet>,
@@ -220,6 +220,8 @@ export default class Deploy extends DeployBase {
     private async runPostDeply(
         deploy_mode: DeployMode,
         contracts: PostDeployContracts) {
+        if (deploy_mode === DeployMode.None) return;
+
         console.log(kleur.magenta("Running post deploy tasks...\n"));
         switch (deploy_mode) {
             case DeployMode.DevWorld:
