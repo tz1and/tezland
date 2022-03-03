@@ -14,7 +14,6 @@ upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
-# TODO: change itemDataMinLen to be version + 3 floats = 7 bytes. that should be the bare minimum.
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
@@ -43,6 +42,9 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
 # - DON'T add Items or Places, to permitted_fa2.
 # - every upgradeable entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
+# - Item data is stored in half floats, usually, there are two formats as of now
+#   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
+#   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
 
 # Optional extension argument type.
 # Map val can contain about anything and be
@@ -56,7 +58,7 @@ itemRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
+    item_data=sp.TBytes, # transforms, etc
     # NOTE: could store an animation index and all kinds of other stuff in item_data
 ).layout(("item_amount", ("token_id", ("xtz_per_item", "item_data"))))
 
@@ -65,7 +67,7 @@ otherTokenRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
     xtz_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # we store the transforms as half floats. 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
+    item_data=sp.TBytes, # transforms, etc
     fa2=sp.TAddress # store a fa2 token address
 ).layout(("item_amount", ("token_id", ("xtz_per_item", ("item_data", "fa2")))))
 
@@ -74,7 +76,7 @@ otherTokenRecordType = sp.TRecord(
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
     other = otherTokenRecordType,
-    ext = sp.TBytes
+    ext = sp.TBytes # transforms, etc
 ).layout(("item", ("other", "ext")))
 
 #
@@ -149,7 +151,7 @@ placeItemListType = sp.TVariant(
     ext = sp.TBytes
 ).layout(("item", ("other", "ext")))
 
-itemDataMinLen = sp.nat(15)
+itemDataMinLen = sp.nat(7)
 placeDataMinLen = sp.nat(3)
 
 # permissions are in octal, like unix.
@@ -445,7 +447,7 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
                         fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
-                    #sp.verify(sp.len(ext_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    sp.verify(sp.len(ext_data) >= itemDataMinLen, message = self.error_message.data_length())
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
@@ -487,17 +489,15 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
             sp.for update in update_list:
+                sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+
                 with item_store[update.item_id].match_cases() as arg:
                     with arg.match("item") as the_item:
-                        # TODO: if data min also applied to ext, this wasn't required
-                        sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
                         # sigh - variants are not mutable
                         item_var = sp.compute(the_item)
                         item_var.item_data = update.item_data
                         item_store[update.item_id] = sp.variant("item", item_var)
                     with arg.match("other") as other:
-                        # TODO: if data min also applied to ext, this wasn't required
-                        sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
                         # sigh - variants are not mutable
                         other_var = sp.compute(other)
                         other_var.item_data = update.item_data
