@@ -44,6 +44,13 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # - DON'T add Items or Places, to permitted_fa2.
 # - every upgradeable entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 
+# Optional extension argument type.
+# Map val can contain about anything and be
+# unpacked with sp.unpack.
+extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
+
+#
+# Item types
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
@@ -70,15 +77,12 @@ extensibleVariantType = sp.TVariant(
     ext = sp.TBytes
 ).layout(("item", ("other", "ext")))
 
+#
+# Item storage
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
 itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
 itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
-
-# Optional extension argument type.
-# Map val can contain about anything and be
-# unpacked with sp.unpack.
-extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 
 class Item_store_map:
     def make(self):
@@ -93,6 +97,8 @@ class Item_store_map:
         sp.if map.contains(issuer) & (sp.len(map[issuer]) == 0):
             del map[issuer]
 
+#
+# Place storage
 defaultPlaceProps = sp.bytes('0x82b881')
 
 placeStorageType = sp.TRecord(
