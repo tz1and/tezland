@@ -122,8 +122,8 @@ class Error_message:
     def token_undefined(self):       return self.make("TOKEN_UNDEFINED")
     def insufficient_balance(self):  return self.make("INSUFFICIENT_BALANCE")
     def not_operator(self):          return self.make("NOT_OPERATOR")
+    def adhoc_operator_limit(self):  return self.make("ADHOC_OPERATOR_LIMIT")
     def not_owner(self):             return self.make("NOT_OWNER")
-    def operators_unsupported(self): return self.make("OPERATORS_UNSUPPORTED")
     def not_admin(self):             return self.make("NOT_ADMIN")
     def paused(self):                return self.make("PAUSED")
 
@@ -198,15 +198,6 @@ class Ledger_key:
             result = sp.set_type_expr(sp.pair(user, token), self.get_type())
         return result
 
-## For now a value in the ledger is just the user's balance. Previous
-## versions of the specification required more information; potential
-## extensions may require other fields.
-class Ledger_value:
-    def get_type():
-        return sp.TRecord(balance = sp.TNat)
-    def make(balance):
-        return sp.record(balance = balance)
-
 ## The link between operators and the addresses they operate is kept
 ## in a *lazy set* of `(owner × operator × token-id)` values.
 ##
@@ -236,6 +227,49 @@ class Operator_set:
         set[self.make_key(owner, operator, token_id)] = sp.unit
     def remove(self, set, owner, operator, token_id):
         del set[self.make_key(owner, operator, token_id)]
+    def is_member(self, set, owner, operator, token_id):
+        return set.contains(self.make_key(owner, operator, token_id))
+
+##
+## `AdhocOperator_param` defines type types for the `%update_adhoc_operators` entry-point.
+## Owner is always assumed to be sender.
+class AdhocOperator_param:
+    def __init__(self, config):
+        self.config = config
+    def get_type(self):
+        return sp.TRecord(
+            operator = sp.TAddress,
+            token_id = token_id_type
+        ).layout(("operator", "token_id"))
+    def make(self, operator, token_id):
+        r = sp.record(operator = operator, token_id = token_id)
+        return sp.set_type_expr(r, self.get_type())
+
+## Adhoc, temporary operators. Cheap and storage efficient.
+## They are supposed to apply only to the current operation group.
+## For long-lasting operators, use standard operators.
+##
+## You've seen it here first :)
+class AdhocOperator_set:
+    def __init__(self, config):
+        self.config = config
+
+    def key_type(self):
+        return sp.TBytes
+
+    def make(self):
+        return sp.set(t = self.key_type())
+
+    def make_key(self, owner, operator, token_id):
+        metakey = sp.sha3(sp.pack(sp.record(owner = owner,
+                            operator = operator,
+                            token_id = token_id)))
+        metakey = sp.set_type_expr(metakey, self.key_type())
+        return metakey
+
+    def add(self, set, owner, operator, token_id):
+        set.add(self.make_key(owner, operator, token_id))
+
     def is_member(self, set, owner, operator, token_id):
         return set.contains(self.make_key(owner, operator, token_id))
 
@@ -348,6 +382,8 @@ class FA2_core(sp.Contract):
         self.error_message = Error_message(self.config)
         self.operator_set = Operator_set(self.config)
         self.operator_param = Operator_param(self.config)
+        self.adhoc_operator_set = AdhocOperator_set(self.config)
+        self.adhoc_operator_param = AdhocOperator_param(self.config)
         self.token_id_set = Token_id_set(self.config)
         self.ledger_key = Ledger_key(self.config)
         self.token_meta_data = Token_meta_data(self.config)
@@ -359,9 +395,10 @@ class FA2_core(sp.Contract):
         self.add_flag("initial-cast")
         self.exception_optimization_level = "default-line"
         self.init(
-            ledger = sp.big_map(tkey = self.ledger_key.get_type(), tvalue = Ledger_value.get_type()),
+            ledger = sp.big_map(tkey = self.ledger_key.get_type(), tvalue = sp.TNat),
             token_metadata = sp.big_map(tkey = sp.TNat, tvalue = self.token_meta_data.get_type()),
             operators = self.operator_set.make(),
+            adhoc_operators = self.adhoc_operator_set.make(),
             all_tokens = self.token_id_set.empty(),
             metadata = metadata,
             **extra_storage
@@ -387,10 +424,8 @@ class FA2_core(sp.Contract):
                 # Check owner and operator.
                 sender_verify = (current_from == sp.sender)
                 message = self.error_message.not_operator()
-                sender_verify |= (self.operator_set.is_member(self.data.operators,
-                                                              current_from,
-                                                              sp.sender,
-                                                              tx.token_id))
+                sender_verify |= (self.adhoc_operator_set.is_member(self.data.adhoc_operators, current_from, sp.sender, tx.token_id) |
+                    self.operator_set.is_member(self.data.operators, current_from, sp.sender, tx.token_id))
                 sp.verify(sender_verify, message = message)
 
                 # Check token exists.
@@ -400,7 +435,7 @@ class FA2_core(sp.Contract):
                 # Ignore 0 transfers.
                 sp.if (tx.amount > 0):
                     from_user = sp.compute(self.ledger_key.make(current_from, tx.token_id))
-                    from_user_balance = sp.compute(self.data.ledger[from_user].balance)
+                    from_user_balance = sp.compute(self.data.ledger[from_user])
 
                     # Make sure from_user has sufficient balance.
                     sp.verify(from_user_balance >= tx.amount,
@@ -409,16 +444,16 @@ class FA2_core(sp.Contract):
                     # Update from_user balance, or remove from ledger.
                     from_user_new_balance = sp.compute(sp.as_nat(from_user_balance - tx.amount))
                     sp.if from_user_new_balance > 0:
-                        self.data.ledger[from_user].balance = from_user_new_balance
+                        self.data.ledger[from_user] = from_user_new_balance
                     sp.else:
                         del self.data.ledger[from_user]
                     
                     # Update to_user balance or add to ledger.
                     to_user = sp.compute(self.ledger_key.make(tx.to_, tx.token_id))
                     sp.if self.data.ledger.contains(to_user):
-                        self.data.ledger[to_user].balance += tx.amount
+                        self.data.ledger[to_user] += tx.amount
                     sp.else:
-                         self.data.ledger[to_user] = Ledger_value.make(tx.amount)
+                         self.data.ledger[to_user] = tx.amount
                 sp.else:
                     pass
 
@@ -431,7 +466,7 @@ class FA2_core(sp.Contract):
             user = sp.compute(self.ledger_key.make(req.owner, req.token_id))
             sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
             sp.if self.data.ledger.contains(user):
-                balance = self.data.ledger[user].balance
+                balance = self.data.ledger[user]
                 sp.result(
                     sp.record(
                         request = sp.record(
@@ -476,6 +511,32 @@ class FA2_core(sp.Contract):
                                              upd.operator,
                                              upd.token_id)
 
+    @sp.entry_point
+    def update_adhoc_operators(self, params):
+        # Supports add_adhoc_operators, and clear_adhoc_operators.
+        sp.set_type(params, sp.TVariant(
+            add_adhoc_operators = sp.TList(self.adhoc_operator_param.get_type()),
+            clear_adhoc_operators = sp.TUnit
+        ))
+
+        with params.match_cases() as arg:
+            with arg.match("add_adhoc_operators") as updates:
+                # Check adhoc operator limit. To prevent potential gaslock.
+                sp.verify(sp.len(updates) <= 128, message = self.error_message.adhoc_operator_limit())
+
+                # Clear adhoc operators. In case they weren't.
+                self.data.adhoc_operators = self.adhoc_operator_set.make()
+
+                # Add adhoc operators.
+                sp.for upd in updates:
+                    self.adhoc_operator_set.add(self.data.adhoc_operators,
+                        sp.sender, # Sender must be the owner
+                        upd.operator,
+                        upd.token_id)
+            with arg.match("clear_adhoc_operators"):
+                # Clear adhoc operators.
+                self.data.adhoc_operators = self.adhoc_operator_set.make()
+
 class FA2_change_metadata(FA2_core):
     @sp.entry_point
     def set_metadata(self, k, v):
@@ -515,9 +576,9 @@ class FA2_mint(FA2_core):
         # Update balance
         user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
-            self.data.ledger[user].balance += params.amount
+            self.data.ledger[user] += params.amount
         sp.else:
-            self.data.ledger[user] = Ledger_value.make(params.amount)
+            self.data.ledger[user] = params.amount
         
         # Add token metadata, if it doesn't exist.
         sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
@@ -594,10 +655,8 @@ class FA2_burn(FA2_core):
         message = self.error_message.not_owner()
         if self.config.operator_burn:
             message = self.error_message.not_operator()
-            sender_verify |= (self.operator_set.is_member(self.data.operators,
-                                                        params.address,
-                                                        sp.sender,
-                                                        params.token_id))
+            sender_verify |= (self.adhoc_operator_set.is_member(self.data.adhoc_operators, params.address, sp.sender, params.token_id) |
+                self.operator_set.is_member(self.data.operators, params.address, sp.sender, params.token_id))
         sp.verify(sender_verify, message = message)
 
         # Fail if token doesn't exist.
@@ -609,7 +668,7 @@ class FA2_burn(FA2_core):
         user = sp.compute(self.ledger_key.make(params.address, params.token_id))
         sp.if self.data.ledger.contains(user):
             # Check balance.
-            balance = sp.compute(self.data.ledger[user].balance)
+            balance = sp.compute(self.data.ledger[user])
             sp.verify((balance >= params.amount),
                 message = self.error_message.insufficient_balance())
             
@@ -618,7 +677,7 @@ class FA2_burn(FA2_core):
 
             # If balance becomes 0, delete from ledger.
             sp.if new_balance > 0:
-                self.data.ledger[user].balance = new_balance
+                self.data.ledger[user] = new_balance
             sp.else:
                 del self.data.ledger[user]
         sp.else:
@@ -652,7 +711,7 @@ class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, F
         user = self.ledger_key.make(req.owner, req.token_id)
         sp.verify(self.data.token_metadata.contains(req.token_id), message = self.error_message.token_undefined())
         # Change: use map.get with default value to prevent exception
-        sp.result(self.data.ledger.get(user, sp.record(balance = 0)).balance)
+        sp.result(self.data.ledger.get(user, sp.nat(0)))
 
     @sp.onchain_view(pure=True)
     def count_tokens(self):
@@ -847,9 +906,9 @@ def add_test(config, is_default = True):
                                     ])
             ]).run(sender = alice)
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90)
+            c1.data.ledger[c1.ledger_key.make(alice.address, 0)] == 90)
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance == 10)
+            c1.data.ledger[c1.ledger_key.make(bob.address, 0)] == 10)
         c1.transfer(
             [
                 c1.batch_transfer.item(from_ = alice.address,
@@ -863,10 +922,10 @@ def add_test(config, is_default = True):
                                     ])
             ]).run(sender = alice)
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11
+            c1.data.ledger[c1.ledger_key.make(alice.address, 0)] == 90 - 10 - 11
         )
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance
+            c1.data.ledger[c1.ledger_key.make(bob.address, 0)]
             == 10 + 10 + 11)
         # test distribute
         if config.add_distribute:
@@ -877,8 +936,8 @@ def add_test(config, is_default = True):
             ]).run(sender = admin)
             if config.store_total_supply:
                 scenario.verify(c1.data.token_extra[0].total_supply == 200)
-            scenario.verify(c1.data.ledger[c1.ledger_key.make(darryl.address, 0)].balance == 50)
-            scenario.verify(c1.data.ledger[c1.ledger_key.make(eve.address, 0)].balance == 50)
+            scenario.verify(c1.data.ledger[c1.ledger_key.make(darryl.address, 0)] == 50)
+            scenario.verify(c1.data.ledger[c1.ledger_key.make(eve.address, 0)] == 50)
             c1.distribute([
                 sp.record(to_ = darryl.address, amount = 50 ),
                 sp.record(to_ = eve.address, amount = 50 )
@@ -917,10 +976,10 @@ def add_test(config, is_default = True):
         if config.store_total_supply:
             scenario.verify(supply_before == c1.data.token_extra[0].total_supply + 15)
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(alice.address, 0)].balance == 90 - 10 - 11 - 10
+            c1.data.ledger[c1.ledger_key.make(alice.address, 0)] == 90 - 10 - 11 - 10
         )
         scenario.verify(
-            c1.data.ledger[c1.ledger_key.make(bob.address, 0)].balance == 10 + 10 + 11 - 5)
+            c1.data.ledger[c1.ledger_key.make(bob.address, 0)] == 10 + 10 + 11 - 5)
         if config.single_asset:
             return
         scenario.h2("More Token Types")
