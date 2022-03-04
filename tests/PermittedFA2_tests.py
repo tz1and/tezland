@@ -1,6 +1,6 @@
 import smartpy as sp
 
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 
 class PermittedFA2Test(permitted_fa2.PermittedFA2):

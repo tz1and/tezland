@@ -2,7 +2,7 @@ import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 

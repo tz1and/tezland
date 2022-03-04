@@ -1,7 +1,7 @@
 import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
 
 @sp.add_test(name = "TL_Minter_tests", profile = True)
 def test():
