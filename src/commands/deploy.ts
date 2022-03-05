@@ -53,7 +53,7 @@ export default class Deploy extends DeployBase {
         //
         // Items
         //
-        await this.compile_contract("FA2_Items", "FA2", ['config = FA2_contract.items_config()',
+        await this.compile_contract("FA2_Items", "FA2_legacy", ['config = FA2_legacy_contract.items_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Items");
@@ -61,7 +61,7 @@ export default class Deploy extends DeployBase {
         //
         // Places
         //
-        await this.compile_contract("FA2_Places", "FA2", ['config = FA2_contract.places_config()',
+        await this.compile_contract("FA2_Places", "FA2_legacy", ['config = FA2_legacy_contract.places_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Places");
@@ -69,7 +69,7 @@ export default class Deploy extends DeployBase {
         //
         // DAO
         //
-        await this.compile_contract("FA2_DAO", "FA2", ['config = FA2_contract.dao_config()',
+        await this.compile_contract("FA2_DAO", "FA2_legacy", ['config = FA2_legacy_contract.dao_config()',
             `admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_DAO");

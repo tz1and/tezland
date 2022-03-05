@@ -2,7 +2,7 @@ import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -124,7 +124,7 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("items")
-    items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
+    items_tokens = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
@@ -133,7 +133,7 @@ def test():
     scenario += items_utils
 
     scenario.h2("places")
-    places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
+    places_tokens = fa2_contract.FA2_legacy(config = fa2_contract.places_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
@@ -144,13 +144,13 @@ def test():
     scenario += minter
 
     scenario.h2("dao")
-    dao_token = fa2_contract.FA2(config = fa2_contract.dao_config(),
+    dao_token = fa2_contract.FA2_legacy(config = fa2_contract.dao_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = fa2_contract.FA2(config = fa2_contract.items_config(),
+    other_token = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -191,7 +191,7 @@ def test():
     scenario.h3("minting 0 dao")
     dao_token.mint(address = admin.address,
         amount = 0,
-        metadata = fa2_contract.FA2.make_metadata(name = "tz1and DAO",
+        metadata = fa2_contract.FA2_legacy.make_metadata(name = "tz1and DAO",
             decimals = 6,
             symbol= "tz1aDAO"),
         token_id = 0).run(sender = admin)

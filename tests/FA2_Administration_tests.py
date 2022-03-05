@@ -1,6 +1,6 @@
 import smartpy as sp
 
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 
 class FA2_AdministrationTest(fa2_admin.FA2_Administration):
@@ -26,7 +26,7 @@ def test():
 
     scenario.h3("Contract origination")
     # create token for testing
-    places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
+    places_tokens = fa2_contract.FA2_legacy(config = fa2_contract.places_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens

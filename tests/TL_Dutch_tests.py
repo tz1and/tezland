@@ -2,7 +2,7 @@ import smartpy as sp
 
 dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
 
 @sp.add_test(name = "TL_Dutch_tests", profile = True)
 def test():
@@ -20,12 +20,12 @@ def test():
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
-    items_tokens = fa2_contract.FA2(config = fa2_contract.items_config(),
+    items_tokens = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
-    places_tokens = fa2_contract.FA2(config = fa2_contract.places_config(),
+    places_tokens = fa2_contract.FA2_legacy(config = fa2_contract.places_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens

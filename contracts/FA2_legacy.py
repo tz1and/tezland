@@ -231,7 +231,7 @@ class Operator_set:
         return set.contains(self.make_key(owner, operator, token_id))
 
 ##
-## `AdhocOperator_param` defines type types for the `%update_adhoc_operators` entry-point.
+## `AdhocOperator_param` defines type types for the `%add_adhoc_operators` entry-point.
 ## Owner is always assumed to be sender.
 class AdhocOperator_param:
     def __init__(self, config):
@@ -247,6 +247,9 @@ class AdhocOperator_param:
 
 ## Adhoc, temporary operators. Cheap and storage efficient.
 ## They are supposed to apply only to the current operation group.
+## They are only valid in the current block level. You may take
+## care to clear them after use, but for most uses, it's probably
+## not required.
 ## For long-lasting operators, use standard operators.
 ##
 ## You've seen it here first :)
@@ -263,7 +266,8 @@ class AdhocOperator_set:
     def make_key(self, owner, operator, token_id):
         metakey = sp.sha3(sp.pack(sp.record(owner = owner,
                             operator = operator,
-                            token_id = token_id)))
+                            token_id = token_id,
+                            level = sp.level)))
         metakey = sp.set_type_expr(metakey, self.key_type())
         return metakey
 
@@ -522,7 +526,7 @@ class FA2_core(sp.Contract):
         with params.match_cases() as arg:
             with arg.match("add_adhoc_operators") as updates:
                 # Check adhoc operator limit. To prevent potential gaslock.
-                sp.verify(sp.len(updates) <= 128, message = self.error_message.adhoc_operator_limit())
+                sp.verify(sp.len(updates) <= 100, message = self.error_message.adhoc_operator_limit())
 
                 # Clear adhoc operators. In case they weren't.
                 self.data.adhoc_operators = self.adhoc_operator_set.make()
@@ -699,7 +703,7 @@ class FA2_burn(FA2_core):
                     del self.data.token_metadata[params.token_id]
 
 # NOTE: pausable_contract.Pausable needs to come first. It also include Administrable.
-class FA2(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
+class FA2_legacy(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
     @sp.onchain_view(pure=True)
     def get_balance(self, req):
         """This is the `get_balance` view defined in TZIP-12."""
@@ -857,7 +861,7 @@ def add_test(config, is_default = True):
         # Let's display the accounts:
         scenario.h2("Accounts")
         scenario.show([admin, alice, bob])
-        c1 = FA2(config = config,
+        c1 = FA2_legacy(config = config,
                  metadata = sp.utils.metadata_of_url("https://example.com"),
                  admin = admin.address)
         scenario += c1
@@ -872,7 +876,7 @@ def add_test(config, is_default = True):
             ]).run(sender = admin, valid = False)
         scenario.h2("Initial Minting")
         scenario.p("The administrator mints 100 token-0's to Alice.")
-        tok0_md = FA2.make_metadata(
+        tok0_md = FA2_legacy.make_metadata(
             name = "The Token Zero",
             decimals = 2,
             symbol= "TK0" )
@@ -983,7 +987,7 @@ def add_test(config, is_default = True):
         if config.single_asset:
             return
         scenario.h2("More Token Types")
-        tok1_md = FA2.make_metadata(
+        tok1_md = FA2_legacy.make_metadata(
             name = "The Second Token",
             decimals = 0,
             symbol= "TK1" )
@@ -996,7 +1000,7 @@ def add_test(config, is_default = True):
                                     bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter")
                             }))} if config.royalties else {}),
                             token_id = 1).run(sender = admin)
-        tok2_md = FA2.make_metadata(
+        tok2_md = FA2_legacy.make_metadata(
             name = "The Token Number Three",
             decimals = 0,
             symbol= "TK2" )

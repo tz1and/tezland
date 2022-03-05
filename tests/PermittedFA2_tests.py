@@ -1,6 +1,6 @@
 import smartpy as sp
 
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_old.py")
+fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 
 class PermittedFA2Test(permitted_fa2.PermittedFA2):
@@ -40,7 +40,7 @@ def test():
     scenario += permitted
 
     scenario.h4("some other FA2 token")
-    other_token = fa2_contract.FA2(config = fa2_contract.items_config(),
+    other_token = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
