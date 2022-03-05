@@ -244,6 +244,40 @@ class OffchainViewsFungible:
         sp.set_type(params, t_operator_permission)
         sp.result(self.policy.is_operator(self, params))
 
+class OffchainViewsSingleAsset:
+    """(Mixin) All standard offchain views for Fungible except the optional
+    `token_metadata`."""
+
+    @sp.offchain_view(pure=True)
+    def all_tokens(self):
+        """OffchainView: Return the list of all the token IDs known to the contract."""
+        sp.result(sp.nat(0))
+
+    @sp.offchain_view(pure=True)
+    def get_balance(self, params):
+        """Return the balance of an address for the specified `token_id`."""
+        sp.set_type(
+            params,
+            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
+                ("owner", "token_id")
+            ),
+        )
+        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
+        sp.result(self.data.ledger.get(params.owner, sp.nat(0)))
+
+    @sp.offchain_view(pure=True)
+    def total_supply(self, params):
+        """Return the total number of tokens for the given `token_id`."""
+        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
+        sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
+
+    @sp.offchain_view(pure=True)
+    def is_operator(self, params):
+        """Return whether `operator` is allowed to transfer `token_id` tokens
+        owned by `owner`."""
+        sp.set_type(params, t_operator_permission)
+        sp.result(self.policy.is_operator(self, params))
+
 
 ##########
 # Common #
@@ -501,6 +535,102 @@ class Fa2Fungible(OffchainViewsFungible, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
+class Fa2SingleAsset(OffchainViewsSingleAsset, Common):
+    """Base class for a FA2 fungible contract.
+
+    Respects the FA2 standard.
+    """
+
+    def __init__(
+        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None
+    ):
+        metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
+        self.ledger_type = "SingleAsset"
+        ledger, supply, token_metadata = self.initial_mint(token_metadata, ledger)
+        self.init(
+            ledger=sp.big_map(
+                ledger, tkey=sp.TAddress, tvalue=sp.TNat
+            ),
+            metadata=metadata,
+            last_token_id=sp.nat(len(token_metadata)),
+            supply=sp.big_map(supply, tkey=sp.TNat, tvalue=sp.TNat),
+        )
+        Common.__init__(
+            self,
+            policy=policy,
+            metadata_base=metadata_base,
+            token_metadata=token_metadata,
+        )
+
+    def initial_mint(self, token_metadata=[], ledger={}):
+        """Perform a mint before the origination.
+
+        Returns `ledger`, `supply` and `token_metadata`.
+        """
+        if len(token_metadata) > 1:
+            raise Exception("Single asset can only contain one token")
+        token_metadata_dict = {}
+        supply = {}
+        for token_id, metadata in enumerate(token_metadata):
+            metadata = sp.record(token_id=token_id, token_info=metadata)
+            token_metadata_dict[token_id] = metadata
+            # Token that are in token_metadata and not in ledger exist with supply = 0
+            supply[token_id] = 0
+        for address, amount in ledger.items():
+            if token_id not in token_metadata_dict:
+                raise Exception("Ledger contains a token_id with no metadata")
+            supply[token_id] += amount
+        return (ledger, supply, token_metadata_dict)
+
+    def balance_of_(self, requests):
+        """Logic of the balance_of entrypoint."""
+        sp.set_type(requests, sp.TList(t_balance_of_request))
+
+        def f_process_request(req):
+            sp.verify(self.is_defined(req.token_id), "FA2_TOKEN_UNDEFINED")
+            sp.result(
+                sp.record(
+                    request=sp.record(owner=req.owner, token_id=req.token_id),
+                    balance=self.data.ledger.get(req.owner, 0),
+                )
+            )
+
+        return requests.map(f_process_request)
+
+    @sp.entry_point
+    def balance_of(self, params):
+        """Send the balance of multiple account / token pairs to a callback
+        address."""
+        sp.set_type(params, t_balance_of_params)
+        sp.transfer(self.balance_of_(params.requests), sp.mutez(0), params.callback)
+
+    # Overload is_defined to make sure token_id is always 0
+    def is_defined(self, token_id):
+        return token_id == 0
+
+    @sp.entry_point
+    def transfer(self, batch):
+        """Accept a list of transfer operations between a source and multiple
+        destinations."""
+        sp.set_type(batch, t_transfer_params)
+        if self.policy.supports_transfer:
+            with sp.for_("transfer", batch) as transfer:
+                with sp.for_("tx", transfer.txs) as tx:
+                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
+                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
+                    self.policy.check_tx_transfer_permissions(
+                        self, transfer.from_, tx.to_, tx.token_id
+                    )
+                    from_ = transfer.from_
+                    self.data.ledger[from_] = sp.as_nat(
+                        self.data.ledger.get(from_, 0) - tx.amount,
+                        message="FA2_INSUFFICIENT_BALANCE",
+                    )
+                    # Do the transfer
+                    to_ = tx.to_
+                    self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
+        else:
+            sp.failwith("FA2_TX_DENIED")
 
 ##########
 # Mixins #
@@ -634,6 +764,36 @@ class MintFungible:
                         self.data.ledger.get(from_, 0) + action.amount
                     )
 
+class MintSingleAsset:
+    """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset with incrementing
+    id.
+
+    Requires the `Admin` mixin.
+    """
+
+    @sp.entry_point
+    def mint(self, batch):
+        """Admin can mint tokens."""
+        sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+        with sp.for_("action", batch) as action:
+            with action.token.match_cases() as arg:
+                with arg.match("new") as metadata:
+                    token_id = sp.nat(0)
+                    sp.verify(~ self.data.token_metadata.contains(token_id), "FA2_TOKEN_DEFINED") # TODO: change this message?
+                    self.data.token_metadata[token_id] = sp.record(
+                        token_id=token_id, token_info=metadata
+                    )
+                    self.data.supply[token_id] = action.amount
+                    self.data.ledger[action.to_] = action.amount
+                    self.data.last_token_id += 1
+                with arg.match("existing") as token_id:
+                    sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+                    self.data.supply[token_id] += action.amount
+                    from_ = action.to_
+                    self.data.ledger[from_] = (
+                        self.data.ledger.get(from_, 0) + action.amount
+                    )
+
 
 class BurnNft:
     """(Mixin) Non-standard `burn` entrypoint for FA2Nft that uses the transfer
@@ -677,6 +837,36 @@ class BurnFungible:
                 self, action.from_, action.from_, action.token_id
             )
             from_ = (action.from_, action.token_id)
+            # Burn the tokens
+            self.data.ledger[from_] = sp.as_nat(
+                self.data.ledger.get(from_, 0) - action.amount,
+                message="FA2_INSUFFICIENT_BALANCE",
+            )
+
+            supply = sp.compute(
+                sp.is_nat(self.data.supply.get(action.token_id, 0) - action.amount)
+            )
+            with supply.match_cases() as arg:
+                with arg.match("Some") as nat_supply:
+                    self.data.supply[action.token_id] = nat_supply
+                with arg.match("None"):
+                    self.data.supply[action.token_id] = 0
+
+class BurnSingleAsset:
+    """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
+    transfer policy permission."""
+
+    @sp.entry_point
+    def burn(self, batch):
+        """Users can burn tokens if they have the transfer policy
+        permission."""
+        sp.verify(self.policy.supports_transfer, "FA2_TX_DENIED")
+        with sp.for_("action", batch) as action:
+            sp.verify(self.is_defined(action.token_id), "FA2_TOKEN_UNDEFINED")
+            self.policy.check_tx_transfer_permissions(
+                self, action.from_, action.from_, action.token_id
+            )
+            from_ = action.from_
             # Burn the tokens
             self.data.ledger[from_] = sp.as_nat(
                 self.data.ledger.get(from_, 0) - action.amount,

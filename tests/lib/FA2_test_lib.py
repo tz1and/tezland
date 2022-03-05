@@ -235,13 +235,15 @@ def test_transfers(test_name, fa2_contract):
 
         # Check that the contract storage is correctly initialized.
         sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO)
-        sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
 
         # Check that the balance is interpreted as zero when the owner doesn't hold any.
         # TZIP-12: If the token owner does not hold any tokens of type token_id,
         #          the owner's balance is interpreted as zero.
         sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=0)) == 0)
-        sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
 
         sc.h2("Zero amount transfer")
         sc.p("TZIP-12: Transfers of zero amount MUST be treated as normal transfers.")
@@ -258,9 +260,11 @@ def test_transfers(test_name, fa2_contract):
 
         # Check that the contract storage is unchanged.
         sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO)
-        sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
         sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=0)) == 0)
-        sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
 
         # Check that someone with some tokens can transfer 0 token.
         c1.transfer(
@@ -274,9 +278,11 @@ def test_transfers(test_name, fa2_contract):
 
         # Check that the contract storage is unchanged.
         sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO)
-        sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
         sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=0)) == 0)
-        sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == 0)
 
         sc.h2("Transfers Alice -> Bob")
         sc.p(
@@ -286,40 +292,56 @@ def test_transfers(test_name, fa2_contract):
                 amount of the transfer."""
         )
 
-        # Perform a complex transfer with 2 operations, one of which contains 2 transactions.
-        c1.transfer(
-            [
-                sp.record(
-                    from_=alice.address,
-                    txs=[
-                        sp.record(to_=bob.address, amount=TX, token_id=0),
-                        sp.record(to_=bob.address, amount=TX, token_id=1),
-                    ],
-                ),
-                sp.record(
-                    from_=alice.address,
-                    txs=[sp.record(to_=bob.address, amount=TX, token_id=2)],
-                ),
-            ]
-        ).run(sender=alice)
+        if c1.ledger_type != "SingleAsset":
+            # Perform a complex transfer with 2 operations, one of which contains 2 transactions.
+            c1.transfer(
+                [
+                    sp.record(
+                        from_=alice.address,
+                        txs=[
+                            sp.record(to_=bob.address, amount=TX, token_id=0),
+                            sp.record(to_=bob.address, amount=TX, token_id=1),
+                        ],
+                    ),
+                    sp.record(
+                        from_=alice.address,
+                        txs=[sp.record(to_=bob.address, amount=TX, token_id=2)],
+                    ),
+                ]
+            ).run(sender=alice)
+        else:
+            c1.transfer(
+                [
+                    sp.record(
+                        from_=alice.address,
+                        txs=[
+                            sp.record(to_=bob.address, amount=TX, token_id=0)
+                        ],
+                    )
+                ]
+            ).run(sender=alice)
 
-        # Check that the contract storage is correctly updated.
+         # Check that the contract storage is correctly updated.
         sc.verify(
             c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO - TX
         )
         sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=0)) == TX)
-        sc.verify(
-            c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO - TX
-        )
-        sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == TX)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(
+                c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO - TX
+            )
+            sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == TX)
 
         # Check without using get_balance because the ledger interface
         # differs between NFT and fungible.
         if c1.ledger_type == "NFT":
             sc.verify(c1.data.ledger[0] == bob.address)
-        else:
+        elif c1.ledger_type == "Fungible":
             sc.verify(c1.data.ledger[(alice.address, 0)] == ICO - TX)
             sc.verify(c1.data.ledger[(bob.address, 0)] == TX)
+        else: # SingleAsset
+            sc.verify(c1.data.ledger[alice.address] == ICO - TX)
+            sc.verify(c1.data.ledger[bob.address] == TX)
 
         # Error tests
 
@@ -338,23 +360,42 @@ def test_transfers(test_name, fa2_contract):
 
         # Test that a complex transfer with only one insufficient
         # balance fails.
-        c1.transfer(
-            [
-                sp.record(
-                    from_=bob.address,
-                    txs=[
-                        sp.record(
-                            to_=alice.address, amount=bob_balance + 1, token_id=0
-                        ),
-                        sp.record(to_=alice.address, amount=0, token_id=1),
-                    ],
-                ),
-                sp.record(
-                    from_=bob.address,
-                    txs=[sp.record(to_=alice.address, amount=0, token_id=2)],
-                ),
-            ]
-        ).run(sender=bob, valid=False, exception="FA2_INSUFFICIENT_BALANCE")
+        if c1.ledger_type != "SingleAsset":
+            c1.transfer(
+                [
+                    sp.record(
+                        from_=bob.address,
+                        txs=[
+                            sp.record(
+                                to_=alice.address, amount=bob_balance + 1, token_id=0
+                            ),
+                            sp.record(to_=alice.address, amount=0, token_id=1),
+                        ],
+                    ),
+                    sp.record(
+                        from_=bob.address,
+                        txs=[sp.record(to_=alice.address, amount=0, token_id=2)],
+                    ),
+                ]
+            ).run(sender=bob, valid=False, exception="FA2_INSUFFICIENT_BALANCE")
+        else:
+            c1.transfer(
+                [
+                    sp.record(
+                        from_=bob.address,
+                        txs=[
+                            sp.record(
+                                to_=alice.address, amount=bob_balance + 1, token_id=0
+                            ),
+                            sp.record(to_=alice.address, amount=0, token_id=0),
+                        ],
+                    ),
+                    sp.record(
+                        from_=bob.address,
+                        txs=[sp.record(to_=alice.address, amount=0, token_id=0)],
+                    ),
+                ]
+            ).run(sender=bob, valid=False, exception="FA2_INSUFFICIENT_BALANCE")
 
         sc.h2("Same address transfer")
         sc.p(
@@ -378,10 +419,11 @@ def test_transfers(test_name, fa2_contract):
             c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO - TX
         )
         sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=0)) == TX)
-        sc.verify(
-            c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO - TX
-        )
-        sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == TX)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(
+                c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO - TX
+            )
+            sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == TX)
 
         # Test that someone cannot transfer more tokens than he holds
         # even to himself.
@@ -490,6 +532,16 @@ def test_balance_of(test_name, fa2_contract):
         c2 = TestReceiverBalanceOf()
         sc += c2
 
+        if c1.ledger_type == "SingleAsset":
+            requests=[
+                sp.record(owner=alice.address, token_id=0)
+            ]
+        else:
+            requests=[
+                sp.record(owner=alice.address, token_id=0),
+                sp.record(owner=alice.address, token_id=1),
+            ]
+
         # Call to balance_of.
         c1.balance_of(
             callback=sp.contract(
@@ -497,10 +549,7 @@ def test_balance_of(test_name, fa2_contract):
                 c2.address,
                 entry_point="receive_balances",
             ).open_some(),
-            requests=[
-                sp.record(owner=alice.address, token_id=0),
-                sp.record(owner=alice.address, token_id=1),
-            ],
+            requests=requests,
         ).run(sender=alice)
 
         if c1.ledger_type == "NFT":
@@ -510,7 +559,8 @@ def test_balance_of(test_name, fa2_contract):
 
         # Check that balance_of returns the correct balances.
         sc.verify(c2.data.last_known_balances[c1.address][(alice.address, 0)] == ICO)
-        sc.verify(c2.data.last_known_balances[c1.address][(alice.address, 1)] == ICO)
+        if c1.ledger_type != "SingleAsset":
+            sc.verify(c2.data.last_known_balances[c1.address][(alice.address, 1)] == ICO)
 
         # Expected errors
         sc.h2("FA2_TOKEN_UNDEFINED error")
@@ -772,16 +822,17 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
             ]
         ).run(sender=bob)
 
-        # Operator cannot transfer not allowed tokens on behalf of owner.
-        sc.h2("Bob cannot transfer Alice's token id 1")
-        c1.transfer(
-            [
-                sp.record(
-                    from_=alice.address,
-                    txs=[sp.record(to_=alice.address, amount=1, token_id=1)],
-                )
-            ]
-        ).run(sender=bob, valid=False, exception="FA2_NOT_OPERATOR")
+        if c1.ledger_type != "SingleAsset":
+            # Operator cannot transfer not allowed tokens on behalf of owner.
+            sc.h2("Bob cannot transfer Alice's token id 1")
+            c1.transfer(
+                [
+                    sp.record(
+                        from_=alice.address,
+                        txs=[sp.record(to_=alice.address, amount=1, token_id=1)],
+                    )
+                ]
+            ).run(sender=bob, valid=False, exception="FA2_NOT_OPERATOR")
 
         # Batch of update_operators actions.
         sc.h2("Alice can remove Bob as operator and add Charlie")
@@ -852,7 +903,7 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
 # Optional features tests
 
 
-def test_optional_features(nft_contract, fungible_contract):
+def test_optional_features(nft_contract, fungible_contract, single_asset_contract):
     """ " Test optional mixins of FA2_lib on both NFT and Fungible.
 
     Mixin tested:
@@ -885,7 +936,7 @@ def test_optional_features(nft_contract, fungible_contract):
         sc.verify(nft.is_administrator(admin2.address))
         nft.set_administrator(admin.address).run(sender=admin2)
 
-    def test_mint(sc, nft, fungible):
+    def test_mint(sc, nft, fungible, single_asset):
         """Test `MintNft` and `MintFungible` with the `owner-or-operator-transfer` policy.
 
         - `mint` fails with `FA2_NOT_ADMIN` for non-admin.
@@ -902,6 +953,16 @@ def test_optional_features(nft_contract, fungible_contract):
         # Non admin cannot mint a new fungible token.
         sc.h3("Fungible mint failure")
         fungible.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
+
+        # Non admin cannot mint a new signle asset token.
+        sc.h3("Single Asset mint failure")
+        single_asset.mint(
             [
                 sp.record(
                     token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
@@ -969,7 +1030,46 @@ def test_optional_features(nft_contract, fungible_contract):
             fungible.get_balance(sp.record(owner=bob.address, token_id=1)) == 1000
         )
 
-    def test_burn(sc, nft, fungible):
+        # Mint of a new single asset token.
+        single_asset.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin)
+
+        # Check that the contract storage is updated.
+        sc.verify(
+            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 1000
+        )
+        sc.verify(single_asset.get_balance(sp.record(owner=bob.address, token_id=0)) == 0)
+
+        # Mint an existing token.
+        single_asset.mint(
+            [
+                sp.record(
+                    token=sp.variant("existing", 0), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin)
+
+        # Check that the contract storage is updated.
+        sc.verify(
+            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 2000
+        )
+        sc.verify(single_asset.get_balance(sp.record(owner=bob.address, token_id=0)) == 0)
+        
+        # Can't mint more than one token in single asset
+        single_asset.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin, valid=False, exception="FA2_TOKEN_DEFINED")
+
+    def test_burn(sc, nft, fungible, single_asset):
         """Test `BurnNft` and `BurnFungible` with the `owner-or-operator-transfer` policy.
 
         - non operator cannot burn, it fails with `FA2_NOT_OPERATOR` on Nft.
@@ -991,6 +1091,11 @@ def test_optional_features(nft_contract, fungible_contract):
 
         sc.h3("Cannot burn others fungible tokens")
         fungible.burn([sp.record(token_id=0, from_=alice.address, amount=500)]).run(
+            sender=bob, valid=False, exception="FA2_NOT_OPERATOR"
+        )
+
+        sc.h3("Cannot burn others single asset tokens")
+        single_asset.burn([sp.record(token_id=0, from_=alice.address, amount=500)]).run(
             sender=bob, valid=False, exception="FA2_NOT_OPERATOR"
         )
 
@@ -1019,6 +1124,19 @@ def test_optional_features(nft_contract, fungible_contract):
         # Check that burning an nft removes token_metadata.
         sc.verify(~nft.data.token_metadata.contains(1))
 
+        # Owner can burn single asset.
+        sc.h3("Owner burns his nft tokens")
+        single_asset.burn([sp.record(token_id=0, from_=alice.address, amount=500)]).run(
+            sender=alice
+        )
+
+        # Check that the contract storage is updated.
+        sc.verify(
+            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 1500
+        )
+        # Check that burning doesn't remove token_metadata.
+        sc.verify(single_asset.data.token_metadata.contains(0))
+
         # Check burn of FA2_INSUFFICIENT_BALANCE on nft.
         sc.h3("Burn with insufficent balance")
         nft.burn([sp.record(token_id=0, from_=alice.address, amount=2)]).run(
@@ -1028,6 +1146,12 @@ def test_optional_features(nft_contract, fungible_contract):
         # Check burn of FA2_INSUFFICIENT_BALANCE on fungible.
         sc.h3("Burn with insufficent balance")
         fungible.burn([sp.record(token_id=0, from_=alice.address, amount=2000)]).run(
+            sender=alice, valid=False, exception="FA2_INSUFFICIENT_BALANCE"
+        )
+
+        # Check burn of FA2_INSUFFICIENT_BALANCE on single asset.
+        sc.h3("Burn with insufficent balance")
+        single_asset.burn([sp.record(token_id=0, from_=alice.address, amount=2000)]).run(
             sender=alice, valid=False, exception="FA2_INSUFFICIENT_BALANCE"
         )
 
@@ -1063,6 +1187,22 @@ def test_optional_features(nft_contract, fungible_contract):
         # Check that the contract storage is updated.
         sc.verify(
             fungible.get_balance(sp.record(owner=alice.address, token_id=0)) == 1000
+        )
+
+        # Add operator to test if he can burn on behalf of the owner.
+        sc.h3("Operator can burn on behalf of the owner")
+        single_asset.update_operators([sp.variant("add_operator", operator_bob)]).run(
+            sender=alice
+        )
+
+        # Operator can burn fungible on behalf of the owner.
+        single_asset.burn([sp.record(token_id=0, from_=alice.address, amount=500)]).run(
+            sender=bob
+        )
+
+        # Check that the contract storage is updated.
+        sc.verify(
+            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 1000
         )
 
     def test_withdraw_mutez(sc, nft, fungible):
@@ -1121,13 +1261,14 @@ def test_optional_features(nft_contract, fungible_contract):
             sp.utils.metadata_of_url("http://example.com")[""],
         )
 
-    def test_balance_of(sc, nft, fungible):
+    def test_balance_of(sc, nft, fungible, single_asset):
         """Test of `OnchainviewBalanceOf`
 
         - `get_balance_of` doesn't deduplicate nor reorder on nft.
         - `get_balance_of` doesn't deduplicate nor reorder on fungible.
         - `get_balance_of` fails with `FA2_TOKEN_UNDEFINED` when needed on nft.
         - `get_balance_of` fails with `FA2_TOKEN_UNDEFINED` when needed on fungible.
+        - `get_balance_of` fails with `FA2_TOKEN_UNDEFINED` when needed on single asset.
         """
 
         # get_balance_of on fungible
@@ -1173,7 +1314,7 @@ def test_optional_features(nft_contract, fungible_contract):
             == sp.some("FA2_TOKEN_UNDEFINED")
         )
 
-        # get_balance_of on fungible
+        # get_balance_of on nft
         # We deliberately give multiple identical params to check for
         # non-deduplication and non-reordering.
         # The burned token 0 should return balance of 0
@@ -1217,7 +1358,51 @@ def test_optional_features(nft_contract, fungible_contract):
             == sp.some("FA2_TOKEN_UNDEFINED")
         )
 
-    def test_offchain_token_metadata(sc, nft, fungible):
+        # get_balance_of on single asset
+        # We deliberately give multiple identical params to check for
+        # non-deduplication and non-reordering.
+        # The burned token 0 should return balance of 0
+        sc.verify_equal(
+            single_asset.get_balance_of(
+                [
+                    sp.record(owner=alice.address, token_id=0),
+                    sp.record(owner=alice.address, token_id=0),
+                    sp.record(owner=bob.address, token_id=0),
+                    sp.record(owner=alice.address, token_id=0),
+                ]
+            ),
+            sp.set_type_expr(
+                [
+                    sp.record(
+                        balance=1000,
+                        request=sp.record(owner=alice.address, token_id=0),
+                    ),
+                    sp.record(
+                        balance=1000,
+                        request=sp.record(owner=alice.address, token_id=0),
+                    ),
+                    sp.record(
+                        balance=0,
+                        request=sp.record(owner=bob.address, token_id=0),
+                    ),
+                    sp.record(
+                        balance=1000,
+                        request=sp.record(owner=alice.address, token_id=0),
+                    ),
+                ],
+                sp.TList(t_balance_of_response),
+            ),
+        )
+
+        # Check that on-chain view fails on undefined tokens.
+        sc.verify(
+            sp.catch_exception(
+                single_asset.get_balance_of([sp.record(owner=alice.address, token_id=5)])
+            )
+            == sp.some("FA2_TOKEN_UNDEFINED")
+        )
+
+    def test_offchain_token_metadata(sc, nft, fungible, single_asset):
         """Test `OffchainviewTokenMetadata`.
 
         Tests:
@@ -1229,6 +1414,9 @@ def test_optional_features(nft_contract, fungible_contract):
         )
         sc.verify_equal(
             fungible.token_metadata(0), sp.record(token_id=0, token_info=tok0_md)
+        )
+        sc.verify_equal(
+            single_asset.token_metadata(0), sp.record(token_id=0, token_info=tok0_md)
         )
 
     @sp.add_test(name=test_name)
@@ -1249,16 +1437,20 @@ def test_optional_features(nft_contract, fungible_contract):
         fungible = fungible_contract
         sc += fungible
 
+        sc.h3("Single Asset")
+        single_asset = single_asset_contract
+        sc += single_asset
+
         test_admin(sc, nft)
-        test_mint(sc, nft, fungible)
-        test_burn(sc, nft, fungible)
+        test_mint(sc, nft, fungible, single_asset)
+        test_burn(sc, nft, fungible, single_asset)
         test_withdraw_mutez(sc, nft, fungible)
         test_change_metadata(sc, nft, fungible)
-        test_balance_of(sc, nft, fungible)
-        test_offchain_token_metadata(sc, nft, fungible)
+        test_balance_of(sc, nft, fungible, single_asset) # TODO
+        test_offchain_token_metadata(sc, nft, fungible, single_asset)
 
 
-def test_pause(nft_contract, fungible_contract):
+def test_pause(nft_contract, fungible_contract, single_asset_contract):
     """Test the `Pause` policy decorator and `operator-or-owner-transfer`.
 
     - transfer works without pause
@@ -1285,6 +1477,8 @@ def test_pause(nft_contract, fungible_contract):
         sc += c1
         c2 = fungible_contract
         sc += c2
+        c3 = single_asset_contract
+        sc += c3
 
         sc.h3("Mint")
         c1.mint([sp.record(metadata=tok0_md, to_=alice.address)]).run(sender=admin)
@@ -1295,8 +1489,15 @@ def test_pause(nft_contract, fungible_contract):
                 )
             ]
         ).run(sender=admin)
+        c3.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin)
 
-        for contract in [c1, c2]:
+        for contract in [c1, c2, c3]:
             sc.h2("Transfer without pause")
             contract.transfer(
                 [

@@ -53,6 +53,24 @@ if "templates" not in __name__:
             )
             FA2.Admin.__init__(self, admin.address)
 
+    class SingleAssetTest(
+        FA2.Admin,
+        FA2.ChangeMetadata,
+        FA2.WithdrawMutez,
+        FA2.MintSingleAsset,
+        FA2.BurnSingleAsset,
+        FA2.OnchainviewBalanceOf,
+        FA2.OffchainviewTokenMetadata,
+        FA2.Fa2SingleAsset,
+    ):
+        """Single asset contract with all optional features."""
+
+        def __init__(self, policy=None):
+            FA2.Fa2SingleAsset.__init__(
+                self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
+            )
+            FA2.Admin.__init__(self, admin.address)
+
     # Fa2Nft
 
     def nft_test(policy=None):
@@ -91,9 +109,28 @@ if "templates" not in __name__:
     TESTS.test_owner_transfer("fungible", fungible_test(policy=FA2.OwnerTransfer()))
     TESTS.test_owner_or_operator_transfer("fungible", fungible_test())
 
+    # Fa2SingleAsset
+
+    TOKEN_METADATA = [tok0_md]
+
+    def single_asset_test(policy=None):
+        return FA2.Fa2SingleAsset(
+            metadata=sp.utils.metadata_of_url("ipfs://example"),
+            token_metadata=TOKEN_METADATA,
+            ledger={ alice.address: 42 },
+            policy=policy,
+        )
+
+    TESTS.test_core_interfaces("single_asset", single_asset_test())
+    TESTS.test_transfers("single_asset", single_asset_test())
+    TESTS.test_balance_of("single_asset", single_asset_test())
+    TESTS.test_no_transfer("single_asset", single_asset_test(policy=FA2.NoTransfer()))
+    TESTS.test_owner_transfer("single_asset", single_asset_test(policy=FA2.OwnerTransfer()))
+    TESTS.test_owner_or_operator_transfer("single_asset", single_asset_test())
+
     # Optional Features
 
     TESTS.test_optional_features(
-        nft_contract=NftTest(), fungible_contract=FungibleTest()
+        nft_contract=NftTest(), fungible_contract=FungibleTest(), single_asset_contract=SingleAssetTest()
     )
-    TESTS.test_pause(NftTest(FA2.PauseTransfer()), FungibleTest(FA2.PauseTransfer()))
+    TESTS.test_pause(NftTest(FA2.PauseTransfer()), FungibleTest(FA2.PauseTransfer()), SingleAssetTest(FA2.PauseTransfer()))
