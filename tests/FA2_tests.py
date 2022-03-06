@@ -24,7 +24,7 @@ if "templates" not in __name__:
         FA2.MintNft,
         FA2.BurnNft,
         FA2.OnchainviewBalanceOf,
-        FA2.OffchainviewTokenMetadata,
+        FA2.OnchainviewTokenMetadata,
         FA2.Fa2Nft,
     ):
         """NFT contract with all optional features."""
@@ -42,7 +42,7 @@ if "templates" not in __name__:
         FA2.MintFungible,
         FA2.BurnFungible,
         FA2.OnchainviewBalanceOf,
-        FA2.OffchainviewTokenMetadata,
+        FA2.OnchainviewTokenMetadata,
         FA2.Fa2Fungible,
     ):
         """Fungible contract with all optional features."""
@@ -57,10 +57,11 @@ if "templates" not in __name__:
         FA2.Admin,
         FA2.ChangeMetadata,
         FA2.WithdrawMutez,
+        FA2.DistributeSingleAsset,
         FA2.MintSingleAsset,
         FA2.BurnSingleAsset,
         FA2.OnchainviewBalanceOf,
-        FA2.OffchainviewTokenMetadata,
+        FA2.OnchainviewTokenMetadata,
         FA2.Fa2SingleAsset,
     ):
         """Single asset contract with all optional features."""
@@ -134,3 +135,4 @@ if "templates" not in __name__:
         nft_contract=NftTest(), fungible_contract=FungibleTest(), single_asset_contract=SingleAssetTest()
     )
     TESTS.test_pause(NftTest(FA2.PauseTransfer()), FungibleTest(FA2.PauseTransfer()), SingleAssetTest(FA2.PauseTransfer()))
+    TESTS.test_adhoc_operators(NftTest(FA2.OwnerOrOperatorAdhocTransfer()), FungibleTest(FA2.OwnerOrOperatorAdhocTransfer()), SingleAssetTest(FA2.OwnerOrOperatorAdhocTransfer()))

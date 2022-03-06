@@ -911,7 +911,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
     - Admin,
     - WithdrawMutez
     - ChangeMetadata
-    - OffchainviewTokenMetadata
+    - OnchainviewTokenMetadata
     - OnchainviewBalanceOf
     - MintNft
     - MintFungible
@@ -1403,7 +1403,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         )
 
     def test_offchain_token_metadata(sc, nft, fungible, single_asset):
-        """Test `OffchainviewTokenMetadata`.
+        """Test `OnchainviewTokenMetadata`.
 
         Tests:
 
@@ -1417,6 +1417,29 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         )
         sc.verify_equal(
             single_asset.token_metadata(0), sp.record(token_id=0, token_info=tok0_md)
+        )
+
+    def test_distribute(sc, single_asset):
+        """Test `DistributeSingleAsset`.
+        """
+
+        #sp.TList(sp.TRecord(
+        #    to_=sp.TAddress, amount=sp.TNat
+        #)
+
+        # Can only be called by admin
+        single_asset.distribute([sp.record(to_=alice.address, amount=1000)]).run(
+            sender=alice, valid=False, exception="FA2_NOT_ADMIN"
+        )
+
+        # Distribute some as admin
+        single_asset.distribute([sp.record(to_=alice.address, amount=1000)]).run(
+            sender=admin, valid=True
+        )
+
+        # Check that the contract storage is updated.
+        sc.verify(
+            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 2000
         )
 
     @sp.add_test(name=test_name)
@@ -1446,8 +1469,9 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         test_burn(sc, nft, fungible, single_asset)
         test_withdraw_mutez(sc, nft, fungible)
         test_change_metadata(sc, nft, fungible)
-        test_balance_of(sc, nft, fungible, single_asset) # TODO
+        test_balance_of(sc, nft, fungible, single_asset)
         test_offchain_token_metadata(sc, nft, fungible, single_asset)
+        test_distribute(sc, single_asset)
 
 
 def test_pause(nft_contract, fungible_contract, single_asset_contract):
@@ -1565,4 +1589,84 @@ def test_pause(nft_contract, fungible_contract, single_asset_contract):
                 sender=alice,
                 valid=False,
                 exception=("FA2_OPERATORS_UNSUPPORTED", "FA2_PAUSED"),
+            )
+
+def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract):
+    """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
+    """
+    test_name = "FA2_adhoc_operators"
+
+    @sp.add_test(name=test_name)
+    def test():
+        sc = sp.test_scenario()
+        sc.h1(test_name)
+        sc.table_of_contents()
+
+        sc.h2("Accounts")
+        sc.show([admin, alice, bob])
+
+        sc.h2("FA2 Contracts")
+        c1 = nft_contract
+        sc += c1
+        c2 = fungible_contract
+        sc += c2
+        c3 = single_asset_contract
+        sc += c3
+
+        sc.h3("Mint")
+        c1.mint([sp.record(metadata=tok0_md, to_=alice.address)]).run(sender=admin)
+        c2.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin)
+        c3.mint(
+            [
+                sp.record(
+                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                )
+            ]
+        ).run(sender=admin)
+
+        for contract in [c1, c2, c3]:
+            # update adhoc operators
+            contract.update_adhoc_operators(
+                sp.variant(
+                    "add_adhoc_operators",
+                    [
+                        sp.record(
+                            operator=bob.address, token_id=0
+                        ),
+                        sp.record(
+                            operator=admin.address, token_id=0
+                        ),
+                    ]
+                )
+            ).run(sender=alice)
+
+            # Check storage contains operators
+            sc.verify(
+                contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)) == True
+            )
+
+            sc.verify(
+                contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == True
+            )
+
+            # clear adhoc operators
+            contract.update_adhoc_operators(
+                sp.variant(
+                    "clear_adhoc_operators", sp.unit
+                )
+            ).run(sender=alice)
+
+            # Check storage doesn't containt operators
+            sc.verify(
+                contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)) == False
+            )
+
+            sc.verify(
+                contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == False
             )

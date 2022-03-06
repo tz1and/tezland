@@ -6,7 +6,9 @@ Multiple mixins and several standard [policies](https://gitlab.com/tezos/tzip/-/
 """
 
 import smartpy as sp
+import types
 
+admin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 #########
 # Types #
@@ -49,6 +51,33 @@ t_balance_of_params = sp.TRecord(
     requests=sp.TList(t_balance_of_request),
 ).layout(("requests", "callback"))
 
+# mint types
+
+t_mint_single_asset_batch = sp.TList(sp.TRecord(
+    to_=sp.TAddress,
+    amount=sp.TNat,
+    token=sp.TVariant(
+        new=sp.TMap(sp.TString, sp.TBytes),
+        existing=sp.TNat
+    ).layout(("new", "existing"))
+).layout(("to_", ("amount", "token"))))
+
+# distribute types
+
+t_distribute_batch = sp.TList(sp.TRecord(
+    to_=sp.TAddress, amount=sp.TNat
+).layout(("to_", "amount")))
+
+# adhoc operator types
+
+t_adhoc_operator_permission = sp.TRecord(
+    operator=sp.TAddress, token_id=sp.TNat
+).layout(("operator", "token_id"))
+
+t_adhoc_operator_params = sp.TVariant(
+    add_adhoc_operators = sp.TList(t_adhoc_operator_permission),
+    clear_adhoc_operators = sp.TUnit
+).layout(("add_adhoc_operators", "clear_adhoc_operators"))
 
 ############
 # Policies #
@@ -122,6 +151,95 @@ class OwnerOrOperatorTransfer:
         return contract.data.operators.contains(operator_permission)
 
 
+class OwnerOrOperatorAdhocTransfer:
+    """(Transfer Policy) Only owner and operators can transfer tokens.
+
+    Adds a `update_adhoc_operators` entrypoint. Checks both operators
+    and adhoc operators.
+
+    Provides adhoc, temporary operators. Cheap and storage efficient.
+    They are supposed to apply only to the current operation group.
+    They are only valid in the current block level. You may take
+    care to clear them after use, but for most uses, it's probably
+    not required.
+    For long-lasting operators, use standard operators.
+
+    You've seen it here first :)
+    """
+
+    def init_policy(self, contract):
+        self.name = "owner-or-operator-transfer"
+        self.supports_transfer = True
+        self.supports_operator = True
+        contract.update_initial_storage(
+            operators=sp.big_map(tkey=t_operator_permission, tvalue=sp.TUnit),
+            adhoc_operators = sp.set(t = sp.TBytes)
+        )
+
+        # Add make_adhoc_operator_key to contract.
+        def make_adhoc_operator_key(self, owner, operator, token_id):
+            t_adhoc_operator_record = sp.TRecord(
+                owner=sp.TAddress,
+                operator=sp.TAddress,
+                token_id=sp.TNat,
+                level=sp.TNat
+            ).layout(("owner", ("operator", ("token_id", "level"))))
+
+            return sp.sha3(sp.pack(sp.set_type_expr(sp.record(
+                owner=owner,
+                operator=operator,
+                token_id=token_id,
+                level=sp.level
+            ), t_adhoc_operator_record)))
+
+        contract.make_adhoc_operator_key = types.MethodType(make_adhoc_operator_key, contract)
+
+        # Add update_adhoc_operators entrypoint to contract.
+        def update_adhoc_operators(self, params):
+            # Supports add_adhoc_operators, and clear_adhoc_operators.
+            sp.set_type(params, t_adhoc_operator_params)
+
+            with params.match_cases() as arg:
+                with arg.match("add_adhoc_operators") as updates:
+                    # Check adhoc operator limit. To prevent potential gaslock.
+                    sp.verify(sp.len(updates) <= 100, "ADHOC_OPERATOR_LIMIT")
+
+                    # Clear adhoc operators. In case they weren't.
+                    self.data.adhoc_operators = sp.set(t = sp.TBytes)
+
+                    # Add adhoc operators.
+                    sp.for upd in updates:
+                        self.data.adhoc_operators.add(
+                            self.make_adhoc_operator_key(
+                                sp.sender, # Sender must be the owner
+                                upd.operator,
+                                upd.token_id))
+                with arg.match("clear_adhoc_operators"):
+                    # Clear adhoc operators.
+                    self.data.adhoc_operators = sp.set(t = sp.TBytes)
+
+        contract.update_adhoc_operators = sp.entry_point(update_adhoc_operators)
+
+    def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
+        sp.verify(
+            (sp.sender == from_)
+            | contract.data.adhoc_operators.contains(
+                contract.make_adhoc_operator_key(from_, sp.sender, token_id)
+            )
+            | contract.data.operators.contains(
+                sp.record(owner=from_, operator=sp.sender, token_id=token_id)
+            ),
+            message="FA2_NOT_OPERATOR",
+        )
+
+    def check_operator_update_permissions(self, contract, operator_permission):
+        sp.verify(operator_permission.owner == sp.sender, "FA2_NOT_OWNER")
+
+    def is_operator(self, contract, operator_permission):
+        adhoc_key = contract.make_adhoc_operator_key(operator_permission.owner, operator_permission.operator, operator_permission.token_id)
+        return contract.data.adhoc_operators.contains(adhoc_key) | contract.data.operators.contains(operator_permission)
+
+
 class PauseTransfer:
     """(Transfer Policy) Decorate any policy to add a pause mechanism.
 
@@ -165,22 +283,21 @@ class PauseTransfer:
     def is_operator(self, contract, operator_param):
         return self.policy.is_operator(contract, operator_param)
 
-
 ##################
-# Offchain views #
+# Onchain views #
 ##################
 
 
-class OffchainViewsNft:
+class OnchainViewsNft:
     """(Mixin) All standard offchain views for NFTs except the optional
     `token_metadata`."""
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def all_tokens(self):
         """Return the list of all the token IDs known to the contract."""
         sp.result(sp.range(0, self.data.last_token_id))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def get_balance(self, params):
         """Return the balance of an address for the specified `token_id`."""
         sp.set_type(
@@ -196,13 +313,13 @@ class OffchainViewsNft:
             )
         )
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(sp.nat(1))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def is_operator(self, params):
         """Return whether `operator` is allowed to transfer `token_id` tokens
         owned by `owner`."""
@@ -210,16 +327,16 @@ class OffchainViewsNft:
         sp.result(self.policy.is_operator(self, params))
 
 
-class OffchainViewsFungible:
+class OnchainViewsFungible:
     """(Mixin) All standard offchain views for Fungible except the optional
     `token_metadata`."""
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def all_tokens(self):
         """OffchainView: Return the list of all the token IDs known to the contract."""
         sp.result(sp.range(0, self.data.last_token_id))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def get_balance(self, params):
         """Return the balance of an address for the specified `token_id`."""
         sp.set_type(
@@ -231,29 +348,29 @@ class OffchainViewsFungible:
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.ledger.get((params.owner, params.token_id), sp.nat(0)))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def is_operator(self, params):
         """Return whether `operator` is allowed to transfer `token_id` tokens
         owned by `owner`."""
         sp.set_type(params, t_operator_permission)
         sp.result(self.policy.is_operator(self, params))
 
-class OffchainViewsSingleAsset:
+class OnchainViewsSingleAsset:
     """(Mixin) All standard offchain views for Fungible except the optional
     `token_metadata`."""
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def all_tokens(self):
         """OffchainView: Return the list of all the token IDs known to the contract."""
         sp.result(sp.nat(0))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def get_balance(self, params):
         """Return the balance of an address for the specified `token_id`."""
         sp.set_type(
@@ -265,13 +382,13 @@ class OffchainViewsSingleAsset:
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.ledger.get(params.owner, sp.nat(0)))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
 
-    @sp.offchain_view(pure=True)
+    @sp.onchain_view(pure=True)
     def is_operator(self, params):
         """Return whether `operator` is allowed to transfer `token_id` tokens
         owned by `owner`."""
@@ -327,8 +444,8 @@ class Common(sp.Contract):
         for f in dir(self):
             attr = getattr(self, f)
             if isinstance(attr, sp.OnOffchainView):
-                if attr.kind == "offchain":
-                    offchain_views.append(attr)
+                # Change: include onchain views as tip 16 offchain views
+                offchain_views.append(attr)
         metadata_base["views"] = offchain_views
         metadata_base["permissions"]["operator"] = self.policy.name
         self.init_metadata(filename, metadata_base)
@@ -356,7 +473,7 @@ class Common(sp.Contract):
 ################
 
 
-class Fa2Nft(OffchainViewsNft, Common):
+class Fa2Nft(OnchainViewsNft, Common):
     """Base class for a FA2 NFT contract.
 
     Respects the FA2 standard.
@@ -444,7 +561,7 @@ class Fa2Nft(OffchainViewsNft, Common):
             sp.failwith("FA2_TX_DENIED")
 
 
-class Fa2Fungible(OffchainViewsFungible, Common):
+class Fa2Fungible(OnchainViewsFungible, Common):
     """Base class for a FA2 fungible contract.
 
     Respects the FA2 standard.
@@ -535,7 +652,7 @@ class Fa2Fungible(OffchainViewsFungible, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
-class Fa2SingleAsset(OffchainViewsSingleAsset, Common):
+class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
     """Base class for a FA2 fungible contract.
 
     Respects the FA2 standard.
@@ -685,14 +802,14 @@ class WithdrawMutez:
         sp.send(destination, amount)
 
 
-class OffchainviewTokenMetadata:
+class OnchainviewTokenMetadata:
     """(Mixin) If present indexers use it to retrieve the token's metadata.
 
     Warning: If someone can change the contract's metadata he can change how
     indexers see every token metadata.
     """
 
-    @sp.offchain_view()
+    @sp.onchain_view()
     def token_metadata(self, token_id):
         """Returns the token-metadata URI for the given token."""
         sp.result(self.data.token_metadata[token_id])
@@ -716,6 +833,7 @@ class OnchainviewBalanceOf:
             )
         )
 
+# TODO: add types for mint
 
 class MintNft:
     """(Mixin) Non-standard `mint` entrypoint for FA2Nft with incrementing id.
@@ -774,6 +892,7 @@ class MintSingleAsset:
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint tokens."""
+        sp.set_type(batch, t_mint_single_asset_batch)
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
@@ -794,6 +913,7 @@ class MintSingleAsset:
                         self.data.ledger.get(from_, 0) + action.amount
                     )
 
+# TODO: add types for burn
 
 class BurnNft:
     """(Mixin) Non-standard `burn` entrypoint for FA2Nft that uses the transfer
@@ -882,3 +1002,18 @@ class BurnSingleAsset:
                 with arg.match("None"):
                     self.data.supply[action.token_id] = 0
 
+# TODO: is it really needed? Mint more or less fills that role.
+class DistributeSingleAsset(MintSingleAsset):
+    """(Mixin) Non-standard `distribute` entrypoint for FA2SingleAsset.
+    Batch-mints to several recipients."""
+    @sp.entry_point
+    def distribute(self, recipients):
+        sp.set_type(recipients, t_distribute_batch)
+        # Mint tokens to every recipient.
+        sp.for rec in recipients:
+            # this effectively includes the mint function here.
+            self.mint.f(self, [sp.record(
+                to_ = rec.to_,
+                amount=rec.amount,
+                token=sp.variant('existing', 0)
+            )])
