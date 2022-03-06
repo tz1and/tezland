@@ -37,7 +37,7 @@ export function test_single(contract_name: string) {
     }
 }
 
-export function compile_metadata(target_name: string, contract_name: string, target_args: string[]): void {
+export function compile_metadata(target_name: string, file_name: string, contract_name: string, target_args: string[]): void {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
     // Build artifact directory.
@@ -49,8 +49,8 @@ export function compile_metadata(target_name: string, contract_name: string, tar
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
-${contract_name}_contract = sp.io.import_script_from_url("file:contracts/${contract_name}.py")
-sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract_name}(
+${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_name}(
     ${target_args.join(', ')}
     ))`)
 
@@ -76,7 +76,7 @@ sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract
     console.log()
 }
 
-export function compile_newtarget(target_name: string, contract_name: string, target_args: string[]): void {
+export function compile_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[]): void {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
     // Build artifact directory.
@@ -88,8 +88,8 @@ export function compile_newtarget(target_name: string, contract_name: string, ta
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
-${contract_name}_contract = sp.io.import_script_from_url("file:contracts/${contract_name}.py")
-sp.add_compilation_target("${target_name}", ${contract_name}_contract.${contract_name}(
+${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_name}(
     ${target_args.join(', ')}
     ))`)
 

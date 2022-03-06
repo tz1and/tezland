@@ -24,11 +24,11 @@ type PostDeployContracts = {
 export default class Deploy extends DeployBase {
     // Compiles metadata, uploads it and then compiles again with metadata set.
     // Note: target_args needs to exclude metadata.
-    private async compile_contract(target_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
+    private async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
         var metadata_url;
         if (metadata === undefined) {
             // Compile metadata
-            smartpy.compile_metadata(target_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
+            smartpy.compile_metadata(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
 
             const metadtaFile = `${target_name}_metadata.json`;
             const metadtaPath = `./build/${metadtaFile}`;
@@ -41,7 +41,7 @@ export default class Deploy extends DeployBase {
         }
 
         // Compile contract with metadata set.
-        smartpy.compile_newtarget(target_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
+        smartpy.compile_newtarget(target_name, file_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
     }
 
     protected override async deployDo() {
@@ -53,24 +53,21 @@ export default class Deploy extends DeployBase {
         //
         // Items
         //
-        await this.compile_contract("FA2_Items", "FA2_legacy", ['config = FA2_legacy_contract.items_config()',
-            `admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [`admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Items");
 
         //
         // Places
         //
-        await this.compile_contract("FA2_Places", "FA2_legacy", ['config = FA2_legacy_contract.places_config()',
-            `admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [`admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_Places");
 
         //
         // DAO
         //
-        await this.compile_contract("FA2_DAO", "FA2_legacy", ['config = FA2_legacy_contract.dao_config()',
-            `admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [`admin = sp.address("${this.accountAddress}")`]);
 
         fa2_batch.addToBatch("FA2_DAO");
 
@@ -93,7 +90,7 @@ export default class Deploy extends DeployBase {
         };
 
         // Compile and deploy Minter contract.
-        await this.compile_contract("TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_Minter", "TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`],
             minter_metadata);
@@ -112,7 +109,7 @@ export default class Deploy extends DeployBase {
         };
 
         // Compile and deploy Dutch auction contract.
-        await this.compile_contract("TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`],
             dutch_metadata);
@@ -161,7 +158,7 @@ export default class Deploy extends DeployBase {
         };
 
         // Compile and deploy Places contract.
-        await this.compile_contract("TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_World", "TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`,
             `dao_contract = sp.address("${dao_FA2_contract.address}")`],
@@ -181,11 +178,11 @@ export default class Deploy extends DeployBase {
             dao_admin_batch.with([
                 {
                     kind: OpKind.TRANSACTION,
-                    ...dao_FA2_contract.methodsObject.mint({
-                        address: this.accountAddress,
+                    ...dao_FA2_contract.methodsObject.mint([{
+                        to_: this.accountAddress,
                         amount: 0,
-                        token_id: 0,
-                        metadata: tokenMetadataMap}).toTransferParams()
+                        token: { new: tokenMetadataMap }
+                    }]).toTransferParams()
                 },
                 {
                     kind: OpKind.TRANSACTION,

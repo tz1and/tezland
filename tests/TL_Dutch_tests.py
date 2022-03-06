@@ -2,7 +2,7 @@ import smartpy as sp
 
 dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
+tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
 @sp.add_test(name = "TL_Dutch_tests", profile = True)
 def test():
@@ -20,12 +20,12 @@ def test():
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
-    items_tokens = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
+    items_tokens = tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
-    places_tokens = fa2_contract.FA2_legacy(config = fa2_contract.places_config(),
+    places_tokens = tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
@@ -74,7 +74,7 @@ def test():
     # set operators
     scenario.h3("Add operators")
     items_tokens.update_operators([
-        sp.variant("add_operator", places_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = bob.address,
             operator = dutch.address,
             token_id = item_bob
@@ -82,7 +82,7 @@ def test():
     ]).run(sender = bob, valid = True)
 
     places_tokens.update_operators([
-        sp.variant("add_operator", places_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = bob.address,
             operator = dutch.address,
             token_id = place_bob
@@ -90,7 +90,7 @@ def test():
     ]).run(sender = bob, valid = True)
 
     places_tokens.update_operators([
-        sp.variant("add_operator", places_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = alice.address,
             operator = dutch.address,
             token_id = place_alice
@@ -276,7 +276,7 @@ def test():
     # alice should own bobs token now
     # set operators and create a new auction
     places_tokens.update_operators([
-        sp.variant("add_operator", places_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = alice.address,
             operator = dutch.address,
             token_id = place_bob
@@ -361,7 +361,7 @@ def test():
     place_admin = sp.nat(2)
 
     places_tokens.update_operators([
-        sp.variant("add_operator", places_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = admin.address,
             operator = dutch.address,
             token_id = place_admin

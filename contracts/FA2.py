@@ -478,7 +478,7 @@ class OnchainViewsSingleAsset:
 class Common(sp.Contract):
     """Common logic between Fa2Nft and Fa2Fungible."""
 
-    def __init__(self, policy=None, metadata_base=None, token_metadata={}):
+    def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
         if policy is None:
             self.policy = OwnerOrOperatorTransfer()
         else:
@@ -493,24 +493,30 @@ class Common(sp.Contract):
             )
         )
         self.policy.init_policy(self)
-        self.generate_contract_metadata("metadata_base", metadata_base)
+        self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
 
     def is_defined(self, token_id):
         return self.data.token_metadata.contains(token_id)
 
-    def generate_contract_metadata(self, filename, metadata_base=None):
+    def generate_contract_metadata(self, name, description, filename, metadata_base=None):
         """Generate a metadata json file with all the contract's offchain views
         and standard TZIP-126 and TZIP-016 key/values."""
         if metadata_base is None:
             metadata_base = {
+                "name": name,
                 "version": "1.0.0",
-                "description": "This implements FA2 (TZIP-012) using SmartPy.",
+                "description": (
+                    description + "\n\nBased on the SmartPy FA2 implementation."
+                ),
                 "interfaces": ["TZIP-012", "TZIP-016"],
-                "authors": ["SmartPy <https://smartpy.io/#contact>"],
-                "homepage": "https://smartpy.io/ide?template=FA2.py",
+                "authors": [
+                    "852Kerfunke <https://github.com/852Kerfunkle>",
+                    "SmartPy <https://smartpy.io/#contact>"
+                ],
+                "homepage": "https://www.tz1and.com",
                 "source": {
                     "tools": ["SmartPy"],
-                    "location": "https://gitlab.com/SmartPy/smartpy/-/raw/master/python/templates/FA2.py",
+                    "location": "https://github.com/tz1and",
                 },
                 "permissions": {"receiver": "owner-no-hook", "sender": "owner-no-hook"},
             }
@@ -554,7 +560,7 @@ class Fa2Nft(OnchainViewsNft, Common):
     """
 
     def __init__(
-        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
+        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "NFT"
@@ -571,6 +577,8 @@ class Fa2Nft(OnchainViewsNft, Common):
             )
         Common.__init__(
             self,
+            name,
+            description,
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,
@@ -653,7 +661,7 @@ class Fa2Fungible(OnchainViewsFungible, Common):
     """
 
     def __init__(
-        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
+        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "Fungible"
@@ -677,6 +685,8 @@ class Fa2Fungible(OnchainViewsFungible, Common):
             )
         Common.__init__(
             self,
+            name,
+            description,
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,
@@ -771,7 +781,7 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
     """
 
     def __init__(
-        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None
+        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "SingleAsset"
@@ -786,6 +796,8 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
         )
         Common.__init__(
             self,
+            name,
+            description,
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,

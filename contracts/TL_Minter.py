@@ -1,8 +1,8 @@
 import smartpy as sp
 
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
-fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
@@ -20,10 +20,8 @@ class TL_Minter(
         
         self.init_storage(
             items_contract = items_contract,
-            item_id_counter = sp.nat(0),
             places_contract = places_contract,
             metadata = metadata,
-            place_id_counter = sp.nat(0),
             )
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
@@ -42,7 +40,7 @@ class TL_Minter(
         sp.for fa2 in [self.data.items_contract, self.data.places_contract]:
             # call items contract
             set_paused_handle = sp.contract(sp.TBool, fa2, 
-                entry_point = "set_paused").open_some()
+                entry_point = "set_pause").open_some()
                 
             sp.transfer(new_paused, sp.mutez(0), set_paused_handle)
 
@@ -57,25 +55,17 @@ class TL_Minter(
         self.onlyUnpaused()
         
         c = sp.contract(
-            sp.TRecord(
-                address=sp.TAddress,
-                amount=sp.TNat,
-                token_id=sp.TNat,
-                metadata=sp.TMap(sp.TString, sp.TBytes)
-            ).layout(("address", ("amount", ("token_id", "metadata")))),
+            FA2.t_mint_nft_batch,
             self.data.places_contract, 
             entry_point = "mint").open_some()
             
         sp.transfer(
-            sp.record(
-                address=params.address,
-                amount=1,
-                token_id=self.data.place_id_counter,
-                metadata={ '' : params.metadata }), 
+            [sp.record(
+                to_=params.address,
+                metadata={ '' : params.metadata }
+            )], 
             sp.mutez(0), 
             c)
-        
-        self.data.place_id_counter += 1
 
     #
     # Public entry points
@@ -86,7 +76,7 @@ class TL_Minter(
             address = sp.TAddress,
             amount = sp.TNat,
             royalties = sp.TNat,
-            contributors = fa2_royalties.FA2_Royalties.CONTRIBUTOR_MAP_TYPE,
+            contributors = FA2.t_contributor_map,
             metadata = sp.TBytes
         ).layout(("address", ("amount", ("royalties", ("contributors", "metadata"))))))
 
@@ -96,26 +86,22 @@ class TL_Minter(
             message = "PARAM_ERROR")
         
         c = sp.contract(
-            sp.TRecord(
-                address=sp.TAddress,
-                amount=sp.TNat,
-                token_id=sp.TNat,
-                metadata=sp.TMap(sp.TString, sp.TBytes),
-                royalties=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE
-            ).layout(("address", ("amount", ("token_id", ("metadata", "royalties"))))),
+            FA2.t_mint_fungible_royalties_batch,
             self.data.items_contract, 
             entry_point = "mint").open_some()
             
         sp.transfer(
-            sp.record(
-                address=params.address,
+            [sp.record(
+                to_=params.address,
                 amount=params.amount,
-                token_id=self.data.item_id_counter,
-                metadata={ '' : params.metadata },
-                royalties=sp.record(
-                    royalties=params.royalties,
-                    contributors=params.contributors)), 
+                token=sp.variant("new", sp.record(
+                    metadata={ '' : params.metadata },
+                    royalties=sp.record(
+                        royalties=params.royalties,
+                        contributors=params.contributors)
+                    )
+                )
+            )], 
             sp.mutez(0), 
             c)
-        
-        self.data.item_id_counter += 1
+

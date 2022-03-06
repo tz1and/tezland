@@ -2,7 +2,8 @@ import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
+tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+fa2_test_lib = sp.io.import_script_from_url("file:tests/lib/FA2_test_lib.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -124,7 +125,7 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("items")
-    items_tokens = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
+    items_tokens = tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
@@ -133,7 +134,7 @@ def test():
     scenario += items_utils
 
     scenario.h2("places")
-    places_tokens = fa2_contract.FA2_legacy(config = fa2_contract.places_config(),
+    places_tokens = tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
@@ -144,13 +145,13 @@ def test():
     scenario += minter
 
     scenario.h2("dao")
-    dao_token = fa2_contract.FA2_legacy(config = fa2_contract.dao_config(),
+    dao_token = tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = fa2_contract.FA2_legacy(config = fa2_contract.items_config(),
+    other_token = tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -189,12 +190,16 @@ def test():
     place_alice = sp.nat(1)
 
     scenario.h3("minting 0 dao")
-    dao_token.mint(address = admin.address,
-        amount = 0,
-        metadata = fa2_contract.FA2_legacy.make_metadata(name = "tz1and DAO",
-            decimals = 6,
-            symbol= "tz1aDAO"),
-        token_id = 0).run(sender = admin)
+    dao_token.mint([
+        sp.record(
+            to_ = admin.address,
+            amount = 0,
+            token = sp.variant("new", sp.record(
+                metadata = fa2_test_lib.make_metadata(name = "tz1and DAO",
+                    decimals = 6,
+                    symbol= "tz1aDAO"),
+            )))
+    ]).run(sender = admin)
 
     #
     # Test places
@@ -217,7 +222,7 @@ def test():
     #
     scenario.h2("Add world as operator for items")
     items_tokens.update_operators([
-        sp.variant("add_operator", items_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = bob.address,
             operator = world.address,
             token_id = item_bob
@@ -225,7 +230,7 @@ def test():
     ]).run(sender = bob, valid = True)
 
     items_tokens.update_operators([
-        sp.variant("add_operator", items_tokens.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = alice.address,
             operator = world.address,
             token_id = item_alice
@@ -532,16 +537,22 @@ def test():
     scenario.h2("Other permitted FA2")
 
     scenario.h3("Other token mint and operator")
-    other_token.mint(address = alice.address,
-        amount = 50,
-        royalties = sp.record(
-            royalties = 250,
-            contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") }),
-        metadata = sp.map(l = { "" : sp.utils.bytes_of_string("ipfs://Qtesttesttest") }),
-        token_id = 0).run(sender = admin)
+    other_token.mint(
+        [sp.record(
+            to_=alice.address,
+            amount=50,
+            token=sp.variant("new", sp.record(
+                metadata={ "" : sp.utils.bytes_of_string("ipfs://Qtesttesttest") },
+                royalties=sp.record(
+                    royalties=250,
+                    contributors={ alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") })
+                )
+            )
+        )]
+    ).run(sender = admin)
 
     other_token.update_operators([
-        sp.variant("add_operator", other_token.operator_param.make(
+        sp.variant("add_operator", sp.record(
             owner = alice.address,
             operator = world.address,
             token_id = 0
@@ -845,12 +856,11 @@ def test():
 
     scenario.h3("No permission after transfer")
     # bob transfers his place to carol
-    places_tokens.transfer([places_tokens.batch_transfer.item(from_ = bob.address,
-        txs = [
-            sp.record(to_=carol.address,
-                amount=1,
-                token_id=place_bob)
-        ])
+    places_tokens.transfer([
+        sp.record(
+            from_=bob.address,
+            txs=[sp.record(to_=carol.address, amount=1, token_id=place_bob)],
+        )
     ]).run(sender=bob)
 
     # alice won't have permission anymore
