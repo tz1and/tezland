@@ -1,14 +1,14 @@
 import smartpy as sp
 
-admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 
-class Pausable(admin_contract.Administrable):
+class Pausable(admin_mixin.Administrable):
     def __init__(self, administrator):
         self.update_initial_storage(
             paused = False
         )
-        admin_contract.Administrable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def isPaused(self):
         return self.data.paused

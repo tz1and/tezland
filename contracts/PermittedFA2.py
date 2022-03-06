@@ -1,6 +1,6 @@
 import smartpy as sp
 
-admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 # TODO: is_fa2_permitted/get_fa2_permitted is probably not needed? maybe for interop...
 
@@ -57,14 +57,14 @@ class Permitted_fa2_param:
 # I think this is desired. But make sure to give a good error message.
 
 
-class PermittedFA2(admin_contract.Administrable):
+class PermittedFA2(admin_mixin.Administrable):
     def __init__(self, administrator, default_permitted = {}):
         self.permitted_fa2_map = Permitted_fa2_map()
         self.permitted_fa2_param = Permitted_fa2_param()
         self.update_initial_storage(
             permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
         )
-        admin_contract.Administrable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def onlyPermittedFA2(self, fa2):
         """Fails if not permitted"""

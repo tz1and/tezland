@@ -12,7 +12,7 @@
 # TODO: test ledger, metadata, extra removal.
 import smartpy as sp
 
-pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
 #
@@ -702,8 +702,8 @@ class FA2_burn(FA2_core):
                     del self.data.token_extra[params.token_id]
                     del self.data.token_metadata[params.token_id]
 
-# NOTE: pausable_contract.Pausable needs to come first. It also include Administrable.
-class FA2_legacy(pausable_contract.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
+# NOTE: pause_mixin.Pausable needs to come first. It also include Administrable.
+class FA2_legacy(pause_mixin.Pausable, FA2_change_metadata, FA2_token_metadata, FA2_mint, FA2_core):
     @sp.onchain_view(pure=True)
     def get_balance(self, req):
         """This is the `get_balance` view defined in TZIP-12."""
@@ -760,7 +760,7 @@ class FA2_legacy(pausable_contract.Pausable, FA2_change_metadata, FA2_token_meta
             self.extend_instance(FA2_distribute, False)
         FA2_core.__init__(self, config, metadata)
         # Add pausable, administrable and mybe royalties
-        pausable_contract.Pausable.__init__(self, administrator = admin)
+        pause_mixin.Pausable.__init__(self, administrator = admin)
         if config.royalties:
             self.extend_instance(fa2_royalties.FA2_Royalties, True)
         

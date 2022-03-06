@@ -3,7 +3,7 @@ import smartpy as sp
 fa2_contract = sp.io.import_script_from_url("file:contracts/FA2_legacy.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 
-class FA2_AdministrationTest(fa2_admin.FA2_Administration):
+class FA2_AdministrationTest(fa2_admin.FA2_Administration, sp.Contract):
     def __init__(self, administrator):
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 

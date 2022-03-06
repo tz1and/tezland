@@ -1,15 +1,19 @@
 import smartpy as sp
 
-pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
+pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
-upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
-class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgradeable.Upgradeable):
+class TL_Minter(
+    pause_mixin.Pausable,
+    fa2_admin.FA2_Administration,
+    upgradeable_mixin.Upgradeable,
+    sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -21,9 +25,9 @@ class TL_Minter(pausable_contract.Pausable, fa2_admin.FA2_Administration, upgrad
             metadata = metadata,
             place_id_counter = sp.nat(0),
             )
-        pausable_contract.Pausable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
-        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['mint_Item', 'mint_Place'])
 
     #

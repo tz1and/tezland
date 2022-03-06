@@ -1,11 +1,11 @@
 import smartpy as sp
 
-pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
-whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
-fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
+fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
-upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
@@ -18,8 +18,13 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
-    fees_contract.Fees, upgradeable.Upgradeable, permitted_fa2.PermittedFA2):
+class TL_Dutch(
+    pause_mixin.Pausable,
+    whitelist_mixin.Whitelist,
+    fees_mixin.Fees,
+    upgradeable_mixin.Upgradeable,
+    permitted_fa2.PermittedFA2,
+    sp.Contract):
     """A simple dutch auction.
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
@@ -46,10 +51,10 @@ class TL_Dutch(pausable_contract.Pausable, whitelist_contract.Whitelist,
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
         )
-        pausable_contract.Pausable.__init__(self, administrator = administrator)
-        whitelist_contract.Whitelist.__init__(self, administrator = administrator)
-        fees_contract.Fees.__init__(self, administrator = administrator)
-        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+        pause_mixin.Pausable.__init__(self, administrator = administrator)
+        whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
+        fees_mixin.Fees.__init__(self, administrator = administrator)
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['create', 'cancel', 'bid'])
 
         default_permitted = { places_contract : sp.record(

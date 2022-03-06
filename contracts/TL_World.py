@@ -6,11 +6,11 @@
 
 import smartpy as sp
 
-pausable_contract = sp.io.import_script_from_url("file:contracts/Pausable.py")
-fees_contract = sp.io.import_script_from_url("file:contracts/Fees.py")
+pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
-upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Urgent
@@ -41,7 +41,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
 # - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
 # - DON'T add Items or Places, to permitted_fa2.
-# - every upgradeable entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
+# - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 # - Item data is stored in half floats, usually, there are two formats as of now
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
 #   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
@@ -238,8 +238,13 @@ class Permission_param:
 #
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
-class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.PermittedFA2,
-    upgradeable.Upgradeable, fa2_admin.FA2_Administration):
+class TL_World(
+    pause_mixin.Pausable,
+    fees_mixin.Fees,
+    permitted_fa2.PermittedFA2,
+    upgradeable_mixin.Upgradeable,
+    fa2_admin.FA2_Administration,
+    sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
@@ -270,10 +275,10 @@ class TL_World(pausable_contract.Pausable, fees_contract.Fees, permitted_fa2.Per
             # so there's plenty of room ahead.
             places = self.place_store_map.make()
         )
-        pausable_contract.Pausable.__init__(self, administrator = administrator)
-        fees_contract.Fees.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, administrator = administrator)
+        fees_mixin.Fees.__init__(self, administrator = administrator)
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
-        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 

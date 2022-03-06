@@ -1,10 +1,10 @@
 import smartpy as sp
 
-whitelist_contract = sp.io.import_script_from_url("file:contracts/Whitelist.py")
+whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 
-class WhitelistTests(whitelist_contract.Whitelist):
+class WhitelistTests(whitelist_mixin.Whitelist, sp.Contract):
     def __init__(self, administrator):
-        whitelist_contract.Whitelist.__init__(self, administrator = administrator)
+        whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def testIsWhitelisted(self, whitelisted):

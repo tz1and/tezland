@@ -1,15 +1,15 @@
 import smartpy as sp
 
-admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 
-class Fees(admin_contract.Administrable):
+class Fees(admin_mixin.Administrable):
     def __init__(self, administrator):
         self.update_initial_storage(
             fees = sp.nat(25),
             fees_to = administrator
         )
-        admin_contract.Administrable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def update_fees(self, fees):

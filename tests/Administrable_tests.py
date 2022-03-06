@@ -1,10 +1,10 @@
 import smartpy as sp
 
-admin_contract = sp.io.import_script_from_url("file:contracts/Administrable.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
-class AdministrableTest(admin_contract.Administrable):
+class AdministrableTest(admin_mixin.Administrable, sp.Contract):
     def __init__(self, administrator):
-        admin_contract.Administrable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def testOnlyAdmin(self):

@@ -1,13 +1,13 @@
 import smartpy as sp
 
-upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
-class UpgradeableTest(upgradeable.Upgradeable):
+class UpgradeableTest(upgradeable_mixin.Upgradeable, sp.Contract):
     def __init__(self, administrator):
         self.init_storage(
             counter = sp.int(0)
         )
-        upgradeable.Upgradeable.__init__(self, administrator = administrator,
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['test_entry', 'another_entry'])
 
     @sp.entry_point(lazify = True)

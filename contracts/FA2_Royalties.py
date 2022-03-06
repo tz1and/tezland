@@ -2,7 +2,7 @@ import smartpy as sp
 
 # TODO: should get_token_royalties fail if token doesn't exist?
 
-class FA2_Royalties(sp.Contract):
+class FA2_Royalties:
     CONTRIBUTOR_MAP_TYPE = sp.TMap(
         sp.TAddress,
         # The relative royalties, per contributor, must add up to 1000. And the role.

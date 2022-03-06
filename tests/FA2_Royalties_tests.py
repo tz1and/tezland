@@ -2,7 +2,7 @@ import smartpy as sp
 
 fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 
-class FA2_RoyaltiesTest(fa2_royalties.FA2_Royalties):
+class FA2_RoyaltiesTest(fa2_royalties.FA2_Royalties, sp.Contract):
     def __init__(self):
         self.init_storage(
             token_extra=sp.big_map(tkey=sp.TNat, tvalue=sp.TRecord(
