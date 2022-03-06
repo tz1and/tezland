@@ -136,3 +136,37 @@ if "templates" not in __name__:
     )
     TESTS.test_pause(NftTest(FA2.PauseTransfer()), FungibleTest(FA2.PauseTransfer()), SingleAssetTest(FA2.PauseTransfer()))
     TESTS.test_adhoc_operators(NftTest(FA2.OwnerOrOperatorAdhocTransfer()), FungibleTest(FA2.OwnerOrOperatorAdhocTransfer()), SingleAssetTest(FA2.OwnerOrOperatorAdhocTransfer()))
+
+    # Royalties
+
+    class NftRoyaltiesTest(
+        FA2.Admin,
+        FA2.MintNft,
+        FA2.Royalties,
+        FA2.Fa2Nft,
+    ):
+        """NFT contract for testing royalties."""
+
+        def __init__(self, policy=None):
+            FA2.Fa2Nft.__init__(
+                self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
+            )
+            FA2.Royalties.__init__(self)
+            FA2.Admin.__init__(self, admin.address)
+
+    class FungibleRoyaltiesTest(
+        FA2.Admin,
+        FA2.MintFungible,
+        FA2.Royalties,
+        FA2.Fa2Fungible,
+    ):
+        """Fungible contract with all optional features."""
+
+        def __init__(self, policy=None):
+            FA2.Fa2Fungible.__init__(
+                self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
+            )
+            FA2.Royalties.__init__(self)
+            FA2.Admin.__init__(self, admin.address)
+    
+    TESTS.test_royalties(NftRoyaltiesTest(), FungibleRoyaltiesTest()) # no royalties on single asset

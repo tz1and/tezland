@@ -61,7 +61,9 @@ t_mint_fungible_batch = sp.TList(sp.TRecord(
     to_=sp.TAddress,
     amount=sp.TNat,
     token=sp.TVariant(
-        new=sp.TMap(sp.TString, sp.TBytes),
+        new=sp.TRecord(
+            metadata=sp.TMap(sp.TString, sp.TBytes)
+        ),
         existing=sp.TNat
     ).layout(("new", "existing"))
 ).layout(("to_", ("amount", "token"))))
@@ -90,6 +92,59 @@ t_adhoc_operator_params = sp.TVariant(
     add_adhoc_operators = sp.TList(t_adhoc_operator_permission),
     clear_adhoc_operators = sp.TUnit
 ).layout(("add_adhoc_operators", "clear_adhoc_operators"))
+
+# royalties
+
+t_contributor_map = sp.TMap(
+    sp.TAddress,
+    # The relative royalties, per contributor, must add up to 1000. And the role.
+    sp.TRecord(
+        relative_royalties=sp.TNat,
+        role=sp.TString
+    ).layout(("relative_royalties", "role")))
+
+t_royalties = sp.TRecord(
+    # The absolute royalties in permille.
+    royalties=sp.TNat,
+    # The minter address
+    contributors=t_contributor_map
+).layout(("royalties", "contributors"))
+
+# mint with royalties
+
+t_mint_nft_royalties_batch = sp.TList(sp.TRecord(
+    to_=sp.TAddress,
+    metadata=sp.TMap(sp.TString, sp.TBytes),
+    royalties=t_royalties
+).layout(("to_", ("metadata", "royalties"))))
+
+t_mint_fungible_royalties_batch = sp.TList(sp.TRecord(
+    to_=sp.TAddress,
+    amount=sp.TNat,
+    token=sp.TVariant(
+        new=sp.TRecord(
+            metadata=sp.TMap(sp.TString, sp.TBytes),
+            royalties=t_royalties
+        ).layout(("metadata", "royalties")),
+        existing=sp.TNat
+    ).layout(("new", "existing"))
+).layout(("to_", ("amount", "token"))))
+
+# token_extra
+
+t_token_extra_royalties_supply = sp.TRecord(
+    supply=sp.TNat,
+    royalty_info=t_royalties
+).layout(("supply", "royalty_info"))
+
+t_token_extra_royalties = sp.TRecord(
+    royalty_info=t_royalties
+)
+
+t_token_extra_supply = sp.TRecord(
+    supply=sp.TNat
+)
+
 
 ############
 # Policies #
@@ -367,7 +422,10 @@ class OnchainViewsFungible:
         """Return the total number of tokens for the given `token_id`."""
         sp.set_type(params, sp.TRecord(token_id=sp.TNat))
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
+        with sp.if_(self.data.token_extra.contains(params.token_id)):
+            sp.result(self.data.token_extra[params.token_id].supply)
+        with sp.else_():
+            sp.result(sp.nat(0))
 
     @sp.onchain_view(pure=True)
     def is_operator(self, params):
@@ -402,7 +460,7 @@ class OnchainViewsSingleAsset:
         """Return the total number of tokens for the given `token_id`."""
         sp.set_type(params, sp.TRecord(token_id=sp.TNat))
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
+        sp.result(self.data.supply)
 
     @sp.onchain_view(pure=True)
     def is_operator(self, params):
@@ -496,16 +554,21 @@ class Fa2Nft(OnchainViewsNft, Common):
     """
 
     def __init__(
-        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None
+        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        ledger, token_metadata = self.initial_mint(token_metadata, ledger)
+        self.ledger_type = "NFT"
+        self.has_royalties = has_royalties
+        ledger, token_extra, token_metadata = self.initial_mint(token_metadata, ledger, has_royalties)
         self.init(
             ledger=sp.big_map(ledger, tkey=sp.TNat, tvalue=sp.TAddress),
             metadata=metadata,
-            last_token_id=sp.nat(len(token_metadata)),
+            last_token_id=sp.nat(len(token_metadata))
         )
-        self.ledger_type = "NFT"
+        if has_royalties:
+            self.update_initial_storage(
+                token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties)
+            )
         Common.__init__(
             self,
             policy=policy,
@@ -513,22 +576,28 @@ class Fa2Nft(OnchainViewsNft, Common):
             token_metadata=token_metadata,
         )
 
-    def initial_mint(self, token_metadata=[], ledger={}):
+    def initial_mint(self, token_metadata=[], ledger={}, has_royalties=False):
         """Perform a mint before the origination.
 
-        Returns `ledger` and `token_metadata`.
+        Returns `ledger`, `token_extra` and `token_metadata`.
         """
         token_metadata_dict = {}
+        token_extra_dict = {}
         for token_id, metadata in enumerate(token_metadata):
             token_metadata_dict[token_id] = sp.record(
                 token_id=token_id, token_info=metadata
+            )
+            token_extra_dict[token_id] = sp.record(
+                royalty_info=sp.record(
+                    royalties=0, contributors={}
+                )
             )
         for token_id, address in ledger.items():
             if token_id not in token_metadata_dict:
                 raise Exception(
                     "Ledger contains token_id with no corresponding metadata"
                 )
-        return (ledger, token_metadata_dict)
+        return (ledger, token_extra_dict, token_metadata_dict)
 
     def balance_of_(self, requests):
         """Logic of the balance_of entrypoint."""
@@ -584,19 +653,28 @@ class Fa2Fungible(OnchainViewsFungible, Common):
     """
 
     def __init__(
-        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None
+        self, metadata, token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "Fungible"
-        ledger, supply, token_metadata = self.initial_mint(token_metadata, ledger)
+        self.has_royalties = has_royalties
+        self.allow_mint_existing = allow_mint_existing
+        ledger, token_extra, token_metadata = self.initial_mint(token_metadata, ledger, has_royalties)
         self.init(
             ledger=sp.big_map(
                 ledger, tkey=sp.TPair(sp.TAddress, sp.TNat), tvalue=sp.TNat
             ),
             metadata=metadata,
-            last_token_id=sp.nat(len(token_metadata)),
-            supply=sp.big_map(supply, tkey=sp.TNat, tvalue=sp.TNat),
+            last_token_id=sp.nat(len(token_metadata))
         )
+        if has_royalties:
+            self.update_initial_storage(
+                token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties_supply)
+            )
+        else:
+            self.update_initial_storage(
+                token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_supply)
+            )
         Common.__init__(
             self,
             policy=policy,
@@ -604,23 +682,31 @@ class Fa2Fungible(OnchainViewsFungible, Common):
             token_metadata=token_metadata,
         )
 
-    def initial_mint(self, token_metadata=[], ledger={}):
+    def initial_mint(self, token_metadata=[], ledger={}, has_royalties=False):
         """Perform a mint before the origination.
 
-        Returns `ledger`, `supply` and `token_metadata`.
+        Returns `ledger`, `token_extra` and `token_metadata`.
         """
         token_metadata_dict = {}
-        supply = {}
+        token_extra_dict = {}
         for token_id, metadata in enumerate(token_metadata):
             metadata = sp.record(token_id=token_id, token_info=metadata)
             token_metadata_dict[token_id] = metadata
             # Token that are in token_metadata and not in ledger exist with supply = 0
-            supply[token_id] = 0
+            if has_royalties:
+                token_extra_dict[token_id] = sp.record(
+                    supply=sp.nat(0),
+                    royalty_info=sp.record(
+                        royalties=0, contributors={}
+                    )
+                )
+            else:
+                token_extra_dict[token_id] = sp.record(supply=sp.nat(0))
         for (address, token_id), amount in ledger.items():
             if token_id not in token_metadata_dict:
                 raise Exception("Ledger contains a token_id with no metadata")
-            supply[token_id] += amount
-        return (ledger, supply, token_metadata_dict)
+            token_extra_dict[token_id].supply += amount
+        return (ledger, token_extra_dict, token_metadata_dict)
 
     def balance_of_(self, requests):
         """Logic of the balance_of entrypoint."""
@@ -662,6 +748,7 @@ class Fa2Fungible(OnchainViewsFungible, Common):
                         self.data.ledger.get(from_, 0) - tx.amount,
                         message="FA2_INSUFFICIENT_BALANCE",
                     )
+                    # TODO: delete from ledger
                     # Do the transfer
                     to_ = (tx.to_, tx.token_id)
                     self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
@@ -686,7 +773,7 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
             ),
             metadata=metadata,
             last_token_id=sp.nat(len(token_metadata)),
-            supply=sp.big_map(supply, tkey=sp.TNat, tvalue=sp.TNat),
+            supply=supply,
         )
         Common.__init__(
             self,
@@ -703,16 +790,14 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
         if len(token_metadata) > 1:
             raise Exception("Single asset can only contain one token")
         token_metadata_dict = {}
-        supply = {}
+        supply = sp.nat(0)
         for token_id, metadata in enumerate(token_metadata):
             metadata = sp.record(token_id=token_id, token_info=metadata)
             token_metadata_dict[token_id] = metadata
-            # Token that are in token_metadata and not in ledger exist with supply = 0
-            supply[token_id] = 0
         for address, amount in ledger.items():
             if token_id not in token_metadata_dict:
                 raise Exception("Ledger contains a token_id with no metadata")
-            supply[token_id] += amount
+            supply += amount
         return (ledger, supply, token_metadata_dict)
 
     def balance_of_(self, requests):
@@ -759,6 +844,7 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
                         self.data.ledger.get(from_, 0) - tx.amount,
                         message="FA2_INSUFFICIENT_BALANCE",
                     )
+                    # TODO: delete from ledger
                     # Do the transfer
                     to_ = tx.to_
                     self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
@@ -870,13 +956,20 @@ class MintNft:
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint new or existing tokens."""
-        sp.set_type(batch, t_mint_nft_batch)
+        if self.has_royalties:
+            sp.set_type(batch, t_mint_nft_royalties_batch)
+        else:
+            sp.set_type(batch, t_mint_nft_batch)
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
+            if self.has_royalties:
+                self.validateRoyalties(action.royalties)
             token_id = sp.compute(self.data.last_token_id)
             metadata = sp.record(token_id=token_id, token_info=action.metadata)
             self.data.token_metadata[token_id] = metadata
             self.data.ledger[token_id] = action.to_
+            if self.has_royalties:
+                self.data.token_extra[token_id] = sp.record(royalty_info=action.royalties)
             self.data.last_token_id += 1
 
 
@@ -890,25 +983,41 @@ class MintFungible:
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint tokens."""
+        if self.has_royalties:
+            sp.set_type(batch, t_mint_fungible_royalties_batch)
+        else:
+            sp.set_type(batch, t_mint_fungible_batch)
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
-        sp.set_type(batch, t_mint_fungible_batch)
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
-                with arg.match("new") as metadata:
+                with arg.match("new") as new:
+                    if self.has_royalties:
+                        self.validateRoyalties(new.royalties)
                     token_id = sp.compute(self.data.last_token_id)
                     self.data.token_metadata[token_id] = sp.record(
-                        token_id=token_id, token_info=metadata
+                        token_id=token_id, token_info=new.metadata
                     )
-                    self.data.supply[token_id] = action.amount
+                    if self.has_royalties:
+                        self.data.token_extra[token_id] = sp.record(
+                            supply=action.amount,
+                            royalty_info=new.royalties
+                        )
+                    else:
+                        self.data.token_extra[token_id] = sp.record(
+                            supply=action.amount
+                        )
                     self.data.ledger[(action.to_, token_id)] = action.amount
                     self.data.last_token_id += 1
                 with arg.match("existing") as token_id:
-                    sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-                    self.data.supply[token_id] += action.amount
-                    from_ = (action.to_, token_id)
-                    self.data.ledger[from_] = (
-                        self.data.ledger.get(from_, 0) + action.amount
-                    )
+                    if self.allow_mint_existing:
+                        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+                        self.data.token_extra[token_id].supply += action.amount
+                        from_ = (action.to_, token_id)
+                        self.data.ledger[from_] = (
+                            self.data.ledger.get(from_, 0) + action.amount
+                        )
+                    else:
+                        sp.failwith("FA2_MINT_EXISTING_DISALLOWED")
 
 class MintSingleAsset:
     """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset assuring only
@@ -924,18 +1033,18 @@ class MintSingleAsset:
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
-                with arg.match("new") as metadata:
+                with arg.match("new") as new:
                     token_id = sp.nat(0)
                     sp.verify(~ self.data.token_metadata.contains(token_id), "FA2_TOKEN_DEFINED") # TODO: change this message?
                     self.data.token_metadata[token_id] = sp.record(
-                        token_id=token_id, token_info=metadata
+                        token_id=token_id, token_info=new.metadata
                     )
-                    self.data.supply[token_id] = action.amount
+                    self.data.supply = action.amount
                     self.data.ledger[action.to_] = action.amount
                     self.data.last_token_id += 1
                 with arg.match("existing") as token_id:
                     sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-                    self.data.supply[token_id] += action.amount
+                    self.data.supply += action.amount
                     from_ = action.to_
                     self.data.ledger[from_] = (
                         self.data.ledger.get(from_, 0) + action.amount
@@ -973,6 +1082,8 @@ class BurnNft:
                 # Burn the token
                 del self.data.ledger[action.token_id]
                 del self.data.token_metadata[action.token_id]
+                if self.has_royalties:
+                    del self.data.token_extra[action.token_id]
 
 
 class BurnFungible:
@@ -996,15 +1107,22 @@ class BurnFungible:
                 self.data.ledger.get(from_, 0) - action.amount,
                 message="FA2_INSUFFICIENT_BALANCE",
             )
+            # TODO: delete from ledger
 
             supply = sp.compute(
-                sp.is_nat(self.data.supply.get(action.token_id, 0) - action.amount)
+                sp.is_nat(self.data.token_extra[action.token_id].supply - action.amount)
             )
+            # Decrease supply or burn of it becomes 0.
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
-                    self.data.supply[action.token_id] = nat_supply
+                    self.data.token_extra[action.token_id].supply = nat_supply
                 with arg.match("None"):
-                    self.data.supply[action.token_id] = 0
+                    # NOTE: if existing tokens can't be minted again, delete
+                    if self.allow_mint_existing:
+                        self.data.token_extra[action.token_id].supply = 0
+                    else:
+                        del self.data.token_extra[action.token_id]
+                        del self.data.token_metadata[action.token_id]
 
 class BurnSingleAsset:
     """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
@@ -1027,15 +1145,16 @@ class BurnSingleAsset:
                 self.data.ledger.get(from_, 0) - action.amount,
                 message="FA2_INSUFFICIENT_BALANCE",
             )
+            # TODO: delete from ledger
 
             supply = sp.compute(
-                sp.is_nat(self.data.supply.get(action.token_id, 0) - action.amount)
+                sp.is_nat(self.data.supply - action.amount)
             )
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
-                    self.data.supply[action.token_id] = nat_supply
+                    self.data.supply = nat_supply
                 with arg.match("None"):
-                    self.data.supply[action.token_id] = 0
+                    self.data.supply = 0
 
 # TODO: is it really needed? Mint more or less fills that role.
 class DistributeSingleAsset(MintSingleAsset):
@@ -1052,3 +1171,48 @@ class DistributeSingleAsset(MintSingleAsset):
                 amount=rec.amount,
                 token=sp.variant('existing', 0)
             )])
+
+class Royalties:
+    """(Mixin) Non-standard royalties for nft and fungible.
+    Required has_royalties=True on base.
+    
+    I admit, not very elegant, but I want to save that bigmap.
+    """
+    MIN_ROYALTIES = sp.nat(0)
+    MAX_ROYALTIES = sp.nat(250)
+    MAX_CONTRIBUTORS = sp.nat(3)
+
+    def __init__(self):
+        if self.ledger_type == "SingleAsset":
+            raise Exception("Royalties not supported on SingleAsset")
+        if self.has_royalties != True:
+            raise Exception("Royalties not enabled on base")
+
+    def validateRoyalties(self, royalties):
+        """Inline function to validate royalties."""
+        royalties = sp.set_type_expr(royalties, t_royalties)
+        # Make sure absolute royalties and splits are in valid range.
+        sp.verify((royalties.royalties >= Royalties.MIN_ROYALTIES) &
+            (royalties.royalties <= Royalties.MAX_ROYALTIES), message="FA2_ROYALTIES_INVALID")
+        sp.verify(sp.len(royalties.contributors) <= Royalties.MAX_CONTRIBUTORS, message="FA2_ROYALTIES_INVALID")
+        
+        # If royalties > 0, validate individual splits and that they add up to 1000
+        with sp.if_(royalties.royalties > 0):
+            total_relative = sp.local("total_splits", sp.nat(0))
+            with sp.for_("contribution", royalties.contributors.values()) as contribution:
+                total_relative.value += contribution.relative_royalties
+                # TODO: require minter role?
+            sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_INVALID")
+        # If royalties == 0, make sure splits are empty
+        with sp.else_():
+            sp.verify(sp.len(royalties.contributors) == 0, message="FA2_ROYALTIES_INVALID")
+
+    @sp.onchain_view(pure=True)
+    def get_token_royalties(self, token_id):
+        """Returns the token royalties information"""
+        sp.set_type(token_id, sp.TNat)
+        # TODO: should this fail if token doesn't exist?
+        with sp.if_(self.data.token_extra.contains(token_id)):
+            sp.result(self.data.token_extra[token_id].royalty_info)
+        with sp.else_():
+            sp.result(sp.record(royalties=sp.nat(0), contributors={}))

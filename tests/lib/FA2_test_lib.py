@@ -955,7 +955,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         fungible.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
@@ -965,7 +965,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         single_asset.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
@@ -992,7 +992,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         fungible.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
@@ -1007,7 +1007,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         fungible.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok1_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok1_md)), to_=alice.address, amount=1000
                 ),
                 sp.record(
                     token=sp.variant("existing", 0), to_=alice.address, amount=1000
@@ -1034,7 +1034,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         single_asset.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
@@ -1064,7 +1064,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         single_asset.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok1_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin, valid=False, exception="FA2_TOKEN_DEFINED")
@@ -1509,14 +1509,14 @@ def test_pause(nft_contract, fungible_contract, single_asset_contract):
         c2.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
         c3.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
@@ -1618,14 +1618,14 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
         c2.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
         c3.mint(
             [
                 sp.record(
-                    token=sp.variant("new", tok0_md), to_=alice.address, amount=1000
+                    token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
         ).run(sender=admin)
@@ -1670,3 +1670,107 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
             sc.verify(
                 contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == False
             )
+
+def test_royalties(nft_contract, fungible_contract):
+    """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
+    """
+    test_name = "FA2_royalties"
+
+    @sp.add_test(name=test_name)
+    def test():
+        sc = sp.test_scenario()
+        sc.h1(test_name)
+        sc.table_of_contents()
+
+        sc.h2("Accounts")
+        sc.show([admin, alice, bob])
+
+        sc.h2("FA2 Contracts")
+        c1 = nft_contract
+        sc += c1
+        c2 = fungible_contract
+        sc += c2
+
+        # Define some valid royalties
+        valid_royalties = [
+            sp.record(
+                royalties=sp.nat(250),
+                contributors={
+                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                }
+            ),
+            sp.record(
+                royalties=sp.nat(0),
+                contributors={}
+            ),
+            sp.record(
+                royalties=sp.nat(150),
+                contributors={
+                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(600)),
+                    bob.address : sp.record(role="minter", relative_royalties=sp.nat(200)),
+                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(200))
+                }
+            )
+        ]
+
+        sc.h3("Mint - valid")
+
+        for royalties in valid_royalties:
+            c1.mint([sp.record(
+                metadata=tok0_md,
+                to_=alice.address,
+                royalties=royalties
+            )]).run(sender=admin)
+
+            c2.mint([
+                sp.record(
+                    token=sp.variant("new", sp.record(
+                        metadata=tok0_md,
+                        royalties=royalties)),
+                    to_=alice.address, amount=1000
+                )
+            ]).run(sender=admin)
+
+            # TODO: check sorage...
+
+        # Define some invalid royalties
+        invalid_royalties = [
+            sp.record(
+                royalties=sp.nat(251),
+                contributors={
+                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                }
+            ),
+            sp.record(
+                royalties=sp.nat(0),
+                contributors={
+                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                }
+            ),
+            sp.record(
+                royalties=sp.nat(150),
+                contributors={
+                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(500)),
+                    bob.address : sp.record(role="minter", relative_royalties=sp.nat(200)),
+                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(200))
+                }
+            )
+        ]
+
+        for royalties in invalid_royalties:
+            c1.mint([sp.record(
+                metadata=tok0_md,
+                to_=alice.address,
+                royalties=royalties
+            )]).run(sender=admin, valid=False, exception="FA2_ROYALTIES_INVALID")
+
+            c2.mint([
+                sp.record(
+                    token=sp.variant("new", sp.record(
+                        metadata=tok0_md,
+                        royalties=royalties)),
+                    to_=alice.address, amount=1000
+                )
+            ]).run(sender=admin, valid=False, exception="FA2_ROYALTIES_INVALID")
+
+            # TODO: check sorage...
