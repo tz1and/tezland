@@ -8,7 +8,6 @@ Multiple mixins and several standard [policies](https://gitlab.com/tezos/tzip/-/
 import smartpy as sp
 import types
 
-admin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 #########
 # Types #
@@ -53,7 +52,12 @@ t_balance_of_params = sp.TRecord(
 
 # mint types
 
-t_mint_single_asset_batch = sp.TList(sp.TRecord(
+t_mint_nft_batch = sp.TList(sp.TRecord(
+    to_=sp.TAddress,
+    metadata=sp.TMap(sp.TString, sp.TBytes)
+).layout(("to_", "metadata")))
+
+t_mint_fungible_batch = sp.TList(sp.TRecord(
     to_=sp.TAddress,
     amount=sp.TNat,
     token=sp.TVariant(
@@ -61,6 +65,14 @@ t_mint_single_asset_batch = sp.TList(sp.TRecord(
         existing=sp.TNat
     ).layout(("new", "existing"))
 ).layout(("to_", ("amount", "token"))))
+
+# burn types
+
+t_burn_batch = sp.TList(sp.TRecord(
+    from_=sp.TAddress,
+    amount=sp.TNat,
+    token_id=sp.TNat
+).layout(("from_", ("amount", "token_id"))))
 
 # distribute types
 
@@ -208,7 +220,7 @@ class OwnerOrOperatorAdhocTransfer:
                     self.data.adhoc_operators = sp.set(t = sp.TBytes)
 
                     # Add adhoc operators.
-                    sp.for upd in updates:
+                    with sp.for_("upd", updates) as upd:
                         self.data.adhoc_operators.add(
                             self.make_adhoc_operator_key(
                                 sp.sender, # Sender must be the owner
@@ -264,6 +276,7 @@ class PauseTransfer:
 
         # Add a set_pause entrypoint
         def set_pause(self, params):
+            sp.set_type(params, sp.TBool)
             sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
             self.data.paused = params
 
@@ -316,6 +329,7 @@ class OnchainViewsNft:
     @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
+        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(sp.nat(1))
 
@@ -351,6 +365,7 @@ class OnchainViewsFungible:
     @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
+        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
 
@@ -368,7 +383,7 @@ class OnchainViewsSingleAsset:
     @sp.onchain_view(pure=True)
     def all_tokens(self):
         """OffchainView: Return the list of all the token IDs known to the contract."""
-        sp.result(sp.nat(0))
+        sp.result([sp.nat(0)])
 
     @sp.onchain_view(pure=True)
     def get_balance(self, params):
@@ -385,6 +400,7 @@ class OnchainViewsSingleAsset:
     @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
+        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
         sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(self.data.supply.get(params.token_id, sp.nat(0)))
 
@@ -749,6 +765,7 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
+
 ##########
 # Mixins #
 ##########
@@ -771,6 +788,7 @@ class Admin:
     @sp.entry_point
     def set_administrator(self, params):
         """(Admin only) Set the contract administrator."""
+        sp.set_type(params, sp.TAddress)
         sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
         self.data.administrator = params
 
@@ -784,6 +802,7 @@ class ChangeMetadata:
     @sp.entry_point
     def set_metadata(self, metadata):
         """(Admin only) Set the contract metadata."""
+        sp.set_type(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
         self.data.metadata = metadata
 
@@ -798,6 +817,8 @@ class WithdrawMutez:
     @sp.entry_point
     def withdraw_mutez(self, destination, amount):
         """(Admin only) Transfer `amount` mutez to `destination`."""
+        sp.set_type(destination, sp.TAddress)
+        sp.set_type(amount, sp.TMutez)
         sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
         sp.send(destination, amount)
 
@@ -812,6 +833,7 @@ class OnchainviewTokenMetadata:
     @sp.onchain_view()
     def token_metadata(self, token_id):
         """Returns the token-metadata URI for the given token."""
+        sp.set_type(token_id, sp.TNat)
         sp.result(self.data.token_metadata[token_id])
 
 
@@ -833,7 +855,11 @@ class OnchainviewBalanceOf:
             )
         )
 
-# TODO: add types for mint
+
+#################
+# Mixins - Mint #
+#################
+
 
 class MintNft:
     """(Mixin) Non-standard `mint` entrypoint for FA2Nft with incrementing id.
@@ -844,6 +870,7 @@ class MintNft:
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint new or existing tokens."""
+        sp.set_type(batch, t_mint_nft_batch)
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             token_id = sp.compute(self.data.last_token_id)
@@ -864,6 +891,7 @@ class MintFungible:
     def mint(self, batch):
         """Admin can mint tokens."""
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+        sp.set_type(batch, t_mint_fungible_batch)
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as metadata:
@@ -883,8 +911,8 @@ class MintFungible:
                     )
 
 class MintSingleAsset:
-    """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset with incrementing
-    id.
+    """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset assuring only
+    one token can be minted.
 
     Requires the `Admin` mixin.
     """
@@ -892,7 +920,7 @@ class MintSingleAsset:
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint tokens."""
-        sp.set_type(batch, t_mint_single_asset_batch)
+        sp.set_type(batch, t_mint_fungible_batch)
         sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
@@ -913,7 +941,11 @@ class MintSingleAsset:
                         self.data.ledger.get(from_, 0) + action.amount
                     )
 
-# TODO: add types for burn
+
+#################
+# Mixins - Burn #
+#################
+
 
 class BurnNft:
     """(Mixin) Non-standard `burn` entrypoint for FA2Nft that uses the transfer
@@ -925,6 +957,7 @@ class BurnNft:
 
         Burning an nft destroys its metadata.
         """
+        sp.set_type(batch, t_burn_batch)
         sp.verify(self.policy.supports_transfer, "FA2_TX_DENIED")
         with sp.for_("action", batch) as action:
             sp.verify(self.is_defined(action.token_id), "FA2_TOKEN_UNDEFINED")
@@ -950,6 +983,7 @@ class BurnFungible:
     def burn(self, batch):
         """Users can burn tokens if they have the transfer policy
         permission."""
+        sp.set_type(batch, t_burn_batch)
         sp.verify(self.policy.supports_transfer, "FA2_TX_DENIED")
         with sp.for_("action", batch) as action:
             sp.verify(self.is_defined(action.token_id), "FA2_TOKEN_UNDEFINED")
@@ -980,6 +1014,7 @@ class BurnSingleAsset:
     def burn(self, batch):
         """Users can burn tokens if they have the transfer policy
         permission."""
+        sp.set_type(batch, t_burn_batch)
         sp.verify(self.policy.supports_transfer, "FA2_TX_DENIED")
         with sp.for_("action", batch) as action:
             sp.verify(self.is_defined(action.token_id), "FA2_TOKEN_UNDEFINED")
@@ -1010,7 +1045,7 @@ class DistributeSingleAsset(MintSingleAsset):
     def distribute(self, recipients):
         sp.set_type(recipients, t_distribute_batch)
         # Mint tokens to every recipient.
-        sp.for rec in recipients:
+        with sp.for_("rec", recipients) as rec:
             # this effectively includes the mint function here.
             self.mint.f(self, [sp.record(
                 to_ = rec.to_,
