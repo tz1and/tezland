@@ -908,7 +908,6 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
 
     Mixin tested:
 
-    - Admin,
     - WithdrawMutez
     - ChangeMetadata
     - OnchainviewTokenMetadata
@@ -919,22 +918,6 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
     - BurnFungible
     """
     test_name = "FA2_optional_interfaces"
-
-    def test_admin(sc, nft):
-        """Test `Admin`
-
-        - non admin cannot set admin
-        - admin can set admin
-        - new admin can set admin
-        """
-        sc.h2("Non admin cannot set admin")
-        nft.set_administrator(alice.address).run(
-            sender=alice, valid=False, exception="FA2_NOT_ADMIN"
-        )
-        nft.set_administrator(admin2.address).run(sender=admin)
-        sc.verify(~nft.is_administrator(admin.address))
-        sc.verify(nft.is_administrator(admin2.address))
-        nft.set_administrator(admin.address).run(sender=admin2)
 
     def test_mint(sc, nft, fungible, single_asset):
         """Test `MintNft` and `MintFungible` with the `owner-or-operator-transfer` policy.
@@ -1464,7 +1447,6 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         single_asset = single_asset_contract
         sc += single_asset
 
-        test_admin(sc, nft)
         test_mint(sc, nft, fungible, single_asset)
         test_burn(sc, nft, fungible, single_asset)
         test_withdraw_mutez(sc, nft, fungible)

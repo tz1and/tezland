@@ -313,7 +313,7 @@ class PauseTransfer:
     Adds a `set_pause` entrypoint. Checks that contract.data.paused is
     `False` before accepting transfers and operator updates.
 
-    Needs the `Admin` mixin in order to work.
+    Needs the `Administrable` mixin in order to work.
     """
 
     def __init__(self, policy=None):
@@ -332,7 +332,7 @@ class PauseTransfer:
         # Add a set_pause entrypoint
         def set_pause(self, params):
             sp.set_type(params, sp.TBool)
-            sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+            sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
             self.data.paused = params
 
         contract.set_pause = sp.entry_point(set_pause)
@@ -875,39 +875,17 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
 ##########
 
 
-class Admin:
-    """(Mixin) Provide the basics for having an administrator in the contract.
-
-    Adds an `administrator` attribute in the storage record. Provides a
-    `set_administrator` entrypoint. Provides a `is_administrator` meta-
-    programming function.
-    """
-
-    def __init__(self, administrator):
-        self.update_initial_storage(administrator=administrator)
-
-    def is_administrator(self, sender):
-        return sender == self.data.administrator
-
-    @sp.entry_point
-    def set_administrator(self, params):
-        """(Admin only) Set the contract administrator."""
-        sp.set_type(params, sp.TAddress)
-        sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
-        self.data.administrator = params
-
-
 class ChangeMetadata:
     """(Mixin) Provide an entrypoint to change contract metadata.
 
-    Requires the `Admin` mixin.
+    Requires the `Administrable` mixin.
     """
 
     @sp.entry_point
     def set_metadata(self, metadata):
         """(Admin only) Set the contract metadata."""
         sp.set_type(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
+        sp.verify(self.isAdministrator(sp.sender), message="FA2_NOT_ADMIN")
         self.data.metadata = metadata
 
 
@@ -915,7 +893,7 @@ class WithdrawMutez:
     """(Mixin) Provide an entrypoint to withdraw mutez that are in the
     contract's balance.
 
-    Requires the `Admin` mixin.
+    Requires the `Administrable` mixin.
     """
 
     @sp.entry_point
@@ -923,7 +901,7 @@ class WithdrawMutez:
         """(Admin only) Transfer `amount` mutez to `destination`."""
         sp.set_type(destination, sp.TAddress)
         sp.set_type(amount, sp.TMutez)
-        sp.verify(self.is_administrator(sp.sender), message="FA2_NOT_ADMIN")
+        sp.verify(self.isAdministrator(sp.sender), message="FA2_NOT_ADMIN")
         sp.send(destination, amount)
 
 
@@ -968,7 +946,7 @@ class OnchainviewBalanceOf:
 class MintNft:
     """(Mixin) Non-standard `mint` entrypoint for FA2Nft with incrementing id.
 
-    Requires the `Admin` mixin.
+    Requires the `Administrable` mixin.
     """
 
     @sp.entry_point
@@ -978,7 +956,7 @@ class MintNft:
             sp.set_type(batch, t_mint_nft_royalties_batch)
         else:
             sp.set_type(batch, t_mint_nft_batch)
-        sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             if self.has_royalties:
                 self.validateRoyalties(action.royalties)
@@ -995,7 +973,7 @@ class MintFungible:
     """(Mixin) Non-standard `mint` entrypoint for FA2Fungible with incrementing
     id.
 
-    Requires the `Admin` mixin.
+    Requires the `Administrable` mixin.
     """
 
     @sp.entry_point
@@ -1005,7 +983,7 @@ class MintFungible:
             sp.set_type(batch, t_mint_fungible_royalties_batch)
         else:
             sp.set_type(batch, t_mint_fungible_batch)
-        sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as new:
@@ -1041,14 +1019,14 @@ class MintSingleAsset:
     """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset assuring only
     one token can be minted.
 
-    Requires the `Admin` mixin.
+    Requires the `Administrable` mixin.
     """
 
     @sp.entry_point
     def mint(self, batch):
         """Admin can mint tokens."""
         sp.set_type(batch, t_mint_fungible_batch)
-        sp.verify(self.is_administrator(sp.sender), "FA2_NOT_ADMIN")
+        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as new:

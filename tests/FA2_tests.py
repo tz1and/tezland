@@ -1,6 +1,7 @@
 import smartpy as sp
 
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 #########
 # Tests #
@@ -18,7 +19,7 @@ if "templates" not in __name__:
     TOKEN_METADATA = [tok0_md, tok1_md, tok2_md]
 
     class NftTest(
-        FA2.Admin,
+        admin_mixin.Administrable,
         FA2.ChangeMetadata,
         FA2.WithdrawMutez,
         FA2.MintNft,
@@ -33,10 +34,10 @@ if "templates" not in __name__:
             FA2.Fa2Nft.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
-            FA2.Admin.__init__(self, admin.address)
+            admin_mixin.Administrable.__init__(self, admin.address)
 
     class FungibleTest(
-        FA2.Admin,
+        admin_mixin.Administrable,
         FA2.ChangeMetadata,
         FA2.WithdrawMutez,
         FA2.MintFungible,
@@ -51,10 +52,10 @@ if "templates" not in __name__:
             FA2.Fa2Fungible.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
-            FA2.Admin.__init__(self, admin.address)
+            admin_mixin.Administrable.__init__(self, admin.address)
 
     class SingleAssetTest(
-        FA2.Admin,
+        admin_mixin.Administrable,
         FA2.ChangeMetadata,
         FA2.WithdrawMutez,
         FA2.DistributeSingleAsset,
@@ -70,7 +71,7 @@ if "templates" not in __name__:
             FA2.Fa2SingleAsset.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
-            FA2.Admin.__init__(self, admin.address)
+            admin_mixin.Administrable.__init__(self, admin.address)
 
     # Fa2Nft
 
@@ -140,7 +141,7 @@ if "templates" not in __name__:
     # Royalties
 
     class NftRoyaltiesTest(
-        FA2.Admin,
+        admin_mixin.Administrable,
         FA2.MintNft,
         FA2.Royalties,
         FA2.Fa2Nft,
@@ -152,10 +153,10 @@ if "templates" not in __name__:
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
             )
             FA2.Royalties.__init__(self)
-            FA2.Admin.__init__(self, admin.address)
+            admin_mixin.Administrable.__init__(self, admin.address)
 
     class FungibleRoyaltiesTest(
-        FA2.Admin,
+        admin_mixin.Administrable,
         FA2.MintFungible,
         FA2.Royalties,
         FA2.Fa2Fungible,
@@ -167,6 +168,6 @@ if "templates" not in __name__:
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
             )
             FA2.Royalties.__init__(self)
-            FA2.Admin.__init__(self, admin.address)
+            admin_mixin.Administrable.__init__(self, admin.address)
     
     TESTS.test_royalties(NftRoyaltiesTest(), FungibleRoyaltiesTest()) # no royalties on single asset
