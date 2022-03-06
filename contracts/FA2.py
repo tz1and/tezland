@@ -744,11 +744,20 @@ class Fa2Fungible(OnchainViewsFungible, Common):
                         self, transfer.from_, tx.to_, tx.token_id
                     )
                     from_ = (transfer.from_, tx.token_id)
-                    self.data.ledger[from_] = sp.as_nat(
-                        self.data.ledger.get(from_, 0) - tx.amount,
-                        message="FA2_INSUFFICIENT_BALANCE",
+                    # Transfer from.
+                    from_balance = sp.compute(
+                        sp.is_nat(self.data.ledger.get(from_, 0) - tx.amount)
                     )
-                    # TODO: delete from ledger
+
+                    with from_balance.match_cases() as arg:
+                        with arg.match("Some") as nat_from_balance:
+                            with sp.if_(nat_from_balance == 0):
+                                del self.data.ledger[from_]
+                            with sp.else_():
+                                self.data.ledger[from_] = nat_from_balance
+                        with arg.match("None"):
+                            sp.failwith("FA2_INSUFFICIENT_BALANCE")
+
                     # Do the transfer
                     to_ = (tx.to_, tx.token_id)
                     self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
@@ -840,11 +849,20 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
                         self, transfer.from_, tx.to_, tx.token_id
                     )
                     from_ = transfer.from_
-                    self.data.ledger[from_] = sp.as_nat(
-                        self.data.ledger.get(from_, 0) - tx.amount,
-                        message="FA2_INSUFFICIENT_BALANCE",
+                    # Transfer from.
+                    from_balance = sp.compute(
+                        sp.is_nat(self.data.ledger.get(from_, 0) - tx.amount)
                     )
-                    # TODO: delete from ledger
+
+                    with from_balance.match_cases() as arg:
+                        with arg.match("Some") as nat_from_balance:
+                            with sp.if_(nat_from_balance == 0):
+                                del self.data.ledger[from_]
+                            with sp.else_():
+                                self.data.ledger[from_] = nat_from_balance
+                        with arg.match("None"):
+                            sp.failwith("FA2_INSUFFICIENT_BALANCE")
+
                     # Do the transfer
                     to_ = tx.to_
                     self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
@@ -1102,17 +1120,25 @@ class BurnFungible:
                 self, action.from_, action.from_, action.token_id
             )
             from_ = (action.from_, action.token_id)
-            # Burn the tokens
-            self.data.ledger[from_] = sp.as_nat(
-                self.data.ledger.get(from_, 0) - action.amount,
-                message="FA2_INSUFFICIENT_BALANCE",
+            # Burn the tokens from.
+            from_balance = sp.compute(
+                sp.is_nat(self.data.ledger.get(from_, 0) - action.amount)
             )
-            # TODO: delete from ledger
 
+            with from_balance.match_cases() as arg:
+                with arg.match("Some") as nat_from_balance:
+                    with sp.if_(nat_from_balance == 0):
+                        del self.data.ledger[from_]
+                    with sp.else_():
+                        self.data.ledger[from_] = nat_from_balance
+                with arg.match("None"):
+                    sp.failwith("FA2_INSUFFICIENT_BALANCE")
+
+            # Decrease supply or burn of it becomes 0.
             supply = sp.compute(
                 sp.is_nat(self.data.token_extra[action.token_id].supply - action.amount)
             )
-            # Decrease supply or burn of it becomes 0.
+            
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
                     self.data.token_extra[action.token_id].supply = nat_supply
@@ -1140,13 +1166,21 @@ class BurnSingleAsset:
                 self, action.from_, action.from_, action.token_id
             )
             from_ = action.from_
-            # Burn the tokens
-            self.data.ledger[from_] = sp.as_nat(
-                self.data.ledger.get(from_, 0) - action.amount,
-                message="FA2_INSUFFICIENT_BALANCE",
+            # Burn the tokens from.
+            from_balance = sp.compute(
+                sp.is_nat(self.data.ledger.get(from_, 0) - action.amount)
             )
-            # TODO: delete from ledger
 
+            with from_balance.match_cases() as arg:
+                with arg.match("Some") as nat_from_balance:
+                    with sp.if_(nat_from_balance == 0):
+                        del self.data.ledger[from_]
+                    with sp.else_():
+                        self.data.ledger[from_] = nat_from_balance
+                with arg.match("None"):
+                    sp.failwith("FA2_INSUFFICIENT_BALANCE")
+
+            # Decrease supply.
             supply = sp.compute(
                 sp.is_nat(self.data.supply - action.amount)
             )
@@ -1174,7 +1208,7 @@ class DistributeSingleAsset(MintSingleAsset):
 
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
-    Required has_royalties=True on base.
+    Requires has_royalties=True on base.
     
     I admit, not very elegant, but I want to save that bigmap.
     """
@@ -1211,7 +1245,7 @@ class Royalties:
     def get_token_royalties(self, token_id):
         """Returns the token royalties information"""
         sp.set_type(token_id, sp.TNat)
-        # TODO: should this fail if token doesn't exist?
+
         with sp.if_(self.data.token_extra.contains(token_id)):
             sp.result(self.data.token_extra[token_id].royalty_info)
         with sp.else_():
