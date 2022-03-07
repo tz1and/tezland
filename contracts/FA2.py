@@ -1133,14 +1133,19 @@ class BurnFungible:
             
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
-                    self.data.token_extra[action.token_id].supply = nat_supply
-                with arg.match("None"):
-                    # NOTE: if existing tokens can't be minted again, delete
+                    # NOTE: if existing tokens can't be minted again, delete on 0.
                     if self.allow_mint_existing:
-                        self.data.token_extra[action.token_id].supply = 0
+                        self.data.token_extra[action.token_id].supply = nat_supply
                     else:
-                        del self.data.token_extra[action.token_id]
-                        del self.data.token_metadata[action.token_id]
+                        with sp.if_(nat_supply == 0):
+                            del self.data.token_extra[action.token_id]
+                            del self.data.token_metadata[action.token_id]
+                        with sp.else_():
+                            self.data.token_extra[action.token_id].supply = nat_supply
+                with arg.match("None"):
+                    # NOTE: this is a failure case, but we give up instead
+                    # of allowing a catstrophic failiure.
+                    self.data.token_extra[action.token_id].supply = 0
 
 
 class BurnSingleAsset:
@@ -1181,6 +1186,8 @@ class BurnSingleAsset:
                 with arg.match("Some") as nat_supply:
                     self.data.supply = nat_supply
                 with arg.match("None"):
+                    # NOTE: this is a failure case, but we give up instead
+                    # of allowing a catstrophic failiure.
                     self.data.supply = 0
 
 
