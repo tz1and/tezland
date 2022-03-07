@@ -9,6 +9,7 @@ class tz1andPlaces(
     FA2.MintNft,
     FA2.OnchainviewBalanceOf,
     FA2.OnchainviewTokenMetadata,
+    FA2.OnchainviewCountTokens,
     FA2.Fa2Nft,
 ):
     """tz1and Places"""

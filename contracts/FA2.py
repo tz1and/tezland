@@ -1240,3 +1240,10 @@ class Royalties:
             sp.result(self.data.token_extra[token_id].royalty_info)
         with sp.else_():
             sp.result(sp.record(royalties=sp.nat(0), contributors={}))
+
+# TODO: test
+class OnchainviewCountTokens:
+    @sp.onchain_view(pure=True)
+    def count_tokens(self):
+        """Returns the number of tokens in the FA2 contract."""
+        sp.result(self.data.last_token_id)
