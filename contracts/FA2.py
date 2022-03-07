@@ -351,6 +351,7 @@ class PauseTransfer:
     def is_operator(self, contract, operator_param):
         return self.policy.is_operator(contract, operator_param)
 
+
 ##################
 # Onchain views #
 ##################
@@ -435,7 +436,6 @@ class OnchainViewsFungible:
         sp.result(self.policy.is_operator(self, params))
 
 
-# TODO: get_balance offchain view fails for some reason
 class OnchainViewsSingleAsset:
     """(Mixin) All standard offchain views for Fungible except the optional
     `token_metadata`."""
@@ -562,7 +562,8 @@ class Fa2Nft(OnchainViewsNft, Common):
     """
 
     def __init__(
-        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
+        self, metadata, name="FA2", description="A NFT FA2 implementation.",
+        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "NFT"
@@ -664,7 +665,8 @@ class Fa2Fungible(OnchainViewsFungible, Common):
     """
 
     def __init__(
-        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
+        self, metadata, name="FA2", description="A Fungible FA2 implementation.",
+        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "Fungible"
@@ -784,7 +786,8 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
     """
 
     def __init__(
-        self, metadata, name="Name", description="Description", token_metadata=[], ledger={}, policy=None, metadata_base=None
+        self, metadata, name="FA2", description="A Single Asset FA2 implementation.",
+        token_metadata=[], ledger={}, policy=None, metadata_base=None
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.ledger_type = "SingleAsset"
@@ -1221,12 +1224,11 @@ class Royalties:
         
         # If royalties > 0, validate individual splits and that they add up to 1000
         with sp.if_(royalties.royalties > 0):
-            total_relative = sp.local("total_splits", sp.nat(0))
+            total_relative = sp.local("total_relative", sp.nat(0))
             with sp.for_("contribution", royalties.contributors.values()) as contribution:
                 total_relative.value += contribution.relative_royalties
-                # TODO: require minter role?
             sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_INVALID")
-        # If royalties == 0, make sure splits are empty
+        # If royalties == 0, make sure contributors are empty
         with sp.else_():
             sp.verify(sp.len(royalties.contributors) == 0, message="FA2_ROYALTIES_INVALID")
 
