@@ -24,17 +24,17 @@ class FA2_utils(sp.Contract):
     def token_amounts(self, params):
         sp.set_type(params, sp.TList(t=places_contract.placeItemListType))
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
-        sp.for curr in params:
+        with sp.for_("curr", params) as curr:
             with curr.match_cases() as arg:
                 with arg.match("item") as item:
-                    sp.if token_amts.value.contains(item.token_id):
+                    with sp.if_(token_amts.value.contains(item.token_id)):
                         token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                    sp.else:
+                    with sp.else_():
                         token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = self.data.fa2)
                 with arg.match("other") as other:
-                    sp.if token_amts.value.contains(other.token_id):
+                    with sp.if_(token_amts.value.contains(other.token_id)):
                         token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.token_amount
-                    sp.else:
+                    with sp.else_():
                         token_amts.value[other.token_id] = sp.record(amount = other.token_amount, fa2 = other.fa2)
         
         #sp.trace(token_amts.value)
@@ -48,19 +48,19 @@ class FA2_utils(sp.Contract):
 
         world_data = sp.compute(self.world_get_place_data(params.world, params.lot_id))
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
-        sp.for issuer in params.remove_map.keys():
+        with sp.for_("issuer", params.remove_map.keys()) as issuer:
             issuer_store = world_data.stored_items[issuer]
-            sp.for item_id in params.remove_map[issuer]:
+            with sp.for_("item_id", params.remove_map[issuer]) as item_id:
                 with issuer_store[item_id].match_cases() as arg:
                     with arg.match("item") as item:
-                        sp.if token_amts.value.contains(item.token_id):
+                        with sp.if_(token_amts.value.contains(item.token_id)):
                             token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.item_amount
-                        sp.else:
+                        with sp.else_():
                             token_amts.value[item.token_id] = sp.record(amount = item.item_amount, fa2 = self.data.fa2)
                     with arg.match("other") as other:
-                        sp.if token_amts.value.contains(other.token_id):
+                        with sp.if_(token_amts.value.contains(other.token_id)):
                             token_amts.value[other.token_id].amount = token_amts.value[other.token_id].amount + other.item_amount
-                        sp.else:
+                        with sp.else_():
                             token_amts.value[other.token_id] = sp.record(amount = other.item_amount, fa2 = other.fa2)
 
         #sp.trace(token_amts.value)
@@ -72,7 +72,7 @@ class FA2_utils(sp.Contract):
         sp.set_type(params.owner, sp.TAddress)
 
         balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
-        sp.for curr in params.tokens.keys():
+        with sp.for_("curr", params.tokens.keys()) as curr:
             balances.value[curr] = utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
         
         #sp.trace(balances.value)
@@ -91,7 +91,7 @@ class FA2_utils(sp.Contract):
 
         sp.verify((sp.len(params.bal_a) == sp.len(params.bal_b)) & (sp.len(params.bal_b) == sp.len(params.amts)))
 
-        sp.for curr in params.bal_a.keys():
+        with sp.for_("curr", params.bal_a.keys()) as curr:
             sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr].amount)
         
         sp.result(True)

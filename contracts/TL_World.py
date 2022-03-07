@@ -92,11 +92,11 @@ class Item_store_map:
     def get(self, map, issuer):
         return map[issuer]
     def get_or_create(self, map, issuer):
-        sp.if ~map.contains(issuer):
+        with sp.if_(~map.contains(issuer)):
             map[issuer] = itemStoreMapLiteral
         return map[issuer]
     def remove_if_empty(self, map, issuer):
-        sp.if map.contains(issuer) & (sp.len(map[issuer]) == 0):
+        with sp.if_(map.contains(issuer) & (sp.len(map[issuer]) == 0)):
             del map[issuer]
 
 #
@@ -125,7 +125,7 @@ class Place_store_map:
     def get(self, map, lot_id):
         return map.get(lot_id)
     def get_or_create(self, map, lot_id):
-        sp.if ~map.contains(lot_id):
+        with sp.if_(~map.contains(lot_id)):
             map[lot_id] = placeStorageDefault
         return map[lot_id]
 
@@ -320,7 +320,7 @@ class TL_World(
 
         #self.onlyUnpaused() # Probably fine to run when paused.
 
-        sp.for update in params:
+        with sp.for_("update", params) as update:
             with update.match_cases() as arg:
                 with arg.match("add_permission") as upd:
                     # Sender must be the owner
@@ -350,11 +350,11 @@ class TL_World(
         # Local var for permissions.
         permission = sp.local("permission", permissionNone)
         # If permittee is the owner, he has full permission.
-        sp.if utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0:
+        with sp.if_(utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0):
             permission.value = self.data.max_permission
-        sp.else:
+        with sp.else_():
             # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            sp.if owner.is_some() & (utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0):
+            with sp.if_(owner.is_some() & (utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0)):
                 permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
                     owner.open_some(),
                     permittee,
@@ -413,16 +413,16 @@ class TL_World(
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
 
         # For each item in the list.
-        sp.for curr in params.item_list:
+        with sp.for_("curr", params.item_list) as curr:
             with curr.match_cases() as arg:
                 with arg.match("item") as item:
                     sp.verify(sp.len(item.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
                     # transfer item to this contract
                     # do multi-transfer by building up a list of transfers
-                    sp.if transferMap.value.contains(item.token_id):
+                    with sp.if_(transferMap.value.contains(item.token_id)):
                         transferMap.value[item.token_id].amount += item.token_amount
-                    sp.else:
+                    with sp.else_():
                         transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
                     # Add item to storage.
@@ -461,7 +461,7 @@ class TL_World(
             this_place.item_counter += 1
 
         # only transfer if list has items
-        sp.if sp.len(transferMap.value) > 0:
+        with sp.if_(sp.len(transferMap.value) > 0):
             utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
@@ -483,17 +483,17 @@ class TL_World(
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
-        sp.if ~hasModifyAll:
-            sp.for remove_key in params.update_map.keys():
+        with sp.if_(~hasModifyAll):
+            with sp.for_("remove_key", params.update_map.keys()) as remove_key:
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # Update items.
-        sp.for issuer in params.update_map.keys():
+        with sp.for_("issuer", params.update_map.keys()) as issuer:
             update_list = params.update_map[issuer]
             # Get item store - must exist.
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
-            sp.for update in update_list:
+            with sp.for_("update", update_list) as update:
                 sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
                 with item_store[update.item_id].match_cases() as arg:
@@ -532,27 +532,27 @@ class TL_World(
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
-        sp.if ~hasModifyAll:
-            sp.for remove_key in params.remove_map.keys():
+        with sp.if_(~hasModifyAll):
+            with sp.for_("remove_key", params.remove_map.keys()) as remove_key:
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # Our token transfer map.
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
 
         # Remove items.
-        sp.for issuer in params.remove_map.keys():
+        with sp.for_("issuer", params.remove_map.keys()) as issuer:
             item_list = params.remove_map[issuer]
             # Get item store - must exist.
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
-            sp.for curr in item_list:
+            with sp.for_("curr", item_list) as curr:
                 with item_store[curr].match_cases() as arg:
                     with arg.match("item") as the_item:
                         # Transfer all remaining items back to issuer
                         # do multi-transfer by building up a list of transfers
-                        sp.if transferMap.value.contains(the_item.token_id):
+                        with sp.if_(transferMap.value.contains(the_item.token_id)):
                             transferMap.value[the_item.token_id].amount += the_item.item_amount
-                        sp.else:
+                        with sp.else_():
                             transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=issuer, token_id=the_item.token_id)
 
                     with arg.match("other") as the_other:
@@ -572,7 +572,7 @@ class TL_World(
         this_place.interaction_counter += 1
 
         # Only transfer if transfer map has items.
-        sp.if sp.len(transferMap.value) > 0:
+        with sp.if_(sp.len(transferMap.value) > 0):
             utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
     @sp.entry_point(lazify = True)
@@ -602,7 +602,7 @@ class TL_World(
         sp.verify(the_item.value.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
 
         # Transfer royalties, etc.
-        sp.if the_item.value.xtz_per_item != sp.tez(0):
+        with sp.if_(the_item.value.xtz_per_item != sp.tez(0)):
             # Get the royalties for this item
             item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
             
@@ -611,9 +611,9 @@ class TL_World(
             royalties = sp.compute(item_royalty_info.royalties * fee / (item_royalty_info.royalties + self.data.fees))
 
             # If there are any royalties to be paid.
-            sp.if royalties > sp.nat(0):
+            with sp.if_(royalties > sp.nat(0)):
                 # Pay each contributor his relative share.
-                sp.for contributor in item_royalty_info.contributors.items():
+                with sp.for_("contributor", item_royalty_info.contributors.items()) as contributor:
                     # Calculate amount to be paid from relative share.
                     absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
                     utils.send_if_value(contributor.key, absolute_amount)
@@ -629,11 +629,11 @@ class TL_World(
 
             # Distribute DAO tokens.
             # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
-            sp.if self.data.bootstrap_dao & (sp.now < self.data.terminus):
+            with sp.if_(self.data.bootstrap_dao & (sp.now < self.data.terminus)):
                 # NOTE: Assuming 6 decimals, like tez.
                 user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
                 # Only distribute dao if anything is to be distributed.
-                sp.if user_share > 0:
+                with sp.if_(user_share > 0):
                     manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
                     utils.fa2_single_asset_mint([
                         sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
@@ -645,10 +645,10 @@ class TL_World(
         utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
         
         # Reduce the item count in storage or remove it.
-        sp.if the_item.value.item_amount > 1:
+        with sp.if_(the_item.value.item_amount > 1):
             the_item.value.item_amount = abs(the_item.value.item_amount - 1)
             item_store[params.item_id] = sp.variant("item", the_item.value)
-        sp.else:
+        with sp.else_():
             del item_store[params.item_id]
             this_place.item_counter = abs(this_place.item_counter - 1)
         
@@ -664,20 +664,20 @@ class TL_World(
     @sp.onchain_view(pure=True)
     def get_place_data(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        sp.if self.data.places.contains(lot_id) == False:
+        with sp.if_(self.data.places.contains(lot_id) == False):
             sp.result(sp.set_type_expr(placeStorageDefault, placeStorageType))
-        sp.else:
+        with sp.else_():
             sp.result(sp.set_type_expr(self.data.places[lot_id], placeStorageType))
 
     @sp.onchain_view(pure=True)
     def get_place_seqnum(self, lot_id):
         sp.set_type(lot_id, sp.TNat)
-        sp.if self.data.places.contains(lot_id) == False:
+        with sp.if_(self.data.places.contains(lot_id) == False):
             sp.result(sp.sha3(sp.pack(sp.pair(
                 sp.nat(0),
                 sp.nat(0)
             ))))
-        sp.else:
+        with sp.else_():
             this_place = self.data.places[lot_id]
             sp.result(sp.sha3(sp.pack(sp.pair(
                 this_place.interaction_counter,
