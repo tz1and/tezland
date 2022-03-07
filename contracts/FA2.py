@@ -437,7 +437,7 @@ class OnchainViewsFungible:
 
 
 class OnchainViewsSingleAsset:
-    """(Mixin) All standard offchain views for Fungible except the optional
+    """(Mixin) All standard offchain views for single asset except the optional
     `token_metadata`."""
 
     @sp.onchain_view(pure=True)
@@ -779,7 +779,7 @@ class Fa2Fungible(OnchainViewsFungible, Common):
             sp.failwith("FA2_TX_DENIED")
 
 class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
-    """Base class for a FA2 fungible contract.
+    """Base class for a FA2 single asset contract.
 
     Respects the FA2 standard.
     """
