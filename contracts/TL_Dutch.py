@@ -40,7 +40,7 @@ class TL_Dutch(
     ).layout(("owner", ("token_id", ("start_price",
         ("end_price", ("start_time", ("end_time", "fa2")))))))
 
-    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-unit"):
+    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         

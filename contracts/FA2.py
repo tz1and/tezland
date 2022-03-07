@@ -481,6 +481,9 @@ class Common(sp.Contract):
     """Common logic between Fa2Nft and Fa2Fungible."""
 
     def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
+        self.add_flag("exceptions", "default-line")
+        self.add_flag("erase-comments")
+        
         if policy is None:
             self.policy = OwnerOrOperatorTransfer()
         else:
