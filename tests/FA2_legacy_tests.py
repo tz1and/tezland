@@ -8,7 +8,6 @@ fa2_contract.add_test(fa2_contract.places_config())
 fa2_contract.add_test(fa2_contract.dao_config())
 
 # test all config
-# TODO: fix tests for burn disabled
 fa2_contract.add_test(fa2_contract.FA2_config(single_asset = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(non_fungible = True, add_mutez_transfer = True, allow_burn_tokens = True))
 fa2_contract.add_test(fa2_contract.FA2_config(store_total_supply = False, royalties = True, allow_burn_tokens = True))

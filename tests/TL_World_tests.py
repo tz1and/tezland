@@ -7,7 +7,7 @@ fa2_test_lib = sp.io.import_script_from_url("file:tests/lib/FA2_test_lib.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-#TODO: test royalties, fees, issuer being paid, lol
+# TODO: test royalties, fees, issuer being paid, lol
 
 
 # utility contract to get token balances

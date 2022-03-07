@@ -1,6 +1,5 @@
 import smartpy as sp
 
-# TODO: should get_token_royalties fail if token doesn't exist?
 
 class FA2_Royalties:
     CONTRIBUTOR_MAP_TYPE = sp.TMap(
@@ -34,17 +33,13 @@ class FA2_Royalties:
         total_relative = sp.local("total_splits", sp.nat(0))
         with sp.for_("contribution", royalties.contributors.values()) as contribution:
             total_relative.value += contribution.relative_royalties
-            # TODO: require minter role?
         sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_ERROR")
 
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, token_id):
         """Returns the token royalties information"""
         sp.set_type(token_id, sp.TNat)
-        # TODO: should this fail if token doesn't exist?
         with sp.if_(self.data.token_extra.contains(token_id)):
             sp.result(self.data.token_extra[token_id].royalty_info)
         with sp.else_():
             sp.result(sp.record(royalties=sp.nat(0), contributors={}))
-
-    # TODO: implement versum views?

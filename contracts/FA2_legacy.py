@@ -8,8 +8,6 @@
 # <https://gitlab.com/smondet/fa2-smartpy/> and
 # <https://assets.tqtezos.com/docs/token-contracts/fa2/1-fa2-smartpy/>.
 #
-# TODO: bring up to date with latest FA2: https://gitlab.com/SmartPy/smartpy/-/issues/28
-# TODO: test ledger, metadata, extra removal.
 import smartpy as sp
 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
@@ -50,7 +48,6 @@ class FA2_config:
         # Add an entry point for the administrator to transfer mint tokens
         # to a list of recipients
 
-        # TODO: disallow royalties in some cases.
         self.royalties = royalties
         # Add token royalties mixin
 
@@ -664,7 +661,6 @@ class FA2_burn(FA2_core):
         sp.verify(sender_verify, message = message)
 
         # Fail if token doesn't exist.
-        # TODO: check token_metadata instead?
         sp.if ~ self.token_id_set.contains(self.data.all_tokens, params.token_id):
             sp.failwith(self.error_message.token_undefined())
 
@@ -866,7 +862,6 @@ def add_test(config, is_default = True):
                  admin = admin.address)
         scenario += c1
         if config.non_fungible:
-            # TODO
             return
         if config.add_distribute:
             scenario.h2("distribute before mint")
@@ -947,7 +942,6 @@ def add_test(config, is_default = True):
                 sp.record(to_ = eve.address, amount = 50 )
             ]).run(sender = bob, valid = False)
         if not config.allow_burn_tokens:
-            # TODO
             return
         scenario.h2("Burning tokens")
         support_operator_burn = config.operator_burn

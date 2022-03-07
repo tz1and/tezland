@@ -434,6 +434,8 @@ class OnchainViewsFungible:
         sp.set_type(params, t_operator_permission)
         sp.result(self.policy.is_operator(self, params))
 
+
+# TODO: get_balance offchain view fails for some reason
 class OnchainViewsSingleAsset:
     """(Mixin) All standard offchain views for Fungible except the optional
     `token_metadata`."""
@@ -1096,6 +1098,7 @@ class BurnNft:
                     del self.data.token_extra[action.token_id]
 
 
+# TODO: test ledger, metadata, extra removal.
 class BurnFungible:
     """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
     transfer policy permission."""
@@ -1191,6 +1194,7 @@ class BurnSingleAsset:
                     self.data.supply = 0
 
 
+# TODO: implement versum views?
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
     Requires has_royalties=True on base.
