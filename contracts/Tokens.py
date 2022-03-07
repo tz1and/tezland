@@ -7,8 +7,6 @@ class tz1andPlaces(
     admin_mixin.Administrable,
     FA2.ChangeMetadata,
     FA2.MintNft,
-    FA2.OnchainviewBalanceOf,
-    FA2.OnchainviewTokenMetadata,
     FA2.OnchainviewCountTokens,
     FA2.Fa2Nft,
 ):

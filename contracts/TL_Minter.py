@@ -6,6 +6,7 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
+# TODO: allow minting multiple places?
 
 #
 # Minter contract.
