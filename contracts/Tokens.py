@@ -36,7 +36,8 @@ class tz1andItems(
         FA2.Fa2Fungible.__init__(
             self, metadata=metadata,
             name="tz1and Items", description="tz1and Item FA2 Tokens.",
-            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=True
+            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=True,
+            allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
         admin_mixin.Administrable.__init__(self, admin)

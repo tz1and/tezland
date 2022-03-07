@@ -653,6 +653,7 @@ class Fa2Nft(OnchainViewsNft, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
+# TODO: test allow_mint_existing=False
 
 class Fa2Fungible(OnchainViewsFungible, Common):
     """Base class for a FA2 fungible contract.
