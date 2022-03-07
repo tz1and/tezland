@@ -20,19 +20,19 @@ class Whitelist(admin_mixin.Administrable):
 
     def onlyWhitelisted(self):
         """fails if whitelist enabled address is not whitelisted """
-        sp.if self.data.whitelist_enabled:
+        with sp.if_(self.data.whitelist_enabled):
             sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
 
     def onlyAdminIfWhitelistEnabled(self):
         """fails if whitelist is enabled and sender is not admin"""
-        sp.if self.data.whitelist_enabled:
+        with sp.if_(self.data.whitelist_enabled):
             self.onlyAdministrator()
 
     def removeFromWhitelist(self, address):
         """removes an address from the whitelist"""
         address = sp.set_type_expr(address, sp.TAddress)
         # NOTE: probably ok to skip the check and always remove from whitelist.
-        #sp.if self.data.whitelist_enabled:
+        #with sp.if_(self.data.whitelist_enabled):
         self.address_set.remove(self.data.whitelist, address)
 
     @sp.entry_point
@@ -44,13 +44,13 @@ class Whitelist(admin_mixin.Administrable):
             whitelist_enabled=sp.TBool
         ).layout(("whitelist_add", ("whitelist_remove", "whitelist_enabled")))))
         self.onlyAdministrator()
-        sp.for update in updates:
+        with sp.for_("update", updates) as update:
             with update.match_cases() as arg:
                 with arg.match("whitelist_add") as upd:
-                    sp.for addr in upd:
+                    with sp.for_("addr", upd) as addr:
                         self.address_set.add(self.data.whitelist, addr)
                 with arg.match("whitelist_remove") as upd:
-                    sp.for addr in upd:
+                    with sp.for_("addr", upd) as addr:
                         self.address_set.remove(self.data.whitelist, addr)
                 with arg.match("whitelist_enabled") as upd:
                     self.data.whitelist_enabled = upd

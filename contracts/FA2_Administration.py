@@ -18,7 +18,7 @@ class FA2_Administration(admin_mixin.Administrable):
         ).layout(("fa2", "proposed_fa2_administrator"))))
         self.onlyAdministrator()
 
-        sp.for transfer in transfer_list:
+        with sp.for_("transfer", transfer_list) as transfer:
             # Get a handle on the FA2 contract transfer_administator entry point
             fa2_transfer_administrator_handle = sp.contract(
                 t=sp.TAddress,
@@ -38,7 +38,7 @@ class FA2_Administration(admin_mixin.Administrable):
         sp.set_type(accept_list, sp.TList(sp.TAddress))
         self.onlyAdministrator()
 
-        sp.for fa2 in accept_list:
+        with sp.for_("fa2", accept_list) as fa2:
             # Get a handle on the FA2 contract accept_administrator entry point
             fa2_accept_administrator_handle = sp.contract(
                 t=sp.TUnit,

@@ -5,6 +5,8 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
+# TODO: add mint utils
+
 
 #
 # Minter contract.
@@ -37,7 +39,7 @@ class TL_Minter(
         sp.set_type(new_paused, sp.TBool)
         self.onlyAdministrator()
 
-        sp.for fa2 in [self.data.items_contract, self.data.places_contract]:
+        with sp.for_("fa2", [self.data.items_contract, self.data.places_contract]) as fa2:
             # call items contract
             set_paused_handle = sp.contract(sp.TBool, fa2, 
                 entry_point = "set_pause").open_some()

@@ -20,7 +20,7 @@ def isPowerOfTwoMinusOne(x):
 
 def send_if_value(to, amount):
     """Transfer amount if greater 0"""
-    sp.if amount > sp.tez(0):
+    with sp.if_(amount > sp.tez(0)):
         sp.send(to, amount)
 
 #

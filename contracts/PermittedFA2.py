@@ -88,7 +88,7 @@ class PermittedFA2(admin_mixin.Administrable):
 
         self.onlyAdministrator()
         
-        sp.for update in params:
+        with sp.for_("update", params) as update:
             with update.match_cases() as arg:
                 with arg.match("add_permitted") as upd:
                     self.permitted_fa2_map.add(self.data.permitted_fa2, upd.fa2, upd.props)

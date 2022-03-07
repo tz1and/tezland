@@ -32,7 +32,7 @@ class FA2_Royalties:
         
         # Valdate individual splits and that they add up to 1000
         total_relative = sp.local("total_splits", sp.nat(0))
-        sp.for contribution in royalties.contributors.values():
+        with sp.for_("contribution", royalties.contributors.values()) as contribution:
             total_relative.value += contribution.relative_royalties
             # TODO: require minter role?
         sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_ERROR")
@@ -42,9 +42,9 @@ class FA2_Royalties:
         """Returns the token royalties information"""
         sp.set_type(token_id, sp.TNat)
         # TODO: should this fail if token doesn't exist?
-        sp.if self.data.token_extra.contains(token_id):
+        with sp.if_(self.data.token_extra.contains(token_id)):
             sp.result(self.data.token_extra[token_id].royalty_info)
-        sp.else:
+        with sp.else_():
             sp.result(sp.record(royalties=sp.nat(0), contributors={}))
 
     # TODO: implement versum views?

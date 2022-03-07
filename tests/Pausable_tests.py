@@ -17,7 +17,7 @@ class PausableTest(pause_mixin.Pausable, sp.Contract):
     @sp.entry_point
     def testIsPaused(self, state):
         sp.set_type(state, sp.TBool)
-        sp.if self.isPaused() != state:
+        with sp.if_(self.isPaused() != state):
             sp.verify(False, "error")
 
 

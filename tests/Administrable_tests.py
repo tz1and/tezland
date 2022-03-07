@@ -13,7 +13,7 @@ class AdministrableTest(admin_mixin.Administrable, sp.Contract):
     @sp.entry_point
     def testIsAdmin(self, address):
         sp.set_type(address, sp.TAddress)
-        sp.if ~self.isAdministrator(address):
+        with sp.if_(~self.isAdministrator(address)):
             sp.verify(False, "error")
 
 
