@@ -12,6 +12,7 @@ permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
 # TODO: place permissions: increase seq num (interaction counter)?
@@ -410,7 +411,7 @@ class TL_World(
         sp.verify(this_place.item_counter + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
 
         # For each item in the list.
         with sp.for_("curr", params.item_list) as curr:
@@ -537,7 +538,7 @@ class TL_World(
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = utils.fa2TransferListItemType))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
 
         # Remove items.
         with sp.for_("issuer", params.remove_map.keys()) as issuer:

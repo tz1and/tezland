@@ -56,17 +56,16 @@ def fa2_get_balance(fa2, token_id, owner):
 
 #
 # FA2 transfers
-fa2TransferListItemType = sp.TRecord(amount=sp.TNat, to_=sp.TAddress, token_id=sp.TNat).layout(("to_", ("token_id", "amount")))
-
-def fa2_transfer_multi(fa2, from_, transfer_list):
-    fa2TransferListType = sp.TList(sp.TRecord(
-        from_=sp.TAddress, txs=sp.TList(fa2TransferListItemType)
-    ).layout(("from_", "txs")))
-    c = sp.contract(fa2TransferListType, fa2, entry_point='transfer').open_some()
+def fa2_transfer_multi(contract, from_, transfer_list):
+    transfer_list = sp.set_type_expr(transfer_list, sp.TList(FA2.t_transfer_tx))
+    c = sp.contract(
+        FA2.t_transfer_params,
+        contract,
+        entry_point='transfer').open_some()
     sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
-def fa2_transfer(fa2, from_, to_, token_id, item_amount):
-    fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
+def fa2_transfer(contract, from_, to_, token_id, item_amount):
+    fa2_transfer_multi(contract, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
 
 #
 # FA2 mint

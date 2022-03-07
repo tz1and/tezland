@@ -24,15 +24,15 @@ t_update_operators_params = sp.TList(
     )
 )
 
+t_transfer_tx = sp.TRecord(
+    to_=sp.TAddress,
+    token_id=sp.TNat,
+    amount=sp.TNat,
+).layout(("to_", ("token_id", "amount")))
+
 t_transfer_batch = sp.TRecord(
     from_=sp.TAddress,
-    txs=sp.TList(
-        sp.TRecord(
-            to_=sp.TAddress,
-            token_id=sp.TNat,
-            amount=sp.TNat,
-        ).layout(("to_", ("token_id", "amount")))
-    ),
+    txs=sp.TList(t_transfer_tx),
 ).layout(("from_", "txs"))
 
 t_transfer_params = sp.TList(t_transfer_batch)
@@ -483,7 +483,7 @@ class Common(sp.Contract):
     def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
         self.add_flag("exceptions", "default-line")
         self.add_flag("erase-comments")
-        
+
         if policy is None:
             self.policy = OwnerOrOperatorTransfer()
         else:
