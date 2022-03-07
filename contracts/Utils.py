@@ -1,6 +1,6 @@
 import smartpy as sp
 
-fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 #
 # Lazy set of permitted FA2 tokens for 'other' type.
@@ -28,7 +28,7 @@ def send_if_value(to, amount):
 def tz1and_items_get_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
-        t = fa2_royalties.FA2_Royalties.ROYALTIES_TYPE).open_some()
+        t = FA2.t_royalties).open_some()
 
 #
 # FA2 views
@@ -67,3 +67,14 @@ def fa2_transfer_multi(fa2, from_, transfer_list):
 
 def fa2_transfer(fa2, from_, to_, token_id, item_amount):
     fa2_transfer_multi(fa2, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
+
+#
+# FA2 mint
+def fa2_single_asset_mint(batch, contract):
+    batch = sp.set_type_expr(batch, FA2.t_mint_fungible_batch)
+    contract = sp.set_type_expr(contract, sp.TAddress)
+    c = sp.contract(
+        FA2.t_mint_fungible_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)

@@ -635,11 +635,11 @@ class TL_World(
                 # Only distribute dao if anything is to be distributed.
                 sp.if user_share > 0:
                     manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
-                    self.dao_distribute([
-                        sp.record(to_=sp.sender, amount=user_share),
-                        sp.record(to_=params.issuer, amount=user_share),
-                        sp.record(to_=self.data.fees_to, amount=manager_share)
-                    ])
+                    utils.fa2_single_asset_mint([
+                        sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
+                        sp.record(to_=params.issuer, amount=user_share, token=sp.variant("existing", sp.nat(0))),
+                        sp.record(to_=self.data.fees_to, amount=manager_share, token=sp.variant("existing", sp.nat(0)))
+                    ], self.data.dao_contract)
         
         # Transfer item to buyer.
         utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
@@ -696,17 +696,3 @@ class TL_World(
             permittee = sp.TAddress
         ).layout(("lot_id", ("owner", "permittee"))))
         sp.result(self.getPermissionsInline(query.lot_id, query.owner, query.permittee))
-
-    #
-    # Misc
-    #
-    def dao_distribute(self, recipients):
-        recipientType = sp.TList(sp.TRecord(
-            to_=sp.TAddress, amount=sp.TNat
-        ).layout(("to_", "amount")))
-        recipients = sp.set_type_expr(recipients, recipientType)
-        c = sp.contract(
-            recipientType,
-            self.data.dao_contract,
-            entry_point='distribute').open_some()
-        sp.transfer(recipients, sp.mutez(0), c)

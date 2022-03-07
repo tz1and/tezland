@@ -44,7 +44,6 @@ class tz1andItems(
 class tz1andDAO(
     admin_mixin.Administrable,
     FA2.ChangeMetadata,
-    FA2.DistributeSingleAsset,
     FA2.MintSingleAsset,
     FA2.Fa2SingleAsset,
 ):

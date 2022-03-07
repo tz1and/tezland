@@ -1402,29 +1402,6 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
             single_asset.token_metadata(0), sp.record(token_id=0, token_info=tok0_md)
         )
 
-    def test_distribute(sc, single_asset):
-        """Test `DistributeSingleAsset`.
-        """
-
-        #sp.TList(sp.TRecord(
-        #    to_=sp.TAddress, amount=sp.TNat
-        #)
-
-        # Can only be called by admin
-        single_asset.distribute([sp.record(to_=alice.address, amount=1000)]).run(
-            sender=alice, valid=False, exception="FA2_NOT_ADMIN"
-        )
-
-        # Distribute some as admin
-        single_asset.distribute([sp.record(to_=alice.address, amount=1000)]).run(
-            sender=admin, valid=True
-        )
-
-        # Check that the contract storage is updated.
-        sc.verify(
-            single_asset.get_balance(sp.record(owner=alice.address, token_id=0)) == 2000
-        )
-
     @sp.add_test(name=test_name)
     def test_scenario():
         sc = sp.test_scenario()
@@ -1453,7 +1430,6 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         test_change_metadata(sc, nft, fungible)
         test_balance_of(sc, nft, fungible, single_asset)
         test_offchain_token_metadata(sc, nft, fungible, single_asset)
-        test_distribute(sc, single_asset)
 
 
 def test_pause(nft_contract, fungible_contract, single_asset_contract):

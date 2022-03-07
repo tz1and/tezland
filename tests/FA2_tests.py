@@ -58,7 +58,6 @@ if "templates" not in __name__:
         admin_mixin.Administrable,
         FA2.ChangeMetadata,
         FA2.WithdrawMutez,
-        FA2.DistributeSingleAsset,
         FA2.MintSingleAsset,
         FA2.BurnSingleAsset,
         FA2.OnchainviewBalanceOf,

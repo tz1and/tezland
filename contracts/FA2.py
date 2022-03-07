@@ -1027,6 +1027,7 @@ class MintFungible:
                     else:
                         sp.failwith("FA2_MINT_EXISTING_DISALLOWED")
 
+
 class MintSingleAsset:
     """(Mixin) Non-standard `mint` entrypoint for FA2SingleAsset assuring only
     one token can be minted.
@@ -1140,6 +1141,7 @@ class BurnFungible:
                         del self.data.token_extra[action.token_id]
                         del self.data.token_metadata[action.token_id]
 
+
 class BurnSingleAsset:
     """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
     transfer policy permission."""
@@ -1180,28 +1182,13 @@ class BurnSingleAsset:
                 with arg.match("None"):
                     self.data.supply = 0
 
-# TODO: is it really needed? Mint more or less fills that role.
-class DistributeSingleAsset(MintSingleAsset):
-    """(Mixin) Non-standard `distribute` entrypoint for FA2SingleAsset.
-    Batch-mints to several recipients."""
-    @sp.entry_point
-    def distribute(self, recipients):
-        sp.set_type(recipients, t_distribute_batch)
-        # Mint tokens to every recipient.
-        with sp.for_("rec", recipients) as rec:
-            # this effectively includes the mint function here.
-            self.mint.f(self, [sp.record(
-                to_ = rec.to_,
-                amount=rec.amount,
-                token=sp.variant('existing', 0)
-            )])
 
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
     Requires has_royalties=True on base.
     
-    I admit, not very elegant, but I want to save that bigmap.
-    """
+    I admit, not very elegant, but I want to save that bigmap."""
+
     MIN_ROYALTIES = sp.nat(0)
     MAX_ROYALTIES = sp.nat(250)
     MAX_CONTRIBUTORS = sp.nat(3)
@@ -1241,8 +1228,11 @@ class Royalties:
         with sp.else_():
             sp.result(sp.record(royalties=sp.nat(0), contributors={}))
 
+
 # TODO: test
 class OnchainviewCountTokens:
+    """(Mixin) Adds count_tokens onchain view."""
+    
     @sp.onchain_view(pure=True)
     def count_tokens(self):
         """Returns the number of tokens in the FA2 contract."""
