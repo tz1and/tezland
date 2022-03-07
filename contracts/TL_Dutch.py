@@ -4,9 +4,9 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
-fa2_royalties = sp.io.import_script_from_url("file:contracts/FA2_Royalties.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: test royalties for item token
 
@@ -182,7 +182,7 @@ class TL_Dutch(
         overpay = sp.amount - ask_price
         utils.send_if_value(sp.sender, overpay)
 
-        sp.if ask_price != sp.tez(0):
+        with sp.if_(ask_price != sp.tez(0)):
             token_royalty_info = sp.compute(self.getRoyaltiesInline(the_auction.value.token_id, the_auction.value.fa2))
 
             # Calculate fees.
@@ -190,9 +190,9 @@ class TL_Dutch(
             royalties = sp.compute(token_royalty_info.royalties * fee / (token_royalty_info.royalties + self.data.fees))
 
             # If there are any royalties to be paid.
-            sp.if royalties > sp.nat(0):
+            with sp.if_(royalties > sp.nat(0)):
                 # Pay each contributor his relative share.
-                sp.for contributor in token_royalty_info.contributors.items():
+                with sp.for_("contributor", token_royalty_info.contributors.items()) as contributor:
                     # Calculate amount to be paid from relative share.
                     absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
                     utils.send_if_value(contributor.key, absolute_amount)
@@ -217,13 +217,13 @@ class TL_Dutch(
         # Local var for the result.
         result = sp.local("result", sp.tez(0))
         # return start price if it hasn't started
-        sp.if sp.now <= the_auction.start_time:
+        with sp.if_(sp.now <= the_auction.start_time):
             result.value = the_auction.start_price
-        sp.else:
+        with sp.else_():
             # return end price if it's over
-            sp.if sp.now >= the_auction.end_time:
+            with sp.if_(sp.now >= the_auction.end_time):
                 result.value = the_auction.end_price
-            sp.else:
+            with sp.else_():
                 # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
                 # probably by validating the input in create. to make sure intervals can't be negative.
                 duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
@@ -250,7 +250,7 @@ class TL_Dutch(
 
         token_royalty_info = sp.local("token_royalty_info",
             sp.record(royalties=0, contributors={}),
-            t=fa2_royalties.FA2_Royalties.ROYALTIES_TYPE)
+            t=FA2.t_royalties)
 
         with fa2_props.royalties_kind.match_cases() as arg:
             #with arg.match("none"): # none is implied to return default royalty info
