@@ -1,11 +1,10 @@
 import smartpy as sp
 
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-
-# TODO: add mint utils
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 #
@@ -55,19 +54,14 @@ class TL_Minter(
 
         self.onlyAdministrator()
         self.onlyUnpaused()
-        
-        c = sp.contract(
-            FA2.t_mint_nft_batch,
-            self.data.places_contract, 
-            entry_point = "mint").open_some()
-            
-        sp.transfer(
+
+        utils.fa2_nft_mint(
             [sp.record(
                 to_=params.address,
                 metadata={ '' : params.metadata }
-            )], 
-            sp.mutez(0), 
-            c)
+            )],
+            self.data.places_contract
+        )
 
     #
     # Public entry points
@@ -86,13 +80,8 @@ class TL_Minter(
         
         sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
             message = "PARAM_ERROR")
-        
-        c = sp.contract(
-            FA2.t_mint_fungible_royalties_batch,
-            self.data.items_contract, 
-            entry_point = "mint").open_some()
-            
-        sp.transfer(
+
+        utils.fa2_fungible_royalties_mint(
             [sp.record(
                 to_=params.address,
                 amount=params.amount,
@@ -103,7 +92,6 @@ class TL_Minter(
                         contributors=params.contributors)
                     )
                 )
-            )], 
-            sp.mutez(0), 
-            c)
-
+            )],
+            self.data.items_contract
+        )

@@ -70,7 +70,25 @@ def fa2_transfer(fa2, from_, to_, token_id, item_amount):
 
 #
 # FA2 mint
-def fa2_single_asset_mint(batch, contract):
+def fa2_nft_mint(batch, contract):
+    batch = sp.set_type_expr(batch, FA2.t_mint_nft_batch)
+    contract = sp.set_type_expr(contract, sp.TAddress)
+    c = sp.contract(
+        FA2.t_mint_nft_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_nft_royalties_mint(batch, contract):
+    batch = sp.set_type_expr(batch, FA2.t_mint_nft_royalties_batch)
+    contract = sp.set_type_expr(contract, sp.TAddress)
+    c = sp.contract(
+        FA2.t_mint_nft_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_fungible_mint(batch, contract):
     batch = sp.set_type_expr(batch, FA2.t_mint_fungible_batch)
     contract = sp.set_type_expr(contract, sp.TAddress)
     c = sp.contract(
@@ -78,3 +96,15 @@ def fa2_single_asset_mint(batch, contract):
         contract,
         entry_point='mint').open_some()
     sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_fungible_royalties_mint(batch, contract):
+    batch = sp.set_type_expr(batch, FA2.t_mint_fungible_royalties_batch)
+    contract = sp.set_type_expr(contract, sp.TAddress)
+    c = sp.contract(
+        FA2.t_mint_fungible_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_single_asset_mint(batch, contract):
+    fa2_fungible_mint(batch, contract)
