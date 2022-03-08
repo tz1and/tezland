@@ -6,7 +6,6 @@ fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: test royalties for item token
 
@@ -183,7 +182,7 @@ class TL_Dutch(
         utils.send_if_value(sp.sender, overpay)
 
         with sp.if_(ask_price != sp.tez(0)):
-            token_royalty_info = sp.compute(self.getRoyaltiesInline(the_auction.value.token_id, the_auction.value.fa2))
+            token_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_auction.value.token_id, the_auction.value.fa2))
 
             # Calculate fees.
             fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalty_info.royalties + self.data.fees) / sp.nat(1000))
@@ -237,43 +236,6 @@ class TL_Dutch(
                 result.value = current_price
         return result.value
 
-
-    def getRoyaltiesInline(self, token_id, auction_fa2):
-        """Inlined into bid to be upgradeable."""
-        token_id = sp.set_type_expr(token_id, sp.TNat)
-        auction_fa2 = sp.set_type_expr(auction_fa2, sp.TAddress)
-
-        fa2_props = self.getPermittedFA2Props(auction_fa2)
-
-        # In the dutch auction contract, this should never happen. Check it anyway.
-        sp.verify(fa2_props.swap_allowed == True, message="SWAP_NOT_ALLOWED")
-
-        token_royalty_info = sp.local("token_royalty_info",
-            sp.record(royalties=0, contributors={}),
-            t=FA2.t_royalties)
-
-        with fa2_props.royalties_kind.match_cases() as arg:
-            #with arg.match("none"): # none is implied to return default royalty info
-            with arg.match("tz1and"):
-                token_royalty_info.value = utils.tz1and_items_get_royalties(auction_fa2, token_id)
-            with arg.match("combined"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("versum"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other1"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other2"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other3"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other4"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other5"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-            with arg.match("other6"):
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
-        
-        return token_royalty_info.value
 
     #
     # Views
