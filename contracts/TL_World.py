@@ -35,6 +35,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 # V2
 # TODO: should I do chunking? I could make room for it right now by hashing pair (place, chunk) and storing chunks in separate bigmap.
+#       + chunk limit. get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 
 
