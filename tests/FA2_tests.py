@@ -26,6 +26,7 @@ if "templates" not in __name__:
         FA2.BurnNft,
         FA2.OnchainviewBalanceOf,
         FA2.OnchainviewTokenMetadata,
+        FA2.OnchainviewCountTokens,
         FA2.Fa2Nft,
     ):
         """NFT contract with all optional features."""
@@ -44,6 +45,7 @@ if "templates" not in __name__:
         FA2.BurnFungible,
         FA2.OnchainviewBalanceOf,
         FA2.OnchainviewTokenMetadata,
+        FA2.OnchainviewCountTokens,
         FA2.Fa2Fungible,
     ):
         """Fungible contract with all optional features."""
@@ -62,6 +64,7 @@ if "templates" not in __name__:
         FA2.BurnSingleAsset,
         FA2.OnchainviewBalanceOf,
         FA2.OnchainviewTokenMetadata,
+        FA2.OnchainviewCountTokens,
         FA2.Fa2SingleAsset,
     ):
         """Single asset contract with all optional features."""

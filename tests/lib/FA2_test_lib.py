@@ -1402,6 +1402,28 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
             single_asset.token_metadata(0), sp.record(token_id=0, token_info=tok0_md)
         )
 
+    def test_onchain_count_tokens(sc, nft, fungible, single_asset):
+        """Test `OnchainviewCountTokens`.
+
+        Tests:
+
+        - `count_tokens` works as expected on nft, fungible and single_asset.
+        """
+        # No tokens in nft
+        sc.verify_equal(
+            nft.count_tokens(), sp.nat(3)
+        )
+
+        # No tokens in fungible
+        sc.verify_equal(
+            fungible.count_tokens(), sp.nat(2)
+        )
+
+        # Single asset should always return 1
+        sc.verify_equal(
+            single_asset.count_tokens(), sp.nat(1)
+        )
+
     @sp.add_test(name=test_name)
     def test_scenario():
         sc = sp.test_scenario()
@@ -1430,6 +1452,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         test_change_metadata(sc, nft, fungible)
         test_balance_of(sc, nft, fungible, single_asset)
         test_offchain_token_metadata(sc, nft, fungible, single_asset)
+        test_onchain_count_tokens(sc, nft, fungible, single_asset)
 
 
 def test_pause(nft_contract, fungible_contract, single_asset_contract):
@@ -1680,6 +1703,16 @@ def test_royalties(nft_contract, fungible_contract):
                 royalties=royalties
             )]).run(sender=admin)
 
+            # Check storage
+            sc.verify_equal(
+                royalties, c1.data.token_extra[abs(c1.data.last_token_id - 1)].royalty_info
+            )
+
+            # Check onchain view
+            sc.verify_equal(
+                royalties, c1.get_token_royalties(abs(c1.data.last_token_id - 1))
+            )
+
             c2.mint([
                 sp.record(
                     token=sp.variant("new", sp.record(
@@ -1689,7 +1722,15 @@ def test_royalties(nft_contract, fungible_contract):
                 )
             ]).run(sender=admin)
 
-            # TODO: check sorage...
+            # Check storage
+            sc.verify_equal(
+                royalties, c2.data.token_extra[abs(c2.data.last_token_id - 1)].royalty_info
+            )
+
+            # Check onchain view
+            sc.verify_equal(
+                royalties, c2.get_token_royalties(abs(c2.data.last_token_id - 1))
+            )
 
         # Define some invalid royalties
         invalid_royalties = [
@@ -1730,5 +1771,3 @@ def test_royalties(nft_contract, fungible_contract):
                     to_=alice.address, amount=1000
                 )
             ]).run(sender=admin, valid=False, exception="FA2_ROYALTIES_INVALID")
-
-            # TODO: check sorage...

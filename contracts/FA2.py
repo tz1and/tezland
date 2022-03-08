@@ -665,8 +665,8 @@ class Fa2Nft(OnchainViewsNft, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
-# TODO: test allow_mint_existing=False
 
+# TODO: test allow_mint_existing=False
 class Fa2Fungible(OnchainViewsFungible, Common):
     """Base class for a FA2 fungible contract.
 
@@ -1032,7 +1032,7 @@ class MintFungible:
                             self.data.ledger.get(from_, 0) + action.amount
                         )
                     else:
-                        sp.failwith("FA2_MINT_EXISTING_DISALLOWED")
+                        sp.failwith("FA2_TX_DENIED")
 
 
 class MintSingleAsset:
@@ -1190,7 +1190,6 @@ class BurnSingleAsset:
 
 
 # TODO: implement versum views?
-# TODO: change contributors to variant "minter", "creator", "custom"
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
     Requires has_royalties=True on base.
@@ -1236,7 +1235,6 @@ class Royalties:
             sp.result(sp.record(royalties=sp.nat(0), contributors={}))
 
 
-# TODO: test
 class OnchainviewCountTokens:
     """(Mixin) Adds count_tokens onchain view."""
     
