@@ -244,7 +244,7 @@ export default class Deploy extends DeployBase {
         console.log(`item token metadata: ${item_metadata_url}`);
 
         const contributors: MichelsonMap<string, any> = new MichelsonMap();
-        contributors.set(this.accountAddress, { relative_royalties: 1000, role: "minter" });
+        contributors.set(this.accountAddress, { relative_royalties: 1000, role: {minter: null} });
 
         batch.with([{
             kind: OpKind.TRANSACTION,

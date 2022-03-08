@@ -42,7 +42,7 @@ def test():
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
-        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
+        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     item_bob = sp.nat(0)

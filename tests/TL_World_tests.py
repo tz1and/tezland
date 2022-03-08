@@ -166,13 +166,13 @@ def test():
     minter.mint_Item(address = bob.address,
         amount = 4,
         royalties = 250,
-        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
+        contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     minter.mint_Item(address = alice.address,
         amount = 25,
         royalties = 250,
-        contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") },
+        contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
     item_bob = sp.nat(0)
@@ -545,7 +545,7 @@ def test():
                 metadata={ "" : sp.utils.bytes_of_string("ipfs://Qtesttesttest") },
                 royalties=sp.record(
                     royalties=250,
-                    contributors={ alice.address: sp.record(relative_royalties=sp.nat(1000), role="minter") })
+                    contributors={ alice.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) })
                 )
             )
         )]

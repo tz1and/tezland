@@ -1654,7 +1654,7 @@ def test_royalties(nft_contract, fungible_contract):
             sp.record(
                 royalties=sp.nat(250),
                 contributors={
-                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                    alice.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
                 }
             ),
             sp.record(
@@ -1664,9 +1664,9 @@ def test_royalties(nft_contract, fungible_contract):
             sp.record(
                 royalties=sp.nat(150),
                 contributors={
-                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(600)),
-                    bob.address : sp.record(role="minter", relative_royalties=sp.nat(200)),
-                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(200))
+                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
+                    bob.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
+                    alice.address : sp.record(role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
                 }
             )
         ]
@@ -1696,21 +1696,21 @@ def test_royalties(nft_contract, fungible_contract):
             sp.record(
                 royalties=sp.nat(251),
                 contributors={
-                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                    alice.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
                 }
             ),
             sp.record(
                 royalties=sp.nat(0),
                 contributors={
-                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(1000))
+                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
                 }
             ),
             sp.record(
                 royalties=sp.nat(150),
                 contributors={
-                    admin.address : sp.record(role="minter", relative_royalties=sp.nat(500)),
-                    bob.address : sp.record(role="minter", relative_royalties=sp.nat(200)),
-                    alice.address : sp.record(role="minter", relative_royalties=sp.nat(200))
+                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(500)),
+                    bob.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
+                    alice.address : sp.record(role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
                 }
             )
         ]

@@ -97,10 +97,16 @@ t_adhoc_operator_params = sp.TVariant(
 
 t_contributor_map = sp.TMap(
     sp.TAddress,
-    # The relative royalties, per contributor, must add up to 1000. And the role.
+    # The relative royalties, per contributor, in permille.
+    # must add up to 1000. And the role.
     sp.TRecord(
         relative_royalties=sp.TNat,
-        role=sp.TString
+        role=sp.TVariant(
+            minter=sp.TUnit,
+            creator=sp.TUnit,
+            donation=sp.TUnit,
+            custom=sp.TString
+        ).layout(("minter", ("creator", ("donation", "custom"))))
     ).layout(("relative_royalties", "role")))
 
 t_royalties = sp.TRecord(
@@ -1184,6 +1190,7 @@ class BurnSingleAsset:
 
 
 # TODO: implement versum views?
+# TODO: change contributors to variant "minter", "creator", "custom"
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
     Requires has_royalties=True on base.
