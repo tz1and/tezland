@@ -611,7 +611,8 @@ export default class Deploy extends DeployBase {
         const set_item_data_op = await contracts.World_contract.methodsObject.set_item_data({
             lot_id: token_id, update_map: map_update_one_item
         }).send();
-        await set_item_data_op.confirmation();*/
+        await set_item_data_op.confirmation();
+        console.log("set_item_data:\t" + await this.feesToString(set_item_data_op));*/
     }
 
     private async stressTestSingle(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {
