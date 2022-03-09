@@ -544,7 +544,7 @@ export default class Deploy extends DeployBase {
         console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
         await sleep(config.sandbox.blockTime * 1000);
 
-        const bid_op = await contracts.Dutch_contract.methodsObject.bid(0).send({amount: 200000, mutez: true});
+        const bid_op = await contracts.Dutch_contract.methodsObject.bid({auction_id: 0}).send({amount: 200000, mutez: true});
         await bid_op.confirmation();
         console.log("bid:\t\t\t" + await this.feesToString(bid_op));
         console.log();
@@ -562,7 +562,7 @@ export default class Deploy extends DeployBase {
         console.log("create_auction:\t\t" + await this.feesToString(create_auction1_op));
         await sleep(config.sandbox.blockTime * 1000);
 
-        const cancel_op = await contracts.Dutch_contract.methodsObject.cancel(1).send();
+        const cancel_op = await contracts.Dutch_contract.methodsObject.cancel({auction_id: 1}).send();
         await cancel_op.confirmation();
         console.log("cancel:\t\t\t" + await this.feesToString(cancel_op));
     }
