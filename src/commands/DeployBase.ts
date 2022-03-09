@@ -1,4 +1,4 @@
-import { TezosToolkit, ContractAbstraction, ContractProvider, WalletOperationBatch, OpKind, Wallet } from "@taquito/taquito";
+import { TezosToolkit, ContractAbstraction, WalletOperationBatch, OpKind, Wallet } from "@taquito/taquito";
 import { OperationContentsAndResult } from "@taquito/rpc";
 import { InMemorySigner } from "@taquito/signer";
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';

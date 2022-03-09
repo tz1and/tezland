@@ -1,11 +1,14 @@
 import * as child from 'child_process';
 import * as kleur from 'kleur';
-import { TezosToolkit, VIEW_LAMBDA } from '@taquito/taquito';
-import { InMemorySigner } from "@taquito/signer";
+import config from '../user.config';
 const sleep = require('util').promisify(setTimeout);
 
 const bcdtag = "4.0.1337" //"4.1.0"
 const sandbox_type = "hangzbox"
+
+function configEnv(): string {
+    return `TAG=${bcdtag} SANDBOX_TYPE=${sandbox_type} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
+}
 
 export async function start(): Promise<void> {
     console.log(kleur.yellow('starting sandbox...'));
@@ -17,7 +20,7 @@ export async function start(): Promise<void> {
         )*/
 
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox SANDBOX_TYPE=${sandbox_type} TAG=${bcdtag} docker-compose -f docker-compose.yml up -d`,
+            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d`,
             {stdio: 'inherit'}
         )
 
@@ -51,7 +54,7 @@ export async function kill(): Promise<void> {
 
     try {
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox SANDBOX_TYPE=${sandbox_type} TAG=${bcdtag} docker-compose -f docker-compose.yml down -v`,
+            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml down -v`,
             {stdio: 'inherit'}
         )
     } catch (err) {
@@ -62,7 +65,7 @@ export async function kill(): Promise<void> {
 export async function info(): Promise<void> {
     try {
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox SANDBOX_TYPE=${sandbox_type} TAG=${bcdtag} docker-compose exec flextesa ${sandbox_type} info`,
+            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose exec flextesa ${sandbox_type} info`,
             {stdio: 'inherit'}
         )
     } catch (err) {

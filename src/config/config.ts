@@ -23,8 +23,13 @@ export type IpfsConfig = {
     nftStorageApiKey: string;
 }
 
+export type SandboxConfig = {
+    blockTime: number;
+}
+
 export type SmartpyNodeDevConfig = {
     defaultNetwork: string;
     networks: NetworksConfig;
+    sandbox: SandboxConfig;
     ipfs: IpfsConfig;
 }

@@ -5,6 +5,7 @@ import assert from 'assert';
 import kleur from 'kleur';
 import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from '@taquito/taquito';
+import config from '../user.config';
 import fs from 'fs';
 
 
@@ -530,7 +531,7 @@ export default class Deploy extends DeployBase {
         console.log("manage_whitelist:\t" + await this.feesToString(whitelist_enable_op));
         console.log();
 
-        let current_time = Math.floor(Date.now() / 1000) + 3;
+        let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
         const create_auction_op = await contracts.Dutch_contract.methodsObject.create({
             token_id: 0,
             start_price: 200000,
@@ -541,14 +542,14 @@ export default class Deploy extends DeployBase {
         }).send();
         await create_auction_op.confirmation();
         console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
-        await sleep(3000);
+        await sleep(config.sandbox.blockTime * 1000);
 
         const bid_op = await contracts.Dutch_contract.methodsObject.bid(0).send({amount: 200000, mutez: true});
         await bid_op.confirmation();
         console.log("bid:\t\t\t" + await this.feesToString(bid_op));
         console.log();
 
-        current_time = Math.floor(Date.now() / 1000) + 3;
+        current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
         const create_auction1_op = await contracts.Dutch_contract.methodsObject.create({
             token_id: 0,
             start_price: 200000,
@@ -559,7 +560,7 @@ export default class Deploy extends DeployBase {
         }).send();
         await create_auction1_op.confirmation();
         console.log("create_auction:\t\t" + await this.feesToString(create_auction1_op));
-        await sleep(3000);
+        await sleep(config.sandbox.blockTime * 1000);
 
         const cancel_op = await contracts.Dutch_contract.methodsObject.cancel(1).send();
         await cancel_op.confirmation();

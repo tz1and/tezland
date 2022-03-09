@@ -21,6 +21,9 @@ const config: SmartpyNodeDevConfig = {
             accounts: { deployer: testnetDeployerKey }
         }
     },
+    sandbox: {
+        blockTime: 3, // In seconds.
+    },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
         nftStorageApiKey: nftStorageApiKey
