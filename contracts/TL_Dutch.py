@@ -3,6 +3,7 @@ import smartpy as sp
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
+mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
@@ -21,6 +22,7 @@ class TL_Dutch(
     pause_mixin.Pausable,
     whitelist_mixin.Whitelist,
     fees_mixin.Fees,
+    mod_mixin.Moderation,
     upgradeable_mixin.Upgradeable,
     permitted_fa2.PermittedFA2,
     sp.Contract):
@@ -53,6 +55,7 @@ class TL_Dutch(
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
+        mod_mixin.Moderation.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['create', 'cancel', 'bid'])
 

@@ -1,10 +1,10 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
+fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 
-class FeesTest(admin_mixin.Fees, sp.Contract):
+class FeesTest(fees_mixin.Fees, sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Fees.__init__(self, administrator = administrator)
+        fees_mixin.Fees.__init__(self, administrator = administrator)
 
 
 @sp.add_test(name = "Fees_tests", profile = True)

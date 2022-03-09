@@ -1,6 +1,7 @@
 import smartpy as sp
 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
@@ -13,6 +14,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # NOTE: should be pausable for code updates.
 class TL_Minter(
     pause_mixin.Pausable,
+    mod_mixin.Moderation,
     fa2_admin.FA2_Administration,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
@@ -26,6 +28,7 @@ class TL_Minter(
             metadata = metadata,
             )
         pause_mixin.Pausable.__init__(self, administrator = administrator)
+        mod_mixin.Moderation.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['mint_Item', 'mint_Place'])

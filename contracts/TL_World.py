@@ -8,6 +8,7 @@ import smartpy as sp
 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
+mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
@@ -15,8 +16,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
-# TODO: generalise minter. map of token contracts with props: admin_only, allow_mint_multiple
-# TODO: add moderation mixin to make room for moderation on Dutch, Minter and World
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
@@ -25,6 +24,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 #
 # Other
+# TODO: generalised minter: map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
@@ -243,6 +243,7 @@ class Permission_param:
 class TL_World(
     pause_mixin.Pausable,
     fees_mixin.Fees,
+    mod_mixin.Moderation,
     permitted_fa2.PermittedFA2,
     upgradeable_mixin.Upgradeable,
     fa2_admin.FA2_Administration,
@@ -279,6 +280,7 @@ class TL_World(
         )
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
+        mod_mixin.Moderation.__init__(self, administrator = administrator)
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
