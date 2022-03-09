@@ -22,7 +22,7 @@ const config: SmartpyNodeDevConfig = {
         }
     },
     sandbox: {
-        blockTime: 3, // In seconds.
+        blockTime: 5, // In seconds.
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
