@@ -17,7 +17,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # Urgent
 # TODO: generalise minter. map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: add moderation mixin to make room for moderation on Dutch, Minter and World
-# TODO: rename remaining xtz_per_item to mutez_per_item
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
@@ -60,19 +59,19 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 itemRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
-    xtz_per_item=sp.TMutez, # 0 if not for sale.
+    mutez_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
     # NOTE: could store an animation index and all kinds of other stuff in item_data
-).layout(("item_amount", ("token_id", ("xtz_per_item", "item_data"))))
+).layout(("item_amount", ("token_id", ("mutez_per_item", "item_data"))))
 
 # For any other tokens someone might want to exhibit. These are "place only".
 otherTokenRecordType = sp.TRecord(
     item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
-    xtz_per_item=sp.TMutez, # 0 if not for sale.
+    mutez_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
     fa2=sp.TAddress # store a fa2 token address
-).layout(("item_amount", ("token_id", ("xtz_per_item", ("item_data", "fa2")))))
+).layout(("item_amount", ("token_id", ("mutez_per_item", ("item_data", "fa2")))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
@@ -441,7 +440,7 @@ class TL_World(
                     item_store[this_place.next_id] = sp.variant("item", sp.record(
                         item_amount = item.token_amount,
                         token_id = item.token_id,
-                        xtz_per_item = item.mutez_per_token,
+                        mutez_per_item = item.mutez_per_token,
                         item_data = item.item_data))
 
                 with arg.match("other") as other:
@@ -461,7 +460,7 @@ class TL_World(
                     item_store[this_place.next_id] = sp.variant("other", sp.record(
                         item_amount = other.token_amount,
                         token_id = other.token_id,
-                        xtz_per_item = other.mutez_per_token,
+                        mutez_per_item = other.mutez_per_token,
                         item_data = other.item_data,
                         fa2 = other.fa2))
 
@@ -597,13 +596,13 @@ class TL_World(
     # to be reused in get_item.
     def sendValueRoyaltiesFeesLambda(self, params):
         sp.set_type(params, sp.TRecord(
-            xtz_per_item = sp.TMutez,
+            mutez_per_item = sp.TMutez,
             issuer = sp.TAddress,
             item_royalty_info = FA2.t_royalties
-        ).layout(("xtz_per_item", ("issuer", "item_royalty_info"))))
+        ).layout(("mutez_per_item", ("issuer", "item_royalty_info"))))
 
         # Calculate fee and royalties.
-        fee = sp.compute(sp.utils.mutez_to_nat(params.xtz_per_item) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
+        fee = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_item) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
         royalties = sp.compute(params.item_royalty_info.royalties * fee / (params.item_royalty_info.royalties + self.data.fees))
 
         # If there are any royalties to be paid.
@@ -620,17 +619,17 @@ class TL_World(
         utils.send_if_value(self.data.fees_to, send_mgr_fees)
 
         # Send rest of the value to seller.
-        send_issuer = sp.compute(params.xtz_per_item - sp.utils.nat_to_mutez(fee))
+        send_issuer = sp.compute(params.mutez_per_item - sp.utils.nat_to_mutez(fee))
         utils.send_if_value(params.issuer, send_issuer)
 
         # Distribute DAO tokens.
         # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
         with sp.if_(self.data.bootstrap_dao & (sp.now < self.data.terminus)):
             # NOTE: Assuming 6 decimals, like tez.
-            user_share = sp.compute(sp.utils.mutez_to_nat(params.xtz_per_item) / 2)
+            user_share = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_item) / 2)
             # Only distribute dao if anything is to be distributed.
             with sp.if_(user_share > 0):
-                manager_share = sp.utils.mutez_to_nat(params.xtz_per_item) * sp.nat(250) / sp.nat(1000)
+                manager_share = sp.utils.mutez_to_nat(params.mutez_per_item) * sp.nat(250) / sp.nat(1000)
                 utils.fa2_single_asset_mint([
                     sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
                     sp.record(to_=params.issuer, amount=user_share, token=sp.variant("existing", sp.nat(0))),
@@ -666,16 +665,16 @@ class TL_World(
                 the_item = sp.local("the_item", immutable).value
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.xtz_per_item != sp.tez(0)):
+                with sp.if_(the_item.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.token_id))
 
                     # send fees, royalties, value, dao tokens
-                    sp.compute(sendValueLocalLambda(sp.record(xtz_per_item=the_item.xtz_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.token_id, 1)
@@ -694,16 +693,16 @@ class TL_World(
                 the_item = sp.local("the_item", immutable).value
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.xtz_per_item != sp.tez(0)):
+                with sp.if_(the_item.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.token_id, the_item.fa2))
 
                     # send fees, royalties, value, dao tokens
-                    sp.compute(sendValueLocalLambda(sp.record(xtz_per_item=the_item.xtz_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(the_item.fa2, sp.self_address, sp.sender, the_item.token_id, 1)
