@@ -565,12 +565,12 @@ def test():
         sp.variant("other", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), fa2 = other_token.address, item_data = position))
     ], sender=alice, valid=False, message="TOKEN_NOT_PERMITTED")
 
-    scenario.h3("set_fa2_permitted")
+    scenario.h3("set_fa2_permitted: swap_allowed=False")
     add_permitted = sp.list([sp.variant("add_permitted",
         sp.record(
             fa2 = other_token.address,
             props = sp.record(
-                swap_allowed = True,
+                swap_allowed = False,
                 royalties_kind = sp.variant("none", sp.unit))))])
 
     world.set_fa2_permitted(add_permitted).run(sender = admin)
@@ -599,8 +599,8 @@ def test():
 
     scenario.h4("get")
     item_counter = world.data.places.get(place_alice).next_id
-    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
-    get_item(place_alice, sp.as_nat(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
+    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    get_item(place_alice, sp.as_nat(item_counter - 2), alice.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
     scenario.h4("remove")
     remove_items(place_alice, {alice.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}, sender=alice)

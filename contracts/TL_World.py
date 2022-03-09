@@ -15,16 +15,17 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
+# TODO: generalise minter. map of token contracts with props: admin_only, allow_mint_multiple
+# TODO: add moderation mixin to make room for moderation on Dutch, Minter and World
+# TODO: rename remaining xtz_per_item to mutez_per_item
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
-# TODO: FA2 burn: remove address if operator burn is not supported.
 #
 #
 # Other
-# TODO: Allow swapping other FA2, based on props. See Dutch getRoyaltiesInline for getting royalties.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
@@ -35,7 +36,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 # V2
 # TODO: should I do chunking? I could make room for it right now by hashing pair (place, chunk) and storing chunks in separate bigmap.
-#       + chunk limit. get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
+#  + chunk limit. get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 
 
@@ -153,8 +154,8 @@ placeItemListType = sp.TVariant(
     ext = sp.TBytes
 ).layout(("item", ("other", "ext")))
 
-itemDataMinLen = sp.nat(7)
-placeDataMinLen = sp.nat(3)
+itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
+placeDataMinLen = sp.nat(3) # 3 bytes for color
 
 # permissions are in octal, like unix.
 # can be any combination of these.
@@ -293,12 +294,14 @@ class TL_World(
         self.onlyAdministrator()
         self.data.item_limit = item_limit
 
+
     @sp.entry_point
     def update_max_permission(self, max_permission):
         sp.set_type(max_permission, sp.TNat)
         self.onlyAdministrator()
         sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
+
 
     @sp.entry_point
     def bootstrap_dao(self):
@@ -309,6 +312,7 @@ class TL_World(
         sp.verify(self.data.bootstrap_dao == False, message=self.error_message.no_permission())
         self.data.bootstrap_dao = True
         self.data.terminus = sp.now.add_days(60)
+
 
     #
     # Public entry points
@@ -343,14 +347,17 @@ class TL_World(
                         upd.permittee,
                         upd.token_id)
 
+
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
     def getPermissionsInline(self, lot_id, owner, permittee):
         lot_id = sp.set_type_expr(lot_id, sp.TNat)
         owner = sp.set_type_expr(owner, sp.TOption(sp.TAddress))
         permittee = sp.set_type_expr(permittee, sp.TAddress)
+
         # Local var for permissions.
         permission = sp.local("permission", permissionNone)
+
         # If permittee is the owner, he has full permission.
         with sp.if_(utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0):
             permission.value = self.data.max_permission
@@ -361,7 +368,9 @@ class TL_World(
                     owner.open_some(),
                     permittee,
                     lot_id))
+
         return permission.value
+
 
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
@@ -387,6 +396,7 @@ class TL_World(
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
+
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -436,20 +446,22 @@ class TL_World(
 
                 with arg.match("other") as other:
                     sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
-                    sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                     # Check if FA2 token is permitted and get props.
-                    # TODO: decide based on props if swapping is allowed.
                     fa2_props = self.getPermittedFA2Props(other.fa2)
 
+                    # If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
+                    with sp.if_(~ fa2_props.swap_allowed):
+                        sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
+
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
-                    utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, 1)
+                    utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, other.token_amount)
 
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("other", sp.record(
-                        item_amount = sp.nat(1),
+                        item_amount = other.token_amount,
                         token_id = other.token_id,
-                        xtz_per_item = sp.tez(0),
+                        xtz_per_item = other.mutez_per_token,
                         item_data = other.item_data,
                         fa2 = other.fa2))
 
@@ -465,6 +477,7 @@ class TL_World(
         # only transfer if list has items
         with sp.if_(sp.len(transferMap.value) > 0):
             utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
+
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
@@ -499,21 +512,22 @@ class TL_World(
                 sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
                 with item_store[update.item_id].match_cases() as arg:
-                    with arg.match("item") as the_item:
+                    with arg.match("item") as immutable:
                         # sigh - variants are not mutable
-                        item_var = sp.compute(the_item)
+                        item_var = sp.compute(immutable)
                         item_var.item_data = update.item_data
                         item_store[update.item_id] = sp.variant("item", item_var)
-                    with arg.match("other") as other:
+                    with arg.match("other") as immutable:
                         # sigh - variants are not mutable
-                        other_var = sp.compute(other)
+                        other_var = sp.compute(immutable)
                         other_var.item_data = update.item_data
                         item_store[update.item_id] = sp.variant("other", other_var)
-                    with arg.match("ext") as ext:
+                    with arg.match("ext"):
                         item_store[update.item_id] = sp.variant("ext", update.item_data)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
+
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
@@ -559,7 +573,7 @@ class TL_World(
 
                     with arg.match("other") as the_other:
                         # transfer external token back to the issuer. Only support 1 token.
-                        utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, 1)
+                        utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, the_other.item_amount)
 
                     # Nothing to do here with ext items. Just remove them.
                 
@@ -576,6 +590,53 @@ class TL_World(
         # Only transfer if transfer map has items.
         with sp.if_(sp.len(transferMap.value) > 0):
             utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
+
+
+    # Lambda for sending royalties, fees, etc
+    # It could be inlined, but instead we build a local lambda
+    # to be reused in get_item.
+    def sendValueRoyaltiesFeesLambda(self, params):
+        sp.set_type(params, sp.TRecord(
+            xtz_per_item = sp.TMutez,
+            issuer = sp.TAddress,
+            item_royalty_info = FA2.t_royalties
+        ).layout(("xtz_per_item", ("issuer", "item_royalty_info"))))
+
+        # Calculate fee and royalties.
+        fee = sp.compute(sp.utils.mutez_to_nat(params.xtz_per_item) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
+        royalties = sp.compute(params.item_royalty_info.royalties * fee / (params.item_royalty_info.royalties + self.data.fees))
+
+        # If there are any royalties to be paid.
+        with sp.if_(royalties > sp.nat(0)):
+            # Pay each contributor his relative share.
+            with sp.for_("contributor", params.item_royalty_info.contributors.items()) as contributor:
+                # Calculate amount to be paid from relative share.
+                absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
+                utils.send_if_value(contributor.key, absolute_amount)
+
+        # TODO: don't localise nat_to_mutez, is probably a cast and free.
+        # Send management fees.
+        send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
+        utils.send_if_value(self.data.fees_to, send_mgr_fees)
+
+        # Send rest of the value to seller.
+        send_issuer = sp.compute(params.xtz_per_item - sp.utils.nat_to_mutez(fee))
+        utils.send_if_value(params.issuer, send_issuer)
+
+        # Distribute DAO tokens.
+        # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
+        with sp.if_(self.data.bootstrap_dao & (sp.now < self.data.terminus)):
+            # NOTE: Assuming 6 decimals, like tez.
+            user_share = sp.compute(sp.utils.mutez_to_nat(params.xtz_per_item) / 2)
+            # Only distribute dao if anything is to be distributed.
+            with sp.if_(user_share > 0):
+                manager_share = sp.utils.mutez_to_nat(params.xtz_per_item) * sp.nat(250) / sp.nat(1000)
+                utils.fa2_single_asset_mint([
+                    sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
+                    sp.record(to_=params.issuer, amount=user_share, token=sp.variant("existing", sp.nat(0))),
+                    sp.record(to_=self.data.fees_to, amount=manager_share, token=sp.variant("existing", sp.nat(0)))
+                ], self.data.dao_contract)
+
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):
@@ -594,71 +655,77 @@ class TL_World(
         # Get item store - must exist.
         item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
 
-        # Get the item from storage. Currently, get_item is only supposed to work for the item variant.
-        # TODO: Allow swapping other FA2, based on props. See Dutch getRoyaltiesInline for royalties.
-        the_item = sp.local("the_item", item_store[params.item_id].open_variant("item",
-            message = self.error_message.wrong_item_type()))
+        # Build a local lambda from sendValueRoyaltiesFeesLambda
+        sendValueLocalLambda = sp.compute(sp.build_lambda(self.sendValueRoyaltiesFeesLambda, with_storage="read-only", with_operations=True))
 
-        # Make sure it's for sale, and the transfered amount is correct.
-        sp.verify(the_item.value.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-        sp.verify(the_item.value.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
+        # Swap based on item type.
+        with item_store[params.item_id].match_cases() as arg:
+            # For tz1and native items.
+            with arg.match("item") as immutable:
+                # This is silly but required because match args are not mutable.
+                the_item = sp.local("the_item", immutable).value
 
-        # Transfer royalties, etc.
-        with sp.if_(the_item.value.xtz_per_item != sp.tez(0)):
-            # Get the royalties for this item
-            item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
-            
-            # Calculate fee and royalties.
-            fee = sp.compute(sp.utils.mutez_to_nat(sp.amount) * (item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
-            royalties = sp.compute(item_royalty_info.royalties * fee / (item_royalty_info.royalties + self.data.fees))
+                # Make sure it's for sale, and the transfered amount is correct.
+                sp.verify(the_item.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
 
-            # If there are any royalties to be paid.
-            with sp.if_(royalties > sp.nat(0)):
-                # Pay each contributor his relative share.
-                with sp.for_("contributor", item_royalty_info.contributors.items()) as contributor:
-                    # Calculate amount to be paid from relative share.
-                    absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                    utils.send_if_value(contributor.key, absolute_amount)
+                # Transfer royalties, etc.
+                with sp.if_(the_item.xtz_per_item != sp.tez(0)):
+                    # Get the royalties for this item
+                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.token_id))
 
-            # TODO: don't localise nat_to_mutez, is probably a cast and free.
-            # Send management fees.
-            send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-            utils.send_if_value(self.data.fees_to, send_mgr_fees)
+                    # send fees, royalties, value, dao tokens
+                    sp.compute(sendValueLocalLambda(sp.record(xtz_per_item=the_item.xtz_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                
+                # Transfer item to buyer.
+                utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.token_id, 1)
+                
+                # Reduce the item count in storage or remove it.
+                with sp.if_(the_item.item_amount > 1):
+                    the_item.item_amount = abs(the_item.item_amount - 1)
+                    item_store[params.item_id] = sp.variant("item", the_item)
+                with sp.else_():
+                    del item_store[params.item_id]
+                    this_place.item_counter = abs(this_place.item_counter - 1)
 
-            # Send rest of the value to seller.
-            send_issuer = sp.compute(sp.amount - sp.utils.nat_to_mutez(fee))
-            utils.send_if_value(params.issuer, send_issuer)
+            # Other FA2 items.
+            with arg.match("other") as immutable:
+                # This is silly but required because match args are not mutable.
+                the_item = sp.local("the_item", immutable).value
 
-            # Distribute DAO tokens.
-            # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
-            with sp.if_(self.data.bootstrap_dao & (sp.now < self.data.terminus)):
-                # NOTE: Assuming 6 decimals, like tez.
-                user_share = sp.compute(sp.utils.mutez_to_nat(sp.amount) / 2)
-                # Only distribute dao if anything is to be distributed.
-                with sp.if_(user_share > 0):
-                    manager_share = sp.utils.mutez_to_nat(sp.amount) * sp.nat(250) / sp.nat(1000)
-                    utils.fa2_single_asset_mint([
-                        sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
-                        sp.record(to_=params.issuer, amount=user_share, token=sp.variant("existing", sp.nat(0))),
-                        sp.record(to_=self.data.fees_to, amount=manager_share, token=sp.variant("existing", sp.nat(0)))
-                    ], self.data.dao_contract)
-        
-        # Transfer item to buyer.
-        utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
-        
-        # Reduce the item count in storage or remove it.
-        with sp.if_(the_item.value.item_amount > 1):
-            the_item.value.item_amount = abs(the_item.value.item_amount - 1)
-            item_store[params.item_id] = sp.variant("item", the_item.value)
-        with sp.else_():
-            del item_store[params.item_id]
-            this_place.item_counter = abs(this_place.item_counter - 1)
+                # Make sure it's for sale, and the transfered amount is correct.
+                sp.verify(the_item.xtz_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.xtz_per_item == sp.amount, message = self.error_message.wrong_amount())
+
+                # Transfer royalties, etc.
+                with sp.if_(the_item.xtz_per_item != sp.tez(0)):
+                    # Get the royalties for this item
+                    item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.token_id, the_item.fa2))
+
+                    # send fees, royalties, value, dao tokens
+                    sp.compute(sendValueLocalLambda(sp.record(xtz_per_item=the_item.xtz_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                
+                # Transfer item to buyer.
+                utils.fa2_transfer(the_item.fa2, sp.self_address, sp.sender, the_item.token_id, 1)
+                
+                # Reduce the item count in storage or remove it.
+                with sp.if_(the_item.item_amount > 1):
+                    the_item.item_amount = abs(the_item.item_amount - 1)
+                    item_store[params.item_id] = sp.variant("other", the_item)
+                with sp.else_():
+                    del item_store[params.item_id]
+                    this_place.item_counter = abs(this_place.item_counter - 1)
+
+            # ext items are unswappable.
+            with arg.match("ext"):
+                sp.failwith(self.error_message.wrong_item_type())
         
         # Remove the item store if empty.
         self.item_store_map.remove_if_empty(this_place.stored_items, params.issuer)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
+
 
     #
     # Views
@@ -670,6 +737,7 @@ class TL_World(
             sp.result(sp.set_type_expr(placeStorageDefault, placeStorageType))
         with sp.else_():
             sp.result(sp.set_type_expr(self.data.places[lot_id], placeStorageType))
+
 
     @sp.onchain_view(pure=True)
     def get_place_seqnum(self, lot_id):
@@ -686,9 +754,11 @@ class TL_World(
                 this_place.next_id
             ))))
 
+
     @sp.onchain_view(pure=True)
     def get_item_limit(self):
         sp.result(self.data.item_limit)
+
 
     @sp.onchain_view(pure=True)
     def get_permissions(self, query):
