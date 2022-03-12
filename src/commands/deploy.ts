@@ -218,7 +218,6 @@ export default class Deploy extends DeployBase {
     private async runPostDeply(
         deploy_mode: DeployMode,
         contracts: PostDeployContracts) {
-        if (deploy_mode === DeployMode.None) return;
 
         console.log(kleur.magenta("Running post deploy tasks...\n"));
         switch (deploy_mode) {
@@ -235,6 +234,40 @@ export default class Deploy extends DeployBase {
                 await this.stressTestMulti(contracts);
                 break;
         }
+
+        if (deploy_mode === DeployMode.None || deploy_mode === DeployMode.DevWorld) {
+            console.log("REACT_APP_ITEM_CONTRACT=" + contracts.items_FA2_contract.address);
+            console.log("REACT_APP_PLACE_CONTRACT=" + contracts.places_FA2_contract.address);
+            console.log("REACT_APP_DAO_CONTRACT=" + contracts.dao_FA2_contract.address);
+            console.log("REACT_APP_WORLD_CONTRACT=" + contracts.World_contract.address);
+            console.log("REACT_APP_MINTER_CONTRACT=" + contracts.Minter_contract.address);
+            console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.Dutch_contract.address);
+            console.log()
+            console.log(`contracts:
+  tezlandItems:
+    address: ${contracts.items_FA2_contract.address}
+    typename: tezlandItems
+
+  tezlandPlaces:
+    address: ${contracts.places_FA2_contract.address}
+    typename: tezlandPlaces
+
+  tezlandDAO:
+    address: ${contracts.dao_FA2_contract.address}
+    typename: tezlandDAO
+
+  tezlandWorld:
+    address: ${contracts.World_contract.address}
+    typename: tezlandWorld
+
+  tezlandMinter:
+    address: ${contracts.Minter_contract.address}
+    typename: tezlandMinter
+
+  tezlandDutchAuctions:
+    address: ${contracts.Dutch_contract.address}
+    typename: tezlandDutchAuctions\n`);
+    }
     }
 
     private async mintNewItem(model_path: string, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
@@ -306,38 +339,6 @@ export default class Deploy extends DeployBase {
 
         console.log("Successfully minted items");
         console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
-
-        console.log("REACT_APP_ITEM_CONTRACT=" + contracts.items_FA2_contract.address);
-        console.log("REACT_APP_PLACE_CONTRACT=" + contracts.places_FA2_contract.address);
-        console.log("REACT_APP_DAO_CONTRACT=" + contracts.dao_FA2_contract.address);
-        console.log("REACT_APP_WORLD_CONTRACT=" + contracts.World_contract.address);
-        console.log("REACT_APP_MINTER_CONTRACT=" + contracts.Minter_contract.address);
-        console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.Dutch_contract.address);
-        console.log()
-        console.log(`contracts:
-  tezlandItems:
-    address: ${contracts.items_FA2_contract.address}
-    typename: tezlandItems
-
-  tezlandPlaces:
-    address: ${contracts.places_FA2_contract.address}
-    typename: tezlandPlaces
-
-  tezlandDAO:
-    address: ${contracts.dao_FA2_contract.address}
-    typename: tezlandDAO
-
-  tezlandWorld:
-    address: ${contracts.World_contract.address}
-    typename: tezlandWorld
-
-  tezlandMinter:
-    address: ${contracts.Minter_contract.address}
-    typename: tezlandMinter
-
-  tezlandDutchAuctions:
-    address: ${contracts.Dutch_contract.address}
-    typename: tezlandDutchAuctions\n`);
     }
 
     private async feesToString (op: TransactionWalletOperation): Promise<string> {
