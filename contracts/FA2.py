@@ -232,9 +232,8 @@ class OwnerOrOperatorAdhocTransfer:
 
     Provides adhoc, temporary operators. Cheap and storage efficient.
     They are supposed to apply only to the current operation group.
-    They are only valid in the current block level. You may take
-    care to clear them after use, but for most uses, it's probably
-    not required.
+    They are only valid in the current block level.
+    
     For long-lasting operators, use standard operators.
 
     You've seen it here first :)
@@ -277,17 +276,34 @@ class OwnerOrOperatorAdhocTransfer:
                     # Check adhoc operator limit. To prevent potential gaslock.
                     sp.verify(sp.len(updates) <= 100, "ADHOC_OPERATOR_LIMIT")
 
-                    # Clear adhoc operators. In case they weren't.
-                    self.data.adhoc_operators = sp.set(t = sp.TBytes)
-
-                    # Add adhoc operators.
+                    # Add new adhoc operators to temp set.
+                    additions = sp.local("additions", sp.set(t=sp.TBytes))
                     with sp.for_("upd", updates) as upd:
-                        self.data.adhoc_operators.add(
-                            self.make_adhoc_operator_key(
-                                sp.sender, # Sender must be the owner
-                                upd.operator,
-                                upd.token_id))
+                        additions.value.add(self.make_adhoc_operator_key(
+                            sp.sender, # Sender must be the owner
+                            upd.operator,
+                            upd.token_id))
+
+                    # Remove as many adhoc operators as we added.
+                    # We do this to make sure the storage diffs aren't lost
+                    # on minting tokens. And to make sure the set doesn't grow larger
+                    # than the adhoc operator limit.
+                    num_additions = sp.compute(sp.len(additions.value))
+                    counter = sp.local("counter", sp.nat(0))
+                    with sp.for_("op", self.data.adhoc_operators.elements()) as op:
+                        with sp.if_(counter.value < num_additions):
+                            self.data.adhoc_operators.remove(op)
+                            counter.value += 1
+
+                    # Add adhoc ops from temp set.
+                    with sp.for_("add", additions.value.elements()) as add:
+                        self.data.adhoc_operators.add(add)
+
                 with arg.match("clear_adhoc_operators"):
+                    # Only admin is allowed to do this.
+                    # Otherwise someone could sneakily get storage diffs at
+                    # the cost of everyone else.
+                    sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
                     # Clear adhoc operators.
                     self.data.adhoc_operators = sp.set(t = sp.TBytes)
 
