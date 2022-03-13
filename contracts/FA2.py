@@ -233,7 +233,7 @@ class OwnerOrOperatorAdhocTransfer:
     Provides adhoc, temporary operators. Cheap and storage efficient.
     They are supposed to apply only to the current operation group.
     They are only valid in the current block level.
-    
+
     For long-lasting operators, use standard operators.
 
     You've seen it here first :)
@@ -500,7 +500,7 @@ class OnchainViewsSingleAsset:
 
 
 class Common(sp.Contract):
-    """Common logic between Fa2Nft and Fa2Fungible."""
+    """Common logic between Fa2Nft, Fa2Fungible and Fa2SingleAsset."""
 
     def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
         self.add_flag("exceptions", "default-line")
@@ -1167,7 +1167,7 @@ class BurnFungible:
 
 
 class BurnSingleAsset:
-    """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
+    """(Mixin) Non-standard `burn` entrypoint for FA2SingleAsset that uses the
     transfer policy permission."""
 
     @sp.entry_point

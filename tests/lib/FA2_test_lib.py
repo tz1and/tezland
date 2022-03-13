@@ -1573,7 +1573,7 @@ def test_pause(nft_contract, fungible_contract, single_asset_contract):
             )
 
 def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract):
-    """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
+    """Test the `Royalties` mixin.
     """
     test_name = "FA2_adhoc_operators"
 
