@@ -668,27 +668,27 @@ class TL_World(
             # For tz1and native items.
             with arg.match("item") as immutable:
                 # This is silly but required because match args are not mutable.
-                the_item = sp.local("the_item", immutable).value
+                the_item = sp.local("the_item", immutable)
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.value.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.value.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.mutez_per_item != sp.tez(0)):
+                with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.token_id))
+                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
 
                     # send fees, royalties, value, dao tokens
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
-                utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.token_id, 1)
+                utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
-                with sp.if_(the_item.item_amount > 1):
-                    the_item.item_amount = abs(the_item.item_amount - 1)
-                    item_store[params.item_id] = sp.variant("item", the_item)
+                with sp.if_(the_item.value.item_amount > 1):
+                    the_item.value.item_amount = abs(the_item.value.item_amount - 1)
+                    item_store[params.item_id] = sp.variant("item", the_item.value)
                 with sp.else_():
                     del item_store[params.item_id]
                     this_place.item_counter = abs(this_place.item_counter - 1)
@@ -696,27 +696,27 @@ class TL_World(
             # Other FA2 items.
             with arg.match("other") as immutable:
                 # This is silly but required because match args are not mutable.
-                the_item = sp.local("the_item", immutable).value
+                the_item = sp.local("the_item", immutable)
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.value.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.value.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.mutez_per_item != sp.tez(0)):
+                with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.token_id, the_item.fa2))
+                    item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.value.token_id, the_item.value.fa2))
 
                     # send fees, royalties, value, dao tokens
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
-                utils.fa2_transfer(the_item.fa2, sp.self_address, sp.sender, the_item.token_id, 1)
+                utils.fa2_transfer(the_item.value.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
-                with sp.if_(the_item.item_amount > 1):
-                    the_item.item_amount = abs(the_item.item_amount - 1)
-                    item_store[params.item_id] = sp.variant("other", the_item)
+                with sp.if_(the_item.value.item_amount > 1):
+                    the_item.value.item_amount = abs(the_item.value.item_amount - 1)
+                    item_store[params.item_id] = sp.variant("other", the_item.value)
                 with sp.else_():
                     del item_store[params.item_id]
                     this_place.item_counter = abs(this_place.item_counter - 1)
