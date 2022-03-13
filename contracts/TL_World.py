@@ -16,6 +16,9 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
+# TODO: test out adhoc operator limits and their effect on gas
+#       + Make sure adhoc operators set does not shrink to maintain constant gas
+#         as in: always remove as many elements as were added. or something. think.
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
@@ -24,6 +27,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 #
 # Other
+# TODO: Does the places token even need to be administrated by minter?
 # TODO: generalised minter: map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)

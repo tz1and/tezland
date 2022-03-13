@@ -7,6 +7,7 @@ import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from '@taquito/taquito';
 import config from '../user.config';
 import fs from 'fs';
+import { BatchWalletOperation } from '@taquito/taquito/dist/types/wallet/batch-operation';
 
 
 enum DeployMode { None, DevWorld, GasTest, StressTestSingle, StressTestMulti };
@@ -213,6 +214,8 @@ export default class Deploy extends DeployBase {
                 Dutch_contract: Dutch_contract
             });
         }
+
+        // TODO: print contracts on testnet/mainnet deploy
     }
 
     private async runPostDeply(
@@ -283,7 +286,7 @@ export default class Deploy extends DeployBase {
         batch.with([{
             kind: OpKind.TRANSACTION,
             ...Minter_contract.methodsObject.mint_Item({
-                address: this.accountAddress,
+                to_: this.accountAddress,
                 amount: amount,
                 royalties: 250,
                 contributors: contributors,
@@ -293,7 +296,16 @@ export default class Deploy extends DeployBase {
     }
 
     // Create place metadata and upload it
-    private async mintNewPlace(center: number[], border: number[][], batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private mintNewPlaces(mint_args: any[], batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...Minter_contract.methodsObject.mint_Place(
+                mint_args
+            ).toTransferParams()
+        }]);
+    }
+
+    private async prepareNewPlace(center: number[], border: number[][]): Promise<any> {
         const place_metadata_url = await ipfs.upload_place_metadata({
             name: "Some Place",
             description: "A nice place",
@@ -305,13 +317,12 @@ export default class Deploy extends DeployBase {
         }, this.isSandboxNet);
         console.log(`place token metadata: ${place_metadata_url}`);
 
-        batch.with([{
-            kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_Place({
-                address: this.accountAddress,
-                metadata: Buffer.from(place_metadata_url, 'utf8').toString('hex')
-            }).toTransferParams()
-        }]);
+        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
+        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
+        return {
+            to_: this.accountAddress,
+            metadata: metadata_map
+        }
     }
 
     private async deployDevWorld(contracts: PostDeployContracts) {
@@ -328,10 +339,12 @@ export default class Deploy extends DeployBase {
         await this.mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch, contracts.Minter_contract);
 
         // don't mint places for now. use generate map.
-        await this.mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
-        await this.mintNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
-        await this.mintNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
-        await this.mintNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], mint_batch, contracts.Minter_contract);
+        const places = [];
+        places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+        places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+        places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+        places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
+        this.mintNewPlaces(places, mint_batch, contracts.Minter_contract);
 
         // send batch.
         const mint_batch_op = await mint_batch.send();
@@ -341,7 +354,7 @@ export default class Deploy extends DeployBase {
         console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
     }
 
-    private async feesToString (op: TransactionWalletOperation): Promise<string> {
+    private async feesToString (op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
         const receipt = await op.receipt();
         //console.log("totalFee", receipt.totalFee.toNumber());
         //console.log("totalGas", receipt.totalGas.toNumber());
@@ -360,12 +373,13 @@ export default class Deploy extends DeployBase {
 
     private async gasTestSuite(contracts: PostDeployContracts) {
         assert(this.tezos);
+        //assert(this.accountAddress);
 
         console.log(kleur.bgGreen("Running gas test suite"));
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
-        await this.mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
         console.log();
@@ -566,6 +580,116 @@ export default class Deploy extends DeployBase {
         const cancel_op = await contracts.Dutch_contract.methodsObject.cancel({auction_id: 1}).send();
         await cancel_op.confirmation();
         console.log("cancel:\t\t\t" + await this.feesToString(cancel_op));
+        console.log();
+        console.log();
+
+        /**
+         * Test adhoc operator storage effects on gas consumption.
+         */
+        // set 100 regular operators
+        const op_alot = [];
+        for (const n of [...Array(100).keys()])
+            op_alot.push({
+                add_operator: {
+                    owner: this.accountAddress,
+                    operator: contracts.Minter_contract.address,
+                    token_id: n
+                }
+            });
+        const op_alot_op = await contracts.items_FA2_contract.methods.update_operators(
+            op_alot
+        ).send()
+        await op_alot_op.confirmation();
+        console.log("update_operators (100):\t\t" + await this.feesToString(op_alot_op));
+        console.log();
+
+        // token transfer
+        const transfer_before_op = await contracts.items_FA2_contract.methodsObject.transfer([{
+            from_: this.accountAddress,
+            txs: [{
+                to_: contracts.Minter_contract.address,
+                amount: 1,
+                token_id: 0
+            }]
+        }]).send();
+        await transfer_before_op.confirmation();
+        console.log("transfer:\t\t\t" + await this.feesToString(transfer_before_op));
+
+        // set adhoc operators
+        const item_adhoc_op_op = await contracts.items_FA2_contract.methodsObject.update_adhoc_operators({
+            add_adhoc_operators: [{
+                operator: contracts.Minter_contract.address,
+                token_id: 0
+            }]
+        }).send()
+        await item_adhoc_op_op.confirmation();
+        console.log("update_adhoc_operators:\t\t" + await this.feesToString(item_adhoc_op_op));
+
+        // set max adhoc operators
+        const adhoc_ops = [];
+        for (const n of [...Array(100).keys()])
+            adhoc_ops.push({
+                operator: contracts.Minter_contract.address,
+                token_id: n
+            });
+        const item_adhoc_max_op = contracts.items_FA2_contract.methodsObject.update_adhoc_operators({
+            add_adhoc_operators: adhoc_ops
+        });
+        const item_adhoc_max_op_op = await item_adhoc_max_op.send()
+        await item_adhoc_max_op_op.confirmation();
+        console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op));
+        // Do that again to see storage diff
+        const item_adhoc_max_op_op2 = await item_adhoc_max_op.send()
+        await item_adhoc_max_op_op2.confirmation();
+        console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op2));
+
+        // tokens transfer
+        const transfer_after_op = await contracts.items_FA2_contract.methodsObject.transfer([{
+            from_: this.accountAddress,
+            txs: [{
+                to_: contracts.Minter_contract.address,
+                amount: 1,
+                token_id: 0
+            }]
+        }]).send();
+        await transfer_after_op.confirmation();
+        console.log("transfer (100 adhoc):\t\t" + await this.feesToString(transfer_after_op));
+
+        // set adhoc operators
+        const item_adhoc_after_op = await contracts.items_FA2_contract.methodsObject.update_adhoc_operators({
+            add_adhoc_operators: [{
+                operator: contracts.Minter_contract.address,
+                token_id: 0
+            }]
+        }).send()
+        await item_adhoc_after_op.confirmation();
+        console.log("update_adhoc_operators (reset):\t" + await this.feesToString(item_adhoc_after_op));
+
+        // final transfer after adhoc reset
+        const transfer_final_op = await contracts.items_FA2_contract.methodsObject.transfer([{
+            from_: this.accountAddress,
+            txs: [{
+                to_: contracts.Minter_contract.address,
+                amount: 1,
+                token_id: 0
+            }]
+        }]).send();
+        await transfer_final_op.confirmation();
+        console.log("transfer (reset):\t\t" + await this.feesToString(transfer_final_op));
+        console.log();
+
+        // mint again
+        const mint_batch2 = this.tezos.wallet.batch();
+        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch2, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch2, contracts.Minter_contract);
+        const mint_batch2_op = await mint_batch2.send();
+        await mint_batch2_op.confirmation();
+        console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
+
+        // Do that again to see storage diff
+        const item_adhoc_max_op_op3 = await item_adhoc_max_op.send()
+        await item_adhoc_max_op_op3.confirmation();
+        console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op3));
     }
 
     private async mintAndPlace(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {
@@ -575,7 +699,7 @@ export default class Deploy extends DeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
-        await this.mintNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 

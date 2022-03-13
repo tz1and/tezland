@@ -51,19 +51,13 @@ class TL_Minter(
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
-        sp.set_type(params, sp.TRecord(
-            address = sp.TAddress,
-            metadata = sp.TBytes
-        ).layout(("address", "metadata")))
+        sp.set_type(params, FA2.t_mint_nft_batch)
 
         self.onlyAdministrator()
         self.onlyUnpaused()
 
         utils.fa2_nft_mint(
-            [sp.record(
-                to_=params.address,
-                metadata={ '' : params.metadata }
-            )],
+            params,
             self.data.places_contract
         )
 
@@ -73,12 +67,12 @@ class TL_Minter(
     @sp.entry_point(lazify = True)
     def mint_Item(self, params):
         sp.set_type(params, sp.TRecord(
-            address = sp.TAddress,
+            to_ = sp.TAddress,
             amount = sp.TNat,
             royalties = sp.TNat,
             contributors = FA2.t_contributor_map,
             metadata = sp.TBytes
-        ).layout(("address", ("amount", ("royalties", ("contributors", "metadata"))))))
+        ).layout(("to_", ("amount", ("royalties", ("contributors", "metadata"))))))
 
         self.onlyUnpaused()
         
@@ -87,7 +81,7 @@ class TL_Minter(
 
         utils.fa2_fungible_royalties_mint(
             [sp.record(
-                to_=params.address,
+                to_=params.to_,
                 amount=params.amount,
                 token=sp.variant("new", sp.record(
                     metadata={ '' : params.metadata },

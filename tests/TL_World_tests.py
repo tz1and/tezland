@@ -163,13 +163,13 @@ def test():
 
     # mint some item tokens for testing
     scenario.h3("minting items")
-    minter.mint_Item(address = bob.address,
+    minter.mint_Item(to_ = bob.address,
         amount = 4,
         royalties = 250,
         contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
-    minter.mint_Item(address = alice.address,
+    minter.mint_Item(to_ = alice.address,
         amount = 25,
         royalties = 250,
         contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
@@ -180,11 +180,16 @@ def test():
 
     # mint some place tokens for testing
     scenario.h3("minting places")
-    minter.mint_Place(address = bob.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
-
-    minter.mint_Place(address = alice.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+    minter.mint_Place([
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = alice.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        )
+    ]).run(sender = admin)
 
     place_bob = sp.nat(0)
     place_alice = sp.nat(1)

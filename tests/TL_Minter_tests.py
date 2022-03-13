@@ -60,13 +60,13 @@ def test():
 
     # test Item minting
     scenario.h2("mint_Item")
-    minter.mint_Item(address = bob.address,
+    minter.mint_Item(to_ = bob.address,
         amount = 4,
         royalties = 250,
         contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
-    minter.mint_Item(address = alice.address,
+    minter.mint_Item(to_ = alice.address,
         amount = 25,
         royalties = 250,
         contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
@@ -74,7 +74,7 @@ def test():
 
     minter.set_paused(True).run(sender = admin)
 
-    minter.mint_Item(address = alice.address,
+    minter.mint_Item(to_ = alice.address,
         amount = 25,
         royalties = 250,
         contributors = { alice.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
@@ -84,21 +84,48 @@ def test():
 
     # test Place minting
     scenario.h2("mint_Place")
-    minter.mint_Place(address = bob.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False)
 
-    minter.mint_Place(address = alice.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
+    # only admin can mint
+    minter.mint_Place([sp.record(
+        to_ = bob.address,
+        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+    )]).run(sender = bob, valid = False)
 
-    minter.mint_Place(address = admin.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+    minter.mint_Place([sp.record(
+        to_ = alice.address,
+        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+    )]).run(sender = alice, valid = False)
 
+    minter.mint_Place([sp.record(
+        to_ = admin.address,
+        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+    )]).run(sender = admin)
+
+    # no minting while paused
     minter.set_paused(True).run(sender = admin)
 
-    minter.mint_Place(address = admin.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin, valid = False)
+    minter.mint_Place([sp.record(
+        to_ = admin.address,
+        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+    )]).run(sender = admin, valid=False, exception="ONLY_UNPAUSED")
 
     minter.set_paused(False).run(sender = admin)
+
+    # mint multiple
+    minter.mint_Place([
+        sp.record(
+            to_ = admin.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = alice.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        )
+    ]).run(sender = admin)
 
     # test get_item_royalties view
     #scenario.h2("get_item_royalties")

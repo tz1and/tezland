@@ -39,7 +39,7 @@ def test():
     minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
 
     # mint some item tokens for testing
-    minter.mint_Item(address = bob.address,
+    minter.mint_Item(to_ = bob.address,
         amount = 4,
         royalties = 250,
         contributors = { bob.address: sp.record(relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) },
@@ -48,11 +48,16 @@ def test():
     item_bob = sp.nat(0)
 
     # mint some place tokens for testing
-    minter.mint_Place(address = bob.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
-
-    minter.mint_Place(address = alice.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+    minter.mint_Place([
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = alice.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        )
+    ]).run(sender = admin)
 
     place_bob = sp.nat(0)
     place_alice = sp.nat(1)
@@ -356,8 +361,10 @@ def test():
         fa2 = places_tokens.address,
         extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
 
-    minter.mint_Place(address = admin.address,
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = admin)
+    minter.mint_Place([sp.record(
+        to_ = admin.address,
+        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+    )]).run(sender = admin)
     place_admin = sp.nat(2)
 
     places_tokens.update_operators([
