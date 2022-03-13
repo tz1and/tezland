@@ -1636,21 +1636,70 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
                 contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == True
             )
 
-            # clear adhoc operators
+            # Check storage doesn't containt operators in next block
+            sc.verify(
+                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)), level=1) == False
+            )
+
+            sc.verify(
+                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)), level=1) == False
+            )
+
+            sc.verify(sp.len(contract.data.adhoc_operators) == 2)
+
+            # update adhoc operators again
+            contract.update_adhoc_operators(
+                sp.variant(
+                    "add_adhoc_operators",
+                    [
+                        sp.record(
+                            operator=bob.address, token_id=0
+                        ),
+                        sp.record(
+                            operator=alice.address, token_id=0
+                        ),
+                        sp.record(
+                            operator=admin.address, token_id=0
+                        ),
+                    ]
+                )
+            ).run(sender=alice, level=2)
+
+            # Check storage contains operators
+            sc.verify(
+                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)), level=2) == True
+            )
+
+            sc.verify(
+                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=alice.address, token_id=0)), level=2) == True
+            )
+
+            sc.verify(
+                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)), level=2) == True
+            )
+
+            sc.verify(sp.len(contract.data.adhoc_operators) == 3)
+
+            # only admin can clear adhoc operators
             contract.update_adhoc_operators(
                 sp.variant(
                     "clear_adhoc_operators", sp.unit
                 )
-            ).run(sender=alice)
+            ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
 
-            # Check storage doesn't containt operators
-            sc.verify(
-                contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)) == False
-            )
+            contract.update_adhoc_operators(
+                sp.variant(
+                    "clear_adhoc_operators", sp.unit
+                )
+            ).run(sender=bob, valid=False, exception="FA2_NOT_ADMIN")
 
-            sc.verify(
-                contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == False
-            )
+            contract.update_adhoc_operators(
+                sp.variant(
+                    "clear_adhoc_operators", sp.unit
+                )
+            ).run(sender=admin)
+
+            sc.verify(sp.len(contract.data.adhoc_operators) == 0)
 
 def test_royalties(nft_contract, fungible_contract):
     """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
