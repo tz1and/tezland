@@ -406,6 +406,9 @@ class TL_World(
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
 
+    def validateItemData(self, item_data):
+        # Verify the item data has the right length.
+        sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -437,7 +440,7 @@ class TL_World(
         with sp.for_("curr", params.item_list) as curr:
             with curr.match_cases() as arg:
                 with arg.match("item") as item:
-                    sp.verify(sp.len(item.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    self.validateItemData(item.item_data)
 
                     # transfer item to this contract
                     # do multi-transfer by building up a list of transfers
@@ -454,7 +457,7 @@ class TL_World(
                         item_data = item.item_data))
 
                 with arg.match("other") as other:
-                    sp.verify(sp.len(other.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    self.validateItemData(other.item_data)
 
                     # Check if FA2 token is permitted and get props.
                     fa2_props = self.getPermittedFA2Props(other.fa2)
@@ -475,7 +478,7 @@ class TL_World(
                         fa2 = other.fa2))
 
                 with arg.match("ext") as ext_data:
-                    sp.verify(sp.len(ext_data) >= itemDataMinLen, message = self.error_message.data_length())
+                    self.validateItemData(ext_data)
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
@@ -518,7 +521,7 @@ class TL_World(
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
             
             with sp.for_("update", update_list) as update:
-                sp.verify(sp.len(update.item_data) >= itemDataMinLen, message = self.error_message.data_length())
+                self.validateItemData(update.item_data)
 
                 with item_store[update.item_id].match_cases() as arg:
                     with arg.match("item") as immutable:
