@@ -16,15 +16,11 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
-# TODO: make item data + place props map bytes to bytes
-# TODO: test out adhoc operator limits and their effect on gas
-#       + Make sure adhoc operators set does not shrink to maintain constant gas
-#         as in: always remove as many elements as were added. or something. think.
-# TODO: place permissions: increase seq num (interaction counter)?
-# TODO: use metadata builder for all other contracts.
 # TODO: test issuer map removal.
 # TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
+# TODO: place permissions: increase seq num (interaction counter)?
+# TODO: use metadata builder for all other contracts.
 #
 #
 # Other
