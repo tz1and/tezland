@@ -423,7 +423,9 @@ export default class Deploy extends DeployBase {
         console.log("create place (props):\t" + await feesToString(creat_op));*/
 
         // place props
-        const place_props_op = await contracts.World_contract.methodsObject.set_place_props({ lot_id: 0, props: "000000" }).send();
+        const props_map = new MichelsonMap<string, string>();
+        props_map.set('00', '000000');
+        const place_props_op = await contracts.World_contract.methodsObject.set_place_props({ lot_id: 0, props: props_map }).send();
         await place_props_op.confirmation();
         console.log("set_place_props:\t" + await this.feesToString(place_props_op));
         console.log();

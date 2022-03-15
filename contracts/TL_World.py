@@ -16,6 +16,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
+# TODO: make item data + place props map bytes to bytes
 # TODO: test out adhoc operator limits and their effect on gas
 #       + Make sure adhoc operators set does not shrink to maintain constant gas
 #         as in: always remove as many elements as were added. or something. think.
@@ -107,13 +108,14 @@ class Item_store_map:
 
 #
 # Place storage
-defaultPlaceProps = sp.bytes('0x82b881')
+placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
+defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
     next_id=sp.TNat,
     item_counter=sp.TNat,
     interaction_counter=sp.TNat,
-    place_props=sp.TBytes,
+    place_props=placePropsType,
     stored_items=itemStoreType
 ).layout(("next_id", ("item_counter", ("interaction_counter", ("place_props", "stored_items")))))
 
@@ -158,7 +160,7 @@ placeItemListType = sp.TVariant(
 ).layout(("item", ("other", "ext")))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
-placeDataMinLen = sp.nat(3) # 3 bytes for color
+placePropsColorLen = sp.nat(3) # 3 bytes for color
 
 # permissions are in octal, like unix.
 # can be any combination of these.
@@ -382,7 +384,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             lot_id =  sp.TNat,
             owner =  sp.TOption(sp.TAddress),
-            props =  sp.TBytes,
+            props =  placePropsType,
             extension = extensionArgType
         ).layout(("lot_id", ("owner", ("props", "extension")))))
 
@@ -395,8 +397,10 @@ class TL_World(
         # Get or create the place.
         this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
 
-        # Currently we only store the color. 3 bytes.
-        sp.verify(sp.len(params.props) >= placeDataMinLen, message = self.error_message.data_length())
+        # Verify the properties contrain at least the color (key 0x00).
+        # And that the color is the right length.
+        sp.verify(sp.len(params.props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
+            message = self.error_message.data_length())
         this_place.place_props = params.props
 
         # Increment interaction counter, next_id does not change.

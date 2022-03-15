@@ -450,11 +450,13 @@ def test():
     # set place props
     #
     scenario.h2("Set place props")
-    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFF'), extension = sp.none).run(sender = bob)
-    scenario.verify(world.data.places[place_bob].place_props == sp.bytes('0xFFFFFF'))
-    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender = bob)
-    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFF'), extension = sp.none).run(sender = bob, valid = False, exception = "DATA_LEN")
-    world.set_place_props(lot_id = place_bob, owner=sp.none, props = sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
+    valid_place_props = {sp.bytes("0x00"): sp.bytes('0xFFFFFF')}
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].place_props.get(sp.bytes("0x00")) == sp.bytes('0xFFFFFF'))
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = bob)
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = {sp.bytes("0x00"): sp.bytes('0xFFFF')}, extension = sp.none).run(sender = bob, valid = False, exception = "DATA_LEN")
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = {sp.bytes("0x01"): sp.bytes('0xFFFFFF')}, extension = sp.none).run(sender = bob, valid = False, exception = "PARAM_ERROR")
+    world.set_place_props(lot_id = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
 
     #
     # set_item_data
@@ -481,7 +483,7 @@ def test():
 
     scenario.h3("Stored items")
     stored_items = world.get_place_data(place_alice)
-    scenario.verify(stored_items.place_props == sp.bytes('0x82b881'))
+    scenario.verify(stored_items.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
     scenario.verify(stored_items.stored_items[alice.address][2].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[alice.address][3].open_variant("item").item_amount == 1)
     scenario.verify(stored_items.stored_items[alice.address][4].open_variant("item").item_amount == 1)
@@ -624,7 +626,7 @@ def test():
     scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     scenario.h3("Permissions")
 
@@ -663,7 +665,7 @@ def test():
 
     scenario.verify(world.data.places[place_bob].stored_items[alice.address][last_item].open_variant('item').item_data == new_item_data)
 
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=alice, valid=True)
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     # remove place item and one of bobs
     remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -701,7 +703,7 @@ def test():
     ]} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can remove own items
     remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -743,7 +745,7 @@ def test():
     ]} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), extension = sp.none, props=sp.bytes('0xFFFFFFFFFF')).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), extension = sp.none, props=valid_place_props).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can remove own items
     remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -780,7 +782,7 @@ def test():
     ]} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can't set props
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=alice, valid=True)
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     # can remove own items. no need to test that again...
     #remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -815,7 +817,7 @@ def test():
         sp.record(item_id = bobs_last_item, item_data = new_item_data)
     ]} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=alice, valid=True)
+    world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     remove_items(place_bob, {alice.address: [last_item]}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
     # can't remove others items
@@ -936,7 +938,7 @@ def test():
     scenario.verify(world.data.paused == True)
 
     # anything that changes a place or transfers tokens is now disabled
-    world.set_place_props(lot_id=place_bob, owner=sp.none, props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
+    world.set_place_props(lot_id=place_bob, owner=sp.none, props=valid_place_props, extension = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
 
     place_items(place_alice, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
@@ -960,7 +962,7 @@ def test():
     world.set_paused(False).run(sender = admin)
     scenario.verify(world.data.paused == False)
 
-    world.set_place_props(lot_id=place_bob, owner=sp.none, props=sp.bytes('0xFFFFFFFFFF'), extension = sp.none).run(sender=carol)
+    world.set_place_props(lot_id=place_bob, owner=sp.none, props=valid_place_props, extension = sp.none).run(sender=carol)
 
     #
     # the end.
