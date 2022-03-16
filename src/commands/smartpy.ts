@@ -3,7 +3,7 @@ import * as kleur from 'kleur';
 import * as fs from 'fs';
 
 // Expected location of SmartPy CLI.
-const SMART_PY_CLI = "~/smartpy-cli/SmartPy.sh"
+const SMART_PY_CLI = "./bin/smartpy/SmartPy.sh"
 const test_out_dir = "./tests/test_output"
 
 
