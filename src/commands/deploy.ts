@@ -204,18 +204,16 @@ export default class Deploy extends DeployBase {
         }
 
         // If this is a sandbox deploy, run the post deploy tasks.
-        if(this.isSandboxNet) {
-            await this.runPostDeply(DeployMode.DevWorld, {
-                items_FA2_contract: items_FA2_contract,
-                places_FA2_contract: places_FA2_contract,
-                dao_FA2_contract: dao_FA2_contract,
-                Minter_contract: Minter_contract,
-                World_contract: World_contract,
-                Dutch_contract: Dutch_contract
-            });
-        }
+        const post_deploy = this.isSandboxNet ? DeployMode.DevWorld : DeployMode.None;
 
-        // TODO: print contracts on testnet/mainnet deploy
+        await this.runPostDeply(post_deploy, {
+            items_FA2_contract: items_FA2_contract,
+            places_FA2_contract: places_FA2_contract,
+            dao_FA2_contract: dao_FA2_contract,
+            Minter_contract: Minter_contract,
+            World_contract: World_contract,
+            Dutch_contract: Dutch_contract
+        });
     }
 
     private async runPostDeply(
