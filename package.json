@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/index.ts",
-    "postinstall": "sh <(curl -s https://smartpy.io/cli/install.sh) --prefix ./bin/smartpy --yes"
+    "postinstall": "ts-node src/index.ts install-smartpy"
   },
   "keywords": [],
   "author": "",

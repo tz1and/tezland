@@ -2,6 +2,7 @@ import { program } from 'commander';
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
 import Deploy from './commands/deploy';
+//import Upgrade from './commands/upgrade';
 const packageJson = require('../package.json');
 
 // configuration
@@ -65,6 +66,24 @@ program
     .action(async (options) => {
         const deploy = new Deploy(options);
         await deploy.deploy();
+    });
+
+/*program
+    .command('upgrade')
+    .alias('u')
+    .description('Run the upgrade script.')
+    .option('-n, --network [network]', 'the network to upgrade on (optional)')
+    .action(async (options) => {
+        const upgrade = new Upgrade(options);
+        await upgrade.deploy();
+    });*/
+
+program
+    .command('install-smartpy')
+    .description('Installs smartpy to bin.')
+    .option('-f, --force', 'Force install if already installed.')
+    .action((options) => {
+        smartpy.install(options.force);
     });
 
 try {

@@ -3,7 +3,8 @@ import * as kleur from 'kleur';
 import * as fs from 'fs';
 
 // Expected location of SmartPy CLI.
-const SMART_PY_CLI = "./bin/smartpy/SmartPy.sh"
+const SMART_PY_INSTALL_DIR = "./bin/smartpy"
+const SMART_PY_CLI = SMART_PY_INSTALL_DIR + "/SmartPy.sh"
 const test_out_dir = "./tests/test_output"
 
 
@@ -116,4 +117,15 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
     console.log(kleur.green(`Michelson storage written to ${storage_out}`))
 
     console.log()
+}
+
+export function install(force?: boolean): void {
+    if (force === undefined) force = false;
+
+    if (fs.existsSync(SMART_PY_INSTALL_DIR) && !force) {
+        console.log("SmartPy already installed (use --force to upgrade).")
+        return;
+    }
+
+    child.execSync(`sh <(curl -s https://smartpy.io/cli/install.sh) --prefix ${SMART_PY_INSTALL_DIR} --yes`, {stdio: 'inherit'})
 }
