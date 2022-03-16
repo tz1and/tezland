@@ -17,7 +17,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
 # TODO: test issuer map removal.
-# TODO: Test place counter thoroughly!
 # TODO: think of some more tests for permission.
 # TODO: place permissions: increase seq num (interaction counter)?
 # TODO: use metadata builder for all other contracts.
@@ -109,15 +108,13 @@ defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBy
 
 placeStorageType = sp.TRecord(
     next_id=sp.TNat,
-    item_counter=sp.TNat,
     interaction_counter=sp.TNat,
     place_props=placePropsType,
     stored_items=itemStoreType
-).layout(("next_id", ("item_counter", ("interaction_counter", ("place_props", "stored_items")))))
+).layout(("next_id", ("interaction_counter", ("place_props", "stored_items"))))
 
 placeStorageDefault = sp.record(
     next_id = sp.nat(0),
-    item_counter = sp.nat(0),
     interaction_counter = sp.nat(0),
     place_props = defaultPlaceProps, # only set color by default.
     stored_items=itemStoreLiteral
@@ -424,10 +421,16 @@ class TL_World(
         # Get or create the place.
         this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
 
-        item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
+        # Count items in place item storage.
+        place_item_count = sp.local("place_item_count", sp.nat(0))
+        with sp.for_("issuer_map", this_place.stored_items.values()) as issuer_map:
+            place_item_count.value += sp.len(issuer_map)
 
         # Make sure item limit is not exceeded.
-        sp.verify(this_place.item_counter + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
+        sp.verify(place_item_count.value + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
+
+        # Get or create item storage.
+        item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
 
         # Our token transfer map.
         transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
@@ -478,9 +481,8 @@ class TL_World(
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
-            # Increment next_id and item_counter.
+            # Increment next_id.
             this_place.next_id += 1
-            this_place.item_counter += 1
 
         # only transfer if list has items
         with sp.if_(sp.len(transferMap.value) > 0):
@@ -585,9 +587,8 @@ class TL_World(
 
                     # Nothing to do here with ext items. Just remove them.
                 
-                # Delete item from storage and reduce item_counter.
+                # Delete item from storage.
                 del item_store[curr]
-                this_place.item_counter = abs(this_place.item_counter - 1)
 
             # Remove the item store if empty.
             self.item_store_map.remove_if_empty(this_place.stored_items, issuer)
@@ -694,7 +695,6 @@ class TL_World(
                     item_store[params.item_id] = sp.variant("item", the_item.value)
                 with sp.else_():
                     del item_store[params.item_id]
-                    this_place.item_counter = abs(this_place.item_counter - 1)
 
             # Other FA2 items.
             with arg.match("other") as immutable:
@@ -722,7 +722,6 @@ class TL_World(
                     item_store[params.item_id] = sp.variant("other", the_item.value)
                 with sp.else_():
                     del item_store[params.item_id]
-                    this_place.item_counter = abs(this_place.item_counter - 1)
 
             # ext items are unswappable.
             with arg.match("ext"):
