@@ -50,6 +50,8 @@ export default class Deploy extends DeployBase {
         assert(this.tezos);
 
         // prepare batch
+        const daoWasDeployed = this.getDeployment("FA2_DAO");
+
         const fa2_batch = new DeployContractBatch(this);
 
         //
@@ -75,6 +77,25 @@ export default class Deploy extends DeployBase {
 
         // send batch.
         const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
+
+        if(!daoWasDeployed) {
+            // Mint 0 dao.
+            console.log("Minting dao tokens")
+            const tokenMetadataMap = new MichelsonMap();
+            tokenMetadataMap.set("decimals", char2Bytes("6"));
+            tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
+            tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+
+            const dao_mint_op = await dao_FA2_contract.methodsObject.mint([{
+                to_: this.accountAddress,
+                amount: 0,
+                token: { new: tokenMetadataMap }
+            }]).send();
+            await dao_mint_op.confirmation();
+
+            console.log("Successfully minted 0 DAO");
+            console.log(`>> Transaction hash: ${dao_mint_op.opHash}\n`);
+        }
 
         //
         // Minter
@@ -150,8 +171,6 @@ export default class Deploy extends DeployBase {
         //
         // World (Marketplaces)
         //
-        const worldWasDeployed = this.getDeployment("TL_World");
-
         const world_metadata = {
             name: 'tz1and World',
             description: 'tz1and Virtual World',
@@ -168,41 +187,9 @@ export default class Deploy extends DeployBase {
 
         const World_contract = await this.deploy_contract("TL_World");
 
-        if(!worldWasDeployed) {
-            // Mint 0 dao and set the world as the dao administrator
-            console.log("Setting world as dao admin")
-            const tokenMetadataMap = new MichelsonMap();
-            tokenMetadataMap.set("decimals", char2Bytes("6"));
-            tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
-            tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
-
-            const dao_admin_batch = this.tezos.wallet.batch();
-            dao_admin_batch.with([
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...dao_FA2_contract.methodsObject.mint([{
-                        to_: this.accountAddress,
-                        amount: 0,
-                        token: { new: tokenMetadataMap }
-                    }]).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...dao_FA2_contract.methods.transfer_administrator(World_contract.address).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...World_contract.methods.accept_fa2_administrator([dao_FA2_contract.address]).toTransferParams()
-                }
-            ])
-
-            const dao_admin_batch_op = await dao_admin_batch.send();
-            await dao_admin_batch_op.confirmation();
-
-            console.log("Successfully set world as dao admin");
-            console.log(`>> Transaction hash: ${dao_admin_batch_op.opHash}\n`);
-        }
-
+        //
+        // Post deploy
+        //
         // If this is a sandbox deploy, run the post deploy tasks.
         const post_deploy = this.isSandboxNet ? DeployMode.DevWorld : DeployMode.None;
 
@@ -350,12 +337,6 @@ export default class Deploy extends DeployBase {
 
         console.log("Successfully minted items");
         console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
-
-        const bootstrap_dao_op = await contracts.World_contract.methods.bootstrap_dao().send();
-        await bootstrap_dao_op.confirmation();
-
-        console.log("Successfully bootstrapped DAO");
-        console.log(`>> Transaction hash: ${bootstrap_dao_op.opHash}\n`);
     }
 
     private async feesToString (op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
