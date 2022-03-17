@@ -350,6 +350,12 @@ export default class Deploy extends DeployBase {
 
         console.log("Successfully minted items");
         console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
+
+        const bootstrap_dao_op = await contracts.World_contract.methods.bootstrap_dao().send();
+        await bootstrap_dao_op.confirmation();
+
+        console.log("Successfully bootstrapped DAO");
+        console.log(`>> Transaction hash: ${bootstrap_dao_op.opHash}\n`);
     }
 
     private async feesToString (op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
