@@ -10,7 +10,6 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
-fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
@@ -247,7 +246,6 @@ class TL_World(
     mod_mixin.Moderation,
     permitted_fa2.PermittedFA2,
     upgradeable_mixin.Upgradeable,
-    fa2_admin.FA2_Administration,
     sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -283,7 +281,6 @@ class TL_World(
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
-        fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
 
     #
     # Manager-only entry points
