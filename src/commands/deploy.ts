@@ -365,6 +365,7 @@ export default class Deploy extends DeployBase {
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
         console.log();
@@ -389,7 +390,14 @@ export default class Deploy extends DeployBase {
             lot_id: 0, item_list: list_one_item
         }).send();
         await setup_storage.confirmation();
-        console.log("create place (item):\t" + await this.feesToString(setup_storage));
+        console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
+
+        // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
+        const setup_storage1 = await contracts.World_contract.methodsObject.place_items({
+            lot_id: 1, item_list: list_one_item
+        }).send();
+        await setup_storage1.confirmation();
+        console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
         /*const transfer_op = await items_FA2_contract.methodsObject.transfer([{
             from_: this.accountAddress,
             txs: [
