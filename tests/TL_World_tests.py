@@ -459,7 +459,7 @@ def test():
     scenario.h2("Item Limit")
 
     scenario.h3("set_global_limits")
-    scenario.verify(world.data.item_limit == 32)
+    scenario.verify(world.data.item_limit == 64)
     world.update_item_limit(128).run(sender = bob, valid = False)
     world.update_item_limit(128).run(sender = admin)
     scenario.verify(world.data.item_limit == 128)
