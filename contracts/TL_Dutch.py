@@ -180,9 +180,14 @@ class TL_Dutch(
         # check if correct value was sent. probably best to send back overpay instead of cancel.
         sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
 
+        # Collect amounts to send in a map.
+        send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
+        def addToSendMap(address, amount):
+            send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
+
         # Send back overpay, if there was any.
         overpay = sp.amount - ask_price
-        utils.send_if_value(sp.sender, overpay)
+        addToSendMap(sp.sender, overpay)
 
         with sp.if_(ask_price != sp.tez(0)):
             token_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_auction.value.token_id, the_auction.value.fa2))
@@ -197,12 +202,20 @@ class TL_Dutch(
                 with sp.for_("contributor", token_royalty_info.contributors.items()) as contributor:
                     # Calculate amount to be paid from relative share.
                     absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                    utils.send_if_value(contributor.key, absolute_amount)
+                    addToSendMap(contributor.key, absolute_amount)
 
-            # send management fees
-            utils.send_if_value(self.data.fees_to, sp.utils.nat_to_mutez(abs(fee - royalties)))
-            # send rest of the value to seller
-            utils.send_if_value(the_auction.value.owner, ask_price - sp.utils.nat_to_mutez(fee))
+            # TODO: don't localise nat_to_mutez, is probably a cast and free.
+            # Send management fees.
+            send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
+            addToSendMap(self.data.fees_to, send_mgr_fees)
+
+            # Send rest of the value to seller.
+            send_seller = sp.compute(ask_price - sp.utils.nat_to_mutez(fee))
+            addToSendMap(the_auction.value.owner, send_seller)
+
+        # Transfer.
+        with sp.for_("send", send_map.value.items()) as send:
+            utils.send_if_value(send.key, send.value)
 
         # transfer item to buyer
         utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)

@@ -16,6 +16,9 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
+# TODO: dao distribution: don't mint if issuer == sender?
+# TODO: make max contributors variable in royalties?
+# TODO: default-check-no-incoming-transfer/check-no-incoming-transfer?
 # TODO: test issuer map removal.
 # TODO: think of some more tests for permission.
 # TODO: place permissions: increase seq num (interaction counter)?
@@ -615,22 +618,31 @@ class TL_World(
         fee = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_item) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
         royalties = sp.compute(params.item_royalty_info.royalties * fee / (params.item_royalty_info.royalties + self.data.fees))
 
+        # Collect amounts to send in a map.
+        send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
+        def addToSendMap(address, amount):
+            send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
+
         # If there are any royalties to be paid.
         with sp.if_(royalties > sp.nat(0)):
             # Pay each contributor his relative share.
             with sp.for_("contributor", params.item_royalty_info.contributors.items()) as contributor:
                 # Calculate amount to be paid from relative share.
                 absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                utils.send_if_value(contributor.key, absolute_amount)
+                addToSendMap(contributor.key, absolute_amount)
 
         # TODO: don't localise nat_to_mutez, is probably a cast and free.
         # Send management fees.
         send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-        utils.send_if_value(self.data.fees_to, send_mgr_fees)
+        addToSendMap(self.data.fees_to, send_mgr_fees)
 
         # Send rest of the value to seller.
         send_issuer = sp.compute(params.mutez_per_item - sp.utils.nat_to_mutez(fee))
-        utils.send_if_value(params.issuer, send_issuer)
+        addToSendMap(params.issuer, send_issuer)
+
+        # Transfer.
+        with sp.for_("send", send_map.value.items()) as send:
+            utils.send_if_value(send.key, send.value)
 
         # Distribute DAO tokens.
         # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
