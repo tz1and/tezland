@@ -194,18 +194,6 @@ def test():
     place_bob = sp.nat(0)
     place_alice = sp.nat(1)
 
-    scenario.h3("minting 0 dao")
-    dao_token.mint([
-        sp.record(
-            to_ = admin.address,
-            amount = 0,
-            token = sp.variant("new", sp.record(
-                metadata = fa2_test_lib.make_metadata(name = "tz1and DAO",
-                    decimals = 6,
-                    symbol= "tz1aDAO"),
-            )))
-    ]).run(sender = admin)
-
     #
     # Test places
     #
@@ -218,9 +206,6 @@ def test():
     world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += world
-
-    dao_token.transfer_administrator(world.address).run(sender = admin)
-    world.accept_fa2_administrator([dao_token.address]).run(sender = admin)
 
     #
     # set operators
@@ -315,17 +300,6 @@ def test():
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
 
     #
-    # Bootstrap DAO
-    #
-    scenario.h2("Bootstrap DAO")
-
-    world.bootstrap_dao().run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    world.bootstrap_dao().run(sender=admin, now=sp.timestamp(0))
-    scenario.verify(world.data.bootstrap_dao == True)
-    scenario.verify(world.data.terminus == sp.now.add_days(60))
-    world.bootstrap_dao().run(sender=admin, now=sp.timestamp(0), valid=False, exception="NO_PERMISSION")
-
-    #
     # Test placing items
     #
     scenario.h2("Placing items")
@@ -364,19 +338,8 @@ def test():
     get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(15), valid=False, message="WRONG_AMOUNT")
     get_item(place_bob, 1, bob.address, sender=alice, amount=sp.mutez(1500), valid=False, message="WRONG_AMOUNT")
 
-    # make sure dao tokens are transferred
-    dao_balance_alice_before = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
-    dao_balance_bob_before = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
-    dao_balance_manager_before = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
-
+    # Correct amount
     get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(1))
-
-    dao_balance_alice_after = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
-    dao_balance_bob_after = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
-    dao_balance_manager_after = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
-    scenario.verify(dao_balance_alice_after == (dao_balance_alice_before + sp.nat(500000)))
-    scenario.verify(dao_balance_bob_after == (dao_balance_bob_before + sp.nat(500000)))
-    scenario.verify(dao_balance_manager_after == (dao_balance_manager_before + sp.nat(250000)))
 
     # test not for sale
     get_item(place_bob, 2, bob.address, sender=alice, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
@@ -384,19 +347,7 @@ def test():
     # test getting some more items
     get_item(place_bob, 1, bob.address, sender=alice, amount=sp.tez(1), valid=False) # missing item in map
 
-    # make sure dao tokens are not transferred after terminus
-    dao_balance_alice_before = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
-    dao_balance_bob_before = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
-    dao_balance_manager_before = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
-
     get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1), now=sp.now.add_days(80))
-
-    dao_balance_alice_after = scenario.compute(dao_token.get_balance(sp.record(owner = alice.address, token_id = 0)))
-    dao_balance_bob_after = scenario.compute(dao_token.get_balance(sp.record(owner = bob.address, token_id = 0)))
-    dao_balance_manager_after = scenario.compute(dao_token.get_balance(sp.record(owner = admin.address, token_id = 0)))
-    scenario.verify(dao_balance_alice_after == dao_balance_alice_before)
-    scenario.verify(dao_balance_bob_after == dao_balance_bob_before)
-    scenario.verify(dao_balance_manager_after == dao_balance_manager_before)
 
     get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1))
     get_item(place_alice, 1, alice.address, sender=bob, amount=sp.tez(1), valid=False) # missing item in map

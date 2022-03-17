@@ -16,9 +16,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
-# TODO: dao distribution: don't mint if issuer == sender?
 # TODO: make max contributors variable in royalties?
-# TODO: default-check-no-incoming-transfer/check-no-incoming-transfer?
 # TODO: test issuer map removal.
 # TODO: think of some more tests for permission.
 # TODO: place permissions: increase seq num (interaction counter)?
@@ -26,6 +24,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 #
 # Other
+# TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template
 # TODO: Does the places token even need to be administrated by minter?
 # TODO: generalised minter: map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
@@ -270,10 +269,8 @@ class TL_World(
             places_contract = places_contract,
             dao_contract = dao_contract,
             metadata = metadata,
-            bootstrap_dao = False,
-            terminus = sp.timestamp(0),
             entered = sp.bool(False),
-            item_limit = sp.nat(32),
+            item_limit = sp.nat(64),
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             # in local testing, I could get up to 2000-3000 items per map before things started to fail,
@@ -304,17 +301,6 @@ class TL_World(
         self.onlyAdministrator()
         sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
-
-
-    @sp.entry_point
-    def bootstrap_dao(self):
-        """Begin bootstrapping the DAO.
-        Starts distributing the dao token for swaps.
-        Sets the terminus to now + 60 days."""
-        self.onlyAdministrator()
-        sp.verify(self.data.bootstrap_dao == False, message=self.error_message.no_permission())
-        self.data.bootstrap_dao = True
-        self.data.terminus = sp.now.add_days(60)
 
 
     #
@@ -644,20 +630,6 @@ class TL_World(
         with sp.for_("send", send_map.value.items()) as send:
             utils.send_if_value(send.key, send.value)
 
-        # Distribute DAO tokens.
-        # NOTE: DAO tokens are NOT paid to contributors. Only issuer, sender and manager.
-        with sp.if_(self.data.bootstrap_dao & (sp.now < self.data.terminus)):
-            # NOTE: Assuming 6 decimals, like tez.
-            user_share = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_item) / 2)
-            # Only distribute dao if anything is to be distributed.
-            with sp.if_(user_share > 0):
-                manager_share = sp.utils.mutez_to_nat(params.mutez_per_item) * sp.nat(250) / sp.nat(1000)
-                utils.fa2_single_asset_mint([
-                    sp.record(to_=sp.sender, amount=user_share, token=sp.variant("existing", sp.nat(0))),
-                    sp.record(to_=params.issuer, amount=user_share, token=sp.variant("existing", sp.nat(0))),
-                    sp.record(to_=self.data.fees_to, amount=manager_share, token=sp.variant("existing", sp.nat(0)))
-                ], self.data.dao_contract)
-
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):
@@ -695,7 +667,7 @@ class TL_World(
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
 
-                    # send fees, royalties, value, dao tokens
+                    # Send fees, royalties, value.
                     sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
@@ -722,7 +694,7 @@ class TL_World(
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.value.token_id, the_item.value.fa2))
 
-                    # send fees, royalties, value, dao tokens
+                    # Send fees, royalties, value.
                     sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
