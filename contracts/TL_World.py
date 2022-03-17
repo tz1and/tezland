@@ -48,6 +48,8 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # - Item data is stored in half floats, usually, there are two formats as of now
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
 #   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
+#   NOTE: could store an animation index and all kinds of other stuff in item_data
+# - Regarding place item storage efficiency: you can easily have up to 2000-3000 items per map before gas becomes *expensive*.
 
 # Optional extension argument type.
 # Map val can contain about anything and be
@@ -62,7 +64,6 @@ itemRecordType = sp.TRecord(
     token_id=sp.TNat, # the fa2 token id
     mutez_per_item=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
-    # NOTE: could store an animation index and all kinds of other stuff in item_data
 ).layout(("item_amount", ("token_id", ("mutez_per_item", "item_data"))))
 
 # For any other tokens someone might want to exhibit. These are "place only".
@@ -105,6 +106,7 @@ class Item_store_map:
 #
 # Place storage
 placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
+# only set color by default.
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
@@ -117,7 +119,7 @@ placeStorageType = sp.TRecord(
 placeStorageDefault = sp.record(
     next_id = sp.nat(0),
     interaction_counter = sp.nat(0),
-    place_props = defaultPlaceProps, # only set color by default.
+    place_props = defaultPlaceProps,
     stored_items=itemStoreLiteral
 )
 
@@ -267,12 +269,9 @@ class TL_World(
             places_contract = places_contract,
             dao_contract = dao_contract,
             metadata = metadata,
-            entered = sp.bool(False),
             item_limit = sp.nat(64),
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
-            # in local testing, I could get up to 2000-3000 items per map before things started to fail,
-            # so there's plenty of room ahead.
             places = self.place_store_map.make()
         )
         pause_mixin.Pausable.__init__(self, administrator = administrator)
