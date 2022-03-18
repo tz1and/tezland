@@ -15,6 +15,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
+# TODO: add num polygons to item metadata?
 # TODO: make max contributors variable in royalties?
 # TODO: test issuer map removal.
 # TODO: think of some more tests for permission.
@@ -608,10 +609,10 @@ class TL_World(
         # If there are any royalties to be paid.
         with sp.if_(royalties > sp.nat(0)):
             # Pay each contributor his relative share.
-            with sp.for_("contributor", params.item_royalty_info.contributors.items()) as contributor:
+            with sp.for_("contributor", params.item_royalty_info.contributors) as contributor:
                 # Calculate amount to be paid from relative share.
-                absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.value.relative_royalties / 1000))
-                addToSendMap(contributor.key, absolute_amount)
+                absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.relative_royalties / 1000))
+                addToSendMap(contributor.address, absolute_amount)
 
         # TODO: don't localise nat_to_mutez, is probably a cast and free.
         # Send management fees.

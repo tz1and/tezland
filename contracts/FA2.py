@@ -95,11 +95,11 @@ t_adhoc_operator_params = sp.TVariant(
 
 # royalties
 
-t_contributor_map = sp.TMap(
-    sp.TAddress,
+t_contributor_list = sp.TList(
     # The relative royalties, per contributor, in permille.
     # must add up to 1000. And the role.
     sp.TRecord(
+        address=sp.TAddress,
         relative_royalties=sp.TNat,
         role=sp.TVariant(
             minter=sp.TUnit,
@@ -107,13 +107,13 @@ t_contributor_map = sp.TMap(
             donation=sp.TUnit,
             custom=sp.TString
         ).layout(("minter", ("creator", ("donation", "custom"))))
-    ).layout(("relative_royalties", "role")))
+    ).layout(("address", ("relative_royalties", "role"))))
 
 t_royalties = sp.TRecord(
     # The absolute royalties in permille.
     royalties=sp.TNat,
     # The minter address
-    contributors=t_contributor_map
+    contributors=t_contributor_list
 ).layout(("royalties", "contributors"))
 
 # mint with royalties
@@ -625,7 +625,7 @@ class Fa2Nft(OnchainViewsNft, Common):
             )
             token_extra_dict[token_id] = sp.record(
                 royalty_info=sp.record(
-                    royalties=0, contributors={}
+                    royalties=0, contributors=[]
                 )
             )
         for token_id, address in ledger.items():
@@ -737,7 +737,7 @@ class Fa2Fungible(OnchainViewsFungible, Common):
                 token_extra_dict[token_id] = sp.record(
                     supply=sp.nat(0),
                     royalty_info=sp.record(
-                        royalties=0, contributors={}
+                        royalties=0, contributors=[]
                     )
                 )
             else:
@@ -1233,7 +1233,7 @@ class Royalties:
         # If royalties > 0, validate individual splits and that they add up to 1000
         with sp.if_(royalties.royalties > 0):
             total_relative = sp.local("total_relative", sp.nat(0))
-            with sp.for_("contribution", royalties.contributors.values()) as contribution:
+            with sp.for_("contribution", royalties.contributors) as contribution:
                 total_relative.value += contribution.relative_royalties
             sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_INVALID")
         # If royalties == 0, make sure contributors are empty
@@ -1248,7 +1248,7 @@ class Royalties:
         with sp.if_(self.data.token_extra.contains(token_id)):
             sp.result(self.data.token_extra[token_id].royalty_info)
         with sp.else_():
-            sp.result(sp.record(royalties=sp.nat(0), contributors={}))
+            sp.result(sp.record(royalties=sp.nat(0), contributors=[]))
 
 
 class OnchainviewCountTokens:

@@ -96,7 +96,7 @@ class PermittedFA2(admin_mixin.Administrable):
         sp.verify(fa2_props.swap_allowed == True, message="SWAP_NOT_ALLOWED")
 
         token_royalty_info = sp.local("token_royalty_info",
-            sp.record(royalties=0, contributors={}),
+            sp.record(royalties=0, contributors=[]),
             t=FA2.t_royalties)
 
         with fa2_props.royalties_kind.match_cases() as arg:

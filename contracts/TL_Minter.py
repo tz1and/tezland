@@ -70,7 +70,7 @@ class TL_Minter(
             to_ = sp.TAddress,
             amount = sp.TNat,
             royalties = sp.TNat,
-            contributors = FA2.t_contributor_map,
+            contributors = FA2.t_contributor_list,
             metadata = sp.TBytes
         ).layout(("to_", ("amount", ("royalties", ("contributors", "metadata"))))))
 

@@ -1725,21 +1725,21 @@ def test_royalties(nft_contract, fungible_contract):
         valid_royalties = [
             sp.record(
                 royalties=sp.nat(250),
-                contributors={
-                    alice.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                }
+                contributors=[
+                    sp.record(address=alice.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
+                ]
             ),
             sp.record(
                 royalties=sp.nat(0),
-                contributors={}
+                contributors=[]
             ),
             sp.record(
                 royalties=sp.nat(150),
-                contributors={
-                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
-                    bob.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
-                    alice.address : sp.record(role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
-                }
+                contributors=[
+                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
+                    sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
+                    sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
+                ]
             )
         ]
 
@@ -1785,23 +1785,23 @@ def test_royalties(nft_contract, fungible_contract):
         invalid_royalties = [
             sp.record(
                 royalties=sp.nat(251),
-                contributors={
-                    alice.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                }
+                contributors=[
+                    sp.record(address=alice.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
+                ]
             ),
             sp.record(
                 royalties=sp.nat(0),
-                contributors={
-                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                }
+                contributors=[
+                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
+                ]
             ),
             sp.record(
                 royalties=sp.nat(150),
-                contributors={
-                    admin.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(500)),
-                    bob.address : sp.record(role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
-                    alice.address : sp.record(role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
-                }
+                contributors=[
+                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(500)),
+                    sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
+                    sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
+                ]
             )
         ]
 

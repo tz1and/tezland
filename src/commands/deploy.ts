@@ -265,8 +265,9 @@ export default class Deploy extends DeployBase {
         const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, this.isSandboxNet);
         console.log(`item token metadata: ${item_metadata_url}`);
 
-        const contributors: MichelsonMap<string, any> = new MichelsonMap();
-        contributors.set(this.accountAddress, { relative_royalties: 1000, role: {minter: null} });
+        const contributors = [
+            { address: this.accountAddress, relative_royalties: 1000, role: {minter: null} }
+        ];
 
         batch.with([{
             kind: OpKind.TRANSACTION,
