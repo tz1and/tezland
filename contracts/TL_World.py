@@ -15,7 +15,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Urgent
-# TODO: add num polygons to item metadata?
 # TODO: make max contributors variable in royalties?
 # TODO: test issuer map removal.
 # TODO: think of some more tests for permission.
