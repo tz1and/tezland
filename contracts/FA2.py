@@ -537,7 +537,7 @@ class Common(sp.Contract):
                 ),
                 "interfaces": ["TZIP-012", "TZIP-016"],
                 "authors": [
-                    "852Kerfunke <https://github.com/852Kerfunkle>",
+                    "852Kerfunkle <https://github.com/852Kerfunkle>",
                     "SmartPy <https://smartpy.io/#contact>"
                 ],
                 "homepage": "https://www.tz1and.com",

@@ -63,6 +63,33 @@ class TL_Dutch(
             swap_allowed = True,
             royalties_kind = sp.variant("none", sp.unit) )}
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
+        self.generate_contract_metadata()
+
+    def generate_contract_metadata(self):
+        """Generate a metadata json file with all the contract's offchain views
+        and standard TZIP-12 and TZIP-016 key/values."""
+        metadata_base = {
+            "name": 'tz1and Dutch Auctions',
+            "description": 'tz1and Places and Items Dutch auctions',
+            "version": "1.0.0",
+            "interfaces": ["TZIP-012", "TZIP-016"],
+            "authors": [
+                "852Kerfunkle <https://github.com/852Kerfunkle>"
+            ],
+            "homepage": "https://www.tz1and.com",
+            "source": {
+                "tools": ["SmartPy"],
+                "location": "https://github.com/tz1and",
+            }
+        }
+        offchain_views = []
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.OnOffchainView):
+                # Include onchain views as tip 16 offchain views
+                offchain_views.append(attr)
+        metadata_base["views"] = offchain_views
+        self.init_metadata("metadata_base", metadata_base)
 
     #
     # Manager-only entry points

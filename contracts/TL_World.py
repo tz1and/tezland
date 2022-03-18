@@ -19,7 +19,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: test issuer map removal.
 # TODO: think of some more tests for permission.
 # TODO: place permissions: increase seq num (interaction counter)?
-# TODO: use metadata builder for all other contracts.
 #
 #
 # Other
@@ -280,6 +279,33 @@ class TL_World(
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
+        self.generate_contract_metadata()
+
+    def generate_contract_metadata(self):
+        """Generate a metadata json file with all the contract's offchain views
+        and standard TZIP-12 and TZIP-016 key/values."""
+        metadata_base = {
+            "name": 'tz1and World',
+            "description": 'tz1and Virtual World',
+            "version": "1.0.0",
+            "interfaces": ["TZIP-012", "TZIP-016"],
+            "authors": [
+                "852Kerfunkle <https://github.com/852Kerfunkle>"
+            ],
+            "homepage": "https://www.tz1and.com",
+            "source": {
+                "tools": ["SmartPy"],
+                "location": "https://github.com/tz1and",
+            }
+        }
+        offchain_views = []
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.OnOffchainView):
+                # Include onchain views as tip 16 offchain views
+                offchain_views.append(attr)
+        metadata_base["views"] = offchain_views
+        self.init_metadata("metadata_base", metadata_base)
 
     #
     # Manager-only entry points

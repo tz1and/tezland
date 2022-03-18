@@ -32,6 +32,33 @@ class TL_Minter(
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['mint_Item', 'mint_Place'])
+        self.generate_contract_metadata()
+
+    def generate_contract_metadata(self):
+        """Generate a metadata json file with all the contract's offchain views
+        and standard TZIP-12 and TZIP-016 key/values."""
+        metadata_base = {
+            "name": 'tz1and Minter',
+            "description": 'tz1and Items and Places minter',
+            "version": "1.0.0",
+            "interfaces": ["TZIP-012", "TZIP-016"],
+            "authors": [
+                "852Kerfunkle <https://github.com/852Kerfunkle>"
+            ],
+            "homepage": "https://www.tz1and.com",
+            "source": {
+                "tools": ["SmartPy"],
+                "location": "https://github.com/tz1and",
+            }
+        }
+        offchain_views = []
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.OnOffchainView):
+                # Include onchain views as tip 16 offchain views
+                offchain_views.append(attr)
+        metadata_base["views"] = offchain_views
+        self.init_metadata("metadata_base", metadata_base)
 
     #
     # Manager-only entry points

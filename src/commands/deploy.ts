@@ -57,21 +57,27 @@ export default class Deploy extends DeployBase {
         //
         // Items
         //
-        await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [`admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [
+            `admin = sp.address("${this.accountAddress}")`
+        ]);
 
         fa2_batch.addToBatch("FA2_Items");
 
         //
         // Places
         //
-        await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [`admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [
+            `admin = sp.address("${this.accountAddress}")`
+        ]);
 
         fa2_batch.addToBatch("FA2_Places");
 
         //
         // DAO
         //
-        await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [`admin = sp.address("${this.accountAddress}")`]);
+        await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [
+            `admin = sp.address("${this.accountAddress}")`
+        ]);
 
         fa2_batch.addToBatch("FA2_DAO");
 
@@ -105,18 +111,12 @@ export default class Deploy extends DeployBase {
         // prepare minter/dutch batch
         const tezland_batch = new DeployContractBatch(this);
 
-        const minter_metadata = {
-            name: 'tz1and Minter',
-            description: 'tz1and Items and Places minter',
-            interfaces: ["TZIP-016"],
-            version: '1.0.0'
-        };
-
         // Compile and deploy Minter contract.
-        await this.compile_contract("TL_Minter", "TL_Minter", "TL_Minter", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_Minter", "TL_Minter", "TL_Minter", [
+            `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`],
-            minter_metadata);
+            `places_contract = sp.address("${places_FA2_contract.address}")`
+        ]);
 
         tezland_batch.addToBatch("TL_Minter");
         //const Minter_contract = await this.deploy_contract("TL_Minter");
@@ -124,18 +124,12 @@ export default class Deploy extends DeployBase {
         //
         // Dutch
         //
-        const dutch_metadata = {
-            name: 'tz1and Dutch Auctions',
-            description: 'tz1and Places and Items Dutch auctions',
-            interfaces: ["TZIP-016"],
-            version: '1.0.0'
-        };
-
         // Compile and deploy Dutch auction contract.
-        await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [
+            `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`],
-            dutch_metadata);
+            `places_contract = sp.address("${places_FA2_contract.address}")`
+        ]);
 
         tezland_batch.addToBatch("TL_Dutch");
         //const Dutch_contract = await this.deploy_contract("TL_Dutch");
@@ -171,19 +165,13 @@ export default class Deploy extends DeployBase {
         //
         // World (Marketplaces)
         //
-        const world_metadata = {
-            name: 'tz1and World',
-            description: 'tz1and Virtual World',
-            interfaces: ["TZIP-016"],
-            version: '1.0.0'
-        };
-
         // Compile and deploy Places contract.
-        await this.compile_contract("TL_World", "TL_World", "TL_World", [`administrator = sp.address("${this.accountAddress}")`,
+        await this.compile_contract("TL_World", "TL_World", "TL_World", [
+            `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`,
-            `dao_contract = sp.address("${dao_FA2_contract.address}")`],
-            world_metadata);
+            `dao_contract = sp.address("${dao_FA2_contract.address}")`
+        ]);
 
         const World_contract = await this.deploy_contract("TL_World");
 
