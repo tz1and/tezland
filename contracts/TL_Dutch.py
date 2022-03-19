@@ -48,6 +48,7 @@ class TL_Dutch(
         self.init_storage(
             items_contract = items_contract,
             metadata = metadata,
+            secondary_enabled = sp.bool(False), # If the secondary market is enabled.
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
@@ -92,14 +93,30 @@ class TL_Dutch(
         self.init_metadata("metadata_base", metadata_base)
 
     #
+    # Inlineable helpers
+    #
+    def onlyAdminIfSecondaryDisabled(self):
+        """Fails if secondary is disabled and sender is not admin"""
+        with sp.if_(~ self.data.secondary_enabled):
+            self.onlyAdministrator()
+
+    #
     # Manager-only entry points
     #
     @sp.entry_point
     def set_granularity(self, granularity):
-        """Call to set granularity in seconds."""
+        """Set granularity in seconds."""
         sp.set_type(granularity, sp.TNat)
         self.onlyAdministrator()
         self.data.granularity = granularity
+
+
+    @sp.entry_point
+    def set_secondary_enabled(self, enabled):
+        """Set secondary market enabled."""
+        sp.set_type(enabled, sp.TBool)
+        self.onlyAdministrator()
+        self.data.secondary_enabled = enabled
 
     #
     # Public entry points
@@ -125,14 +142,14 @@ class TL_Dutch(
             ("start_time", ("end_time", ("fa2", "extension"))))))))
 
         self.onlyUnpaused()
-        self.onlyAdminIfWhitelistEnabled()
+        self.onlyAdminIfSecondaryDisabled()
 
         # verify inputs
         self.onlyPermittedFA2(params.fa2)
         sp.verify((params.start_time >= sp.now) &
             (params.start_time < params.end_time) &
             (abs(params.end_time - params.start_time) > self.data.granularity) &
-            (params.start_price > params.end_price), message = "INVALID_PARAM")
+            (params.start_price >= params.end_price), message = "INVALID_PARAM")
 
         # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
         sp.verify(utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
@@ -192,9 +209,12 @@ class TL_Dutch(
         ).layout(("auction_id", "extension")))
 
         self.onlyUnpaused()
-        self.onlyWhitelisted()
 
         the_auction = sp.local("the_auction", self.data.auctions[params.auction_id])
+
+        # If auction owner is admin, sender needs to be whitelisted, if whitelist is enabled.
+        with sp.if_(the_auction.value.owner == self.data.administrator):
+            self.onlyWhitelisted()
 
         # check auction has started
         sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
@@ -244,10 +264,12 @@ class TL_Dutch(
         with sp.for_("send", send_map.value.items()) as send:
             utils.send_if_value(send.key, send.value)
 
-        # transfer item to buyer
+        # Transfer item to buyer.
         utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
 
-        self.removeFromWhitelist(sp.sender)
+        # If it was a whitelist required auction, remove from whitelist.
+        with sp.if_(the_auction.value.owner == self.data.administrator):
+            self.removeFromWhitelist(sp.sender)
 
         del self.data.auctions[params.auction_id]
 
@@ -283,7 +305,8 @@ class TL_Dutch(
     #
     # Views
     #
-    # TODO: does it make sense to even have this?
+
+    # NOTE: does it make sense to even have get_auction?
     # without being able to get the indices...
     @sp.onchain_view(pure=True)
     def get_auction(self, auction_id):
@@ -297,3 +320,8 @@ class TL_Dutch(
         sp.set_type(auction_id, sp.TNat)
         the_auction = sp.local("the_auction", self.data.auctions[auction_id])
         sp.result(self.getAuctionPriceInline(the_auction.value))
+
+    @sp.onchain_view(pure=True)
+    def is_secondary_enabled(self):
+        """Returns true if secondary is enabled."""
+        sp.result(self.data.secondary_enabled)

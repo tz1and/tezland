@@ -14,22 +14,22 @@ class Whitelist(admin_mixin.Administrable):
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def isWhitelisted(self, address):
-        """if an address is whitelisted"""
+        """If an address is whitelisted."""
         address = sp.set_type_expr(address, sp.TAddress)
         return self.address_set.contains(self.data.whitelist, address)
 
     def onlyWhitelisted(self):
-        """fails if whitelist enabled address is not whitelisted """
+        """Fails if whitelist enabled address is not whitelisted."""
         with sp.if_(self.data.whitelist_enabled):
             sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
 
     def onlyAdminIfWhitelistEnabled(self):
-        """fails if whitelist is enabled and sender is not admin"""
+        """Fails if whitelist is enabled and sender is not admin."""
         with sp.if_(self.data.whitelist_enabled):
             self.onlyAdministrator()
 
     def removeFromWhitelist(self, address):
-        """removes an address from the whitelist"""
+        """Removes an address from the whitelist."""
         address = sp.set_type_expr(address, sp.TAddress)
         # NOTE: probably ok to skip the check and always remove from whitelist.
         #with sp.if_(self.data.whitelist_enabled):
@@ -37,7 +37,7 @@ class Whitelist(admin_mixin.Administrable):
 
     @sp.entry_point
     def manage_whitelist(self, updates):
-        """Manage the whitelist"""
+        """Manage the whitelist."""
         sp.set_type(updates, sp.TList(sp.TVariant(
             whitelist_add=sp.TList(sp.TAddress),
             whitelist_remove=sp.TList(sp.TAddress),
@@ -57,11 +57,11 @@ class Whitelist(admin_mixin.Administrable):
 
     @sp.onchain_view(pure=True)
     def is_whitelisted(self, address):
-        """returns true if an address is whitelisted"""
+        """Returns true if an address is whitelisted."""
         sp.set_type(address, sp.TAddress)
         sp.result(self.address_set.contains(self.data.whitelist, address))
 
     @sp.onchain_view(pure=True)
     def is_whitelist_enabled(self):
-        """returns true if whitelist is enabled"""
+        """Returns true if whitelist is enabled."""
         sp.result(self.data.whitelist_enabled)

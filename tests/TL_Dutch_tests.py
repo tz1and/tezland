@@ -9,6 +9,7 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
+    carol = sp.test_account("Carol")
     scenario = sp.test_scenario()
 
     scenario.h1("Dutch auction contract")
@@ -16,7 +17,7 @@ def test():
 
     # Let's display the accounts:
     scenario.h2("Accounts")
-    scenario.show([admin, alice, bob])
+    scenario.show([admin, alice, bob, carol])
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
@@ -56,11 +57,21 @@ def test():
         sp.record(
             to_ = alice.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = carol.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = admin.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
     ]).run(sender = admin)
 
-    place_bob = sp.nat(0)
+    place_bob   = sp.nat(0)
     place_alice = sp.nat(1)
+    place_carol = sp.nat(2)
+    place_admin = sp.nat(3)
 
     # Test dutch auchtion
 
@@ -75,6 +86,10 @@ def test():
     # disable whitelist, it's enabled by defualt
     dutch.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
     scenario.verify(dutch.data.whitelist_enabled == False)
+
+    # enabled secondary, it's disabled by default
+    dutch.set_secondary_enabled(True).run(sender=admin)
+    scenario.verify(dutch.data.secondary_enabled == True)
 
     # set operators
     scenario.h3("Add operators")
@@ -102,6 +117,14 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
+    places_tokens.update_operators([
+        sp.variant("add_operator", sp.record(
+            owner = carol.address,
+            operator = dutch.address,
+            token_id = place_carol
+        ))
+    ]).run(sender = carol, valid = True)
+
     #
     # create
     #
@@ -109,7 +132,7 @@ def test():
 
     # incorrect start/end price
     dutch.create(token_id = place_bob,
-        start_price = sp.tez(100),
+        start_price = sp.tez(0),
         end_price = sp.tez(100),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(2),
@@ -288,22 +311,59 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
+    auction_start_time = sp.timestamp(0).add_days(2)
+
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
-        start_time = sp.timestamp(0),
-        end_time = sp.timestamp(0).add_minutes(80),
+        start_time = auction_start_time,
+        end_time = auction_start_time.add_minutes(80),
         fa2 = places_tokens.address,
         extension = sp.none).run(sender = alice, now=sp.timestamp(0))
 
-    auction_info = dutch.get_auction(4)
-    #scenario.verify(item_limit == sp.nat(64))
+    current_auction_id = abs(dutch.data.auction_id - 1)
+
+    auction_info = dutch.get_auction(current_auction_id)
     scenario.show(auction_info)
 
-    # TODO: view simulation with timestamp is now possible. by setting context with scenario
-    # TODO: can't simulate views with timestamp... yet. .run(now=sp.timestamp(10))
-    #auction_info = dutch.get_auction_price(0)
-    #scenario.show(auction_info)
+    # get_auction_price
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=sp.timestamp(0)) == sp.tez(100))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time) == sp.tez(100))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(10)) == sp.tez(90))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(20)) == sp.tez(80))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(30)) == sp.tez(70))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(40)) == sp.tez(60))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(50)) == sp.tez(50))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(60)) == sp.tez(40))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(70)) == sp.tez(30))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(80)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(90)) == sp.tez(20))
+
+    dutch.cancel(auction_id = current_auction_id, extension = sp.none).run(sender = alice)
+
+    dutch.create(token_id = place_bob,
+        start_price = sp.tez(20),
+        end_price = sp.tez(20),
+        start_time = auction_start_time,
+        end_time = auction_start_time.add_minutes(80),
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = alice, now=sp.timestamp(0))
+
+    auction_info = dutch.get_auction(current_auction_id)
+    scenario.show(auction_info)
+
+    # get_auction_price
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=sp.timestamp(0)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(10)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(20)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(30)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(40)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(50)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(60)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(70)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(80)) == sp.tez(20))
+    scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_id), now=auction_start_time.add_minutes(90)) == sp.tez(20))
 
     #
     # set_granularity
@@ -328,9 +388,9 @@ def test():
     dutch.set_paused(True).run(sender = admin)
     scenario.verify(dutch.data.paused == True)
 
-    dutch.bid(auction_id = 4, extension = sp.none).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
+    dutch.bid(auction_id = current_auction_id, extension = sp.none).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
 
-    dutch.cancel(auction_id = 4, extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    dutch.cancel(auction_id = current_auction_id, extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
@@ -345,14 +405,18 @@ def test():
     dutch.set_paused(False).run(sender = admin)
     scenario.verify(dutch.data.paused == False)
 
-    dutch.cancel(auction_id = 4, extension = sp.none).run(sender = alice)
+    dutch.cancel(auction_id = current_auction_id, extension = sp.none).run(sender = alice)
 
     #
-    # test whitelist
+    # test secondary disabled
     #
-    dutch.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
-    scenario.verify(dutch.data.whitelist_enabled == True)
 
+    # disable secondary.
+    dutch.set_secondary_enabled(False).run(sender=admin)
+    scenario.verify(dutch.data.secondary_enabled == False)
+    scenario.verify(dutch.is_secondary_enabled() == False)
+
+    # only admin can create auctions is secondary is disabled
     dutch.create(token_id = place_bob,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
@@ -360,12 +424,6 @@ def test():
         end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address,
         extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-
-    minter.mint_Place([sp.record(
-        to_ = admin.address,
-        metadata = {'': sp.utils.bytes_of_string("test_metadata")}
-    )]).run(sender = admin)
-    place_admin = sp.nat(2)
 
     places_tokens.update_operators([
         sp.variant("add_operator", sp.record(
@@ -375,22 +433,60 @@ def test():
         ))
     ]).run(sender = admin, valid = True)
 
+    #
+    # test secondary enabled & whitelist enabled
+    #
+
+    # enabled whitelist.
+    dutch.manage_whitelist([sp.variant("whitelist_enabled", True)]).run(sender=admin)
+    scenario.verify(dutch.data.whitelist_enabled == True)
+
+    # enable secondary.
+    dutch.set_secondary_enabled(True).run(sender=admin)
+    scenario.verify(dutch.data.secondary_enabled == True)
+    scenario.verify(dutch.is_secondary_enabled() == True)
+
+    # If secondary and whitelist are enabled, anyone can create auctions,
+    # and anyone can bid on them reglardless of their whitelist status.
+    dutch.create(token_id = place_carol,
+        start_price = sp.tez(100),
+        end_price = sp.tez(20),
+        start_time = sp.timestamp(0),
+        end_time = sp.timestamp(0).add_minutes(80),
+        fa2 = places_tokens.address,
+        extension = sp.none).run(sender = carol, valid = True, now=sp.timestamp(0))
+
+    # furthermore, bidding on a non-whitelist auction should not remove you from the whitelist.
+    dutch.manage_whitelist([sp.variant("whitelist_add", [carol.address])]).run(sender=admin)
+    scenario.verify(dutch.data.whitelist.contains(carol.address))
+
+    dutch.bid(auction_id = current_auction_id, extension = sp.none).run(sender = bob, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
+
+    scenario.verify(dutch.data.whitelist.contains(carol.address))
+
+    #
+    # test whitelist
+    #
+
+    # If whitelist is enabled, only whitelisted can bid on admin created auctions.
     dutch.create(token_id = place_admin,
         start_price = sp.tez(100),
         end_price = sp.tez(20),
         start_time = sp.timestamp(0),
         end_time = sp.timestamp(0).add_minutes(80),
         fa2 = places_tokens.address,
-        extension = sp.none).run(sender = admin, valid = True)
+        extension = sp.none).run(sender = admin, valid = True, now=sp.timestamp(0))
 
-    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
+    dutch.bid(auction_id = current_auction_id, extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
 
+    # bidding on a whitelist auction will remove you from the whitelist.
     dutch.manage_whitelist([sp.variant("whitelist_add", [alice.address])]).run(sender=admin)
     scenario.verify(dutch.data.whitelist.contains(alice.address))
 
-    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
+    dutch.bid(auction_id = current_auction_id, extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = True)
     scenario.verify(~dutch.data.whitelist.contains(alice.address))
 
+    # disable whitelist.
     dutch.manage_whitelist([sp.variant("whitelist_enabled", False)]).run(sender=admin)
     scenario.verify(dutch.data.whitelist_enabled == False)
 
@@ -424,6 +520,6 @@ def test():
         fa2 = items_tokens.address,
         extension = sp.none).run(sender = bob, now = sp.timestamp(0))
 
-    dutch.bid(auction_id = abs(dutch.data.auction_id - 1), extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
+    dutch.bid(auction_id = current_auction_id, extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
 
     # TODO: check roaylaties paid, token transferred
