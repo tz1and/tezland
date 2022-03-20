@@ -425,7 +425,7 @@ class OnchainViewsFungible:
 
     @sp.onchain_view(pure=True)
     def all_tokens(self):
-        """OffchainView: Return the list of all the token IDs known to the contract."""
+        """Return the list of all the token IDs known to the contract."""
         sp.result(sp.range(0, self.data.last_token_id))
 
     @sp.onchain_view(pure=True)
@@ -464,7 +464,7 @@ class OnchainViewsSingleAsset:
 
     @sp.onchain_view(pure=True)
     def all_tokens(self):
-        """OffchainView: Return the list of all the token IDs known to the contract."""
+        """Return the list of all the token IDs known to the contract."""
         sp.result([sp.nat(0)])
 
     @sp.onchain_view(pure=True)
