@@ -14,14 +14,8 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
-# Urgent
-# TODO: make max contributors variable in royalties?
-# TODO: test issuer map removal.
-# TODO: think of some more tests for permission.
-# TODO: place permissions: increase seq num (interaction counter)?
-#
-#
 # Other
+# TODO: think of some more tests for permission.
 # TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template
 #       + Add a pause function and an expiration date for the drop.
 # TODO: Does the places token even need to be administrated/minted by minter?
@@ -297,7 +291,8 @@ class TL_World(
             "source": {
                 "tools": ["SmartPy"],
                 "location": "https://github.com/tz1and",
-            }
+            },
+            "license": { "name": "MIT" }
         }
         offchain_views = []
         for f in dir(self):

@@ -545,6 +545,7 @@ class Common(sp.Contract):
                     "tools": ["SmartPy"],
                     "location": "https://github.com/tz1and",
                 },
+                "license": { "name": "MIT" },
                 "permissions": {"receiver": "owner-no-hook", "sender": "owner-no-hook"},
             }
         offchain_views = []

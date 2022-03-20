@@ -49,7 +49,8 @@ class TL_Minter(
             "source": {
                 "tools": ["SmartPy"],
                 "location": "https://github.com/tz1and",
-            }
+            },
+            "license": { "name": "MIT" }
         }
         offchain_views = []
         for f in dir(self):
