@@ -155,19 +155,31 @@ def test():
     scenario.verify(items_tokens.data.paused == False)
     scenario.verify(places_tokens.data.paused == False)
 
-    # test regain admin
-    #scenario.h2("regain_admin_Items")
-    #minter.regain_admin_Items().run(sender = admin, valid = False)
-    #minter.set_paused(True).run(sender = admin)
-    #minter.regain_admin_Items().run(sender = bob, valid = False)
-    #minter.regain_admin_Items().run(sender = admin) # admin can only be regained if paused
-    #minter.set_paused(False).run(sender = admin)
+    #  test clear_adhoc_operators_all_fa2
+    scenario.h2("clear_adhoc_operators_all_fa2")
 
-    #scenario.h2("regain_admin_Places")
-    #minter.regain_admin_Places().run(sender = admin, valid = False)
-    #minter.set_paused(True).run(sender = admin)
-    #minter.regain_admin_Places().run(sender = bob, valid = False)
-    #minter.regain_admin_Places().run(sender = admin) # admin can only be regained if paused
-    #minter.set_paused(False).run(sender = admin)
+    items_tokens.update_adhoc_operators(sp.variant("add_adhoc_operators", [
+        sp.record(operator=minter.address, token_id=0),
+        sp.record(operator=minter.address, token_id=1),
+        sp.record(operator=minter.address, token_id=2),
+        sp.record(operator=minter.address, token_id=3),
+    ])).run(sender = alice)
+
+    places_tokens.update_adhoc_operators(sp.variant("add_adhoc_operators", [
+        sp.record(operator=minter.address, token_id=0),
+        sp.record(operator=minter.address, token_id=1),
+        sp.record(operator=minter.address, token_id=2),
+        sp.record(operator=minter.address, token_id=3),
+    ])).run(sender = alice)
+
+    scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 4)
+    scenario.verify(sp.len(places_tokens.data.adhoc_operators) == 4)
+
+    minter.clear_adhoc_operators_all_fa2().run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    minter.clear_adhoc_operators_all_fa2().run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    minter.clear_adhoc_operators_all_fa2().run(sender = admin)
+
+    scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 0)
+    scenario.verify(sp.len(places_tokens.data.adhoc_operators) == 0)
 
     scenario.table_of_contents()

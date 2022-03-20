@@ -65,7 +65,7 @@ class TL_Minter(
     #
     @sp.entry_point
     def pause_all_fa2(self, new_paused):
-        """The admin can pause/unpause items and places contracts"""
+        """The admin can pause/unpause items and places contracts."""
         sp.set_type(new_paused, sp.TBool)
         self.onlyAdministrator()
 
@@ -75,6 +75,19 @@ class TL_Minter(
                 entry_point = "set_pause").open_some()
                 
             sp.transfer(new_paused, sp.mutez(0), set_paused_handle)
+
+    @sp.entry_point
+    def clear_adhoc_operators_all_fa2(self):
+        """The admin can clear adhoc ops for items and places contracts."""
+        self.onlyAdministrator()
+    
+        with sp.for_("fa2", [self.data.items_contract, self.data.places_contract]) as fa2:
+            # call items contract
+            set_paused_handle = sp.contract(FA2.t_adhoc_operator_params, fa2, 
+                entry_point = "update_adhoc_operators").open_some()
+                
+            sp.transfer(sp.variant("clear_adhoc_operators", sp.unit),
+                sp.mutez(0), set_paused_handle)
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
