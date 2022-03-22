@@ -18,6 +18,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: think of some more tests for permission.
 # TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template
 #       + Add a pause function and an expiration date for the drop.
+#       + https://github.com/teia-community/teia-smart-contracts/blob/main/python/contracts/daoTokenDrop.py
 # TODO: Does the places token even need to be administrated/minted by minter?
 # TODO: generalised minter: map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
