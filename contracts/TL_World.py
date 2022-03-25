@@ -153,9 +153,9 @@ placeItemListType = sp.TVariant(
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
 
-# permissions are in octal, like unix.
-# can be any combination of these.
-# remove and modify own items in all places is always given. to prevent abuse.
+# Permissions are in octal.
+# Can be any combination of these.
+# Remove and modify own items in all places is always given. to prevent abuse.
 permissionNone       = sp.nat(0) # no permissions
 permissionPlaceItems = sp.nat(1) # can place items
 permissionModifyAll  = sp.nat(2) # can edit and remove all items
@@ -179,7 +179,7 @@ class Error_message:
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
 
 #
-# Operator_set from FA2. Lazy set for place permissions.
+# Like Operator_set from legacy FA2. Lazy set for place permissions.
 class Permission_map:
     def key_type(self):
         return sp.TRecord(owner = sp.TAddress,
@@ -207,7 +207,7 @@ class Permission_map:
         return set.get(self.make_key(owner, permittee, token_id), default_value = permissionNone)
 
 #
-# Operator_param from Fa2. Defines type types for the set_permissions entry-point.
+# Like Operator_param from legacy Fa2. Defines type types for the set_permissions entry-point.
 class Permission_param:
     def get_add_type(self):
         t = sp.TRecord(
