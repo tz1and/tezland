@@ -41,6 +41,12 @@ sandbox_command
     .description('Displays sandbox info.')
     .action(sandbox.info)
 
+sandbox_command
+    .command('logs')
+    .alias('l')
+    .description('Displays sandbox logs.')
+    .action(sandbox.logs)
+
 //
 // SmartPy stuff
 //

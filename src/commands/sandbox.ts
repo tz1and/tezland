@@ -19,8 +19,10 @@ export async function start(): Promise<void> {
             {stdio: 'inherit'}
         )*/
 
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d`;
+        console.log("running: ", command);
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d`,
+            command,
             {stdio: 'inherit'}
         )
 
@@ -53,8 +55,25 @@ export async function kill(): Promise<void> {
     console.log(kleur.yellow('killing sandbox...'));
 
     try {
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml down -v`;
+        console.log("running: ", command);
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml down -v`,
+            command,
+            {stdio: 'inherit'}
+        )
+    } catch (err) {
+        console.log(kleur.red("failed to kill sandbox"))
+    }
+}
+
+export async function logs(): Promise<void> {
+    console.log(kleur.yellow('killing sandbox...'));
+
+    try {
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml logs -f`;
+        console.log("running: ", command);
+        child.execSync(
+            command,
             {stdio: 'inherit'}
         )
     } catch (err) {
