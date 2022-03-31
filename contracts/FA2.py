@@ -76,12 +76,6 @@ t_burn_batch = sp.TList(sp.TRecord(
     token_id=sp.TNat
 ).layout(("from_", ("amount", "token_id"))))
 
-# distribute types
-
-t_distribute_batch = sp.TList(sp.TRecord(
-    to_=sp.TAddress, amount=sp.TNat
-).layout(("to_", "amount")))
-
 # adhoc operator types
 
 t_adhoc_operator_permission = sp.TRecord(
