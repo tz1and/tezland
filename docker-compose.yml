@@ -1,7 +1,7 @@
 version: "3.6"
 services:
   elastic:
-    image: bakingbad/bcdhub-elastic:${TAG} #ghcr.io/baking-bad/bcdhub-elastic:${TAG}
+    image: ghcr.io/baking-bad/bcdhub-elastic:${TAG}
     restart: always
     volumes:
       - esdata:/usr/share/elasticsearch/data
@@ -15,7 +15,7 @@ services:
         max-file: "5"
 
   db:
-    image: postgres:12
+    image: postgres:14
     shm_size: 1g
     restart: always
     environment:
@@ -23,18 +23,22 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
       - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
     logging: *bcd-logging
 
   api:
     restart: always
-    image: bakingbad/bcdhub-api:${TAG} #ghcr.io/baking-bad/bcdhub-api:${TAG}
+    image: ghcr.io/baking-bad/bcdhub-api:${TAG}
     environment:
       - BCD_ENV=sandbox
       - GIN_MODE=debug
+      - DB_HOSTNAME=db
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://sandbox:20000
       - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
@@ -53,11 +57,13 @@ services:
 
   indexer:
     restart: always
-    image: bakingbad/bcdhub-indexer:${TAG} #ghcr.io/baking-bad/bcdhub-indexer:${TAG}
+    image: ghcr.io/baking-bad/bcdhub-indexer:${TAG}
     environment:
       - BCD_ENV=sandbox
+      - DB_HOSTNAME=db
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://sandbox:20000
       - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
@@ -72,11 +78,13 @@ services:
 
   metrics:
     restart: always
-    image: bakingbad/bcdhub-metrics:${TAG} #ghcr.io/baking-bad/bcdhub-metrics:${TAG}
+    image: ghcr.io/baking-bad/bcdhub-metrics:${TAG}
     environment:
       - BCD_ENV=sandbox
+      - DB_HOSTNAME=db
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://sandbox:20000
       - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
@@ -92,7 +100,7 @@ services:
   gui:
     container_name: sandbox-gui
     restart: always
-    image: bakingbad/bcdhub-gui:4.0 #ghcr.io/baking-bad/bcdhub-gui:${TAG}
+    image: ghcr.io/baking-bad/bcdhub-gui:${TAG}
     depends_on:
       - api
     ports:
@@ -104,7 +112,7 @@ services:
   #
   flextesa:
     restart: always
-    image: oxheadalpha/flextesa:20220127  # prev: 20211207 #20211119 with hangzhou # 20210602 granada
+    image: oxheadalpha/flextesa:20220510 # prev: 20220127  # prev: 20211207 #20211119 with hangzhou # 20210602 granada
     command: ${SANDBOX_TYPE} start
     environment:
       - block_time=${SANDBOX_BLOCKTIME}
@@ -125,13 +133,11 @@ services:
     container_name: ipfs-node
     restart: always
     image: ipfs/go-ipfs:latest
-    #bootstrap rm --all
-    #command: bootstrap add /ip4/127.0.0.1/tcp/4001/ipfs/QmQPeNsJPyVWPFDVHb77w8G42Fvo15z4bG2X8D2GhfbSXc
     environment:
-      #- IPFS_SWARM_KEY=/key/swarm/psk/1.0.0/\n/base16/\n925e93e58f6cb4aa7a5660e5166a3081f84d40a6888f70d49fdbc68f0f10362a
       - IPFS_PATH=/ipfsdata
     volumes:
       - ./ipfsdata:/ipfsdata
+      - ./docker-scripts/001-ipfs-init.sh:/container-init.d/001-ipfs-init.sh
     ports:
       - "4001:4001"
       - "4001:4001/udp"
@@ -148,6 +154,7 @@ services:
       options:
         max-size: 10m
         max-file: "5"
+    command: ["daemon", "--migrate=true", "--agent-version-suffix=docker", "--enable-gc"]
 
   #
   # tzkt api
@@ -155,7 +162,7 @@ services:
   db-tzkt:
     container_name: db-tzkt
     restart: always
-    image: postgres:12
+    image: postgres:14
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-tzkt}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qwerty}
@@ -175,7 +182,7 @@ services:
   api-tzkt:
     container_name: api-tzkt
     restart: always
-    image: bakingbad/tzkt-api:latest
+    image: bakingbad/tzkt-api:1.8.3
     depends_on:
       - db-tzkt
       - flextesa
@@ -191,7 +198,7 @@ services:
   sync-tzkt:
     container_name: sync-tzkt
     restart: always
-    image: bakingbad/tzkt-sync:latest
+    image: bakingbad/tzkt-sync:1.8.3
     environment:
       TezosNode__Endpoint: http://sandbox:20000
       ConnectionStrings__DefaultConnection: host=db-tzkt;port=15432;database=${POSTGRES_DB:-tzkt_db};username=${POSTGRES_USER:-tzkt};password=${POSTGRES_PASSWORD:-qwerty};

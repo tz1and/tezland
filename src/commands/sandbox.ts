@@ -3,14 +3,14 @@ import * as kleur from 'kleur';
 import config from '../user.config';
 const sleep = require('util').promisify(setTimeout);
 
-const bcdtag = "4.0.1337" //"4.1.0"
-const sandbox_type = "hangzbox"
+const bcdtag = "pr-914"
+const sandbox_type = "ithacabox"
 
 function configEnv(): string {
     return `TAG=${bcdtag} SANDBOX_TYPE=${sandbox_type} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
 }
 
-export async function start(): Promise<void> {
+export async function start(full?: boolean): Promise<void> {
     console.log(kleur.yellow('starting sandbox...'));
 
     try {
@@ -19,7 +19,9 @@ export async function start(): Promise<void> {
             {stdio: 'inherit'}
         )*/
 
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d`;
+        const containers = full ? '' : 'ipfs';
+
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d ${containers}`;
         console.log("running: ", command);
         child.execSync(
             command,
@@ -48,6 +50,21 @@ export async function start(): Promise<void> {
         console.log("Lambda view contract: " + lambdaContract.address);*/
     } catch (err) {
         console.log(kleur.red("failed to start sandbox: " + err))
+    }
+}
+
+export async function pull(): Promise<void> {
+    console.log(kleur.yellow('pulling sandbox...'));
+
+    try {
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml pull`;
+        console.log("running: ", command);
+        child.execSync(
+            command,
+            {stdio: 'inherit'}
+        )
+    } catch (err) {
+        console.log(kleur.red("failed to pull sandbox"))
     }
 }
 

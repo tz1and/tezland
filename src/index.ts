@@ -26,13 +26,20 @@ var sandbox_command = program
 sandbox_command
     .command('start')
     .alias('s')
-    .description('Start the network sandbox. No effect on non-sandbox networks.')
-    .action(sandbox.start)
+    .description('Start the network sandbox.')
+    .option('-f, --full', 'Run a full sandbox with flextesa, tzkt and bcd.')
+    .action((options) => sandbox.start(options.full))
+
+sandbox_command
+    .command('pull')
+    .alias('p')
+    .description('Pull sandbox images.')
+    .action(sandbox.pull)
 
 sandbox_command
     .command('kill')
     .alias('k')
-    .description('Kill running network sandbox. No effect on non-sandbox networks.')
+    .description('Kill running network sandbox.')
     .action(sandbox.kill)
 
 sandbox_command

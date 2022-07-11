@@ -14,6 +14,9 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
+# Probably kinda urgent:
+# TODO: add a limit on place props data len and item data len. Potential gaslock.
+
 # Other
 # TODO: think of some more tests for permission.
 # TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template

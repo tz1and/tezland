@@ -9,6 +9,8 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
+# TODO: document reasoning for not limiting bids on secondary disable
+# TODO: document (or fix!) issue with admin transfer and whitelist!
 
 # Optional extension argument type.
 # Map val can contain about anything and be
