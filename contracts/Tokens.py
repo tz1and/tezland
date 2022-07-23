@@ -20,6 +20,23 @@ class tz1andPlaces(
         )
         admin_mixin.Administrable.__init__(self, admin)
 
+class tz1andInteriors(
+    admin_mixin.Administrable,
+    FA2.ChangeMetadata,
+    FA2.MintNft,
+    FA2.OnchainviewCountTokens,
+    FA2.Fa2Nft,
+):
+    """tz1and Interiors"""
+
+    def __init__(self, metadata, admin):
+        FA2.Fa2Nft.__init__(
+            self, metadata=metadata,
+            name="tz1and Interiors", description="tz1and Interior FA2 Tokens.",
+            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
+        )
+        admin_mixin.Administrable.__init__(self, admin)
+
 class tz1andItems(
     admin_mixin.Administrable,
     FA2.ChangeMetadata,

@@ -247,7 +247,7 @@ class TL_World(
     permitted_fa2.PermittedFA2,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -278,14 +278,14 @@ class TL_World(
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
-        self.generate_contract_metadata()
+        self.generate_contract_metadata(name, description)
 
-    def generate_contract_metadata(self):
+    def generate_contract_metadata(self, name, description):
         """Generate a metadata json file with all the contract's offchain views
         and standard TZIP-12 and TZIP-016 key/values."""
         metadata_base = {
-            "name": 'tz1and World',
-            "description": 'tz1and Virtual World',
+            "name": name,
+            "description": description,
             "version": "1.0.0",
             "interfaces": ["TZIP-012", "TZIP-016"],
             "authors": [
