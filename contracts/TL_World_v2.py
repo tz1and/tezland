@@ -14,6 +14,9 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
+# Now:
+# TODO: have a bigmap of allowed place contracts. maybe a mixin like whitelist.
+
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
 
@@ -121,15 +124,20 @@ placeStorageDefault = sp.record(
     stored_items=itemStoreLiteral
 )
 
+placeKeyType = sp.TRecord(
+    place_contract = sp.TAddress,
+    lot_id = sp.TNat
+).layout(("place_contract", "lot_id"))
+
 class Place_store_map:
     def make(self):
-        return sp.big_map(tkey=sp.TNat, tvalue=placeStorageType)
-    def get(self, map, lot_id):
-        return map.get(lot_id)
-    def get_or_create(self, map, lot_id):
-        with sp.if_(~map.contains(lot_id)):
-            map[lot_id] = placeStorageDefault
-        return map[lot_id]
+        return sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
+    def get(self, map, key):
+        return map.get(key)
+    def get_or_create(self, map, key):
+        with sp.if_(~map.contains(key)):
+            map[key] = placeStorageDefault
+        return map[key]
 
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
@@ -187,27 +195,30 @@ class Permission_map:
     def key_type(self):
         return sp.TRecord(owner = sp.TAddress,
                           permittee = sp.TAddress,
-                          token_id = sp.TNat
-                          ).layout(("owner", ("permittee", "token_id")))
+                          place_key = placeKeyType
+                          ).layout(("owner", ("permittee", "place_key")))
 
     def make(self):
         return sp.big_map(tkey = self.key_type(), tvalue = sp.TNat)
 
-    def make_key(self, owner, permittee, token_id):
+    def make_key(self, owner, permittee, place_key):
         metakey = sp.record(owner = owner,
                             permittee = permittee,
-                            token_id = token_id)
+                            place_key = place_key)
         metakey = sp.set_type_expr(metakey, self.key_type())
         return metakey
 
-    def add(self, set, owner, permittee, token_id, perm):
-        set[self.make_key(owner, permittee, token_id)] = perm
-    def remove(self, set, owner, permittee, token_id):
-        del set[self.make_key(owner, permittee, token_id)]
-    def is_member(self, set, owner, permittee, token_id):
-        return set.contains(self.make_key(owner, permittee, token_id))
-    def get_octal(self, set, owner, permittee, token_id):
-        return set.get(self.make_key(owner, permittee, token_id), default_value = permissionNone)
+    def add(self, set, owner, permittee, place_key, perm):
+        set[self.make_key(owner, permittee, place_key)] = perm
+
+    def remove(self, set, owner, permittee, place_key):
+        del set[self.make_key(owner, permittee, place_key)]
+
+    def is_member(self, set, owner, permittee, place_key):
+        return set.contains(self.make_key(owner, permittee, place_key))
+
+    def get_octal(self, set, owner, permittee, place_key):
+        return set.get(self.make_key(owner, permittee, place_key), default_value = permissionNone)
 
 #
 # Like Operator_param from legacy Fa2. Defines type types for the set_permissions entry-point.
@@ -216,25 +227,28 @@ class Permission_param:
         t = sp.TRecord(
             owner = sp.TAddress,
             permittee = sp.TAddress,
-            token_id = sp.TNat,
-            perm = sp.TNat).layout(("owner", ("permittee", ("token_id", "perm"))))
+            place_key = placeKeyType,
+            perm = sp.TNat).layout(("owner", ("permittee", ("place_key", "perm"))))
         return t
-    def make_add(self, owner, permittee, token_id, perm):
+
+    def make_add(self, owner, permittee, place_key, perm):
         r = sp.record(owner = owner,
             permittee = permittee,
-            token_id = token_id,
+            place_key = place_key,
             perm = perm)
         return sp.set_type_expr(r, self.get_add_type())
+
     def get_remove_type(self):
         t = sp.TRecord(
             owner = sp.TAddress,
             permittee = sp.TAddress,
-            token_id = sp.TNat).layout(("owner", ("permittee", "token_id")))
+            place_key = placeKeyType).layout(("owner", ("permittee", "place_key")))
         return t
-    def make_remove(self, owner, permittee, token_id):
+
+    def make_remove(self, owner, permittee, place_key):
         r = sp.record(owner = owner,
             permittee = permittee,
-            token_id = token_id)
+            place_key = place_key)
         return sp.set_type_expr(r, self.get_remove_type())
 
 #
@@ -347,7 +361,7 @@ class TL_World(
                     self.permission_map.add(self.data.permissions,
                         upd.owner,
                         upd.permittee,
-                        upd.token_id,
+                        upd.place_key,
                         upd.perm)
                 with arg.match("remove_permission") as upd:
                     # Sender must be the owner
@@ -356,29 +370,31 @@ class TL_World(
                     self.permission_map.remove(self.data.permissions,
                         upd.owner,
                         upd.permittee,
-                        upd.token_id)
+                        upd.place_key)
 
 
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
-    def getPermissionsInline(self, lot_id, owner, permittee):
-        lot_id = sp.set_type_expr(lot_id, sp.TNat)
+    def getPermissionsInline(self, place_key, owner, permittee):
+        place_key = sp.set_type_expr(place_key, placeKeyType)
         owner = sp.set_type_expr(owner, sp.TOption(sp.TAddress))
         permittee = sp.set_type_expr(permittee, sp.TAddress)
+
+        # TODO: check if place contract is allowed in this world.
 
         # Local var for permissions.
         permission = sp.local("permission", permissionNone)
 
         # If permittee is the owner, he has full permission.
-        with sp.if_(utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0):
+        with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, permittee) > 0):
             permission.value = self.data.max_permission
         with sp.else_():
             # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            with sp.if_(owner.is_some() & (utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0)):
+            with sp.if_(owner.is_some() & (utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner.open_some()) > 0)):
                 permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
                     owner.open_some(),
                     permittee,
-                    lot_id))
+                    place_key))
 
         return permission.value
 
@@ -386,20 +402,20 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
         sp.set_type(params, sp.TRecord(
-            lot_id =  sp.TNat,
+            place_key =  placeKeyType,
             owner =  sp.TOption(sp.TAddress),
             props =  placePropsType,
             extension = extensionArgType
-        ).layout(("lot_id", ("owner", ("props", "extension")))))
+        ).layout(("place_key", ("owner", ("props", "extension")))))
 
         self.onlyUnpaused()
 
         # Caller must have Full permissions.
-        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # Get or create the place.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
 
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
@@ -417,20 +433,20 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def place_items(self, params):
         sp.set_type(params, sp.TRecord(
-            lot_id = sp.TNat,
+            place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
             item_list = sp.TList(placeItemListType),
             extension = extensionArgType
-        ).layout(("lot_id", ("owner", ("item_list", "extension")))))
+        ).layout(("place_key", ("owner", ("item_list", "extension")))))
 
         self.onlyUnpaused()
 
         # Caller must have PlaceItems permissions.
-        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
         # Get or create the place.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
 
         # Count items in place item storage.
         place_item_count = sp.local("place_item_count", sp.nat(0))
@@ -503,19 +519,19 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
         sp.set_type(params, sp.TRecord(
-            lot_id = sp.TNat,
+            place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
             update_map = sp.TMap(sp.TAddress, sp.TList(updateItemListType)),
             extension = extensionArgType
-        ).layout(("lot_id", ("owner", ("update_map", "extension")))))
+        ).layout(("place_key", ("owner", ("update_map", "extension")))))
 
         self.onlyUnpaused()
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get(self.data.places, params.place_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
@@ -553,19 +569,19 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
-            lot_id = sp.TNat,
+            place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
             remove_map = sp.TMap(sp.TAddress, sp.TList(sp.TNat)),
             extension = extensionArgType
-        ).layout(("lot_id", ("owner", ("remove_map", "extension")))))
+        ).layout(("place_key", ("owner", ("remove_map", "extension")))))
 
         self.onlyUnpaused()
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get(self.data.places, params.place_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
@@ -656,16 +672,16 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
-            lot_id = sp.TNat,
+            place_key =  placeKeyType,
             item_id = sp.TNat,
             issuer = sp.TAddress,
             extension = extensionArgType
-        ).layout(("lot_id", ("item_id", ("issuer", "extension")))))
+        ).layout(("place_key", ("item_id", ("issuer", "extension")))))
 
         self.onlyUnpaused()
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get(self.data.places, params.place_key)
 
         # Get item store - must exist.
         item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
@@ -744,24 +760,24 @@ class TL_World(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def get_place_data(self, lot_id):
-        sp.set_type(lot_id, sp.TNat)
-        with sp.if_(self.data.places.contains(lot_id) == False):
+    def get_place_data(self, place_key):
+        sp.set_type(place_key, placeKeyType)
+        with sp.if_(self.data.places.contains(place_key) == False):
             sp.result(sp.set_type_expr(placeStorageDefault, placeStorageType))
         with sp.else_():
-            sp.result(sp.set_type_expr(self.data.places[lot_id], placeStorageType))
+            sp.result(sp.set_type_expr(self.data.places[place_key], placeStorageType))
 
 
     @sp.onchain_view(pure=True)
-    def get_place_seqnum(self, lot_id):
-        sp.set_type(lot_id, sp.TNat)
-        with sp.if_(self.data.places.contains(lot_id) == False):
+    def get_place_seqnum(self, place_key):
+        sp.set_type(place_key, placeKeyType)
+        with sp.if_(self.data.places.contains(place_key) == False):
             sp.result(sp.sha3(sp.pack(sp.pair(
                 sp.nat(0),
                 sp.nat(0)
             ))))
         with sp.else_():
-            this_place = self.data.places[lot_id]
+            this_place = self.data.places[place_key]
             sp.result(sp.sha3(sp.pack(sp.pair(
                 this_place.interaction_counter,
                 this_place.next_id
@@ -776,8 +792,8 @@ class TL_World(
     @sp.onchain_view(pure=True)
     def get_permissions(self, query):
         sp.set_type(query, sp.TRecord(
-            lot_id = sp.TNat,
+            place_key = placeKeyType,
             owner = sp.TOption(sp.TAddress),
             permittee = sp.TAddress
-        ).layout(("lot_id", ("owner", "permittee"))))
-        sp.result(self.getPermissionsInline(query.lot_id, query.owner, query.permittee))
+        ).layout(("place_key", ("owner", "permittee"))))
+        sp.result(self.getPermissionsInline(query.place_key, query.owner, query.permittee))
