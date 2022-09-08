@@ -10,6 +10,7 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
+allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
@@ -259,6 +260,7 @@ class TL_World(
     fees_mixin.Fees,
     mod_mixin.Moderation,
     permitted_fa2.PermittedFA2,
+    allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description, exception_optimization_level="default-line"):
@@ -289,7 +291,8 @@ class TL_World(
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
+        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator) # TODO: move to separate contract.
+        allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator) # TODO: default_allowed?
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
         self.generate_contract_metadata(name, description)
@@ -354,6 +357,8 @@ class TL_World(
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
                 with arg.match("add_permission") as upd:
+                    # can only add permissions for allowed places
+                    self.onlyAllowedPlaceTokens(upd.place_key.place_contract)
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
                     sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = self.error_message.parameter_error())
@@ -364,6 +369,8 @@ class TL_World(
                         upd.place_key,
                         upd.perm)
                 with arg.match("remove_permission") as upd:
+                    # NOTE: don't need to check if place key is valid
+                    #self.onlyAllowedPlaceTokens(upd.place_key.place_contract)
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
                     # Remove permission
@@ -410,6 +417,9 @@ class TL_World(
 
         self.onlyUnpaused()
 
+        # Place token must be allowed
+        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+
         # Caller must have Full permissions.
         permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
@@ -440,6 +450,9 @@ class TL_World(
         ).layout(("place_key", ("owner", ("item_list", "extension")))))
 
         self.onlyUnpaused()
+
+        # Place token must be allowed
+        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Caller must have PlaceItems permissions.
         permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
@@ -527,6 +540,9 @@ class TL_World(
 
         self.onlyUnpaused()
 
+        # Place token must be allowed
+        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+
         # Get the place - must exist.
         this_place = self.place_store_map.get(self.data.places, params.place_key)
 
@@ -576,6 +592,9 @@ class TL_World(
         ).layout(("place_key", ("owner", ("remove_map", "extension")))))
 
         self.onlyUnpaused()
+
+        # Place token must be allowed?
+        #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Get the place - must exist.
         this_place = self.place_store_map.get(self.data.places, params.place_key)
@@ -679,6 +698,9 @@ class TL_World(
         ).layout(("place_key", ("item_id", ("issuer", "extension")))))
 
         self.onlyUnpaused()
+
+        # Place token must be allowed?
+        #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Get the place - must exist.
         this_place = self.place_store_map.get(self.data.places, params.place_key)

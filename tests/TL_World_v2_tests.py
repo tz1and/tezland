@@ -105,7 +105,7 @@ class FA2_utils(sp.Contract):
 
 
 
-@sp.add_test(name = "TL_World_tests", profile = True)
+@sp.add_test(name = "TL_World_v2_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
@@ -304,6 +304,15 @@ def test():
             balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
+
+    #
+    # Allowed places
+    #
+
+    # place items in disallowed place
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position))], bob, valid = False, message='PLACE_TOKEN_NOT_ALLOWED')
+    world.set_place_token_allowed(sp.list([sp.variant("add_allowed_place_token", places_tokens.address)])).run(sender = admin)
+    place_items(place_bob, [sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position))], bob, valid = False, message='FA2_NOT_OPERATOR')
 
     #
     # Test placing items
