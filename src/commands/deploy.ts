@@ -18,7 +18,8 @@ type PostDeployContracts = {
     dao_FA2_contract: ContractAbstraction<Wallet>,
     Minter_contract: ContractAbstraction<Wallet>,
     World_contract: ContractAbstraction<Wallet>,
-    Dutch_contract: ContractAbstraction<Wallet>
+    Dutch_contract: ContractAbstraction<Wallet>,
+    interiors_FA2_contract: ContractAbstraction<Wallet>,
 }
 
 // TODO: finish this stuff!
@@ -73,6 +74,15 @@ export default class Deploy extends DeployBase {
         fa2_batch.addToBatch("FA2_Places");
 
         //
+        // Interiors
+        //
+        await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
+            `admin = sp.address("${this.accountAddress}")`
+        ]);
+
+        fa2_batch.addToBatch("FA2_Interiors");
+
+        //
         // DAO
         //
         await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [
@@ -82,7 +92,7 @@ export default class Deploy extends DeployBase {
         fa2_batch.addToBatch("FA2_DAO");
 
         // send batch.
-        const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
+        const [items_FA2_contract, places_FA2_contract, interiors_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
 
         if(!daoWasDeployed) {
             // Mint 0 dao.
@@ -166,7 +176,8 @@ export default class Deploy extends DeployBase {
         // World (Marketplaces)
         //
         // Compile and deploy Places contract.
-        await this.compile_contract("TL_World", "TL_World", "TL_World", [
+        // IMPORTANT NOTE: name changed so on next mainnet deply it will automatically deploy the v2!
+        await this.compile_contract("TL_World_v2", "Worlds", "tz1andWorld", [
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`,
@@ -187,7 +198,8 @@ export default class Deploy extends DeployBase {
             dao_FA2_contract: dao_FA2_contract,
             Minter_contract: Minter_contract,
             World_contract: World_contract,
-            Dutch_contract: Dutch_contract
+            Dutch_contract: Dutch_contract,
+            interiors_FA2_contract: interiors_FA2_contract
         });
     }
 
@@ -218,6 +230,7 @@ export default class Deploy extends DeployBase {
             console.log("REACT_APP_WORLD_CONTRACT=" + contracts.World_contract.address);
             console.log("REACT_APP_MINTER_CONTRACT=" + contracts.Minter_contract.address);
             console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.Dutch_contract.address);
+            console.log("REACT_APP_INTERIORS_CONTRACT=" + contracts.interiors_FA2_contract.address);
             console.log()
             console.log(`contracts:
   tezlandItems:
@@ -242,15 +255,19 @@ export default class Deploy extends DeployBase {
 
   tezlandDutchAuctions:
     address: ${contracts.Dutch_contract.address}
-    typename: tezlandDutchAuctions\n`);
+    typename: tezlandDutchAuctions
+    
+  tezlandInteriors:
+    address: ${contracts.interiors_FA2_contract.address}
+    typename: tezlandPlaces\n`);
     }
     }
 
-    private async mintNewItem(model_path: string, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
         assert(this.accountAddress);
 
         // Create item metadata and upload it
-        const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, this.isSandboxNet);
+        const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, polygonCount, this.isSandboxNet);
         console.log(`item token metadata: ${item_metadata_url}`);
 
         const contributors = [
@@ -279,6 +296,15 @@ export default class Deploy extends DeployBase {
         }]);
     }
 
+    private mintNewInteriorPlaces(mint_args: any[], batch: WalletOperationBatch, interiors_FA2_contract: ContractAbstraction<Wallet>) {
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...interiors_FA2_contract.methodsObject.mint(
+                mint_args
+            ).toTransferParams()
+        }]);
+    }
+
     private async prepareNewPlace(center: number[], border: number[][]): Promise<any> {
         const place_metadata_url = await ipfs.upload_place_metadata({
             name: "Some Place",
@@ -299,6 +325,26 @@ export default class Deploy extends DeployBase {
         }
     }
 
+    private async prepareNewInteriorPlace(center: number[], border: number[][]): Promise<any> {
+        const place_metadata_url = await ipfs.upload_place_metadata({
+            name: "Interior Place",
+            description: "A nice place",
+            minter: this.accountAddress!,
+            centerCoordinates: center,
+            borderCoordinates: border,
+            buildHeight: 200,
+            placeType: "interior"
+        }, this.isSandboxNet);
+        console.log(`interior place token metadata: ${place_metadata_url}`);
+
+        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
+        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
+        return {
+            to_: this.accountAddress,
+            metadata: metadata_map
+        }
+    }
+
     private async deployDevWorld(contracts: PostDeployContracts) {
         assert(this.tezos);
 
@@ -307,10 +353,10 @@ export default class Deploy extends DeployBase {
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
-        await this.mintNewItem('assets/Lantern.glb', 100, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/Fox.glb', 25, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/Duck.glb', 75, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/DragonAttenuation.glb', 66, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.Minter_contract);
 
         // don't mint places for now. use generate map.
         const places = [];
@@ -319,6 +365,13 @@ export default class Deploy extends DeployBase {
         places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
         this.mintNewPlaces(places, mint_batch, contracts.Minter_contract);
+
+        const interior_places = [];
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        this.mintNewInteriorPlaces(interior_places, mint_batch, contracts.interiors_FA2_contract);
 
         // send batch.
         const mint_batch_op = await mint_batch.send();
@@ -352,7 +405,7 @@ export default class Deploy extends DeployBase {
         console.log(kleur.bgGreen("Running gas test suite"));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
@@ -664,8 +717,8 @@ export default class Deploy extends DeployBase {
 
         // mint again
         const mint_batch2 = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch2, contracts.Minter_contract);
-        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch2, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract);
         const mint_batch2_op = await mint_batch2.send();
         await mint_batch2_op.confirmation();
         console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
@@ -682,7 +735,7 @@ export default class Deploy extends DeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 10000, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();

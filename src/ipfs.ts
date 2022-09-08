@@ -10,7 +10,7 @@ export async function upload_place_metadata(metadata: PlaceMetadata, localIpfs: 
     return result.metdata_uri;
 }
 
-export async function upload_item_metadata(minter_address: string, model_path: string, localIpfs: boolean): Promise<string> {
+export async function upload_item_metadata(minter_address: string, model_path: string, polygonCount: number, localIpfs: boolean): Promise<string> {
     const data: Buffer = fs.readFileSync(model_path);
 
     const result = await uploadToIpfs(createItemTokenMetadata({
@@ -18,8 +18,10 @@ export async function upload_item_metadata(minter_address: string, model_path: s
         description: "A nice item",
         minter: minter_address,
         modelBlob: new File([data], "model.glb", {type: "model/gltf-binary"}),
+        polygonCount: polygonCount,
         formats: [
             {
+                uri: new File([data], "model.glb", {type: "model/gltf-binary"}),
                 mimeType: "model/gltf-binary", // model/gltf+json, model/gltf-binary
                 fileSize: data.length
             }
@@ -95,14 +97,15 @@ function createPlaceTokenMetadata(metadata: PlaceMetadata): any {
         placeType: metadata.placeType
     }
 
-    if (metadata.placeType === "exterior") {
+    // TODO: do interiors have different geometry?
+    //if (metadata.placeType === "exterior") {
         assert(metadata.borderCoordinates);
         assert(metadata.centerCoordinates);
         assert(metadata.buildHeight);
         full_metadata.centerCoordinates = metadata.centerCoordinates;
         full_metadata.borderCoordinates = metadata.borderCoordinates;
         full_metadata.buildHeight = metadata.buildHeight;
-    }
+    //}
     
     return full_metadata;
 }
@@ -113,6 +116,7 @@ interface ItemMetadata {
     name: string;
     modelBlob: typeof File;
     formats: object[];
+    polygonCount: number
 }
 
 function createItemTokenMetadata(metadata: ItemMetadata): any {
@@ -125,8 +129,10 @@ function createItemTokenMetadata(metadata: ItemMetadata): any {
         shouldPreferSymbol: false,
         symbol: 'tz1and Item',
         artifactUri: metadata.modelBlob,
+        tags: ["default", "development", "mint"],
         decimals: 0,
         formats: metadata.formats,
+        polygonCount: metadata.polygonCount,
         baseScale: 1
     };
 }

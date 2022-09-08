@@ -150,19 +150,31 @@ const uploadToNFTStorage: handlerFunction = async (data: any, is_contract: boole
 
 const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean): Promise<ResultType> => {
     const start_time = performance.now()
+
     // first we upload every blob in the object
-    for (var property in data) {
-        if(data[property] instanceof Blob) {
-            const blob: Blob = data[property];
-
-            // upload to ips
-            const result = await ipfs_client.add(blob);
-            const path = `ipfs://${result.cid.toV0().toString()}`;
-
-            // and set the object to be the path
-            data[property] = path;
+    const traverse = async (jsonObj: any) => {
+        if( jsonObj !== null && typeof jsonObj == "object" ) {
+            // key is either an array index or object key
+            for (const [key, value] of Object.entries(jsonObj)) {
+                // if it's a File, upload it.
+                if(value instanceof Blob) {
+                    const file: Blob = value;
+        
+                    // upload to ips
+                    const result = await ipfs_client.add(file);
+                    const path = `ipfs://${result.cid.toV0().toString()}`;
+        
+                    // and set the object to be the path
+                    jsonObj[key] = path;
+                }
+                else await traverse(value);
+            };
+        }
+        else {
+            // jsonObj is a number or string
         }
     }
+    await traverse(data);
 
     // now upload the metadata:
     const metadata = JSON.stringify(data);
