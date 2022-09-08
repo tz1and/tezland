@@ -204,7 +204,7 @@ def test():
     #
     scenario.h2("Originate World contract")
     world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
+        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
     #
