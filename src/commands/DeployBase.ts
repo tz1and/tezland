@@ -159,7 +159,16 @@ export default class DeployBase {
 
     public addDeployment(contract_name: string, address: string) {
         this.deploymentsReg[contract_name] = { contract: address };
+
+        // Write deployment file.
+        // Do this here instead of at the end, otherwise deployments will be lost on error.
+        fs.writeFileSync(this.deploymentsRegPath, JSON.stringify(this.deploymentsReg), { encoding: 'utf-8' })
     }
+
+    /**
+     * TODO: add operations done to deployments file, like "added allowed places"?
+     */
+    /*public addDeployOperation*/
 
     public copyAndReadCode(contract_name: string) {
         const contractFile = `${contract_name}.json`;
@@ -246,9 +255,6 @@ export default class DeployBase {
         } catch (error) {
             console.error(error);
         }
-
-        // Write deployment file.
-        fs.writeFileSync(this.deploymentsRegPath, JSON.stringify(this.deploymentsReg), { encoding: 'utf-8' })
     };
 
     protected async deployDo() {
