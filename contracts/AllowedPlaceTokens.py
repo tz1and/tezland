@@ -8,6 +8,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # Lazy map of allowed place tokens.
 class Allowed_place_token_map:
     def make(self, default_allowed):
+        # TODO: does this need to be a bigmap???
         return sp.big_map(l = default_allowed, tkey = sp.TAddress, tvalue = sp.TUnit)
 
     def add(self, map, fa2):
