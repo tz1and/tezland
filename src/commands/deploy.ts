@@ -176,21 +176,33 @@ export default class Deploy extends DeployBase {
         // World (Marketplaces)
         //
         // Compile and deploy Places contract.
-        // IMPORTANT NOTE: name changed so on next mainnet deply it will automatically deploy the v2!
+        // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
         await this.compile_contract("TL_World_v2", "Worlds", "tz1andWorld", [
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`,
-            `dao_contract = sp.address("${dao_FA2_contract.address}")`
+            `places_contract = sp.address("${places_FA2_contract.address}")`
         ]);
 
-        const World_contract = await this.deploy_contract("TL_World");
+        const World_contract = await this.deploy_contract("TL_World_v2");
+
+        console.log("Set allowed place tokens on world...")
+        const allowed_places_op = await World_contract.methodsObject.set_allowed_place_token([
+            {
+                add_allowed_place_token: places_FA2_contract.address
+            },
+            {
+                add_allowed_place_token: interiors_FA2_contract.address
+            }
+        ]).send();
+        await allowed_places_op.confirmation();
+        console.log("Successfully set allowed places on world");
+        console.log(`>> Transaction hash: ${allowed_places_op.opHash}\n`);
 
         //
         // Post deploy
         //
         // If this is a sandbox deploy, run the post deploy tasks.
-        const post_deploy = this.isSandboxNet ? DeployMode.DevWorld : DeployMode.None;
+        const post_deploy = this.isSandboxNet ? DeployMode.GasTest : DeployMode.None;
 
         await this.runPostDeply(post_deploy, {
             items_FA2_contract: items_FA2_contract,
@@ -423,20 +435,24 @@ export default class Deploy extends DeployBase {
         await op_op.confirmation();
         console.log("update_operators:\t" + await this.feesToString(op_op));
 
+        const placeKey0 = { place_contract: contracts.places_FA2_contract.address, lot_id: 0 };
+        const placeKey1 = { place_contract: contracts.places_FA2_contract.address, lot_id: 1 };
+
         /**
          * World
          */
         // place one item to make sure storage is set.
-        const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }];
+        const list_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
+        list_one_item.set(contracts.items_FA2_contract.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }]);
         const setup_storage = await contracts.World_contract.methodsObject.place_items({
-            lot_id: 0, item_list: list_one_item
+            place_key: placeKey0, place_item_map: list_one_item
         }).send();
         await setup_storage.confirmation();
         console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         const setup_storage1 = await contracts.World_contract.methodsObject.place_items({
-            lot_id: 1, item_list: list_one_item
+            place_key: placeKey1, place_item_map: list_one_item
         }).send();
         await setup_storage1.confirmation();
         console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
@@ -453,27 +469,28 @@ export default class Deploy extends DeployBase {
         await transfer_op.confirmation();
 
         // create place
-        const creat_op = await World_contract.methodsObject.set_place_props({ lot_id: 0, props: "ffffff" }).send();
+        const creat_op = await World_contract.methodsObject.set_place_props({ place_key: placeKey0, props: "ffffff" }).send();
         await creat_op.confirmation();
         console.log("create place (props):\t" + await feesToString(creat_op));*/
 
         // place props
         const props_map = new MichelsonMap<string, string>();
         props_map.set('00', '000000');
-        const place_props_op = await contracts.World_contract.methodsObject.set_place_props({ lot_id: 0, props: props_map }).send();
+        const place_props_op = await contracts.World_contract.methodsObject.set_place_props({ place_key: placeKey0, props: props_map }).send();
         await place_props_op.confirmation();
         console.log("set_place_props:\t" + await this.feesToString(place_props_op));
         console.log();
 
         // place one item
         const place_one_item_op = await contracts.World_contract.methodsObject.place_items({
-            lot_id: 0, item_list: list_one_item
+            place_key: placeKey0, place_item_map: list_one_item
         }).send();
         await place_one_item_op.confirmation();
         console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
 
         // place ten items
-        const list_ten_items = [
+        const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
+        list_ten_items.set (contracts.items_FA2_contract.address, [
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
@@ -484,58 +501,66 @@ export default class Deploy extends DeployBase {
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
-        ];
+        ]);
         const place_ten_items_op = await contracts.World_contract.methodsObject.place_items({
-            lot_id: 0, item_list: list_ten_items
+            place_key: placeKey0, place_item_map: list_ten_items
         }).send();
         await place_ten_items_op.confirmation();
         console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
         console.log();
 
         // set one items data
-        const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
+        const map_update_one_item_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
+        const map_update_one_item_token: MichelsonMap<string, object[]> = new MichelsonMap();
+        map_update_one_item_token.set(contracts.items_FA2_contract.address, [{ item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]);
+        map_update_one_item_issuer.set(this.accountAddress!, map_update_one_item_token);
         const set_item_data_op = await contracts.World_contract.methodsObject.set_item_data({
-            lot_id: 0, update_map: map_update_one_item
+            place_key: placeKey0, update_map: map_update_one_item_issuer
         }).send();
         await set_item_data_op.confirmation();
         console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
 
             // set ten items data
-        const map_update_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_ten_items.set(this.accountAddress!, [
-            { item_id: 1, item_data: "000000000000000000000000000000" },
-            { item_id: 2, item_data: "000000000000000000000000000000" },
-            { item_id: 3, item_data: "000000000000000000000000000000" },
-            { item_id: 4, item_data: "000000000000000000000000000000" },
-            { item_id: 5, item_data: "000000000000000000000000000000" },
-            { item_id: 6, item_data: "000000000000000000000000000000" },
-            { item_id: 7, item_data: "000000000000000000000000000000" },
-            { item_id: 8, item_data: "000000000000000000000000000000" },
-            { item_id: 9, item_data: "000000000000000000000000000000" },
-            { item_id: 10, item_data: "000000000000000000000000000000" }
+        const map_update_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
+        const map_update_ten_items_token: MichelsonMap<string, object[]> = new MichelsonMap();
+        map_update_ten_items_token.set(contracts.items_FA2_contract.address, [
+            { item_id: 1, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 2, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 4, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 5, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 6, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 7, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 8, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 9, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 10, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
         ]);
+        map_update_ten_items_issuer.set(this.accountAddress!, map_update_ten_items_token);
         const set_ten_items_data_op = await contracts.World_contract.methodsObject.set_item_data({
-            lot_id: 0, update_map: map_update_ten_items
+            place_key: placeKey0, update_map: map_update_ten_items_issuer
         }).send();
         await set_ten_items_data_op.confirmation();
         console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
         console.log();
 
         // remove one item
-        const map_remove_one_item: MichelsonMap<string, number[]> = new MichelsonMap();
-        map_remove_one_item.set(this.accountAddress!, [0]);
+        const map_remove_one_item_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
+        const map_remove_one_item_token: MichelsonMap<string, number[]> = new MichelsonMap();
+        map_remove_one_item_token.set(contracts.items_FA2_contract.address, [0]);
+        map_remove_one_item_issuer.set(this.accountAddress!, map_remove_one_item_token);
         const remove_one_item_op = await contracts.World_contract.methodsObject.remove_items({
-            lot_id: 0, remove_map: map_remove_one_item
+            place_key: placeKey0, remove_map: map_remove_one_item_issuer
         }).send();
         await remove_one_item_op.confirmation();
         console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
 
         // remove ten items
-        const map_remove_ten_items: MichelsonMap<string, number[]> = new MichelsonMap();
-        map_remove_ten_items.set(this.accountAddress!, [1,2,3,4,5,6,7,8,9,10]);
+        const map_remove_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
+        const map_remove_ten_items_token: MichelsonMap<string, number[]> = new MichelsonMap();
+        map_remove_ten_items_token.set(contracts.items_FA2_contract.address, [1,2,3,4,5,6,7,8,9,10]);
+        map_remove_ten_items_issuer.set(this.accountAddress!, map_remove_ten_items_token);
         const remove_ten_items_op = await contracts.World_contract.methodsObject.remove_items({
-            lot_id: 0, remove_map: map_remove_ten_items
+            place_key: placeKey0, remove_map: map_remove_ten_items_issuer
         }).send();
         await remove_ten_items_op.confirmation();
         console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
@@ -544,9 +569,9 @@ export default class Deploy extends DeployBase {
         // set_permissions
         const perm_op = await contracts.World_contract.methods.set_permissions([{
             add_permission: {
+                place_key: placeKey0,
                 owner: this.accountAddress,
                 permittee: contracts.Dutch_contract.address,
-                token_id: 0,
                 perm: 7
             }
         }]).send()
@@ -555,7 +580,7 @@ export default class Deploy extends DeployBase {
 
         // get item
         const get_item_op = await contracts.World_contract.methodsObject.get_item({
-            lot_id: 0, issuer: this.accountAddress, item_id: 11
+            place_key: placeKey0, issuer: this.accountAddress, fa2: contracts.items_FA2_contract.address, item_id: 11
         }).send({ mutez: true, amount: 1000000 });
         await get_item_op.confirmation();
         console.log("get_item:\t\t" + await this.feesToString(get_item_op));
@@ -754,17 +779,20 @@ export default class Deploy extends DeployBase {
         for (let i = 0; i < per_batch; ++i)
             item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } });
 
+        const item_map: MichelsonMap<string, object[]> = new MichelsonMap();
+        item_map.set(contracts.items_FA2_contract.address, item_list)
+
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.World_contract.methodsObject.place_items({
-                lot_id: token_id, item_list: item_list
+                place_key: {place_contract: contracts.places_FA2_contract.address, lot_id: token_id }, place_item_map: item_map
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items:\t" + await this.feesToString(place_ten_items_op));
         }
 
         /*const place_items_op = await contracts.World_contract.methodsObject.place_items({
-            lot_id: token_id, item_list: [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
+            lot_id: token_id, place_item_map: michelsonmap... [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
         }).send();
         await place_items_op.confirmation();
 

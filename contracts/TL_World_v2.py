@@ -16,7 +16,13 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: have a bigmap of allowed place contracts. maybe a mixin like whitelist.
+# TODO: chunks. map from issuer to token address to item id to item
+# TODO: the extra level for token address is to alleviate storage penalty for collections and other fa2s.
+# TODO: if chunks have a counter, it needs to be checked to make sense. maybe counting over all levels of storage is better.
+# TODO: collections. collection factory, minter and registry.
+# TODO: allowed fa2s are checked against registry?, which also contains information about royalties.
+# TODO: allow direct royalties? :(
+# TODO: 2-level fa2 transfer map?
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -68,31 +74,31 @@ itemRecordType = sp.TRecord(
     item_data=sp.TBytes, # transforms, etc
 ).layout(("item_amount", ("token_id", ("mutez_per_item", "item_data"))))
 
-# For any other tokens someone might want to exhibit. These are "place only".
-otherTokenRecordType = sp.TRecord(
-    item_amount=sp.TNat, # number of fa2 tokens to store.
-    token_id=sp.TNat, # the fa2 token id
-    mutez_per_item=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # transforms, etc
-    fa2=sp.TAddress # store a fa2 token address
-).layout(("item_amount", ("token_id", ("mutez_per_item", ("item_data", "fa2")))))
-
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
 extensibleVariantType = sp.TVariant(
     item = itemRecordType,
-    other = otherTokenRecordType,
     ext = sp.TBytes # transforms, etc
-).layout(("item", ("other", "ext")))
+).layout(("item", "ext"))
 
 #
 # Item storage
+# TODO: rename all these to make more sense...
+# chunkStore = issuerStore?
+# itemStore = tokenStore?
+# itemStoreMap = itemStore?
+# map from item id to item
 itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
-itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
+# map from token address to item
+itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
+# map from issuer to item store
+chunkStoreType = sp.TMap(sp.TAddress, itemStoreType)
+chunkStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreType)
 
-class Item_store_map:
+# TODO: handle issuer and token store levels in this class, with remove if empty, etc.
+class Item_store_map_old:
     def make(self):
         return itemStoreLiteral
     def get(self, map, issuer):
@@ -106,7 +112,7 @@ class Item_store_map:
             del map[issuer]
 
 #
-# Place storage
+# Place prop storage
 placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
 # only set color by default.
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
@@ -115,14 +121,14 @@ placeStorageType = sp.TRecord(
     next_id=sp.TNat,
     interaction_counter=sp.TNat,
     place_props=placePropsType,
-    stored_items=itemStoreType
+    stored_items=chunkStoreType
 ).layout(("next_id", ("interaction_counter", ("place_props", "stored_items"))))
 
 placeStorageDefault = sp.record(
     next_id = sp.nat(0),
     interaction_counter = sp.nat(0),
     place_props = defaultPlaceProps,
-    stored_items=itemStoreLiteral
+    stored_items=chunkStoreLiteral
 )
 
 placeKeyType = sp.TRecord(
@@ -140,6 +146,66 @@ class Place_store_map:
             map[key] = placeStorageDefault
         return map[key]
 
+#
+# Chunk storage
+# TODO:
+#chunkStorageType = sp.TRecord(
+#    next_id = sp.TNat, # per cunk item ids
+#    chunk_storage=chunkStoreType
+#)
+#
+#chunkStorageDefault = sp.record(
+#    next_id = sp.nat(0),
+#    chunk_storage=chunkStoreLiteral
+#)
+
+#chunkType = sp.TMap(sp.TAddress, # from issuer
+#    sp.TMap(sp.TAddress, # to token
+#        sp.TMap(sp.TNat, # to item id
+#            extensibleVariantType # to item
+#        )))
+
+# TODO: per chunk item limit and chunk limit.
+# TODO: this kind of breaks ext type items... could maybe store them with a special contract address????
+# +++++ or maybe store ext type items in a special map???? or maybe it just doesn't matter under what token they are stored?
+# +++++ or maybe the issuer map could be a record(ext_items_map, tokens_map)
+class Item_store_map:
+    def make(self):
+        return chunkStoreLiteral
+
+    def get(self, map, issuer, fa2):
+        #map = sp.set_type_expr(map, chunkStoreType)
+        #issuer = sp.set_type_expr(issuer, sp.TAddress)
+        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        return map[issuer][fa2]
+
+    def get_or_create(self, map, issuer, fa2):
+        #map = sp.set_type_expr(map, chunkStoreType)
+        #issuer = sp.set_type_expr(issuer, sp.TAddress)
+        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        # if the issuer map does not exist, create it.
+        with sp.if_(~map.contains(issuer)):
+            map[issuer] = itemStoreLiteral
+        # if the issuer map doesn't contain a map for the token, create it.
+        with sp.if_(~map[issuer].contains(fa2)):
+            map[issuer][fa2] = itemStoreMapLiteral
+        return map[issuer][fa2]
+
+    def remove_if_empty(self, map, issuer, fa2):
+        #map = sp.set_type_expr(map, chunkStoreType)
+        #issuer = sp.set_type_expr(issuer, sp.TAddress)
+        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        # If the chunk has a map for the issuer
+        with sp.if_(map.contains(issuer)):
+            # and it has a map for the token and it's empty
+            with sp.if_(map[issuer].contains(fa2) & (sp.len(map[issuer][fa2]) == 0)):
+                # delete the issuer-token map
+                del map[issuer][fa2]
+            # if now the issuer map is empty
+            with sp.if_(sp.len(map[issuer]) == 0):
+                # delete the issuer map
+                del map[issuer]
+
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
     item_data=sp.TBytes
@@ -152,15 +218,8 @@ placeItemListType = sp.TVariant(
         mutez_per_token=sp.TMutez,
         item_data=sp.TBytes
     ).layout(("token_id", ("token_amount", ("mutez_per_token", "item_data")))),
-    other = sp.TRecord(
-        token_id=sp.TNat,
-        token_amount=sp.TNat,
-        mutez_per_token=sp.TMutez,
-        item_data=sp.TBytes,
-        fa2=sp.TAddress
-    ).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "fa2"))))),
     ext = sp.TBytes
-).layout(("item", ("other", "ext")))
+).layout(("item", "ext"))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -185,7 +244,8 @@ class Error_message:
     def fee_error(self):            return self.make("FEE_ERROR")
     def parameter_error(self):      return self.make("PARAM_ERROR")
     def data_length(self):          return self.make("DATA_LEN")
-    def item_limit(self):           return self.make("ITEM_LIMIT")
+    def chunk_limit(self):          return self.make("CHUNK_LIMIT")
+    def chunk_item_limit(self):     return self.make("CHUNK_ITEM_LIMIT")
     def not_for_sale(self):         return self.make("NOT_FOR_SALE")
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
@@ -263,7 +323,7 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, metadata, name, description, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -281,9 +341,7 @@ class TL_World(
         self.init_storage(
             items_contract = items_contract,
             places_contract = places_contract,
-            dao_contract = dao_contract,
             metadata = metadata,
-            item_limit = sp.nat(64),
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = self.place_store_map.make()
@@ -292,7 +350,7 @@ class TL_World(
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator) # TODO: move to separate contract.
-        allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator) # TODO: default_allowed?
+        allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
         self.generate_contract_metadata(name, description)
@@ -323,15 +381,6 @@ class TL_World(
                 offchain_views.append(attr)
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
-
-    #
-    # Manager-only entry points
-    #
-    @sp.entry_point
-    def update_item_limit(self, item_limit):
-        sp.set_type(item_limit, sp.TNat)
-        self.onlyAdministrator()
-        self.data.item_limit = item_limit
 
 
     @sp.entry_point
@@ -445,14 +494,14 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
-            item_list = sp.TList(placeItemListType),
+            place_item_map = sp.TMap(sp.TAddress, sp.TList(placeItemListType)),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("item_list", "extension")))))
+        ).layout(("place_key", ("owner", ("place_item_map", "extension")))))
 
         self.onlyUnpaused()
 
         # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+        place_limits = self.getAllowedPlaceToken(params.place_key.place_contract)
 
         # Caller must have PlaceItems permissions.
         permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
@@ -464,69 +513,69 @@ class TL_World(
         # Count items in place item storage.
         place_item_count = sp.local("place_item_count", sp.nat(0))
         with sp.for_("issuer_map", this_place.stored_items.values()) as issuer_map:
-            place_item_count.value += sp.len(issuer_map)
+            with sp.for_("token_map", issuer_map.values()) as token_map:
+                place_item_count.value += sp.len(token_map)
 
-        # Make sure item limit is not exceeded.
-        sp.verify(place_item_count.value + sp.len(params.item_list) <= self.data.item_limit, message = self.error_message.item_limit())
+        # Count items to be added.
+        add_item_count = sp.local("add_item_count", sp.nat(0))
+        with sp.for_("item_list", params.place_item_map.values()) as item_list:
+            add_item_count.value += sp.len(item_list)
 
-        # Get or create item storage.
-        item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
+        # Make sure chunk item limit is not exceeded.
+        sp.verify(place_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
-        # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+        # For each fa2 in the map.
+        with sp.for_("fa2", params.place_item_map.keys()) as fa2:
+            item_list = params.place_item_map[fa2]
 
-        # For each item in the list.
-        with sp.for_("curr", params.item_list) as curr:
-            with curr.match_cases() as arg:
-                with arg.match("item") as item:
-                    self.validateItemData(item.item_data)
+            # Get or create item storage.
+            item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender, fa2)
 
-                    # transfer item to this contract
-                    # do multi-transfer by building up a list of transfers
-                    with sp.if_(transferMap.value.contains(item.token_id)):
-                        transferMap.value[item.token_id].amount += item.token_amount
-                    with sp.else_():
-                        transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
+            # Our token transfer map.
+            # TODO: we could do this outside the loops with a 2-level transfer map
+            transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
 
-                    # Add item to storage.
-                    item_store[this_place.next_id] = sp.variant("item", sp.record(
-                        item_amount = item.token_amount,
-                        token_id = item.token_id,
-                        mutez_per_item = item.mutez_per_token,
-                        item_data = item.item_data))
+            # For each item in the list.
+            with sp.for_("curr", item_list) as curr:
+                with curr.match_cases() as arg:
+                    with arg.match("item") as item:
+                        self.validateItemData(item.item_data)
 
-                with arg.match("other") as other:
-                    self.validateItemData(other.item_data)
+                        # TODO:
+                        # Token registry should be a separate contract
+                        ## Check if FA2 token is permitted and get props.
+                        #fa2_props = self.getPermittedFA2Props(fa2)
+                        #
+                        ## If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
+                        #with sp.if_(~ fa2_props.swap_allowed):
+                        #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
-                    # Check if FA2 token is permitted and get props.
-                    fa2_props = self.getPermittedFA2Props(other.fa2)
+                        # transfer item to this contract
+                        # do multi-transfer by building up a list of transfers
+                        with sp.if_(transferMap.value.contains(item.token_id)):
+                            transferMap.value[item.token_id].amount += item.token_amount
+                        with sp.else_():
+                            transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
-                    # If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
-                    with sp.if_(~ fa2_props.swap_allowed):
-                        sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
+                        # Add item to storage.
+                        item_store[this_place.next_id] = sp.variant("item", sp.record(
+                            item_amount = item.token_amount,
+                            token_id = item.token_id,
+                            mutez_per_item = item.mutez_per_token,
+                            item_data = item.item_data))
 
-                    # Transfer external token to this contract. Only support 1 token per placement. No swaps.
-                    utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, other.token_amount)
+                    with arg.match("ext") as ext_data:
+                        self.validateItemData(ext_data)
+                        # Add item to storage.
+                        item_store[this_place.next_id] = sp.variant("ext", ext_data)
 
-                    # Add item to storage.
-                    item_store[this_place.next_id] = sp.variant("other", sp.record(
-                        item_amount = other.token_amount,
-                        token_id = other.token_id,
-                        mutez_per_item = other.mutez_per_token,
-                        item_data = other.item_data,
-                        fa2 = other.fa2))
+                # Increment next_id.
+                this_place.next_id += 1
 
-                with arg.match("ext") as ext_data:
-                    self.validateItemData(ext_data)
-                    # Add item to storage.
-                    item_store[this_place.next_id] = sp.variant("ext", ext_data)
-
-            # Increment next_id.
-            this_place.next_id += 1
-
-        # only transfer if list has items
-        with sp.if_(sp.len(transferMap.value) > 0):
-            utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
+            # only transfer if list has items
+            # TODO: we could do this outside the loops with a 2-level transfer map
+            with sp.if_(sp.len(transferMap.value) > 0):
+                utils.fa2_transfer_multi(fa2, sp.sender, transferMap.value.values())
 
 
     @sp.entry_point(lazify = True)
@@ -534,7 +583,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
-            update_map = sp.TMap(sp.TAddress, sp.TList(updateItemListType)),
+            update_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
             extension = extensionArgType
         ).layout(("place_key", ("owner", ("update_map", "extension")))))
 
@@ -557,26 +606,22 @@ class TL_World(
 
         # Update items.
         with sp.for_("issuer", params.update_map.keys()) as issuer:
-            update_list = params.update_map[issuer]
-            # Get item store - must exist.
-            item_store = self.item_store_map.get(this_place.stored_items, issuer)
-            
-            with sp.for_("update", update_list) as update:
-                self.validateItemData(update.item_data)
+            with sp.for_("fa2", params.update_map[issuer].keys()) as fa2:
+                update_list = params.update_map[issuer][fa2]
+                # Get item store - must exist.
+                item_store = self.item_store_map.get(this_place.stored_items, issuer, fa2)
+                
+                with sp.for_("update", update_list) as update:
+                    self.validateItemData(update.item_data)
 
-                with item_store[update.item_id].match_cases() as arg:
-                    with arg.match("item") as immutable:
-                        # sigh - variants are not mutable
-                        item_var = sp.compute(immutable)
-                        item_var.item_data = update.item_data
-                        item_store[update.item_id] = sp.variant("item", item_var)
-                    with arg.match("other") as immutable:
-                        # sigh - variants are not mutable
-                        other_var = sp.compute(immutable)
-                        other_var.item_data = update.item_data
-                        item_store[update.item_id] = sp.variant("other", other_var)
-                    with arg.match("ext"):
-                        item_store[update.item_id] = sp.variant("ext", update.item_data)
+                    with item_store[update.item_id].match_cases() as arg:
+                        with arg.match("item") as immutable:
+                            # sigh - variants are not mutable
+                            item_var = sp.compute(immutable)
+                            item_var.item_data = update.item_data
+                            item_store[update.item_id] = sp.variant("item", item_var)
+                        with arg.match("ext"):
+                            item_store[update.item_id] = sp.variant("ext", update.item_data)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
@@ -587,13 +632,13 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
-            remove_map = sp.TMap(sp.TAddress, sp.TList(sp.TNat)),
+            remove_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
             extension = extensionArgType
         ).layout(("place_key", ("owner", ("remove_map", "extension")))))
 
         self.onlyUnpaused()
 
-        # Place token must be allowed?
+        # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Get the place - must exist.
@@ -608,43 +653,44 @@ class TL_World(
             with sp.for_("remove_key", params.remove_map.keys()) as remove_key:
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
-        # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
-
         # Remove items.
         with sp.for_("issuer", params.remove_map.keys()) as issuer:
-            item_list = params.remove_map[issuer]
-            # Get item store - must exist.
-            item_store = self.item_store_map.get(this_place.stored_items, issuer)
-            
-            with sp.for_("curr", item_list) as curr:
-                with item_store[curr].match_cases() as arg:
-                    with arg.match("item") as the_item:
-                        # Transfer all remaining items back to issuer
-                        # do multi-transfer by building up a list of transfers
-                        with sp.if_(transferMap.value.contains(the_item.token_id)):
-                            transferMap.value[the_item.token_id].amount += the_item.item_amount
-                        with sp.else_():
-                            transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=issuer, token_id=the_item.token_id)
+            with sp.for_("fa2", params.remove_map[issuer].keys()) as fa2:
+                item_list = params.remove_map[issuer][fa2]
 
-                    with arg.match("other") as the_other:
-                        # transfer external token back to the issuer. Only support 1 token.
-                        utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, the_other.item_amount)
+                # Get item store - must exist.
+                item_store = self.item_store_map.get(this_place.stored_items, issuer, fa2)
 
-                    # Nothing to do here with ext items. Just remove them.
+                # Our token transfer map.
+                # TODO: we could do this outside the loops with a 2-level transfer map
+                transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
                 
-                # Delete item from storage.
-                del item_store[curr]
+                with sp.for_("curr", item_list) as curr:
+                    with item_store[curr].match_cases() as arg:
+                        with arg.match("item") as the_item:
+                            # TODO: 2 level transfer map!
+                            # Transfer all remaining items back to issuer
+                            # do multi-transfer by building up a list of transfers
+                            with sp.if_(transferMap.value.contains(the_item.token_id)):
+                                transferMap.value[the_item.token_id].amount += the_item.item_amount
+                            with sp.else_():
+                                transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=issuer, token_id=the_item.token_id)
 
-            # Remove the item store if empty.
-            self.item_store_map.remove_if_empty(this_place.stored_items, issuer)
+                        # Nothing to do here with ext items. Just remove them.
+                    
+                    # Delete item from storage.
+                    del item_store[curr]
+
+                # Only transfer if transfer map has items.
+                # TODO: we could do this outside the loops with a 2-level transfer map
+                with sp.if_(sp.len(transferMap.value) > 0):
+                    utils.fa2_transfer_multi(fa2, sp.self_address, transferMap.value.values())
+
+                # Remove the item store if empty.
+                self.item_store_map.remove_if_empty(this_place.stored_items, issuer, fa2)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
-
-        # Only transfer if transfer map has items.
-        with sp.if_(sp.len(transferMap.value) > 0):
-            utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
 
     # Lambda for sending royalties, fees, etc
@@ -694,19 +740,20 @@ class TL_World(
             place_key =  placeKeyType,
             item_id = sp.TNat,
             issuer = sp.TAddress,
+            fa2 = sp.TAddress,
             extension = extensionArgType
-        ).layout(("place_key", ("item_id", ("issuer", "extension")))))
+        ).layout(("place_key", ("item_id", ("issuer", ("fa2", "extension"))))))
 
         self.onlyUnpaused()
 
-        # Place token must be allowed?
+        # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Get the place - must exist.
         this_place = self.place_store_map.get(self.data.places, params.place_key)
 
         # Get item store - must exist.
-        item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
+        item_store = self.item_store_map.get(this_place.stored_items, params.issuer, params.fa2)
 
         # Build a local lambda from sendValueRoyaltiesFeesLambda
         sendValueLocalLambda = sp.compute(sp.build_lambda(self.sendValueRoyaltiesFeesLambda, with_storage="read-only", with_operations=True))
@@ -725,13 +772,13 @@ class TL_World(
                 # Transfer royalties, etc.
                 with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
+                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
                     sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
                 
                 # Transfer item to buyer.
-                utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
+                utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.item_amount > 1):
@@ -740,39 +787,12 @@ class TL_World(
                 with sp.else_():
                     del item_store[params.item_id]
 
-            # Other FA2 items.
-            with arg.match("other") as immutable:
-                # This is silly but required because match args are not mutable.
-                the_item = sp.local("the_item", immutable)
-
-                # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.value.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.value.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
-
-                # Transfer royalties, etc.
-                with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
-                    # Get the royalties for this item
-                    item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.value.token_id, the_item.value.fa2))
-
-                    # Send fees, royalties, value.
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
-                
-                # Transfer item to buyer.
-                utils.fa2_transfer(the_item.value.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
-                
-                # Reduce the item count in storage or remove it.
-                with sp.if_(the_item.value.item_amount > 1):
-                    the_item.value.item_amount = abs(the_item.value.item_amount - 1)
-                    item_store[params.item_id] = sp.variant("other", the_item.value)
-                with sp.else_():
-                    del item_store[params.item_id]
-
             # ext items are unswappable.
             with arg.match("ext"):
                 sp.failwith(self.error_message.wrong_item_type())
         
         # Remove the item store if empty.
-        self.item_store_map.remove_if_empty(this_place.stored_items, params.issuer)
+        self.item_store_map.remove_if_empty(this_place.stored_items, params.issuer, params.fa2)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
@@ -804,11 +824,6 @@ class TL_World(
                 this_place.interaction_counter,
                 this_place.next_id
             ))))
-
-
-    @sp.onchain_view(pure=True)
-    def get_item_limit(self):
-        sp.result(self.data.item_limit)
 
 
     @sp.onchain_view(pure=True)
