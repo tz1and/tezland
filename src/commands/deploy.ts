@@ -5,12 +5,11 @@ import assert from 'assert';
 import kleur from 'kleur';
 import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from '@taquito/taquito';
+import { DeployMode } from '../config/config';
 import config from '../user.config';
 import fs from 'fs';
 import { BatchWalletOperation } from '@taquito/taquito/dist/types/wallet/batch-operation';
 
-
-enum DeployMode { None, DevWorld, GasTest, StressTestSingle, StressTestMulti };
 
 type PostDeployContracts = {
     items_FA2_contract: ContractAbstraction<Wallet>,
@@ -201,10 +200,7 @@ export default class Deploy extends DeployBase {
         //
         // Post deploy
         //
-        // If this is a sandbox deploy, run the post deploy tasks.
-        const post_deploy = this.isSandboxNet ? DeployMode.DevWorld : DeployMode.None;
-
-        await this.runPostDeply(post_deploy, {
+        await this.runPostDeply({
             items_FA2_contract: items_FA2_contract,
             places_FA2_contract: places_FA2_contract,
             dao_FA2_contract: dao_FA2_contract,
@@ -215,9 +211,9 @@ export default class Deploy extends DeployBase {
         });
     }
 
-    private async runPostDeply(
-        deploy_mode: DeployMode,
-        contracts: PostDeployContracts) {
+    private async runPostDeply(contracts: PostDeployContracts) {
+        // If this is a sandbox deploy, run the post deploy tasks.
+        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
 
         console.log(kleur.magenta("Running post deploy tasks...\n"));
         switch (deploy_mode) {

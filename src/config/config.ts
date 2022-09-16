@@ -23,8 +23,17 @@ export type IpfsConfig = {
     nftStorageApiKey: string;
 }
 
+export enum DeployMode {
+    None,
+    DevWorld,
+    GasTest,
+    StressTestSingle,
+    StressTestMulti
+};
+
 export type SandboxConfig = {
     blockTime: number;
+    deployMode: DeployMode;
 }
 
 export type SmartpyNodeDevConfig = {

@@ -1,4 +1,4 @@
-import { SmartpyNodeDevConfig } from './config/config';
+import { DeployMode, SmartpyNodeDevConfig } from './config/config';
 const { testnetDeployerKey, deployerKey, nftStorageApiKey } = require('../secrets.json');
 
 const config: SmartpyNodeDevConfig = {
@@ -23,6 +23,7 @@ const config: SmartpyNodeDevConfig = {
     },
     sandbox: {
         blockTime: 5, // In seconds.
+        deployMode: DeployMode.DevWorld
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
