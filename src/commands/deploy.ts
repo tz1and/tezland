@@ -202,7 +202,7 @@ export default class Deploy extends DeployBase {
         // Post deploy
         //
         // If this is a sandbox deploy, run the post deploy tasks.
-        const post_deploy = this.isSandboxNet ? DeployMode.GasTest : DeployMode.None;
+        const post_deploy = this.isSandboxNet ? DeployMode.DevWorld : DeployMode.None;
 
         await this.runPostDeply(post_deploy, {
             items_FA2_contract: items_FA2_contract,
