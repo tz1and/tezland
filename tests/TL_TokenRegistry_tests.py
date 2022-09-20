@@ -10,7 +10,7 @@ def test():
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("Minter Tests")
+    scenario.h1("TokenRegistry Tests")
     scenario.table_of_contents()
 
     # Let's display the accounts:
@@ -75,6 +75,11 @@ def test():
     token_registry.unregister_fa2([places_tokens.address]).run(sender=admin)
     scenario.verify(token_registry.data.registered.contains(places_tokens.address) == False)
 
-    # TODO: test views
+    # test views
+    scenario.show(token_registry.is_registered(items_tokens.address))
+    scenario.verify(token_registry.is_registered(items_tokens.address) == True)
+    token_registry.unregister_fa2([items_tokens.address]).run(sender=admin)
+    scenario.show(token_registry.is_registered(items_tokens.address))
+    scenario.verify(token_registry.is_registered(items_tokens.address) == False)
 
     scenario.table_of_contents()

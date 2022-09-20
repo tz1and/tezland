@@ -11,7 +11,7 @@ def test():
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("Minter Tests")
+    scenario.h1("TokenFactory Tests")
     scenario.table_of_contents()
 
     # Let's display the accounts:

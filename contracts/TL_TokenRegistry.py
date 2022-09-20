@@ -112,12 +112,8 @@ class TL_TokenRegistry(
     #
     @sp.onchain_view(pure=True)
     def is_registered(self, contract):
-        # TODO: figure out if this should throw or return false...
-        """Returns true if contract is registered,
-        fails with TOKEN_NOT_REGISTERED otherwise"""
+        # TODO: should we store royalty-type information with registered tokens?
+        """Returns true if contract is registered, false otherwise."""
         sp.set_type(contract, sp.TAddress)
         with sp.set_result_type(sp.TBool):
-            with sp.if_(self.address_set.contains(self.data.registered, contract)):
-                sp.result(True)
-            with sp.else_():
-                sp.failwith("TOKEN_NOT_REGISTERED")
+            sp.result(self.address_set.contains(self.data.registered, contract))
