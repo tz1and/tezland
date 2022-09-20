@@ -1,6 +1,8 @@
 import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
+token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
+token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 fa2_test_lib = sp.io.import_script_from_url("file:tests/lib/FA2_test_lib.py")
@@ -150,6 +152,22 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
+    scenario.h2("TokenRegistry")
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += token_registry
+
+    scenario.h3("register tokens")
+    token_registry.register_fa2([items_tokens.address]).run(sender=admin)
+
+    scenario.h2("TokenFactory")
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += token_factory
+
+    scenario.h3("registry permissions")
+    token_registry.manage_permissions([sp.variant("add_permission", token_factory.address)]).run(sender=admin)
+
     scenario.h2("dao")
     dao_token = tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
@@ -215,7 +233,7 @@ def test():
     # create World contract
     #
     scenario.h2("Originate World contract")
-    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address,
+    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, token_registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
@@ -530,24 +548,26 @@ def test():
 
     # test unpermitted place_item
     # TODO: other type item tests are a bit broken because all kinds of reasons...
-    scenario.h3("Test placing unpermitted 'other' type items")
+    scenario.h3("Test placing unregistered non-tz1and FA2s")
     place_items(place_alice, {other_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position))
-    ]}, sender=alice, valid=False, message="TOKEN_NOT_PERMITTED")
+    ]}, sender=alice, valid=False, message="TOKEN_NOT_REGISTERED")
 
-    scenario.h3("set_fa2_permitted: swap_allowed=False")
-    add_permitted = sp.list([sp.variant("add_permitted",
-        sp.record(
-            fa2 = other_token.address,
-            props = sp.record(
-                swap_allowed = False,
-                royalties_kind = sp.variant("none", sp.unit))))])
-
-    world.set_fa2_permitted(add_permitted).run(sender = admin)
+    scenario.h3("register token: swap_allowed=False")
+    #token_registry.register_fa2([other_token.address]).run(sender=admin)
+    # TODO: royalty info in registry? see old fa2 permitted:
+    ##add_permitted = sp.list([sp.variant("add_permitted",
+    ##    sp.record(
+    ##        fa2 = other_token.address,
+    ##        props = sp.record(
+    ##            swap_allowed = False,
+    ##            royalties_kind = sp.variant("none", sp.unit))))])
 
     # test place_item
-    scenario.h3("Test placing/removing/getting permitted 'other' type items")
+    scenario.h3("Test placing/removing/getting registered non-tz1and FA2s")
 
+    # TODO:
+    """
     scenario.h4("place")
     place_items(place_alice, {other_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position)),
@@ -574,6 +594,7 @@ def test():
 
     scenario.h4("remove")
     remove_items(place_alice, {alice.address: {other_token.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}}, sender=alice)
+    """
 
     #
     # test world permissions

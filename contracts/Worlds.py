@@ -7,9 +7,9 @@ class tz1andWorld(
 ):
     """tz1and World"""
 
-    def __init__(self, administrator, items_contract, places_contract, metadata):
+    def __init__(self, administrator, items_contract, places_contract, token_registry, metadata):
         World.TL_World.__init__(
             self, administrator=administrator, items_contract=items_contract,
-            places_contract=places_contract, metadata=metadata,
+            places_contract=places_contract, token_registry=token_registry, metadata=metadata,
             name="tz1and World", description="tz1and Virtual World v2"
         )

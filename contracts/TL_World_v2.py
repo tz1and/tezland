@@ -9,20 +9,22 @@ import smartpy as sp
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: chunks. map from issuer to token address to item id to item
 # TODO: the extra level for token address is to alleviate storage penalty for collections and other fa2s.
-# TODO: if chunks have a counter, it needs to be checked to make sense. maybe counting over all levels of storage is better.
+# TODO: chunks. separate storage in bigmap with key (place_key, chunk_id).
 # TODO: collections. collection factory, minter and registry.
-# TODO: allowed fa2s are checked against registry?, which also contains information about royalties.
-# TODO: allow direct royalties? :(
+# TODO: allowed fa2s are checked against registry? which should also contain information about royalties.
+# TODO: allow direct royalties? :( hate it but maybe have to allow it...
 # TODO: 2-level fa2 transfer map?
+# TODO: migration mechanism to allow recieving (from lower version) and forwarding items(to higher version) migrations. could do v1 to v2 migration as an upgrade to v1?
+# TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
+# TODO: gas optimisations!
+# TODO: per chunk AND per place interaction counter?
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -51,7 +53,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # Some notes:
 # - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
 # - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
-# - DON'T add Items or Places, to permitted_fa2.
 # - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 # - Item data is stored in half floats, usually, there are two formats as of now
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
@@ -249,6 +250,7 @@ class Error_message:
     def not_for_sale(self):         return self.make("NOT_FOR_SALE")
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
+    def token_not_registered(self): return self.make("TOKEN_NOT_REGISTERED")
 
 #
 # Like Operator_set from legacy FA2. Lazy set for place permissions.
@@ -319,11 +321,10 @@ class TL_World(
     pause_mixin.Pausable,
     fees_mixin.Fees,
     mod_mixin.Moderation,
-    permitted_fa2.PermittedFA2,
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, items_contract, places_contract, metadata, name, description, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, token_registry, metadata, name, description, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -332,6 +333,10 @@ class TL_World(
         #self.add_flag("initial-cast")
         # Makes much smaller code but removes annots from eps.
         #self.add_flag("simplify-via-michel")
+
+        items_contract = sp.set_type_expr(items_contract, sp.TAddress)
+        places_contract = sp.set_type_expr(places_contract, sp.TAddress)
+        token_registry = sp.set_type_expr(token_registry, sp.TAddress)
         
         self.error_message = Error_message()
         self.permission_map = Permission_map()
@@ -341,6 +346,7 @@ class TL_World(
         self.init_storage(
             items_contract = items_contract,
             places_contract = places_contract,
+            token_registry = token_registry,
             metadata = metadata,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
@@ -349,7 +355,6 @@ class TL_World(
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator) # TODO: move to separate contract.
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
             entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
@@ -485,9 +490,17 @@ class TL_World(
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
 
+
     def validateItemData(self, item_data):
         # Verify the item data has the right length.
         sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
+
+
+    def getTokenRegistry(self, fa2):
+        return sp.view("is_registered", self.data.token_registry,
+            sp.set_type_expr(fa2, sp.TAddress),
+            t = sp.TBool).open_some()
+
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
@@ -540,6 +553,9 @@ class TL_World(
                 with curr.match_cases() as arg:
                     with arg.match("item") as item:
                         self.validateItemData(item.item_data)
+
+                        registered = self.getTokenRegistry(fa2)
+                        sp.verify(registered == True, self.error_message.token_not_registered())
 
                         # TODO:
                         # Token registry should be a separate contract
@@ -693,10 +709,8 @@ class TL_World(
         this_place.interaction_counter += 1
 
 
-    # Lambda for sending royalties, fees, etc
-    # It could be inlined, but instead we build a local lambda
-    # to be reused in get_item.
-    def sendValueRoyaltiesFeesLambda(self, params):
+    # Inline function for sending royalties, fees, etc
+    def sendValueRoyaltiesFeesInline(self, params):
         sp.set_type(params, sp.TRecord(
             mutez_per_item = sp.TMutez,
             issuer = sp.TAddress,
@@ -755,9 +769,6 @@ class TL_World(
         # Get item store - must exist.
         item_store = self.item_store_map.get(this_place.stored_items, params.issuer, params.fa2)
 
-        # Build a local lambda from sendValueRoyaltiesFeesLambda
-        sendValueLocalLambda = sp.compute(sp.build_lambda(self.sendValueRoyaltiesFeesLambda, with_storage="read-only", with_operations=True))
-
         # Swap based on item type.
         with item_store[params.item_id].match_cases() as arg:
             # For tz1and native items.
@@ -772,10 +783,12 @@ class TL_World(
                 # Transfer royalties, etc.
                 with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
+                    # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
+                    # at least in terms of what "type" of royalties.
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
