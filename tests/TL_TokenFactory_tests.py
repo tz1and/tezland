@@ -48,8 +48,12 @@ def test():
     scenario.verify(token_factory.data.token_registry == token_registry.address)
 
     # test create_token
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url(""))).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("https://newtoken.com"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://newtoken.com"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
 
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("https://newtoken.com"))).run(sender=admin)
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
     # NOTE: Not sure how to get the originated contract fromthe op. Does this address change?
     scenario.verify(token_registry.data.registered.contains(sp.address("KT1TezoooozzSmartPyzzDYNAMiCzzpLu4LU")))
 

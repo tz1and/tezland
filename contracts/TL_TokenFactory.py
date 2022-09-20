@@ -7,7 +7,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 # TODO: figure out if entrypoints should be lazy!!!!
-# TODO: figure out who should be admin of all collections... another contract? maybe this contract? owner should be the general minter!
+# TODO: originated FA2 admin should be the general minter!
 # TODO: update_token_registry: make sure contract has token_registry ep?
 # TODO: basic validation of the metadata? i.e. make sure it's an IPFS link
 
@@ -53,6 +53,7 @@ class TL_TokenFactory(
         self.init_storage(
             metadata = metadata,
             token_registry = sp.set_type_expr(token_registry, sp.TAddress),
+            #minter = minter # TODO: needs to know the minter contract
             )
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
@@ -105,6 +106,8 @@ class TL_TokenFactory(
 
         self.data.token_registry = contract
 
+    # TODO: update_token_minter
+
     #
     # Public entry points
     #
@@ -115,12 +118,15 @@ class TL_TokenFactory(
             metadata = sp.TBigMap(sp.TString, sp.TBytes)
         ))
 
-        # TODO: basic validation of the metadata? i.e. make sure it's an IPFS link
+        # Basic validation of the metadata, try to make sure it's a somewhat valid ipfs URI.
+        # Ipfs cid v0 + proto is 53 chars.
+        sp.verify((sp.slice(params.metadata[""], 0, 7).open_some("INVALID_METADATA") == sp.utils.bytes_of_string("ipfs://"))
+            & (sp.len(params.metadata[""]) >= sp.nat(53)), "INVALID_METADATA")
 
-        # originate
+        # Originate
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
             # The storage we need to modify
-            administrator = sp.self_address, #self.data.administrator, # TODO: figure out who should be admin of all collections... another contract? maybe this contract?
+            administrator = sp.self_address, # TODO: originated FA2 admin should be the general minter!
             metadata = params.metadata,
             # Just the default values
             adhoc_operators = sp.set(),
@@ -133,7 +139,7 @@ class TL_TokenFactory(
             token_metadata = sp.big_map()
         ))
 
-        # register with token registry
+        # Register with token registry
         register_fa2_handle = sp.contract(sp.TList(sp.TAddress), self.data.token_registry, 
             entry_point = "register_fa2").open_some()
 
