@@ -1,12 +1,15 @@
 import * as child from 'child_process';
 import * as kleur from 'kleur';
 import * as fs from 'fs';
+import config from '../user.config';
 
 // Expected location of SmartPy CLI.
 const SMART_PY_INSTALL_DIR = "./bin/smartpy"
 const SMART_PY_CLI = SMART_PY_INSTALL_DIR + "/SmartPy.sh"
 const test_out_dir = "./tests/test_output"
 
+const CHECK_MARK = "\u2713"
+const CROSS_MARK = "\u2717"
 
 export function test(contract_names: string[]) {
     if(contract_names.length > 0)
@@ -23,6 +26,11 @@ export function test(contract_names: string[]) {
 }
 
 export function test_single(contract_name: string) {
+    if (config.smartpy.exclude_tests.has(contract_name)) {
+        console.log(kleur.blue(`- Skipping tests for contract '${contract_name}' (excluded in user.config)`));
+        return;
+    }
+
     console.log(kleur.yellow(`Running tests for contract '${contract_name}' ...`));
 
     try {
@@ -31,10 +39,10 @@ export function test_single(contract_name: string) {
 
         child.execSync(`${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
 
-        console.log(kleur.green(`Tests for '${contract_name}' succeeded`))
+        console.log(kleur.green(`${CHECK_MARK} Tests for '${contract_name}' succeeded`))
 
     } catch(err) {
-        console.log(kleur.red(`Tests for '${contract_name}' failed: ${err}`))
+        console.log(kleur.red(`${CROSS_MARK} Tests for '${contract_name}' failed: ${err}`))
     }
 }
 

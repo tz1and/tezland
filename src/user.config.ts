@@ -28,6 +28,9 @@ const config: SmartpyNodeDevConfig = {
     ipfs: {
         localNodeUrl: "http://localhost:5001",
         nftStorageApiKey: nftStorageApiKey
+    },
+    smartpy: {
+        exclude_tests: new Set(["DistrictDAO", "TL_World"])
     }
 }
 export default config;

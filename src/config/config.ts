@@ -36,9 +36,14 @@ export type SandboxConfig = {
     deployMode: DeployMode;
 }
 
+export type SmartPyConfig = {
+    exclude_tests: Set<string>;
+}
+
 export type SmartpyNodeDevConfig = {
     defaultNetwork: string;
     networks: NetworksConfig;
     sandbox: SandboxConfig;
     ipfs: IpfsConfig;
+    smartpy: SmartPyConfig
 }
