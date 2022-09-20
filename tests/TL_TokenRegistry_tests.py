@@ -35,18 +35,12 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    # test admin stuff
-    scenario.h2("transfer_administrator")
-    scenario.verify(token_registry.data.administrator == admin.address)
-    token_registry.transfer_administrator(alice.address).run(sender = admin)
-    token_registry.accept_administrator().run(sender = alice)
-    scenario.verify(token_registry.data.administrator == alice.address)
-    token_registry.transfer_administrator(admin.address).run(sender = alice)
-    token_registry.accept_administrator().run(sender = admin)
-
     # test manage_permissions
     scenario.verify(token_registry.data.permitted.contains(alice.address) == False)
     scenario.verify(token_registry.data.permitted.contains(bob.address) == False)
+
+    token_registry.manage_permissions([sp.variant("add_permission", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
     token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
     scenario.verify(token_registry.data.permitted.contains(alice.address) == False)

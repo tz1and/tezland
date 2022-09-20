@@ -7,6 +7,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: store information about a contracts royalties?
 # TODO: convert tz1and royalties to the more common decimals and shares format? (see fa2 metadata)
 # TODO: add support for merkle tree to check for supported tokens? object.com, etc...
+# TODO: figure out if entrypoints should be lazy!!!!
 
 
 #
@@ -18,6 +19,8 @@ class TL_TokenRegistry(
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
+
+        administrator = sp.set_type_expr(administrator, sp.TAddress)
         
         self.address_set = utils.Address_set()
         self.init_storage(
@@ -80,7 +83,6 @@ class TL_TokenRegistry(
                 with arg.match("remove_permission") as address:
                     self.address_set.remove(self.data.permitted, address)
 
-    # TODO: entry point to un-register FA2?
     @sp.entry_point(lazify = True)
     def unregister_fa2(self, params):
         """Allow administrator to unregister FA2s"""
