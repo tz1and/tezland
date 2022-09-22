@@ -29,7 +29,7 @@ def test():
     scenario += change_metadata
 
     #
-    # update_fees
+    # set_metadata
     #
     scenario.h3("set_metadata")
 
