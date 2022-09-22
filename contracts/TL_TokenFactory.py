@@ -167,4 +167,4 @@ class TL_TokenFactory(
             self.data.token_minter, 
             entry_point = "manage_private_collections").open_some()
 
-        sp.transfer(sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender)]), sp.mutez(0), manage_private_collections_handle)
+        sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender)])], sp.mutez(0), manage_private_collections_handle)
