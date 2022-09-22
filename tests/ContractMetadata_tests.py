@@ -37,8 +37,8 @@ def test():
     new_metadata2 = sp.utils.metadata_of_url("https://new_meta2.com")
 
     scenario.verify(change_metadata.data.metadata[""] == initial_metadata[""])
-    change_metadata.set_metadata(new_metadata).run(sender = bob, valid = False)
-    change_metadata.set_metadata(new_metadata).run(sender = alice, valid = False)
+    change_metadata.set_metadata(new_metadata).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    change_metadata.set_metadata(new_metadata).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     change_metadata.set_metadata(new_metadata).run(sender = admin)
     scenario.verify(change_metadata.data.metadata[""] == new_metadata[""])
     change_metadata.set_metadata(new_metadata2).run(sender = admin)
