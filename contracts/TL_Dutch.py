@@ -49,7 +49,7 @@ class TL_Dutch(
         
         self.init_storage(
             items_contract = items_contract,
-            metadata = metadata,
+            metadata = metadata, # TODO: use ContractMetadata mixin for v2...
             secondary_enabled = sp.bool(False), # If the secondary market is enabled.
             auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
@@ -59,13 +59,12 @@ class TL_Dutch(
         whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
-            entrypoints = ['create', 'cancel', 'bid'])
 
         default_permitted = { places_contract : sp.record(
             swap_allowed = True,
             royalties_kind = sp.variant("none", sp.unit) )}
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):

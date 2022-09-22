@@ -1,7 +1,7 @@
 import smartpy as sp
 
 dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch.py")
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
+minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py") # TODO: use v2 minter in tests
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
 @sp.add_test(name = "TL_Dutch_tests", profile = True)

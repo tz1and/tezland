@@ -359,8 +359,7 @@ class TL_World(
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
-            entrypoints = ['set_place_props', 'place_items', 'set_item_data', 'remove_items', 'get_item'])
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata(name, description)
 
     def generate_contract_metadata(self, name, description):

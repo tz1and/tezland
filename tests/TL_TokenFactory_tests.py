@@ -64,5 +64,6 @@ def test():
     token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
     # NOTE: Not sure how to get the originated contract from the op in tests. Does this address change?
     scenario.verify(token_registry.data.registered.contains(sp.address("KT1TezoooozzSmartPyzzDYNAMiCzzpLu4LU")))
+    scenario.verify(minter.data.private_collections.contains(sp.address("KT1TezoooozzSmartPyzzDYNAMiCzzpLu4LU")))
 
     scenario.table_of_contents()
