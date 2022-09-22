@@ -35,25 +35,6 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    # test manage_permissions
-    scenario.verify(token_registry.data.permitted.contains(alice.address) == False)
-    scenario.verify(token_registry.data.permitted.contains(bob.address) == False)
-
-    token_registry.manage_permissions([sp.variant("add_permission", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
-
-    token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
-    scenario.verify(token_registry.data.permitted.contains(alice.address) == False)
-    scenario.verify(token_registry.data.permitted.contains(bob.address) == True)
-
-    token_registry.manage_permissions([sp.variant("add_permission", alice.address)]).run(sender=admin)
-    scenario.verify(token_registry.data.permitted.contains(alice.address) == True)
-    scenario.verify(token_registry.data.permitted.contains(bob.address) == True)
-
-    token_registry.manage_permissions([sp.variant("remove_permission", bob.address), sp.variant("remove_permission", alice.address)]).run(sender=admin)
-    scenario.verify(token_registry.data.permitted.contains(alice.address) == False)
-    scenario.verify(token_registry.data.permitted.contains(bob.address) == False)
-
     token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
 
     # test register_fa2

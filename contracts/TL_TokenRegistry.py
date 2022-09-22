@@ -1,6 +1,7 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -8,13 +9,15 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: convert tz1and royalties to the more common decimals and shares format? (see fa2 metadata)
 # TODO: add support for merkle tree to check for supported tokens? object.com, etc...
 # TODO: figure out if entrypoints should be lazy!!!!
+# TODO: make mixin for permissions
 
 
 #
 # TokenRegistry contract.
 # NOTE: should be pausable for code updates.
 class TL_TokenRegistry(
-    admin_mixin.Administrable,
+    contract_metadata_mixin.ContractMetadata,
+    basic_permissions_mixin.BasicPermissions,
     sp.Contract):
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -24,11 +27,10 @@ class TL_TokenRegistry(
         
         self.address_set = utils.Address_set()
         self.init_storage(
-            metadata = metadata,
-            registered = self.address_set.make(), # registered fa2s
-            permitted = self.address_set.make(), # accounts permitted to add to registry
-            )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+            registered = self.address_set.make() # registered fa2s
+        )
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
+        basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):
@@ -58,31 +60,9 @@ class TL_TokenRegistry(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
-    def onlyAdministratorOrPermitted(self):
-        sp.verify(self.isAdministrator(sp.sender) | self.data.permitted.contains(sp.sender), 'NOT_PERMITTED')
-
     #
     # Admin-only entry points
     #
-    @sp.entry_point(lazify = True)
-    def manage_permissions(self, params):
-        """Allows the administrator to add accounts permitted
-        to register FA2s"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            add_permission = sp.TAddress,
-            remove_permission = sp.TAddress
-        )))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                with arg.match("add_permission") as address:
-                    self.address_set.add(self.data.permitted, address)
-
-                with arg.match("remove_permission") as address:
-                    self.address_set.remove(self.data.permitted, address)
-
     @sp.entry_point(lazify = True)
     def unregister_fa2(self, params):
         """Allow administrator to unregister FA2s"""
