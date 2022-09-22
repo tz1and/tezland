@@ -1,6 +1,6 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
+minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")

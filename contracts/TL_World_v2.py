@@ -11,12 +11,14 @@ fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
 # TODO: the extra level for token address is to alleviate storage penalty for collections and other fa2s.
 # TODO: chunks. separate storage in bigmap with key (place_key, chunk_id).
+# TODO: place should have map of chunks with sequence numbers.
 # TODO: collections. collection factory, minter and registry.
 # TODO: allowed fa2s are checked against registry? which should also contain information about royalties.
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
@@ -318,6 +320,7 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(
+    contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     fees_mixin.Fees,
     mod_mixin.Moderation,
@@ -347,11 +350,11 @@ class TL_World(
             items_contract = items_contract,
             places_contract = places_contract,
             token_registry = token_registry,
-            metadata = metadata,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = self.place_store_map.make()
         )
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
@@ -366,7 +369,7 @@ class TL_World(
         metadata_base = {
             "name": name,
             "description": description,
-            "version": "1.0.0",
+            "version": "2.0.0",
             "interfaces": ["TZIP-012", "TZIP-016"],
             "authors": [
                 "852Kerfunkle <https://github.com/852Kerfunkle>"
