@@ -7,8 +7,7 @@ class UpgradeableTest(upgradeable_mixin.Upgradeable, sp.Contract):
         self.init_storage(
             counter = sp.int(0)
         )
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator,
-            entrypoints = ['test_entry', 'another_entry'])
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
 
     @sp.entry_point(lazify = True)
     def test_entry(self, params):
@@ -21,7 +20,7 @@ class UpgradeableTest(upgradeable_mixin.Upgradeable, sp.Contract):
         self.data.counter *= params.val
 
 
-def test_entry_uodate(self, params):
+def test_entry_update(self, params):
     sp.set_type(params.val, sp.TInt)
     self.data.counter -= params.val
 
@@ -40,6 +39,8 @@ def test():
     upgrade = UpgradeableTest(admin.address)
     scenario += upgrade
 
+    scenario.verify_equal(upgrade.upgradeable_entrypoints, ['another_entry', 'test_entry'])
+
     # test entry
     upgrade.test_entry(val = sp.int(2)).run(sender = alice)
     scenario.verify(upgrade.data.counter == sp.int(2))
@@ -48,7 +49,7 @@ def test():
     scenario.verify(upgrade.data.counter == sp.int(4))
 
     # update
-    upgrade_test_entry = sp.record(ep_name = sp.variant('test_entry', sp.unit), new_code = sp.utils.wrap_entry_point("test_entry", test_entry_uodate))
+    upgrade_test_entry = sp.record(ep_name = sp.variant('test_entry', sp.unit), new_code = sp.utils.wrap_entry_point("test_entry", test_entry_update))
     upgrade_another_entry = sp.record(ep_name = sp.variant('another_entry', sp.unit), new_code = sp.utils.wrap_entry_point("another_entry", another_entry_update))
 
     upgrade.update_ep(upgrade_test_entry).run(sender = alice, valid = False, exception = "ONLY_ADMIN")

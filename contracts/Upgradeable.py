@@ -5,8 +5,14 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 # TODO: update_ep variant layout?
 
 class Upgradeable(admin_mixin.Administrable):
-    def __init__(self, administrator, entrypoints: list[str]):
-        self.upgradeable_entrypoints = entrypoints
+    def __init__(self, administrator):
+        self.upgradeable_entrypoints = []
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.Entrypoint) and attr.message.lazify == True:
+                self.upgradeable_entrypoints.append(attr.message.fname)
+        print(self.upgradeable_entrypoints)
+
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     # Never lazify this entrypoint.
