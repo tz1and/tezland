@@ -52,5 +52,3 @@ def test():
     basic_permissions.manage_permissions([sp.variant("remove_permission", bob.address), sp.variant("remove_permission", alice.address)]).run(sender=admin)
     scenario.verify(basic_permissions.data.permitted.contains(alice.address) == False)
     scenario.verify(basic_permissions.data.permitted.contains(bob.address) == False)
-
-    basic_permissions.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
