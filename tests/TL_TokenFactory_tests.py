@@ -38,8 +38,8 @@ def test():
     scenario += token_factory
 
     # registry permissions
-    token_registry.manage_permissions([sp.variant("add_permission", token_factory.address)]).run(sender=admin)
-    minter.manage_permissions([sp.variant("add_permission", token_factory.address)]).run(sender=admin)
+    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    minter.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     # test update_token_registry
     scenario.verify(token_factory.data.token_registry == token_registry.address)

@@ -35,20 +35,20 @@ def test():
     scenario.h3("manage_permissions")
 
     # test manage_permissions
-    scenario.verify(basic_permissions.data.permitted.contains(alice.address) == False)
-    scenario.verify(basic_permissions.data.permitted.contains(bob.address) == False)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == False)
 
-    basic_permissions.manage_permissions([sp.variant("add_permission", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    basic_permissions.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    basic_permissions.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    basic_permissions.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
-    basic_permissions.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
-    scenario.verify(basic_permissions.data.permitted.contains(alice.address) == False)
-    scenario.verify(basic_permissions.data.permitted.contains(bob.address) == True)
+    basic_permissions.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=admin)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == True)
 
-    basic_permissions.manage_permissions([sp.variant("add_permission", alice.address)]).run(sender=admin)
-    scenario.verify(basic_permissions.data.permitted.contains(alice.address) == True)
-    scenario.verify(basic_permissions.data.permitted.contains(bob.address) == True)
+    basic_permissions.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender=admin)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == True)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == True)
 
-    basic_permissions.manage_permissions([sp.variant("remove_permission", bob.address), sp.variant("remove_permission", alice.address)]).run(sender=admin)
-    scenario.verify(basic_permissions.data.permitted.contains(alice.address) == False)
-    scenario.verify(basic_permissions.data.permitted.contains(bob.address) == False)
+    basic_permissions.manage_permissions([sp.variant("remove_permissions", [bob.address, alice.address])]).run(sender=admin)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
+    scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == False)

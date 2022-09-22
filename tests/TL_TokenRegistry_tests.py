@@ -35,7 +35,7 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    token_registry.manage_permissions([sp.variant("add_permission", bob.address)]).run(sender=admin)
+    token_registry.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=admin)
 
     # test register_fa2
     token_registry.register_fa2([items_tokens.address]).run(sender=alice, valid=False, exception="NOT_PERMITTED")

@@ -166,7 +166,7 @@ def test():
     scenario += token_factory
 
     scenario.h3("registry permissions")
-    token_registry.manage_permissions([sp.variant("add_permission", token_factory.address)]).run(sender=admin)
+    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     scenario.h2("dao")
     dao_token = tokens.tz1andDAO(
