@@ -24,6 +24,14 @@ def send_if_value(to, amount):
         sp.send(to, amount)
 
 #
+# Validate IPFS Uri
+def validate_ipfs_uri(metadata_uri):
+    # Basic validation of the metadata, try to make sure it's a somewhat valid ipfs URI.
+    # Ipfs cid v0 + proto is 53 chars.
+    sp.verify((sp.slice(metadata_uri, 0, 7).open_some("INVALID_METADATA") == sp.utils.bytes_of_string("ipfs://"))
+        & (sp.len(metadata_uri) >= sp.nat(53)), "INVALID_METADATA")
+
+#
 # tz1and fa2 extension royalties
 def tz1and_items_get_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
