@@ -4,6 +4,7 @@ import smartpy as sp
 admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -49,6 +50,7 @@ class tz1andCollection(
 class TL_TokenFactory(
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
+    upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator, token_registry, token_minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -67,6 +69,7 @@ class TL_TokenFactory(
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator)
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):

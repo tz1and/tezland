@@ -2,6 +2,7 @@ import smartpy as sp
 
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -18,6 +19,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 class TL_TokenRegistry(
     contract_metadata_mixin.ContractMetadata,
     basic_permissions_mixin.BasicPermissions,
+    upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -31,6 +33,7 @@ class TL_TokenRegistry(
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):
