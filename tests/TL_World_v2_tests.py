@@ -148,7 +148,7 @@ def test():
     scenario += places_tokens
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+    minter = minter_contract.TL_Minter(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -157,16 +157,15 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    scenario.h3("register tokens")
-    token_registry.register_fa2([items_tokens.address]).run(sender=admin)
-
     scenario.h2("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
+    scenario.register(token_factory.collection_contract)
 
-    scenario.h3("registry permissions")
+    scenario.h3("registry/minter permissions for factory")
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    minter.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     scenario.h2("dao")
     dao_token = tokens.tz1andDAO(
@@ -180,20 +179,29 @@ def test():
         admin = admin.address)
     scenario += other_token
 
+    scenario.h2("private collection token")
+    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
+    dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
+
     scenario.h2("preparation")
+
+    scenario.h3("transfer/register/mint items tokens in minter")
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
-    places_tokens.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
+    minter.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    token_registry.register_fa2([items_tokens.address]).run(sender=admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
-    minter.mint_Item(to_ = bob.address,
+    minter.mint_public(collection = items_tokens.address,
+        to_ = bob.address,
         amount = 4,
         royalties = 250,
         contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
-    minter.mint_Item(to_ = alice.address,
+    minter.mint_public(collection = items_tokens.address,
+        to_ = alice.address,
         amount = 25,
         royalties = 250,
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
@@ -204,7 +212,7 @@ def test():
 
     # mint some place tokens for testing
     scenario.h3("minting places")
-    minter.mint_Place([
+    places_tokens.mint([
         sp.record(
             to_ = bob.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
@@ -519,9 +527,9 @@ def test():
     ]}, sender=alice, valid=False, message='CHUNK_ITEM_LIMIT')
 
     #
-    # Test other permitted FA2
+    # Test FA2 registry related stuff
     #
-    scenario.h2("Other permitted FA2")
+    scenario.h2("FA2 registry")
 
     scenario.h3("Other token mint and operator")
     other_token.mint(
@@ -546,6 +554,24 @@ def test():
         ))
     ]).run(sender = alice, valid = True)
 
+    scenario.h3("Private collection mint and operator")
+    minter.mint_private(
+        collection=dyn_collection_token.address,
+        to_=alice.address,
+        amount=50,
+        metadata=sp.utils.bytes_of_string("ipfs://Qtesttesttest"),
+        royalties=250,
+        contributors=[ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ]
+    ).run(sender = admin)
+
+    dyn_collection_token.call("update_operators", [
+        sp.variant("add_operator", sp.record(
+            owner = alice.address,
+            operator = world.address,
+            token_id = 0
+        ))
+    ]).run(sender = alice, valid = True)
+
     # test unpermitted place_item
     # TODO: other type item tests are a bit broken because all kinds of reasons...
     scenario.h3("Test placing unregistered non-tz1and FA2s")
@@ -554,11 +580,11 @@ def test():
     ]}, sender=alice, valid=False, message="TOKEN_NOT_REGISTERED")
 
     scenario.h3("register token: swap_allowed=False")
-    #token_registry.register_fa2([other_token.address]).run(sender=admin)
+    #token_registry.register_fa2([dyn_collection_token.address]).run(sender=admin)
     # TODO: royalty info in registry? see old fa2 permitted:
     ##add_permitted = sp.list([sp.variant("add_permitted",
     ##    sp.record(
-    ##        fa2 = other_token.address,
+    ##        fa2 = dyn_collection_token.address,
     ##        props = sp.record(
     ##            swap_allowed = False,
     ##            royalties_kind = sp.variant("none", sp.unit))))])
@@ -569,31 +595,31 @@ def test():
     # TODO:
     """
     scenario.h4("place")
-    place_items(place_alice, {other_token.address: [
+    place_items(place_alice, {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position)),
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position))
     ]}, sender=alice)
 
     # NOTE: make sure other type tokens can only be placed one at a time and aren't swappable, for now.
-    place_items(place_alice, {other_token.address: [
+    place_items(place_alice, {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=2, mutez_per_token=sp.tez(0), item_data = position)),
     ]}, sender=alice, valid=False, message="PARAM_ERROR")
 
-    place_items(place_alice, {other_token.address: [
+    place_items(place_alice, {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(1), item_data = position)),
     ]}, sender=alice, valid=False, message="PARAM_ERROR")
 
-    place_items(place_alice, {other_token.address: [
+    place_items(place_alice, {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=22, mutez_per_token=sp.tez(1), item_data = position)),
     ]}, sender=alice, valid=False, message="PARAM_ERROR")
 
     scenario.h4("get")
     item_counter = world.data.places.get(place_alice).next_id
-    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, other_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
-    get_item(place_alice, sp.as_nat(item_counter - 2), alice.address, other_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    get_item(place_alice, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    get_item(place_alice, sp.as_nat(item_counter - 2), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
     scenario.h4("remove")
-    remove_items(place_alice, {alice.address: {other_token.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}}, sender=alice)
+    remove_items(place_alice, {alice.address: {dyn_collection_token.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}}, sender=alice)
     """
 
     #

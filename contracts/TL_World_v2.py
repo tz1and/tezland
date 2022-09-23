@@ -27,6 +27,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
 # TODO: gas optimisations!
 # TODO: per chunk AND per place interaction counter?
+# TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.

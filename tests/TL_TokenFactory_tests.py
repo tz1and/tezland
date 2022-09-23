@@ -36,6 +36,7 @@ def test():
     token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
+    scenario.register(token_factory.collection_contract)
 
     # registry permissions
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
@@ -62,8 +63,8 @@ def test():
     token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
 
     token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
-    # NOTE: Not sure how to get the originated contract from the op in tests. Does this address change?
-    scenario.verify(token_registry.data.registered.contains(sp.address("KT1TezoooozzSmartPyzzDYNAMiCzzpLu4LU")))
-    scenario.verify(minter.data.private_collections.contains(sp.address("KT1TezoooozzSmartPyzzDYNAMiCzzpLu4LU")))
+    dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
+    scenario.verify(token_registry.data.registered.contains(dyn_collection_token.address))
+    scenario.verify(minter.data.private_collections.contains(dyn_collection_token.address))
 
     scenario.table_of_contents()
