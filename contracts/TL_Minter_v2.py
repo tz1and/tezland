@@ -21,13 +21,14 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: figure out if the minter should also be the token registry or have similar functionality, to be used by the token registry (which could be replaced as it's upgraded)
 # TODO: update metadata: validate IPFS URI. can use the one from.... Factory, put it in utils, maybe.
 # TODO: test update metadata
+# TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
 # TODO: layouts!!!
 
-privateCollectionType = sp.TRecord(
+privateCollectionValueType = sp.TRecord(
     owner = sp.TAddress,
     proposed_owner = sp.TOption(sp.TAddress))
-privateCollectionMapType = sp.TBigMap(sp.TAddress, privateCollectionType)
-privateCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = privateCollectionType)
+privateCollectionMapType = sp.TBigMap(sp.TAddress, privateCollectionValueType)
+privateCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = privateCollectionValueType)
 
 publicCollectionMapType = sp.TBigMap(sp.TAddress, sp.TUnit)
 publicCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = sp.TUnit)
@@ -305,14 +306,13 @@ class TL_Minter(
 
         self.onlyUnpaused()
         self.onlyOwnerPrivate(params.collection)
-
-        # TODO: validate IPFS URI. can use the one from.... Factory, put it in utils, maybe.
+        utils.validate_ipfs_uri(params.metadata_uri)
 
         utils.contract_set_metadata(params.collection, params.metadata_uri)
 
     @sp.entry_point(lazify = True)
     def mint_private(self, params):
-        """Minting items in a private collection"""
+        """Minting items in a private collection."""
         sp.set_type(params, sp.TRecord(
             collection = sp.TAddress,
             to_ = sp.TAddress,

@@ -6,6 +6,7 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
@@ -15,6 +16,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: update_settings - token_minter: make sure contract has mint eps?
 # TODO: basic validation of the metadata? i.e. make sure it's an IPFS link
 # TODO: figure out if we *need* FA2.PauseTransfer()
+# TODO: change create_token to just take bytes for metadata URI
 
 #
 # The template FA2 contract.
@@ -137,10 +139,7 @@ class TL_TokenFactory(
             metadata = sp.TBigMap(sp.TString, sp.TBytes)
         ))
 
-        # Basic validation of the metadata, try to make sure it's a somewhat valid ipfs URI.
-        # Ipfs cid v0 + proto is 53 chars.
-        sp.verify((sp.slice(params.metadata[""], 0, 7).open_some("INVALID_METADATA") == sp.utils.bytes_of_string("ipfs://"))
-            & (sp.len(params.metadata[""]) >= sp.nat(53)), "INVALID_METADATA")
+        utils.validate_ipfs_uri(params.metadata[""])
 
         # Originate
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
