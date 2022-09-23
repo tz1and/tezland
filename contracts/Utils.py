@@ -107,3 +107,14 @@ def fa2_fungible_royalties_mint(batch, contract):
 
 def fa2_single_asset_mint(batch, contract):
     fa2_fungible_mint(batch, contract)
+
+#
+# FA2/ContractMetadata set_metadata
+def contract_set_metadata(contract, metadata_uri):
+    contract = sp.set_type_expr(contract, sp.TAddress)
+    metadata_uri = sp.set_type_expr(metadata_uri, sp.TBytes)
+    set_metadata_handle = sp.contract(
+        sp.TBigMap(sp.TString, sp.TBytes),
+        contract,
+        entry_point='set_metadata').open_some()
+    sp.transfer(sp.big_map({"": metadata_uri}), sp.mutez(0), set_metadata_handle)
