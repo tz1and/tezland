@@ -19,9 +19,10 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: make mixin for permissions
 # TODO: should we address collections by id or by address???? shouldn't make a diff in bigmap keys...
 # TODO: figure out if the minter should also be the token registry or have similar functionality, to be used by the token registry (which could be replaced as it's upgraded)
-# TODO: update metadata: validate IPFS URI. can use the one from.... Factory, put it in utils, maybe.
-# TODO: test update metadata
+#       + maybe: token registry checks minter and also provides roylaties. that way the oncahin royalty provider (registry) can always be updated and can also use merkle
+#         trees for objkt.com tokens, etc.
 # TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
+# TODO: test is_collection view.
 # TODO: layouts!!!
 
 privateCollectionValueType = sp.TRecord(
@@ -296,7 +297,6 @@ class TL_Minter(
         # Reset the proposed owner value
         the_collection.proposed_owner = sp.none
 
-    # TODO: TEST!!!!
     @sp.entry_point(lazify = True)
     def update_private_metadata(self, params):
         """Private collection owner can update its metadata."""
