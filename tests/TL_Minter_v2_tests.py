@@ -227,6 +227,27 @@ def test():
 
     minter.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 
+    scenario.h3("update_private_metadata")
+
+    minter.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+
+    invalid_metadata_uri = sp.utils.bytes_of_string("ipf://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8")
+    valid_metadata_uri = sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
+
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = invalid_metadata_uri)).run(sender = bob, valid = False, exception = "INVALID_METADATA")
+
+    scenario.verify(items_tokens.data.metadata[""] == sp.utils.bytes_of_string("https://example.com"))
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob)
+    scenario.verify(items_tokens.data.metadata[""] == valid_metadata_uri)
+
+    minter.set_paused(True).run(sender = admin)
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
+    minter.set_paused(False).run(sender = admin)
+
+    minter.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+
     # test get_item_royalties view
     #scenario.h2("get_item_royalties")
     #scenario.p("It's a view")
