@@ -10,24 +10,18 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
-# TODO: collaborators for user collections. i.e. permissions for minting and maybe setting metadata.
-#       could maybe do invitations? have a flag for invitation accepted. or maybe not...
-# TODO: record of private and public collections.
-# TODO: a way to add user collections, with permission checks. so factory can add collections.
-# TODO: set metadata for public/private collections.
 # TODO: decide laziness of entrypoints...
-# TODO: make mixin for permissions
 # TODO: should we address collections by id or by address???? shouldn't make a diff in bigmap keys...
+#       but makes a small difference in gas when deserialising ops. in turn would mean world would have to use collection IDs.
 # TODO: figure out if the minter should also be the token registry or have similar functionality, to be used by the token registry (which could be replaced as it's upgraded)
 #       + maybe: token registry checks minter and also provides roylaties. that way the oncahin royalty provider (registry) can always be updated and can also use merkle
 #         trees for objkt.com tokens, etc.
 # TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
-# TODO: test is_collection view.
 # TODO: layouts!!!
 
 privateCollectionValueType = sp.TRecord(
     owner = sp.TAddress,
-    proposed_owner = sp.TOption(sp.TAddress))
+    proposed_owner = sp.TOption(sp.TAddress)).layout(("owner", "proposed_owner"))
 privateCollectionMapType = sp.TBigMap(sp.TAddress, privateCollectionValueType)
 privateCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = privateCollectionValueType)
 
@@ -40,22 +34,25 @@ collaboratorsMapLiteral = sp.big_map(tkey = collaboratorsKeyType, tvalue = sp.TU
 
 t_manage_public_collections = sp.TList(sp.TVariant(
     add_collections = sp.TList(sp.TAddress),
-    remove_collections = sp.TList(sp.TAddress)))
+    remove_collections = sp.TList(sp.TAddress)
+).layout(("add_collections", "remove_collections")))
 
 t_manage_private_collections = sp.TList(sp.TVariant(
     add_collections = sp.TList(sp.TRecord(
         contract = sp.TAddress,
         owner = sp.TAddress
-    )),
-    remove_collections = sp.TList(sp.TAddress)))
+    ).layout(("contract", "owner"))),
+    remove_collections = sp.TList(sp.TAddress)
+).layout(("add_collections", "remove_collections")))
 
 t_manage_collaborators = sp.TList(sp.TVariant(
     add_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress)),
+        collaborators = sp.TList(sp.TAddress)).layout(("collection", "collaborators")),
     remove_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress))))
+        collaborators = sp.TList(sp.TAddress)).layout(("collection", "collaborators"))
+).layout(("add_collaborators", "remove_collaborators")))
 
 #
 # Minter contract.

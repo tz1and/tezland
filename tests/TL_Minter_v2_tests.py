@@ -291,4 +291,17 @@ def test():
 
     scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 0)
 
+    # Test onchain views
+    scenario.h2("Test views")
+
+    minter.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    scenario.verify(minter.is_collection(items_tokens.address) == True)
+    minter.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(minter.is_collection(items_tokens.address) == False)
+
+    minter.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(minter.is_collection(items_tokens.address) == True)
+    minter.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(minter.is_collection(items_tokens.address) == False)
+
     scenario.table_of_contents()
