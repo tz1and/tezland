@@ -1,16 +1,15 @@
 import smartpy as sp
 
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
-basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+#basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+#upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 # TODO: store information about a contracts royalties?
 # TODO: convert tz1and royalties to the more common decimals and shares format? (see fa2 metadata)
 # TODO: add support for merkle tree to check for supported tokens? object.com, etc...
-# TODO: figure out if entrypoints should be lazy!!!!
-# TODO: make mixin for permissions
+# TODO: can drastically optimise the size by not having the admin/contract metadata mixins. Maybe useful to optimise.
 
 
 #
@@ -18,22 +17,23 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # NOTE: should be pausable for code updates.
 class TL_TokenRegistry(
     contract_metadata_mixin.ContractMetadata,
-    basic_permissions_mixin.BasicPermissions,
-    upgradeable_mixin.Upgradeable,
+    #basic_permissions_mixin.BasicPermissions,
+    #upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         administrator = sp.set_type_expr(administrator, sp.TAddress)
         
-        self.address_set = utils.Address_set()
+        #self.address_set = utils.Address_set()
         self.init_storage(
-            registered = self.address_set.make() # registered fa2s
+            minter = minter,
+            #registered = self.address_set.make() # registered fa2s
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
-        basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        #basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
+        #upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):
@@ -64,11 +64,19 @@ class TL_TokenRegistry(
         self.init_metadata("metadata_base", metadata_base)
 
     #
+    # Inline helpers
+    #
+    def isTokenTz1andCollection(self, fa2):
+        return sp.view("is_collection", self.data.minter,
+            sp.set_type_expr(fa2, sp.TAddress),
+            t = sp.TBool).open_some()
+
+    #
     # Admin-only entry points
     #
-    @sp.entry_point(lazify = True)
+    """@sp.entry_point(lazify = True)
     def unregister_fa2(self, params):
-        """Allow administrator to unregister FA2s"""
+        ""Allow administrator to unregister FA2s""
         sp.set_type(params, sp.TList(sp.TAddress))
 
         self.onlyAdministrator()
@@ -81,14 +89,14 @@ class TL_TokenRegistry(
     #
     @sp.entry_point(lazify = True)
     def register_fa2(self, params):
-        """Allow permitted accounts to register FA2s"""
+        ""Allow permitted accounts to register FA2s""
         sp.set_type(params, sp.TList(sp.TAddress))
 
         # administrator OR permitted
         self.onlyAdministratorOrPermitted()
 
         with sp.for_("contract", params) as contract:
-            self.address_set.add(self.data.registered, contract)
+            self.address_set.add(self.data.registered, contract)"""
 
     #
     # Views
@@ -99,4 +107,4 @@ class TL_TokenRegistry(
         """Returns true if contract is registered, false otherwise."""
         sp.set_type(contract, sp.TAddress)
         with sp.set_result_type(sp.TBool):
-            sp.result(self.address_set.contains(self.data.registered, contract))
+            sp.result(self.isTokenTz1andCollection(contract))

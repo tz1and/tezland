@@ -153,18 +153,18 @@ def test():
     scenario += minter
 
     scenario.h2("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
     scenario.h2("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("registry/minter permissions for factory")
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    #token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
     minter.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     scenario.h2("dao")
@@ -189,7 +189,7 @@ def test():
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
     minter.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
-    token_registry.register_fa2([items_tokens.address]).run(sender=admin)
+    #token_registry.register_fa2([items_tokens.address]).run(sender=admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")

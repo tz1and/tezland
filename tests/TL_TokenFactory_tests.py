@@ -20,41 +20,42 @@ def test():
     scenario.show([admin, alice, bob])
 
     # create token_registry contract
-    scenario.h1("Test TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario.h1("Create test env")
 
-    # create minter contract
-    scenario.h1("Test Minter")
+    scenario.h2("Minter")
     minter = minter_contract.TL_Minter(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
+    scenario.h2("TokenRegistry")
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address, minter.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += token_registry
+
     # create token_factory contract
     scenario.h1("Test TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     # registry permissions
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    #token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
     minter.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
-    # test update_token_registry
-    scenario.verify(token_factory.data.token_registry == token_registry.address)
+    # test update_minter
+    scenario.verify(token_factory.data.minter == minter.address)
 
-    token_factory.update_settings([sp.variant("token_registry", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_factory.update_settings([sp.variant("token_registry", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    token_factory.update_settings([sp.variant("minter", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
     
     # TODO: test failiure of implicit accounts?
     #token_factory.update_token_registry(bob.address).run(sender=admin, valid=False, exception="ONLY_ADMIN")
 
-    token_factory.update_settings([sp.variant("token_registry", alice.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.token_registry == alice.address)
-    token_factory.update_settings([sp.variant("token_registry", token_registry.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.token_registry == token_registry.address)
+    token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.minter == alice.address)
+    token_factory.update_settings([sp.variant("minter", minter.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.minter == minter.address)
 
     # test create_token
     token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url(""))).run(sender=admin, valid=False, exception="INVALID_METADATA")
@@ -64,7 +65,7 @@ def test():
 
     token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
-    scenario.verify(token_registry.data.registered.contains(dyn_collection_token.address))
+    scenario.verify(token_registry.is_registered(dyn_collection_token.address) == True)
     scenario.verify(minter.data.private_collections.contains(dyn_collection_token.address))
 
     scenario.table_of_contents()

@@ -11,12 +11,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 # TODO: figure out if entrypoints should be lazy!!!!
-# TODO: originated FA2 admin should be the general minter!
-# TODO: update_settings - token_registry: make sure contract has token_registry ep?
-# TODO: update_settings - token_minter: make sure contract has mint eps?
+# TODO: update_settings - minter: make sure contract has mint eps?
 # TODO: basic validation of the metadata? i.e. make sure it's an IPFS link
 # TODO: figure out if we *need* FA2.PauseTransfer()
 # TODO: change create_token to just take bytes for metadata URI
+# TODO: change update settings not to take a variant and to update_minter (maybe)
 
 #
 # The template FA2 contract.
@@ -54,20 +53,20 @@ class TL_TokenFactory(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, token_minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         administrator = sp.set_type_expr(administrator, sp.TAddress)
-        token_registry = sp.set_type_expr(token_registry, sp.TAddress)
-        token_minter = sp.set_type_expr(token_minter, sp.TAddress)
+        #token_registry = sp.set_type_expr(token_registry, sp.TAddress)
+        minter = sp.set_type_expr(minter, sp.TAddress)
 
         # NOTE: TODO: args don't matter here since we set storage on origination.
         self.collection_contract = tz1andCollection(metadata, administrator)
         
         self.init_storage(
-            token_registry = token_registry,
-            token_minter = token_minter
+            #token_registry = token_registry,
+            minter = minter
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator)
@@ -109,25 +108,25 @@ class TL_TokenFactory(
         """Allows the administrator to update the token registry,
         minter, etc"""
         sp.set_type(params, sp.TList(sp.TVariant(
-            token_registry = sp.TAddress,
-            token_minter = sp.TAddress
+            #token_registry = sp.TAddress,
+            minter = sp.TAddress
         )))
 
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("token_registry") as address:
-                    # TODO: does this make sure contract has token_registry ep?
-                    #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), contract, 
-                    #    entry_point = "register_fa2").open_some()
-                    #
-                    #sp.transfer([], sp.mutez(0), register_fa2_handle)
-                    self.data.token_registry = address
+                #with arg.match("token_registry") as address:
+                #    # TODO: does this make sure contract has token_registry ep?
+                #    #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), contract, 
+                #    #    entry_point = "register_fa2").open_some()
+                #    #
+                #    #sp.transfer([], sp.mutez(0), register_fa2_handle)
+                #    self.data.token_registry = address
 
                 # TODO: test this
-                with arg.match("token_minter") as address:
-                    self.data.token_minter = address
+                with arg.match("minter") as address:
+                    self.data.minter = address
 
     #
     # Public entry points
@@ -144,7 +143,7 @@ class TL_TokenFactory(
         # Originate
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
             # The storage we need to modify
-            administrator = self.data.token_minter,
+            administrator = self.data.minter,
             metadata = params.metadata,
             # Just the default values
             adhoc_operators = sp.set(),
@@ -158,15 +157,15 @@ class TL_TokenFactory(
         ))
 
         # Register with token registry
-        register_fa2_handle = sp.contract(sp.TList(sp.TAddress), self.data.token_registry, 
-            entry_point = "register_fa2").open_some()
-
-        sp.transfer([originated_token], sp.mutez(0), register_fa2_handle)
+        #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), self.data.token_registry,
+        #    entry_point = "register_fa2").open_some()
+        #
+        #sp.transfer([originated_token], sp.mutez(0), register_fa2_handle)
 
         # Add private collection in minter v2
         manage_private_collections_handle = sp.contract(
             minter_contract.t_manage_private_collections,
-            self.data.token_minter, 
+            self.data.minter, 
             entry_point = "manage_private_collections").open_some()
 
         sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender)])], sp.mutez(0), manage_private_collections_handle)
