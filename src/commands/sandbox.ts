@@ -5,7 +5,7 @@ const sleep = require('util').promisify(setTimeout);
 
 
 function configEnv(): string {
-    return `TAG=${config.sandbox.bcdVersion} SANDBOX_VERSION=${config.sandbox.flextesaVersion} SANDBOX_TYPE=${config.sandbox.flextesaProtocol} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
+    return `TAG=${config.sandbox.bcdVersion} TZKT_VERSION=${config.sandbox.tzktVersion} SANDBOX_VERSION=${config.sandbox.flextesaVersion} SANDBOX_TYPE=${config.sandbox.flextesaProtocol} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
 }
 
 export async function start(full?: boolean): Promise<void> {

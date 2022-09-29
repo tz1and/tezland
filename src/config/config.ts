@@ -35,6 +35,7 @@ export type SandboxConfig = {
     blockTime: number;
     deployMode: DeployMode;
     bcdVersion: string;
+    tzktVersion: string;
     flextesaVersion: string;
     flextesaProtocol: string;
 }

@@ -182,7 +182,7 @@ services:
   api-tzkt:
     container_name: api-tzkt
     restart: always
-    image: bakingbad/tzkt-api:1.8.3
+    image: bakingbad/tzkt-api:${TZKT_VERSION}
     depends_on:
       - db-tzkt
       - flextesa
@@ -198,7 +198,7 @@ services:
   sync-tzkt:
     container_name: sync-tzkt
     restart: always
-    image: bakingbad/tzkt-sync:1.8.3
+    image: bakingbad/tzkt-sync:${TZKT_VERSION}
     environment:
       TezosNode__Endpoint: http://sandbox:20000
       ConnectionStrings__DefaultConnection: host=db-tzkt;port=15432;database=${POSTGRES_DB:-tzkt_db};username=${POSTGRES_USER:-tzkt};password=${POSTGRES_PASSWORD:-qwerty};
