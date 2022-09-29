@@ -543,6 +543,9 @@ class TL_World(
 
         # For each fa2 in the map.
         with sp.for_("fa2", params.place_item_map.keys()) as fa2:
+            registered = self.getTokenRegistry(fa2)
+            sp.verify(registered == True, self.error_message.token_not_registered())
+
             item_list = params.place_item_map[fa2]
 
             # Get or create item storage.
@@ -557,9 +560,6 @@ class TL_World(
                 with curr.match_cases() as arg:
                     with arg.match("item") as item:
                         self.validateItemData(item.item_data)
-
-                        registered = self.getTokenRegistry(fa2)
-                        sp.verify(registered == True, self.error_message.token_not_registered())
 
                         # TODO:
                         # Token registry should be a separate contract
