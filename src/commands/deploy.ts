@@ -49,153 +49,217 @@ export default class Deploy extends DeployBase {
     protected override async deployDo() {
         assert(this.tezos);
 
-        // prepare batch
-        const daoWasDeployed = this.getDeployment("FA2_DAO");
-
-        const fa2_batch = new DeployContractBatch(this);
-
         //
-        // Items
+        // Tokens
         //
-        await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [
-            `admin = sp.address("${this.accountAddress}")`
-        ]);
+        let items_FA2_contract, places_FA2_contract, interiors_FA2_contract, dao_FA2_contract;
+        {
+            const daoWasDeployed = this.getDeployment("FA2_DAO");
 
-        fa2_batch.addToBatch("FA2_Items");
+            const fa2_batch = new DeployContractBatch(this);
 
-        //
-        // Places
-        //
-        await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [
-            `admin = sp.address("${this.accountAddress}")`
-        ]);
+            //
+            // Items
+            //
+            await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
 
-        fa2_batch.addToBatch("FA2_Places");
+            fa2_batch.addToBatch("FA2_Items");
 
-        //
-        // Interiors
-        //
-        await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
-            `admin = sp.address("${this.accountAddress}")`
-        ]);
+            //
+            // Places
+            //
+            await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
 
-        fa2_batch.addToBatch("FA2_Interiors");
+            fa2_batch.addToBatch("FA2_Places");
 
-        //
-        // DAO
-        //
-        await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [
-            `admin = sp.address("${this.accountAddress}")`
-        ]);
+            //
+            // Interiors
+            //
+            await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
 
-        fa2_batch.addToBatch("FA2_DAO");
+            fa2_batch.addToBatch("FA2_Interiors");
 
-        // send batch.
-        const [items_FA2_contract, places_FA2_contract, interiors_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
+            //
+            // DAO
+            //
+            await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
 
-        if(!daoWasDeployed) {
-            // Mint 0 dao.
-            console.log("Minting dao tokens")
-            const tokenMetadataMap = new MichelsonMap();
-            tokenMetadataMap.set("decimals", char2Bytes("6"));
-            tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
-            tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+            fa2_batch.addToBatch("FA2_DAO");
 
-            const dao_mint_op = await dao_FA2_contract.methodsObject.mint([{
-                to_: this.accountAddress,
-                amount: 0,
-                token: { new: tokenMetadataMap }
-            }]).send();
-            await dao_mint_op.confirmation();
+            // send batch.
+            [items_FA2_contract, places_FA2_contract, interiors_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
 
-            console.log("Successfully minted 0 DAO");
-            console.log(`>> Transaction hash: ${dao_mint_op.opHash}\n`);
+            if(!daoWasDeployed) {
+                // Mint 0 dao.
+                console.log("Minting 0 DAO tokens")
+                const tokenMetadataMap = new MichelsonMap();
+                tokenMetadataMap.set("decimals", char2Bytes("6"));
+                tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
+                tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+
+                const dao_mint_op = await dao_FA2_contract.methodsObject.mint([{
+                    to_: this.accountAddress,
+                    amount: 0,
+                    token: { new: tokenMetadataMap }
+                }]).send();
+                await dao_mint_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${dao_mint_op.opHash}\n`);
+            }
         }
 
         //
-        // Minter
+        // Minter and Dutch
         //
-        const minterWasDeployed = this.getDeployment("TL_Minter");
+        let Minter_contract, Dutch_contract;
+        {
+            const minterWasDeployed = this.getDeployment("TL_Minter_v2");
 
-        // prepare minter/dutch batch
-        const tezland_batch = new DeployContractBatch(this);
+            // prepare minter/dutch batch
+            const tezland_batch = new DeployContractBatch(this);
 
-        // Compile and deploy Minter contract.
-        await this.compile_contract("TL_Minter", "TL_Minter", "TL_Minter", [
-            `administrator = sp.address("${this.accountAddress}")`,
-            `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`
-        ]);
+            // Compile and deploy Minter contract.
+            await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
 
-        tezland_batch.addToBatch("TL_Minter");
-        //const Minter_contract = await this.deploy_contract("TL_Minter");
+            tezland_batch.addToBatch("TL_Minter_v2");
+            //Minter_contract = await this.deploy_contract("TL_Minter_v2");
+
+            //
+            // Dutch
+            //
+            // Compile and deploy Dutch auction contract.
+            await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `items_contract = sp.address("${items_FA2_contract.address}")`,
+                `places_contract = sp.address("${places_FA2_contract.address}")`
+            ]);
+
+            tezland_batch.addToBatch("TL_Dutch");
+            //Dutch_contract = await this.deploy_contract("TL_Dutch");
+
+            [Minter_contract, Dutch_contract] = await tezland_batch.deployBatch();
+
+            if (!minterWasDeployed) {
+                // Set the minter as the token administrator
+                console.log("Setting minter as token admin...")
+                const set_admin_batch = this.tezos.wallet.batch();
+                set_admin_batch.with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...items_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
+                    },
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_contract.methods.manage_public_collections([{add_collections: [items_FA2_contract.address]}]).toTransferParams()
+                    },
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_contract.methods.accept_fa2_administrator([items_FA2_contract.address]).toTransferParams()
+                    }
+                ])
+
+                const set_admin_batch_op = await set_admin_batch.send();
+                await set_admin_batch_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${set_admin_batch_op.opHash}\n`);
+            }
+        }
 
         //
-        // Dutch
+        // Token Factory and Registry
         //
-        // Compile and deploy Dutch auction contract.
-        await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [
-            `administrator = sp.address("${this.accountAddress}")`,
-            `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`
-        ]);
+        let Registry_contract, Factory_contract;
+        {
+            const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
 
-        tezland_batch.addToBatch("TL_Dutch");
-        //const Dutch_contract = await this.deploy_contract("TL_Dutch");
+            // prepare factory/registry batch
+            const collection_batch = new DeployContractBatch(this);
 
-        const [Minter_contract, Dutch_contract] = await tezland_batch.deployBatch();
+            // Compile and deploy registry contract.
+            await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `minter = sp.address("${Minter_contract.address}")`
+            ]);
 
-        if (!minterWasDeployed) {
-            // Set the minter as the token administrator
-            console.log("Setting minter as token admin...")
-            const set_admin_batch = this.tezos.wallet.batch();
-            set_admin_batch.with([
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...items_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...places_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...Minter_contract.methods.accept_fa2_administrator([places_FA2_contract.address, items_FA2_contract.address]).toTransferParams()
-                }
-            ])
+            collection_batch.addToBatch("TL_TokenRegistry");
+            //const Registry_contract = await this.deploy_contract("TL_TokenRegistry");
 
-            const set_admin_batch_op = await set_admin_batch.send();
-            await set_admin_batch_op.confirmation();
+            // Compile and deploy fa2 factory contract.
+            await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `minter = sp.address("${Minter_contract.address}")`
+            ]);
 
-            console.log("Successfully set minter as tokens admin");
-            console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
+            collection_batch.addToBatch("TL_TokenFactory");
+            //const Dutch_contract = await this.deploy_contract("TL_TokenFactory");
+
+            [Registry_contract, Factory_contract] = await collection_batch.deployBatch();
+
+            if (!factoryWasDeployed) {
+                // Set the minter permissions for factory
+                console.log("Giving factory permissions to minter...")
+                const minter_permissions_batch = this.tezos.wallet.batch();
+                minter_permissions_batch.with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
+                    }
+                ])
+    
+                const minter_permissions_batch_op = await minter_permissions_batch.send();
+                await minter_permissions_batch_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${minter_permissions_batch_op.opHash}\n`);
+            }
         }
 
         //
         // World (Marketplaces)
         //
-        // Compile and deploy Places contract.
-        // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
-        await this.compile_contract("TL_World_v2", "Worlds", "tz1andWorld", [
-            `administrator = sp.address("${this.accountAddress}")`,
-            `items_contract = sp.address("${items_FA2_contract.address}")`,
-            `places_contract = sp.address("${places_FA2_contract.address}")`
-        ]);
+        let World_contract;
+        {
+            // Compile and deploy Places contract.
+            // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
+            await this.compile_contract("TL_World_v2", "Worlds", "tz1andWorld", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `items_contract = sp.address("${items_FA2_contract.address}")`,
+                `places_contract = sp.address("${places_FA2_contract.address}")`,
+                `token_registry = sp.address("${Registry_contract.address}")`
+            ]);
 
-        const World_contract = await this.deploy_contract("TL_World_v2");
+            World_contract = await this.deploy_contract("TL_World_v2");
 
-        console.log("Set allowed place tokens on world...")
-        const allowed_places_op = await World_contract.methodsObject.set_allowed_place_token([
-            {
-                add_allowed_place_token: places_FA2_contract.address
-            },
-            {
-                add_allowed_place_token: interiors_FA2_contract.address
-            }
-        ]).send();
-        await allowed_places_op.confirmation();
-        console.log("Successfully set allowed places on world");
-        console.log(`>> Transaction hash: ${allowed_places_op.opHash}\n`);
+            console.log("Set allowed place tokens on world...")
+            const allowed_places_op = await World_contract.methodsObject.set_allowed_place_token([
+                {
+                    add_allowed_place_token: {
+                        fa2: places_FA2_contract.address,
+                        place_limits: {
+                            chunk_limit: 1,
+                            chunk_item_limit: 64
+                        }
+                    }
+                },
+                {
+                    add_allowed_place_token: {
+                        fa2: interiors_FA2_contract.address,
+                        place_limits: {
+                            chunk_limit: 1,
+                            chunk_item_limit: 64
+                        }
+                    }
+                }
+            ]).send();
+            await allowed_places_op.confirmation();
+            console.log(`>> Done. Transaction hash: ${allowed_places_op.opHash}\n`);
+        }
 
         //
         // Post deploy
@@ -271,7 +335,7 @@ export default class Deploy extends DeployBase {
     }
     }
 
-    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
         assert(this.accountAddress);
 
         // Create item metadata and upload it
@@ -284,7 +348,8 @@ export default class Deploy extends DeployBase {
 
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_Item({
+            ...Minter_contract.methodsObject.mint_public({
+                collection: collection_contract.address,
                 to_: this.accountAddress,
                 amount: amount,
                 royalties: 250,
@@ -361,10 +426,10 @@ export default class Deploy extends DeployBase {
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
-        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.Minter_contract);
-        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
+        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
+        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
 
         // don't mint places for now. use generate map.
         const places = [];
@@ -384,9 +449,7 @@ export default class Deploy extends DeployBase {
         // send batch.
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
-
-        console.log("Successfully minted items");
-        console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
+        console.log(`>> Done. Transaction hash: ${mint_batch_op.opHash}\n`);
     }
 
     private async feesToString (op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
@@ -413,7 +476,7 @@ export default class Deploy extends DeployBase {
         console.log(kleur.bgGreen("Running gas test suite"));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
@@ -738,8 +801,8 @@ export default class Deploy extends DeployBase {
 
         // mint again
         const mint_batch2 = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract);
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract, contracts.items_FA2_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.Minter_contract, contracts.items_FA2_contract);
         const mint_batch2_op = await mint_batch2.send();
         await mint_batch2_op.confirmation();
         console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
@@ -756,7 +819,7 @@ export default class Deploy extends DeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();

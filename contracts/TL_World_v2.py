@@ -28,6 +28,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: gas optimisations!
 # TODO: per chunk AND per place interaction counter?
 # TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
+# TODO: update_settings (like on registry), to change minter, max permissions, etc, etc!!!!!!!!!!!!!!
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
