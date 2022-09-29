@@ -112,7 +112,7 @@ services:
   #
   flextesa:
     restart: always
-    image: oxheadalpha/flextesa:20220510 # prev: 20220127  # prev: 20211207 #20211119 with hangzhou # 20210602 granada
+    image: oxheadalpha/flextesa:${SANDBOX_VERSION}
     command: ${SANDBOX_TYPE} start
     environment:
       - block_time=${SANDBOX_BLOCKTIME}

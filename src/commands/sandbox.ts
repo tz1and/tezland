@@ -4,10 +4,11 @@ import config from '../user.config';
 const sleep = require('util').promisify(setTimeout);
 
 const bcdtag = "pr-914"
+const sandbox_version = "20220510"
 const sandbox_type = "ithacabox"
 
 function configEnv(): string {
-    return `TAG=${bcdtag} SANDBOX_TYPE=${sandbox_type} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
+    return `TAG=${bcdtag} SANDBOX_VERSION=${sandbox_version} SANDBOX_TYPE=${sandbox_type} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
 }
 
 export async function start(full?: boolean): Promise<void> {
