@@ -34,6 +34,9 @@ export enum DeployMode {
 export type SandboxConfig = {
     blockTime: number;
     deployMode: DeployMode;
+    bcdVersion: string;
+    flextesaVersion: string;
+    flextesaProtocol: string;
 }
 
 export type SmartPyConfig = {

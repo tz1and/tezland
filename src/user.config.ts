@@ -23,7 +23,10 @@ const config: SmartpyNodeDevConfig = {
     },
     sandbox: {
         blockTime: 5, // In seconds.
-        deployMode: DeployMode.DevWorld
+        deployMode: DeployMode.DevWorld,
+        bcdVersion: "pr-914",
+        flextesaVersion: "20220510",
+        flextesaProtocol: "ithacabox"
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
