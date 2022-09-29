@@ -17,6 +17,10 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       + maybe: token registry checks minter and also provides roylaties. that way the oncahin royalty provider (registry) can always be updated and can also use merkle
 #         trees for objkt.com tokens, etc.
 # TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
+# TODO: *should* split registry bit into TokenRegistry to make the registry smaller to call. (without all the minter stuff).
+#       might need a layer on top of the registry anyway, for the merkle tree stuff. can always add that later.
+#       both world and minter would then use registry to check for inclusion. probably cheaper for world to only call registry.
+#       Gotta see how it actually works out in terms of size.
 # TODO: layouts!!!
 
 privateCollectionValueType = sp.TRecord(
