@@ -360,10 +360,10 @@ export default class Deploy extends DeployBase {
     }
 
     // Create place metadata and upload it
-    private mintNewPlaces(mint_args: any[], batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private mintNewPlaces(mint_args: any[], batch: WalletOperationBatch, places_FA2_contract: ContractAbstraction<Wallet>) {
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_Place(
+            ...places_FA2_contract.methodsObject.mint(
                 mint_args
             ).toTransferParams()
         }]);
@@ -437,7 +437,7 @@ export default class Deploy extends DeployBase {
         places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
-        this.mintNewPlaces(places, mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces(places, mint_batch, contracts.places_FA2_contract);
 
         const interior_places = [];
         interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
@@ -477,8 +477,8 @@ export default class Deploy extends DeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.places_FA2_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.places_FA2_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
         console.log();
@@ -820,7 +820,7 @@ export default class Deploy extends DeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.Minter_contract, contracts.items_FA2_contract);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.Minter_contract);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.places_FA2_contract);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 
