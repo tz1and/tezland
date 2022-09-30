@@ -611,10 +611,8 @@ class TL_World(
             utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
 
-    # Lambda for sending royalties, fees, etc
-    # It could be inlined, but instead we build a local lambda
-    # to be reused in get_item.
-    def sendValueRoyaltiesFeesLambda(self, params):
+    # Inline function for sending royalties, fees, etc
+    def sendValueRoyaltiesFeesInline(self, params):
         sp.set_type(params, sp.TRecord(
             mutez_per_item = sp.TMutez,
             issuer = sp.TAddress,
@@ -669,9 +667,6 @@ class TL_World(
         # Get item store - must exist.
         item_store = self.item_store_map.get(this_place.stored_items, params.issuer)
 
-        # Build a local lambda from sendValueRoyaltiesFeesLambda
-        sendValueLocalLambda = sp.compute(sp.build_lambda(self.sendValueRoyaltiesFeesLambda, with_storage="read-only", with_operations=True))
-
         # Swap based on item type.
         with item_store[params.item_id].match_cases() as arg:
             # For tz1and native items.
@@ -689,7 +684,7 @@ class TL_World(
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
@@ -716,7 +711,7 @@ class TL_World(
                     item_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_item.value.token_id, the_item.value.fa2))
 
                     # Send fees, royalties, value.
-                    sp.compute(sendValueLocalLambda(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info)))
+                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(the_item.value.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)

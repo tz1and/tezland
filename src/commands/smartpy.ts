@@ -127,6 +127,78 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
     console.log()
 }
 
+export function upgrade_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): void {
+    console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
+
+    // Build artifact directory.
+    const target_out_dir = "./build/upgrade"
+    const tmp_out_dir = "./build/tmp_contract_build"
+
+    // Make target dir if it doesn't exist
+    if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir, { recursive: true });
+
+    // Grab raw michelson from compiled storage.
+
+    // write the compilation target
+    fs.writeFileSync(`./${target_out_dir}/${target_name}_upgrade.py`, `import smartpy as sp
+${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+
+@sp.add_target(name = "${contract_name}", kind = "upgrade")
+def upgrade():
+    admin = sp.test_account("Administrator")
+
+    scenario = sp.test_scenario()
+    instance = ${file_name}_contract.${contract_name}(${target_args.join(', ')})
+    scenario += instance
+
+    # Build a map from upgradeable_entrypoints, names to id.
+    scenario.show({
+        **{entrypoint: sp.contract_entrypoint_id(instance, entrypoint) for entrypoint in instance.upgradeable_entrypoints}},
+        html=True, compile=True)`)
+
+    // cleanup
+    if (fs.existsSync(tmp_out_dir)) fs.rmSync(tmp_out_dir, {recursive: true})
+
+    console.log(`Compiling ${target_name}`)
+
+    const contract_in = `${target_out_dir}/${target_name}_upgrade.py`
+
+    child.execSync(`${SMART_PY_CLI} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
+
+    console.log(`Extracting entry point map from output ...`)
+
+    const ep_map_compiled = `${tmp_out_dir}/${target_name}/step_001_expression.py`;
+    let ep_map = JSON.parse(fs.readFileSync(ep_map_compiled, "utf-8").replace(/'/g, '"'));
+
+    console.log(`Extracting code to upgrade from storage ...`)
+
+    const storage_compiled = `${tmp_out_dir}/${target_name}/step_000_cont_0_storage.json`
+    let storage = JSON.parse(fs.readFileSync(storage_compiled, "utf-8"));
+
+    // For all the entrypoints we are looking for
+    for (const ep_name of entrypoints) {
+        const ep_search_id = ep_map[ep_name];
+
+        // For all lazy entry points in compiled storage
+        for (const lazy_ep of storage.args[1]) {
+            // extract id and lambda
+            const ep_id = parseInt(lazy_ep.args[0].int);
+            const ep_lambda = lazy_ep.args[1];
+
+            if (ep_id === ep_search_id) {
+                // write lambda
+                const ep_out = `${target_name}_ep__${ep_name}.json`
+                fs.writeFileSync(`./build/${ep_out}`, JSON.stringify(ep_lambda, null, 4));
+
+                console.log(kleur.green(`Code written written to ${ep_out}`))
+                break;
+            }
+        }
+    }
+
+    console.log();
+}
+
 export function install(force?: boolean): void {
     if (force === undefined) force = false;
 

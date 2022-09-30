@@ -34,7 +34,7 @@ const config: SmartpyNodeDevConfig = {
         nftStorageApiKey: nftStorageApiKey
     },
     smartpy: {
-        exclude_tests: new Set(["DistrictDAO", "TL_World"])
+        exclude_tests: new Set(["DistrictDAO"])
     }
 }
 export default config;
