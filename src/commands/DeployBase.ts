@@ -102,6 +102,7 @@ export default class DeployBase {
     private networkConfig: NetworkConfig;
     protected network: string;
     protected isSandboxNet: boolean;
+    protected cleanDeploymentsInSandbox: boolean;
 
     public tezos?: TezosToolkit;
     protected accountAddress?: string;
@@ -117,6 +118,7 @@ export default class DeployBase {
         else this.network = options.network;
 
         this.isSandboxNet = this.network === "sandbox";
+        this.cleanDeploymentsInSandbox = true;
 
         // get and validate network config.
         this.networkConfig = config.networks[this.network];
@@ -124,22 +126,7 @@ export default class DeployBase {
         assert(this.networkConfig.accounts.deployer, `deployer account not set for '${this.network}'`)
 
         this.deploymentsDir = `./deployments/${this.network}`;
-
-        // if sandbox, delete deployments dir
-        if(this.isSandboxNet) {
-            if (fs.existsSync(this.deploymentsDir))
-                fs.rmdirSync(this.deploymentsDir, { recursive: true });
-            
-            fs.mkdirSync(this.deploymentsDir, { recursive: true });
-        }
-        else {
-            if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
-        }
-
         this.deploymentsRegPath =`${this.deploymentsDir}/project.deployments.json`;
-        if (fs.existsSync(this.deploymentsRegPath))
-            this.deploymentsReg = JSON.parse(fs.readFileSync(this.deploymentsRegPath, { encoding: 'utf-8' }));
-        else this.deploymentsReg = {};
     }
 
     private async initTezosToolkit() {
@@ -237,8 +224,25 @@ export default class DeployBase {
         if (yesno === "no") throw new Error("Deploy cancelled");
     }
 
+    private prepare() {
+        // If sandbox, delete deployments dir
+        if(this.isSandboxNet && this.cleanDeploymentsInSandbox) {
+            console.log(kleur.yellow("Cleaning deployments dir."))
+            if (fs.existsSync(this.deploymentsDir))
+                fs.rmdirSync(this.deploymentsDir, { recursive: true });
+        }
+        
+        if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
+
+        // Parse deployments registry
+        if (fs.existsSync(this.deploymentsRegPath))
+            this.deploymentsReg = JSON.parse(fs.readFileSync(this.deploymentsRegPath, { encoding: 'utf-8' }));
+        else this.deploymentsReg = {};
+    }
+
     public async deploy(): Promise<void> {
         console.log(kleur.red(`Deploying to '${this.networkConfig.network}' on ${this.networkConfig.url} ...\n`));
+        this.prepare();
 
         if(this.network !== config.defaultNetwork)
             await this.confirmDeploy();
