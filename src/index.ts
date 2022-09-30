@@ -2,7 +2,7 @@ import { program } from 'commander';
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
 import Deploy from './commands/deploy';
-//import Upgrade from './commands/upgrade';
+import Upgrade from './commands/upgrade';
 const packageJson = require('../package.json');
 
 // configuration
@@ -81,7 +81,7 @@ program
         await deploy.deploy();
     });
 
-/*program
+program
     .command('upgrade')
     .alias('u')
     .description('Run the upgrade script.')
@@ -89,7 +89,7 @@ program
     .action(async (options) => {
         const upgrade = new Upgrade(options);
         await upgrade.deploy();
-    });*/
+    });
 
 program
     .command('install-smartpy')
