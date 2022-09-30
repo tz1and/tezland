@@ -28,6 +28,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: gas optimisations!
 # TODO: per chunk AND per place interaction counter?
 # TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
+# TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 # TODO: update_settings (like on registry), to change minter, max permissions, etc, etc!!!!!!!!!!!!!!
 
 # Probably kinda urgent:
@@ -329,7 +330,7 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, items_contract, places_contract, token_registry, metadata, name, description, exception_optimization_level="default-line"):
+    def __init__(self, administrator, token_registry, metadata, name, description, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -339,8 +340,6 @@ class TL_World(
         # Makes much smaller code but removes annots from eps.
         #self.add_flag("simplify-via-michel")
 
-        items_contract = sp.set_type_expr(items_contract, sp.TAddress)
-        places_contract = sp.set_type_expr(places_contract, sp.TAddress)
         token_registry = sp.set_type_expr(token_registry, sp.TAddress)
         
         self.error_message = Error_message()
@@ -349,8 +348,6 @@ class TL_World(
         self.place_store_map = Place_store_map()
         self.item_store_map = Item_store_map()
         self.init_storage(
-            items_contract = items_contract,
-            places_contract = places_contract,
             token_registry = token_registry,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),

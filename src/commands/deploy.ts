@@ -229,8 +229,6 @@ export default class Deploy extends DeployBase {
             // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
             await this.compile_contract("TL_World_v2", "Worlds", "tz1andWorld", [
                 `administrator = sp.address("${this.accountAddress}")`,
-                `items_contract = sp.address("${items_FA2_contract.address}")`,
-                `places_contract = sp.address("${places_FA2_contract.address}")`,
                 `token_registry = sp.address("${Registry_contract.address}")`
             ]);
 
