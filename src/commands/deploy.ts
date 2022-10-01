@@ -170,7 +170,9 @@ export default class Deploy extends DeployBase {
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`,
-            `dao_contract = sp.address("${dao_FA2_contract.address}")`
+            `dao_contract = sp.address("${dao_FA2_contract.address}")`,
+            `name = "tz1and World"`,
+            `description = "tz1and Virtual World"`
         ]);
 
         const World_contract = await this.deploy_contract("TL_World");
@@ -326,6 +328,8 @@ export default class Deploy extends DeployBase {
 
         console.log("Successfully minted items");
         console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
+
+        // TODO: place a few items.
     }
 
     private async feesToString (op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
