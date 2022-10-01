@@ -97,8 +97,8 @@ export function compile_newtarget(target_name: string, file_name: string, contra
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
-${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
-sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_name}(
+${target_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_name}(
     ${target_args.join(', ')}
     ))`)
 
@@ -141,17 +141,18 @@ export function upgrade_newtarget(target_name: string, file_name: string, contra
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_upgrade.py`, `import smartpy as sp
-${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+${target_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
 
-@sp.add_target(name = "${contract_name}", kind = "upgrade")
+@sp.add_target(name = "${target_name}", kind = "upgrade")
 def upgrade():
     admin = sp.test_account("Administrator")
 
     scenario = sp.test_scenario()
-    instance = ${file_name}_contract.${contract_name}(${target_args.join(', ')})
+    instance = ${target_name}_contract.${contract_name}(${target_args.join(', ')})
     scenario += instance
 
-    # Build a map from upgradeable_entrypoints, names to id.
+    # Build a map from upgradeable_entrypoints, names to id
+    # and output the expression.
     scenario.show({
         **{entrypoint: sp.contract_entrypoint_id(instance, entrypoint) for entrypoint in instance.upgradeable_entrypoints}},
         html=True, compile=True)`)
@@ -167,11 +168,13 @@ def upgrade():
 
     console.log(`Extracting entry point map from output ...`)
 
+    // We can just parse the python expression for the ep map as json.
     const ep_map_compiled = `${tmp_out_dir}/${target_name}/step_001_expression.py`;
     let ep_map = JSON.parse(fs.readFileSync(ep_map_compiled, "utf-8").replace(/'/g, '"'));
 
     console.log(`Extracting code to upgrade from storage ...`)
 
+    // Parse the compiled contracts storage to extract eps from.
     const storage_compiled = `${tmp_out_dir}/${target_name}/step_000_cont_0_storage.json`
     let storage = JSON.parse(fs.readFileSync(storage_compiled, "utf-8"));
 
