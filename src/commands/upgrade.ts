@@ -9,6 +9,8 @@ import fs from 'fs';
 
 
 // TODO: need to move the deploy code here and make it update from v1.
+// TODO: v2 gas tests, etc... from deploy_v2
+// TODO: actually update metadata on World and Minter v1
 
 
 export default class Upgrade extends DeployBase {
@@ -202,12 +204,29 @@ export default class Upgrade extends DeployBase {
         //
         // Upgrade v1 contracts.
         //
-        await this.upgrade_entrypoint(tezlandWorld, "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", [`administrator = sp.address("${this.accountAddress}")`,
-            `items_contract = sp.address("${tezlandItems.address}")`,
-            `places_contract = sp.address("${tezlandPlaces.address}")`,
-            `dao_contract = sp.address("${tezlandDAO.address}")`,
-            `name = "tz1and World"`,
-            `description = "tz1and Virtual World"`],
+        await this.upgrade_entrypoint(tezlandWorld,
+            "TL_World_migrate_to_v2", "upgrades/TL_World_v1_1", "TL_World_v1_1",
+            // contract params
+            [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `items_contract = sp.address("${tezlandItems.address}")`,
+                `places_contract = sp.address("${tezlandPlaces.address}")`,
+                `dao_contract = sp.address("${tezlandDAO.address}")`,
+                `name = "tz1and World"`,
+                `description = "tz1and Virtual World"`
+            ],
+            // entrypoints to upgrade
             ["set_item_data", "get_item"]);
+
+        await this.upgrade_entrypoint(tezlandMinter,
+            "TL_Minter_deprecate", "upgrades/TL_Minter_v1_1", "TL_Minter_v1_1",
+            // contract params
+            [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `items_contract = sp.address("${tezlandItems.address}")`,
+                `places_contract = sp.address("${tezlandPlaces.address}")`
+            ],
+            // entrypoints to upgrade
+            ["mint_Place"]);
     }
 }
