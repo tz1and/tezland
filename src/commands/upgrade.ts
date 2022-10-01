@@ -40,7 +40,9 @@ export default class Upgrade extends DeployBase {
     protected override async deployDo() {
         assert(this.tezos);
 
-        // get v1 deployments.
+        //
+        // Get v1 deployments.
+        //
         const tezlandItems = await this.tezos.wallet.at(this.getDeployment("FA2_Items"));
         const tezlandPlaces = await this.tezos.wallet.at(this.getDeployment("FA2_Places"));
         const tezlandDAO = await this.tezos.wallet.at(this.getDeployment("FA2_DAO"));
@@ -48,6 +50,158 @@ export default class Upgrade extends DeployBase {
         const tezlandMinter = await this.tezos.wallet.at(this.getDeployment("TL_Minter"));
         const tezlandDutchAuctions = await this.tezos.wallet.at(this.getDeployment("TL_Dutch"));
 
+        // TODO: pause relevant contracts during upgrade. Then unpause in the end.
+
+        //
+        // Minter v2 and Interiors.
+        //
+        let Minter_v2_contract, interiors_FA2_contract;
+        {
+            const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
+
+            // prepare minter/interiors batch
+            const tezland_batch = new DeployContractBatch(this);
+
+            // Compile and deploy Minter contract.
+            await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+            tezland_batch.addToBatch("TL_Minter_v2");
+
+            await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
+            tezland_batch.addToBatch("FA2_Interiors");
+
+            [Minter_v2_contract, interiors_FA2_contract] = await tezland_batch.deployBatch();
+
+            if (!minterV2WasDeployed) {
+                // Set the minter as the token administrator
+                console.log("Setting minter as token admin...")
+                const set_admin_batch = this.tezos.wallet.batch();
+                set_admin_batch.with([
+                    // Transfer items admin from minter v1 to minter v2
+                    // Transfer places admin back to admin wallet
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...tezlandMinter.methods.transfer_fa2_administrator([
+                            {fa2: tezlandItems.address, proposed_fa2_administrator: Minter_v2_contract.address},
+                            {fa2: tezlandPlaces.address, proposed_fa2_administrator: this.accountAddress},
+                        ]).toTransferParams()
+                    },
+                    // accept items admin in minter v2
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_v2_contract.methods.accept_fa2_administrator([tezlandItems.address]).toTransferParams()
+                    },
+                    // add items as public collection to minter v2
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_v2_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
+                    }
+                ])
+
+                const set_admin_batch_op = await set_admin_batch.send();
+                await set_admin_batch_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${set_admin_batch_op.opHash}\n`);
+            }
+        }
+
+        //
+        // Token Factory and Registry
+        //
+        let Registry_contract, Factory_contract;
+        {
+            const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
+
+            // prepare factory/registry batch
+            const collection_batch = new DeployContractBatch(this);
+
+            // Compile and deploy registry contract.
+            await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `minter = sp.address("${Minter_v2_contract.address}")`
+            ]);
+
+            collection_batch.addToBatch("TL_TokenRegistry");
+            //const Registry_contract = await this.deploy_contract("TL_TokenRegistry");
+
+            // Compile and deploy fa2 factory contract.
+            await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `minter = sp.address("${Minter_v2_contract.address}")`
+            ]);
+
+            collection_batch.addToBatch("TL_TokenFactory");
+            //const Dutch_contract = await this.deploy_contract("TL_TokenFactory");
+
+            [Registry_contract, Factory_contract] = await collection_batch.deployBatch();
+
+            if (!factoryWasDeployed) {
+                // Set the minter permissions for factory
+                console.log("Giving factory permissions to minter...")
+                const minter_permissions_batch = this.tezos.wallet.batch();
+                minter_permissions_batch.with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_v2_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
+                    }
+                ])
+    
+                const minter_permissions_batch_op = await minter_permissions_batch.send();
+                await minter_permissions_batch_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${minter_permissions_batch_op.opHash}\n`);
+            }
+        }
+
+        //
+        // World v2 (Marketplaces)
+        //
+        let World_v2_contract;
+        {
+            const worldV2WasDeployed = this.getDeployment("TL_World_v2");
+
+            // Compile and deploy Places contract.
+            // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
+            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `token_registry = sp.address("${Registry_contract.address}")`,
+                `name = "tz1and World"`,
+                `description = "tz1and Virtual World v2"`
+            ]);
+
+            World_v2_contract = await this.deploy_contract("TL_World_v2");
+
+            if (!worldV2WasDeployed) {
+                console.log("Set allowed place tokens on world...")
+                const allowed_places_op = await World_v2_contract.methodsObject.set_allowed_place_token([
+                    {
+                        add_allowed_place_token: {
+                            fa2: tezlandPlaces.address,
+                            place_limits: {
+                                chunk_limit: 1,
+                                chunk_item_limit: 64
+                            }
+                        }
+                    },
+                    {
+                        add_allowed_place_token: {
+                            fa2: interiors_FA2_contract.address,
+                            place_limits: {
+                                chunk_limit: 1,
+                                chunk_item_limit: 64
+                            }
+                        }
+                    }
+                ]).send();
+                await allowed_places_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${allowed_places_op.opHash}\n`);
+            }
+        }
+
+        //
+        // Upgrade v1 contracts.
+        //
         await this.upgrade_entrypoint(tezlandWorld, "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", [`administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${tezlandItems.address}")`,
             `places_contract = sp.address("${tezlandPlaces.address}")`,
