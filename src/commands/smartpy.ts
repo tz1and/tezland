@@ -127,7 +127,7 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
     console.log()
 }
 
-export function upgrade_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): void {
+export function upgrade_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): Map<string, string> {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
     // Build artifact directory.
@@ -175,6 +175,8 @@ def upgrade():
     const storage_compiled = `${tmp_out_dir}/${target_name}/step_000_cont_0_storage.json`
     let storage = JSON.parse(fs.readFileSync(storage_compiled, "utf-8"));
 
+    const code_map = new Map<string, string>();
+
     // For all the entrypoints we are looking for
     for (const ep_name of entrypoints) {
         const ep_search_id = ep_map[ep_name];
@@ -191,12 +193,14 @@ def upgrade():
                 fs.writeFileSync(`./build/${ep_out}`, JSON.stringify(ep_lambda, null, 4));
 
                 console.log(kleur.green(`Code written written to ${ep_out}`))
+                code_map.set(ep_name, `./build/${ep_out}`);
                 break;
             }
         }
     }
 
     console.log();
+    return code_map;
 }
 
 export function install(force?: boolean): void {

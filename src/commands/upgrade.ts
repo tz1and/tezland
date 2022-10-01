@@ -8,41 +8,52 @@ import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, 
 import fs from 'fs';
 
 
-// some issues: dependent transactions: setting adming, etc
+// TODO: need to move the deploy code here and make it update from v1.
+
+
 export default class Upgrade extends DeployBase {
     constructor(options: any) {
         super(options);
         this.cleanDeploymentsInSandbox = false;
     }
 
-    // Compiles metadata, uploads it and then compiles again with metadata set.
+    // Compiles contract, extracts lazy entrypoint code and deploys the updates.
     // Note: target_args needs to exclude metadata.
-    private upgrade_entrypoint(target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]) {
+    private async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]) {
         // Compile contract with metadata set.
-        smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
+        // TODO: should return map from ep to filename?
+        const code_map = smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
+
+        for (const ep_name of entrypoints) {
+            console.log(`Updating entrypoint ${kleur.yellow(ep_name)}...`)
+            const upgrade_op = await contract.methodsObject.update_ep({
+                ep_name: {[ep_name]: null},
+                new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
+            }).send();
+            await upgrade_op.confirmation();
+            console.log(kleur.green(">> Done."), `Transaction hash: ${upgrade_op.opHash}`);
+        }
+
+        console.log();
     }
 
     protected override async deployDo() {
         assert(this.tezos);
 
-        // TODO: get from deployments
-        //const items_address = this.getDeployment("FA2_Items");
-        const items_address = "KT1HgHtvNxzQrkCnZtTL5a3omcYHKZ7fKdqW";
-        const places_address = "KT1HgHtvNxzQrkCnZtTL5a3omcYHKZ7fKdqW";
-        const dao_address = "KT1HgHtvNxzQrkCnZtTL5a3omcYHKZ7fKdqW";
+        // get v1 deployments.
+        const tezlandItems = await this.tezos.wallet.at(this.getDeployment("FA2_Items"));
+        const tezlandPlaces = await this.tezos.wallet.at(this.getDeployment("FA2_Places"));
+        const tezlandDAO = await this.tezos.wallet.at(this.getDeployment("FA2_DAO"));
+        const tezlandWorld = await this.tezos.wallet.at(this.getDeployment("TL_World"));
+        const tezlandMinter = await this.tezos.wallet.at(this.getDeployment("TL_Minter"));
+        const tezlandDutchAuctions = await this.tezos.wallet.at(this.getDeployment("TL_Dutch"));
 
-        this.upgrade_entrypoint("TL_World_upgrade_migrate", "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", [`administrator = sp.address("${this.accountAddress}")`,
-            `items_contract = sp.address("${items_address}")`,
-            `places_contract = sp.address("${places_address}")`,
-            `dao_contract = sp.address("${dao_address}")`],
-            ["set_item_data"]);
-
-        const world_contract = await this.tezos.wallet.at(this.getDeployment("TL_World"));
-
-        const upgrade_op = await world_contract.methodsObject.update_ep({
-            ep_name: {set_item_data: null},
-            new_code: JSON.parse(fs.readFileSync(`./build/TL_World_upgrade_migrate_ep__set_item_data.json`, "utf-8"))
-        }).send();
-        await upgrade_op.confirmation();
+        await this.upgrade_entrypoint(tezlandWorld, "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", "TL_World_upgrade_migrate", [`administrator = sp.address("${this.accountAddress}")`,
+            `items_contract = sp.address("${tezlandItems.address}")`,
+            `places_contract = sp.address("${tezlandPlaces.address}")`,
+            `dao_contract = sp.address("${tezlandDAO.address}")`,
+            `name = "tz1and World"`,
+            `description = "tz1and Virtual World"`],
+            ["set_item_data", "get_item"]);
     }
 }
