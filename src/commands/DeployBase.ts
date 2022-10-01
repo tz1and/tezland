@@ -9,6 +9,8 @@ import assert from 'assert';
 import kleur from 'kleur';
 import prompt from 'prompt';
 import fs from 'fs';
+import * as smartpy from './smartpy';
+import * as ipfs from '../ipfs'
 
 
 export const sleep = (milliseconds: number) => {
@@ -171,6 +173,28 @@ export default class DeployBase {
         const initJson = JSON.parse(fs.readFileSync(initPath, { encoding: 'utf-8' }));
 
         return { codeJson, initJson };
+    }
+
+    // Compiles metadata, uploads it and then compiles again with metadata set.
+    // Note: target_args needs to exclude metadata.
+    protected async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
+        var metadata_url;
+        if (metadata === undefined) {
+            // Compile metadata
+            smartpy.compile_metadata(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
+
+            const metadtaFile = `${target_name}_metadata.json`;
+            const metadtaPath = `./build/${metadtaFile}`;
+            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
+
+            metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
+        }
+        else {
+            metadata_url = await ipfs.upload_contract_metadata(metadata, this.isSandboxNet);
+        }
+
+        // Compile contract with metadata set.
+        smartpy.compile_newtarget(target_name, file_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
     }
 
     protected async deploy_contract(contract_name: string): Promise<ContractAbstraction<Wallet>> {

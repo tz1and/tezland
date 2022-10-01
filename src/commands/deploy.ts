@@ -1,4 +1,3 @@
-import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
 import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
@@ -24,28 +23,6 @@ type PostDeployContracts = {
 // TODO: finish this stuff!
 // some issues: dependent transactions: setting adming, etc
 export default class Deploy extends DeployBase {
-    // Compiles metadata, uploads it and then compiles again with metadata set.
-    // Note: target_args needs to exclude metadata.
-    private async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
-        var metadata_url;
-        if (metadata === undefined) {
-            // Compile metadata
-            smartpy.compile_metadata(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
-
-            const metadtaFile = `${target_name}_metadata.json`;
-            const metadtaPath = `./build/${metadtaFile}`;
-            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
-
-            metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
-        }
-        else {
-            metadata_url = await ipfs.upload_contract_metadata(metadata, this.isSandboxNet);
-        }
-
-        // Compile contract with metadata set.
-        smartpy.compile_newtarget(target_name, file_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
-    }
-
     protected override async deployDo() {
         assert(this.tezos);
 
