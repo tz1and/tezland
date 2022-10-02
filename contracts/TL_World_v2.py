@@ -29,7 +29,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: per chunk AND per place interaction counter?
 # TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
-# TODO: update_settings (like on registry), to change minter, max permissions, etc, etc!!!!!!!!!!!!!!
+# TODO: consider putting mixin setters into update_settings to redruce size of contract. set_allowed_place_token, set_metadata, set_moderation_contract, set_paused.
+# TODO: try to always use .get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
+# TODO: migration stub types!
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -349,6 +351,7 @@ class TL_World(
         self.item_store_map = Item_store_map()
         self.init_storage(
             token_registry = token_registry,
+            migration_contract = sp.none,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = self.place_store_map.make()
@@ -389,12 +392,28 @@ class TL_World(
         self.init_metadata("metadata_base", metadata_base)
 
 
-    @sp.entry_point
-    def update_max_permission(self, max_permission):
-        sp.set_type(max_permission, sp.TNat)
+    @sp.entry_point(lazify = True)
+    def update_settings(self, params):
+        """Allows the administrator to update various settings."""
+        sp.set_type(params, sp.TList(sp.TVariant(
+            max_permission = sp.TNat,
+            token_registry = sp.TAddress,
+            migration_contract = sp.TOption(sp.TAddress)
+        )))
+
         self.onlyAdministrator()
-        sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
-        self.data.max_permission = max_permission
+
+        with sp.for_("update", params) as update:
+            with update.match_cases() as arg:
+                with arg.match("max_permission") as max_permission:
+                    sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
+                    self.data.max_permission = max_permission
+
+                with arg.match("token_registry") as token_registry:
+                    self.data.token_registry = token_registry
+
+                with arg.match("migration_contract") as migration_contract:
+                    self.data.migration_contract = migration_contract
 
 
     #
@@ -810,6 +829,29 @@ class TL_World(
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
+
+
+    #
+    # Migration
+    #
+    @sp.entry_point(lazify = True)
+    def migration(self, params):
+        """An entrypoint to recieve/send migrations.
+        
+        Initially set up to recieve migrations but can
+        be upgraded to send migrations."""
+        sp.set_type(params, sp.TRecord(
+            place_key =  placeKeyType,
+            owner = sp.TOption(sp.TAddress),
+            # TODO: full issuer.token.item map
+            migrate_item_map = sp.TMap(sp.TAddress, sp.TList(placeItemListType)),
+            extension = extensionArgType
+        ).layout(("place_key", ("owner", ("migrate_item_map", "extension")))))
+
+        # Only allow recieving migrations from a certain contract,
+        # and also only from admin as source.
+        sp.verify((sp.sender == self.data.migration_contract.open_some("NO_MIGRATION_CONTRACT")) &
+            (sp.source == self.data.administrator))
 
 
     #

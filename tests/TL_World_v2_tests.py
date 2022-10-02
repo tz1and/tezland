@@ -503,14 +503,30 @@ def test():
     #
     # Test item limit
     #
-    scenario.h2("Limits/Max permissions")
+    scenario.h2("Settings")
 
-    scenario.h3("update map permissions")
+    scenario.h3("update max_permission")
     scenario.verify(world.data.max_permission == places_contract.permissionFull)
-    world.update_max_permission(127).run(sender = bob, valid = False)
-    world.update_max_permission(96).run(sender = admin, valid = False, exception="PARAM_ERROR")
-    world.update_max_permission(127).run(sender = admin)
+    world.update_settings([sp.variant("max_permission", 127)]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("max_permission", 96)]).run(sender = admin, valid = False, exception="PARAM_ERROR")
+    world.update_settings([sp.variant("max_permission", 127)]).run(sender = admin)
     scenario.verify(world.data.max_permission == 127)
+
+    scenario.h3("update token_registry")
+    scenario.verify(world.data.token_registry == token_registry.address)
+    world.update_settings([sp.variant("token_registry", admin.address)]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("token_registry", admin.address)]).run(sender = admin)
+    scenario.verify(world.data.token_registry == admin.address)
+    world.update_settings([sp.variant("token_registry", token_registry.address)]).run(sender = admin)
+
+    scenario.h3("update migration_contract")
+    scenario.verify(world.data.migration_contract == sp.none)
+    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = admin)
+    scenario.verify(world.data.migration_contract == sp.some(admin.address))
+    world.update_settings([sp.variant("migration_contract", sp.none)]).run(sender = admin)
+
+    scenario.h2("Limits")
 
     scenario.h3("chunk item limit on place_items")
     world.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 10)))])).run(sender = admin)
