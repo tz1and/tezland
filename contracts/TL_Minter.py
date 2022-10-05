@@ -17,7 +17,9 @@ class TL_Minter(
     fa2_admin.FA2_Administration,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, metadata,
+        name="tz1and Minter", description="tz1and Items and Places minter", version="1.0.0", exception_optimization_level="default-line"):
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         
@@ -30,15 +32,15 @@ class TL_Minter(
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
-        self.generate_contract_metadata()
+        self.generate_contract_metadata(name, description, version)
 
-    def generate_contract_metadata(self):
+    def generate_contract_metadata(self, name, description, version):
         """Generate a metadata json file with all the contract's offchain views
         and standard TZIP-12 and TZIP-016 key/values."""
         metadata_base = {
-            "name": 'tz1and Minter',
-            "description": 'tz1and Items and Places minter',
-            "version": "1.0.0",
+            "name": name,
+            "description": description,
+            "version": version,
             "interfaces": ["TZIP-012", "TZIP-016"],
             "authors": [
                 "852Kerfunkle <https://github.com/852Kerfunkle>"

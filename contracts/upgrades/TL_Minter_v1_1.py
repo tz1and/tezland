@@ -5,9 +5,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 class TL_Minter_v1_1(minter_contract.TL_Minter):
-    def __init__(self, administrator, items_contract, places_contract, metadata):
+    def __init__(self, administrator, items_contract, places_contract, metadata,
+        name="tz1and Minter (deprecated)", description="tz1and Items and Places minter", version="1.1.0"):
+
         minter_contract.TL_Minter.__init__(self, administrator,
-            items_contract, places_contract, metadata)
+            items_contract, places_contract, metadata, name, description, version)
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):

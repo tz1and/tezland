@@ -202,6 +202,17 @@ def upgrade():
         }
     }
 
+    // TODO: function for extracting metadata.
+    console.log(`Extracting metadata ...`)
+
+    const metadata_out = `${target_name}_metadata.json`
+    const metadata_compiled = `${target_name}/step_000_cont_0_metadata.metadata_base.json`
+
+    if (fs.existsSync(`${tmp_out_dir}/${metadata_compiled}`)) {
+        fs.copyFileSync(`${tmp_out_dir}/${metadata_compiled}`, `./build/${metadata_out}`)
+        console.log(kleur.green(`Metadata written to ${metadata_out}`))
+    }
+
     console.log();
     return code_map;
 }

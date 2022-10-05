@@ -21,9 +21,9 @@ export default class Upgrade extends DeployBase {
 
     // Compiles contract, extracts lazy entrypoint code and deploys the updates.
     // Note: target_args needs to exclude metadata.
-    private async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]) {
+    private async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string,
+        target_args: string[], entrypoints: string[], upload_new_metadata: boolean): Promise<string | undefined> {
         // Compile contract with metadata set.
-        // TODO: should return map from ep to filename?
         const code_map = smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
 
         for (const ep_name of entrypoints) {
@@ -36,7 +36,17 @@ export default class Upgrade extends DeployBase {
             console.log(kleur.green(">> Done."), `Transaction hash: ${upgrade_op.opHash}`);
         }
 
+        let metdata_url;
+        if (upload_new_metadata) {
+            const metadtaFile = `${target_name}_metadata.json`;
+            const metadtaPath = `./build/${metadtaFile}`;
+            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
+
+            metdata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
+        }
+
         console.log();
+        return metdata_url;
     }
 
     protected override async deployDo() {
@@ -204,21 +214,19 @@ export default class Upgrade extends DeployBase {
         //
         // Upgrade v1 contracts.
         //
-        await this.upgrade_entrypoint(tezlandWorld,
+        const world_v1_1_metadata = await this.upgrade_entrypoint(tezlandWorld,
             "TL_World_migrate_to_v2", "upgrades/TL_World_v1_1", "TL_World_v1_1",
             // contract params
             [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `items_contract = sp.address("${tezlandItems.address}")`,
                 `places_contract = sp.address("${tezlandPlaces.address}")`,
-                `dao_contract = sp.address("${tezlandDAO.address}")`,
-                `name = "tz1and World"`,
-                `description = "tz1and Virtual World"`
+                `dao_contract = sp.address("${tezlandDAO.address}")`
             ],
             // entrypoints to upgrade
-            ["set_item_data", "get_item"]);
+            ["set_item_data", "get_item"], true);
 
-        await this.upgrade_entrypoint(tezlandMinter,
+        const minter_v1_1_metadata = await this.upgrade_entrypoint(tezlandMinter,
             "TL_Minter_deprecate", "upgrades/TL_Minter_v1_1", "TL_Minter_v1_1",
             // contract params
             [
@@ -227,6 +235,29 @@ export default class Upgrade extends DeployBase {
                 `places_contract = sp.address("${tezlandPlaces.address}")`
             ],
             // entrypoints to upgrade
-            ["mint_Place"]);
+            ["mint_Place"], true);
+
+        // Update metadata on v1 contracts
+        {
+            console.log("Updating metadata on v1 world contract...")
+            assert(world_v1_1_metadata);
+            const world_metadata_op = await tezlandWorld.methodsObject.get_item({
+                lot_id: 0,
+                item_id: 0,
+                issuer: this.accountAddress,
+                extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(world_v1_1_metadata) })
+            }).send();
+            await world_metadata_op.confirmation();
+            console.log(`>> Done. Transaction hash: ${world_metadata_op.opHash}\n`);
+
+            console.log("Updating metadata on v1 minter contract...")
+            assert(minter_v1_1_metadata);
+            const minter_metadata_op = await tezlandMinter.methodsObject.mint_Place([{
+                to_: this.accountAddress,
+                metadata: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(minter_v1_1_metadata) })
+            }]).send();
+            await minter_metadata_op.confirmation();
+            console.log(`>> Done. Transaction hash: ${minter_metadata_op.opHash}\n`);
+        }
     }
 }

@@ -4,10 +4,12 @@ world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 
 
 class TL_World_v1_1(world_contract.TL_World):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description):
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata,
+        name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
+
         world_contract.TL_World.__init__(self, administrator,
             items_contract, places_contract, dao_contract, metadata,
-            name, description)
+            name, description, version)
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
