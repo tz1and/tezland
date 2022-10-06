@@ -5,7 +5,7 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
+token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -53,19 +53,19 @@ class TL_TokenFactory(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, token_registry, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         administrator = sp.set_type_expr(administrator, sp.TAddress)
-        #token_registry = sp.set_type_expr(token_registry, sp.TAddress)
+        token_registry = sp.set_type_expr(token_registry, sp.TAddress)
         minter = sp.set_type_expr(minter, sp.TAddress)
 
         # NOTE: TODO: args don't matter here since we set storage on origination.
         self.collection_contract = tz1andCollection(metadata, administrator)
         
         self.init_storage(
-            #token_registry = token_registry,
+            token_registry = token_registry,
             minter = minter
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
@@ -108,7 +108,7 @@ class TL_TokenFactory(
         """Allows the administrator to update the token registry,
         minter, etc"""
         sp.set_type(params, sp.TList(sp.TVariant(
-            #token_registry = sp.TAddress,
+            token_registry = sp.TAddress,
             minter = sp.TAddress
         )))
 
@@ -116,15 +116,14 @@ class TL_TokenFactory(
 
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                #with arg.match("token_registry") as address:
-                #    # TODO: does this make sure contract has token_registry ep?
-                #    #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), contract, 
-                #    #    entry_point = "register_fa2").open_some()
-                #    #
-                #    #sp.transfer([], sp.mutez(0), register_fa2_handle)
-                #    self.data.token_registry = address
+                with arg.match("token_registry") as address:
+                    # TODO: does this make sure contract has token_registry ep?
+                    #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), contract, 
+                    #    entry_point = "register_fa2").open_some()
+                    #
+                    #sp.transfer([], sp.mutez(0), register_fa2_handle)
+                    self.data.token_registry = address
 
-                # TODO: test this
                 with arg.match("minter") as address:
                     self.data.minter = address
 
@@ -138,9 +137,11 @@ class TL_TokenFactory(
             metadata = sp.TBigMap(sp.TString, sp.TBytes)
         ))
 
+        self.onlyUnpaused()
+
         utils.validate_ipfs_uri(params.metadata[""])
 
-        # Originate
+        # Originate FA2
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
             # The storage we need to modify
             administrator = self.data.minter,
@@ -156,16 +157,10 @@ class TL_TokenFactory(
             token_metadata = sp.big_map()
         ))
 
-        # Register with token registry
-        #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), self.data.token_registry,
-        #    entry_point = "register_fa2").open_some()
-        #
-        #sp.transfer([originated_token], sp.mutez(0), register_fa2_handle)
-
-        # Add private collection in minter v2
+        # Add private collection in token registry
         manage_private_collections_handle = sp.contract(
-            minter_contract.t_manage_private_collections,
-            self.data.minter, 
+            token_registry_contract.t_manage_private_collections,
+            self.data.token_registry, 
             entry_point = "manage_private_collections").open_some()
 
         sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender)])], sp.mutez(0), manage_private_collections_handle)
