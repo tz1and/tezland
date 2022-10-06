@@ -37,30 +37,15 @@ class NFTStorageTZip extends NFTStorage {
         return Token.Token.encode(input)
     }
 
-    static override async store(service: Service, metadata: any) {
+    static override async store(service: Service, metadata: any, options?: any) {
         const { token, car } = await NFTStorageTZip.encodeNFT(metadata)
-        await NFTStorageTZip.storeCar(service, car)
+        await NFTStorageTZip.storeCar(service, car, options)
         return token
     }
 
-    override store(token: any) {
-        return NFTStorageTZip.store(this, token)
+    override store(token: any, options?: any) {
+        return NFTStorageTZip.store(this, token, options)
     }
-
-    /*static override async storeBlob(service: Service, blob: Blob) {
-        const blockstore = new Blockstore()
-        let cidString
-
-        try {
-            const { cid, car } = await NFTStorageTZip.encodeBlob(blob, { blockstore })
-            await NFTStorageTZip.storeCar(service, car)
-            cidString = cid.toString()
-        } finally {
-            await blockstore.close()
-        }
-
-        return cidString
-    }*/
 }
 
 // Upload to NFTStorage without validation. For contract metadata.
@@ -69,30 +54,15 @@ class NFTStorageNoValidation extends NFTStorage {
         return Token.Token.encode(input)
     }
 
-    static override async store(service: Service, metadata: any) {
+    static override async store(service: Service, metadata: any, options?: any) {
         const { token, car } = await NFTStorageNoValidation.encodeNFT(metadata)
-        await NFTStorageNoValidation.storeCar(service, car)
+        await NFTStorageNoValidation.storeCar(service, car, options)
         return token
     }
 
-    override store(token: any) {
-        return NFTStorageNoValidation.store(this, token)
+    override store(token: any, options?: any) {
+        return NFTStorageNoValidation.store(this, token, options)
     }
-
-    /*static override async storeBlob(service: Service, blob: Blob) {
-        const blockstore = new Blockstore()
-        let cidString
-
-        try {
-            const { cid, car } = await NFTStorageNoValidation.encodeBlob(blob, { blockstore })
-            await NFTStorageNoValidation.storeCar(service, car)
-            cidString = cid.toString()
-        } finally {
-            await blockstore.close()
-        }
-
-        return cidString
-    }*/
 }
 
 // if it's a directory path, get the root file
@@ -158,7 +128,7 @@ const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean): 
             for (const [key, value] of Object.entries(jsonObj)) {
                 // if it's a File, upload it.
                 if(value instanceof Blob) {
-                    const file: Blob = value;
+                    const file: Blob = value as Blob;
         
                     // upload to ips
                     const result = await ipfs_client.add(file);
