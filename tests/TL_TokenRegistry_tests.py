@@ -4,6 +4,8 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
+# TODO: test is_private_owner etc views
+
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -27,71 +29,150 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
-    places_tokens = tokens.tz1andPlaces(
-        metadata = sp.utils.metadata_of_url("https://example.com"),
-        admin = admin.address)
-    scenario += places_tokens
-
-    scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += minter
-
     # create token_registry contract
     scenario.h1("Test TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address, minter.address,
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    """token_registry.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=admin)
+    scenario.h2("minter")
+    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += minter
 
-    # test register_fa2
-    token_registry.register_fa2([items_tokens.address]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
+    # set items_tokens administrator to minter contract
+    items_tokens.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
 
-    scenario.verify(token_registry.data.registered.contains(items_tokens.address) == False)
-    token_registry.register_fa2([items_tokens.address]).run(sender=bob)
-    scenario.verify(token_registry.data.registered.contains(items_tokens.address) == True)
+    # test public collections
+    scenario.h2("Public Collections")
 
-    scenario.verify(token_registry.data.registered.contains(places_tokens.address) == False)
-    token_registry.register_fa2([places_tokens.address]).run(sender=admin)
-    scenario.verify(token_registry.data.registered.contains(places_tokens.address) == True)
+    # test adding public collections
+    scenario.h3("manage_public_collection")
 
-    # test unregister_fa2
-    token_registry.unregister_fa2([items_tokens.address]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_registry.unregister_fa2([items_tokens.address]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
-    scenario.verify(token_registry.data.registered.contains(places_tokens.address) == True)
-    token_registry.unregister_fa2([places_tokens.address]).run(sender=admin)
-    scenario.verify(token_registry.data.registered.contains(places_tokens.address) == False)"""
+    # add permission for alice
+    token_registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice)
+    scenario.verify(token_registry.data.public_collections.contains(items_tokens.address))
 
-    #
-    # test views
-    #
-    scenario.h2("views")
+    # public collection can't be private
+    token_registry.manage_private_collections([sp.variant("add_collections", [sp.record(contract = items_tokens.address, owner = bob.address)])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
 
-    # public collection
-    scenario.show(token_registry.is_registered(items_tokens.address))
-    scenario.verify(token_registry.is_registered(items_tokens.address) == False)
+    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(~token_registry.data.public_collections.contains(items_tokens.address))
 
-    minter.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.show(token_registry.is_registered(items_tokens.address))
-    scenario.verify(token_registry.is_registered(items_tokens.address) == True)
+    # only unpaused
+    token_registry.set_paused(True).run(sender = admin)
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.set_paused(False).run(sender = admin)
 
-    minter.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.show(token_registry.is_registered(items_tokens.address))
-    scenario.verify(token_registry.is_registered(items_tokens.address) == False)
+    token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
 
-    # private collection
+    # test private collections
+    scenario.h2("Private Collections")
+
+    # test adding private collections
+    scenario.h3("manage_private_collections")
+
     manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address)
-    scenario.show(token_registry.is_registered(items_tokens.address))
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
+
+    # add permission for alice
+    token_registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice)
+    scenario.verify(token_registry.data.private_collections.contains(items_tokens.address))
+
+    # private collection can't be public
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
+
+    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(~token_registry.data.private_collections.contains(items_tokens.address))
+
+    # only unpaused
+    token_registry.set_paused(True).run(sender = admin)
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.set_paused(False).run(sender = admin)
+
+    token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
+
+    scenario.h3("manage_collaborators")
+
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+
+    manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
+    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    scenario.verify(~token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
+    scenario.verify(token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+
+    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
+    scenario.verify(~token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+
+    token_registry.set_paused(True).run(sender = admin)
+    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.set_paused(False).run(sender = admin)
+
+    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+
+    scenario.h3("transfer_private_ownership")
+
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+
+    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    scenario.verify(token_registry.data.private_collections[items_tokens.address].owner == bob.address)
+    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = bob)
+    scenario.verify(token_registry.data.private_collections[items_tokens.address].proposed_owner == sp.some(alice.address))
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice)
+    scenario.verify(token_registry.data.private_collections[items_tokens.address].owner == alice.address)
+    scenario.verify(token_registry.data.private_collections[items_tokens.address].proposed_owner == sp.none)
+
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NO_OWNER_TRANSFER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NO_OWNER_TRANSFER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NO_OWNER_TRANSFER")
+
+    token_registry.set_paused(True).run(sender = admin)
+    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = bob.address)).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.set_paused(False).run(sender = admin)
+
+    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+
+    # test get_item_royalties view
+    #scenario.h2("get_item_royalties")
+    #scenario.p("It's a view")
+    #view_res = token_registry.get_item_royalties(sp.nat(0))
+    #scenario.verify(view_res.royalties == 250)
+    #scenario.verify(view_res.creator == bob.address)
+
+    # Test onchain views
+    scenario.h2("Test views")
+
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    scenario.verify(token_registry.is_private_collection(items_tokens.address) == True)
+    scenario.verify(token_registry.is_registered(items_tokens.address) == True)
+    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(token_registry.is_private_collection(items_tokens.address) == False)
     scenario.verify(token_registry.is_registered(items_tokens.address) == False)
 
-    minter.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
-    scenario.show(token_registry.is_registered(items_tokens.address))
+    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(token_registry.is_public_collection(items_tokens.address) == True)
     scenario.verify(token_registry.is_registered(items_tokens.address) == True)
-
-    minter.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.show(token_registry.is_registered(items_tokens.address))
+    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(token_registry.is_public_collection(items_tokens.address) == False)
     scenario.verify(token_registry.is_registered(items_tokens.address) == False)
 
     scenario.table_of_contents()
