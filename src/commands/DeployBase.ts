@@ -136,6 +136,7 @@ export default class DeployBase {
     private async initTezosToolkit() {
         let signer;
         if (this.networkConfig.accounts.deployer instanceof LedgerAccount) {
+            console.log("Connecting to ledger...");
             const transport = await TransportNodeHid.create();
             signer = new LedgerSigner(transport);
         }
