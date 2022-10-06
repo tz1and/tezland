@@ -1,4 +1,4 @@
-import { DeployMode, SmartpyNodeDevConfig } from './config/config';
+import { DeployMode, SmartpyNodeDevConfig, LedgerAccount, PrivateKeyAccount } from './config/config';
 const { testnetDeployerKey, deployerKey, nftStorageApiKey } = require('../secrets.json');
 
 const config: SmartpyNodeDevConfig = {
@@ -8,17 +8,17 @@ const config: SmartpyNodeDevConfig = {
             url: "http://localhost:20000",
             network: "sandboxnet",
             // Don't get all excited, this is the known key for Alice.
-            accounts: { deployer: "edsk3QoqBuvdamxouPhin7swCvkQNgq4jP5KZPbwWNnwdZpSpJiEbq" }
+            accounts: { deployer: new PrivateKeyAccount("edsk3QoqBuvdamxouPhin7swCvkQNgq4jP5KZPbwWNnwdZpSpJiEbq") }
         },
         mainnet: {
             url: "https://mainnet.api.tez.ie",
             network: "mainnet",
-            accounts: { deployer: deployerKey }
+            accounts: { deployer: new LedgerAccount() }
         },
         testnet: {
             url: "https://rpc.hangzhounet.teztnets.xyz",
             network: "hangzhounet",
-            accounts: { deployer: testnetDeployerKey }
+            accounts: { deployer: new PrivateKeyAccount(testnetDeployerKey) }
         }
     },
     sandbox: {

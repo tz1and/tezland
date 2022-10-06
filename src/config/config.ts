@@ -1,8 +1,18 @@
 export type PrivateKey = string;
 export type IpfsUrl = string;
 
+export interface AccountType {}
+export class LedgerAccount implements AccountType {}
+export class PrivateKeyAccount implements AccountType {
+    private_key: string;
+
+    constructor(key: string) {
+        this.private_key = key;
+    }
+}
+
 export type AccountsConfig = {
-    [accountName: string]: string;
+    [accountName: string]: AccountType;
 }
 
 export type NetworkConfig = {

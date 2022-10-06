@@ -2,9 +2,11 @@ import { TezosToolkit, ContractAbstraction, WalletOperationBatch, OpKind, Wallet
 import { OperationContentsAndResult } from "@taquito/rpc";
 import { InMemorySigner } from "@taquito/signer";
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';
+import { LedgerSigner } from '@taquito/ledger-signer';
+import TransportNodeHid from '@ledgerhq/hw-transport-node-hid';
 import { performance } from 'perf_hooks';
 import config from '../user.config';
-import { NetworkConfig } from '../config/config';
+import { PrivateKeyAccount, LedgerAccount, NetworkConfig } from '../config/config';
 import assert from 'assert';
 import kleur from 'kleur';
 import prompt from 'prompt';
@@ -132,7 +134,16 @@ export default class DeployBase {
     }
 
     private async initTezosToolkit() {
-        const signer = await InMemorySigner.fromSecretKey(this.networkConfig.accounts.deployer);
+        let signer;
+        if (this.networkConfig.accounts.deployer instanceof LedgerAccount) {
+            const transport = await TransportNodeHid.create();
+            signer = new LedgerSigner(transport);
+        }
+        else if (this.networkConfig.accounts.deployer instanceof PrivateKeyAccount) {
+            signer = await InMemorySigner.fromSecretKey(this.networkConfig.accounts.deployer.private_key);
+        }
+        else throw new Error("Unhandled account type");
+
         this.tezos = new TezosToolkit(this.networkConfig.url);
         this.tezos.setProvider({ signer: signer });
 
