@@ -262,7 +262,7 @@ class TL_TokenRegistry(
             sp.result(collection_props.owner == params.address)
 
     @sp.onchain_view(pure=True)
-    def is_private_owner_or_collaborator(self, params):
+    def is_private_owner_or_collab(self, params):
         """Returns true if address is collection owner or operator, false otherwise.
         Throws INVALID_COLLECTION if collection not in private collections."""
         sp.set_type(params, t_ownership_check)

@@ -86,7 +86,7 @@ class TL_Minter(
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
         # call registry view to check owner or collaborator.
-        sp.verify(sp.view("is_private_owner_or_collaborator", self.data.token_registry,
+        sp.verify(sp.view("is_private_owner_or_collab", self.data.token_registry,
             sp.set_type_expr(sp.record(
                 collection = collection,
                 address = address
