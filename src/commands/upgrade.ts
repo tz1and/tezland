@@ -65,6 +65,19 @@ export default class Upgrade extends DeployBase {
         // TODO: pause relevant contracts during upgrade. Then unpause in the end.
 
         //
+        // Token Registry
+        //
+        let Registry_contract;
+        {
+            // Compile and deploy registry contract.
+            await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+
+            Registry_contract = await this.deploy_contract("TL_TokenRegistry");
+        }
+
+        //
         // Minter v2 and Interiors.
         //
         let Minter_v2_contract, interiors_FA2_contract;
@@ -76,7 +89,8 @@ export default class Upgrade extends DeployBase {
 
             // Compile and deploy Minter contract.
             await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter", [
-                `administrator = sp.address("${this.accountAddress}")`
+                `administrator = sp.address("${this.accountAddress}")`,
+                `token_registry = sp.address("${Registry_contract.address}")`
             ]);
             tezland_batch.addToBatch("TL_Minter_v2");
 
@@ -109,7 +123,7 @@ export default class Upgrade extends DeployBase {
                     // add items as public collection to minter v2
                     {
                         kind: OpKind.TRANSACTION,
-                        ...Minter_v2_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
+                        ...Registry_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
                     }
                 ])
 
@@ -120,49 +134,35 @@ export default class Upgrade extends DeployBase {
         }
 
         //
-        // Token Factory and Registry
+        // Token Factory
         //
-        let Registry_contract, Factory_contract;
+        // TODO: could probably deploy with world v2.
+        let Factory_contract;
         {
             const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
-
-            // prepare factory/registry batch
-            const collection_batch = new DeployContractBatch(this);
-
-            // Compile and deploy registry contract.
-            await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `minter = sp.address("${Minter_v2_contract.address}")`
-            ]);
-
-            collection_batch.addToBatch("TL_TokenRegistry");
-            //const Registry_contract = await this.deploy_contract("TL_TokenRegistry");
 
             // Compile and deploy fa2 factory contract.
             await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
                 `administrator = sp.address("${this.accountAddress}")`,
+                `token_registry = sp.address("${Registry_contract.address}")`,
                 `minter = sp.address("${Minter_v2_contract.address}")`
             ]);
 
-            collection_batch.addToBatch("TL_TokenFactory");
-            //const Dutch_contract = await this.deploy_contract("TL_TokenFactory");
-
-            [Registry_contract, Factory_contract] = await collection_batch.deployBatch();
+            Factory_contract = await this.deploy_contract("TL_TokenFactory");
 
             if (!factoryWasDeployed) {
-                // Set the minter permissions for factory
-                console.log("Giving factory permissions to minter...")
-                const minter_permissions_batch = this.tezos.wallet.batch();
-                minter_permissions_batch.with([
+                console.log("Giving registry permissions to factory contract...")
+                const factory_permissions_batch = this.tezos.wallet.batch();
+                factory_permissions_batch.with([
                     {
                         kind: OpKind.TRANSACTION,
-                        ...Minter_v2_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
+                        ...Registry_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
                     }
                 ])
     
-                const minter_permissions_batch_op = await minter_permissions_batch.send();
-                await minter_permissions_batch_op.confirmation();
-                console.log(`>> Done. Transaction hash: ${minter_permissions_batch_op.opHash}\n`);
+                const factory_permissions_batch_op = await factory_permissions_batch.send();
+                await factory_permissions_batch_op.confirmation();
+                console.log(`>> Done. Transaction hash: ${factory_permissions_batch_op.opHash}\n`);
             }
         }
 
@@ -259,5 +259,9 @@ export default class Upgrade extends DeployBase {
             await minter_metadata_op.confirmation();
             console.log(`>> Done. Transaction hash: ${minter_metadata_op.opHash}\n`);
         }
+
+        // TODO: run world migration
+
+        // TODO: post upgrade step, gas tests, etc
     }
 }
