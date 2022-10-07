@@ -432,6 +432,22 @@ class Common(sp.Contract):
         metadata_base["permissions"]["operator"] = self.policy.name
         self.init_metadata(filename, metadata_base)
 
+    def balance_of_batch(self, requests):
+        """Mapping of balances."""
+        sp.set_type(requests, sp.TList(t_balance_of_request))
+
+        def f_process_request(req):
+            sp.result(
+                sp.record(
+                    request=req,
+                    balance=self.balance_(req.owner, req.token_id),
+                )
+            )
+
+        return requests.map(f_process_request)
+
+    # Entry points
+
     @sp.entry_point
     def update_operators(self, batch):
         """Accept a list of variants to add or remove operators who can perform
@@ -448,6 +464,18 @@ class Common(sp.Contract):
                         del self.data.operators[operator]
         else:
             sp.failwith("FA2_OPERATORS_UNSUPPORTED")
+
+    @sp.entry_point
+    def balance_of(self, params):
+        """Send the balance of multiple account / token pairs to a callback
+        address.
+
+        `balance_of_batch` must be defined in the child class.
+        """
+        sp.set_type(params, t_balance_of_params)
+        sp.transfer(
+            self.balance_of_batch(params.requests), sp.mutez(0), params.callback
+        )
 
     # Onchain views
 
@@ -548,28 +576,6 @@ class Fa2Nft(Common):
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return sp.nat(1)
-
-    def balance_of_(self, requests):
-        """Logic of the balance_of entrypoint."""
-        sp.set_type(requests, sp.TList(t_balance_of_request))
-
-        def f_process_request(req):
-            sp.verify(self.is_defined(req.token_id), "FA2_TOKEN_UNDEFINED")
-            sp.result(
-                sp.record(
-                    request=sp.record(owner=req.owner, token_id=req.token_id),
-                    balance=sp.eif(self.data.ledger[req.token_id] == req.owner, 1, 0),
-                )
-            )
-
-        return requests.map(f_process_request)
-
-    @sp.entry_point
-    def balance_of(self, params):
-        """Send the balance of multiple account / token pairs to a callback
-        address."""
-        sp.set_type(params, t_balance_of_params)
-        sp.transfer(self.balance_of_(params.requests), sp.mutez(0), params.callback)
 
     @sp.entry_point
     def transfer(self, batch):
@@ -678,28 +684,6 @@ class Fa2Fungible(Common):
         else:
             return self.data.token_extra.get(token_id, sp.record(supply=sp.nat(0))).supply
 
-    def balance_of_(self, requests):
-        """Logic of the balance_of entrypoint."""
-        sp.set_type(requests, sp.TList(t_balance_of_request))
-
-        def f_process_request(req):
-            sp.verify(self.is_defined(req.token_id), "FA2_TOKEN_UNDEFINED")
-            sp.result(
-                sp.record(
-                    request=sp.record(owner=req.owner, token_id=req.token_id),
-                    balance=self.data.ledger.get((req.owner, req.token_id), 0),
-                )
-            )
-
-        return requests.map(f_process_request)
-
-    @sp.entry_point
-    def balance_of(self, params):
-        """Send the balance of multiple account / token pairs to a callback
-        address."""
-        sp.set_type(params, t_balance_of_params)
-        sp.transfer(self.balance_of_(params.requests), sp.mutez(0), params.callback)
-
     @sp.entry_point
     def transfer(self, batch):
         """Accept a list of transfer operations between a source and multiple
@@ -778,6 +762,10 @@ class Fa2SingleAsset(Common):
             supply += amount
         return (ledger, supply, token_metadata_dict)
 
+    # Overload is_defined to make sure token_id is always 0
+    def is_defined(self, token_id):
+        return token_id == 0
+
     def balance_(self, owner, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return self.data.ledger.get(owner, 0)
@@ -785,32 +773,6 @@ class Fa2SingleAsset(Common):
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return self.data.supply
-
-    def balance_of_(self, requests):
-        """Logic of the balance_of entrypoint."""
-        sp.set_type(requests, sp.TList(t_balance_of_request))
-
-        def f_process_request(req):
-            sp.verify(self.is_defined(req.token_id), "FA2_TOKEN_UNDEFINED")
-            sp.result(
-                sp.record(
-                    request=sp.record(owner=req.owner, token_id=req.token_id),
-                    balance=self.data.ledger.get(req.owner, 0),
-                )
-            )
-
-        return requests.map(f_process_request)
-
-    @sp.entry_point
-    def balance_of(self, params):
-        """Send the balance of multiple account / token pairs to a callback
-        address."""
-        sp.set_type(params, t_balance_of_params)
-        sp.transfer(self.balance_of_(params.requests), sp.mutez(0), params.callback)
-
-    # Overload is_defined to make sure token_id is always 0
-    def is_defined(self, token_id):
-        return token_id == 0
 
     @sp.entry_point
     def transfer(self, batch):
@@ -906,7 +868,7 @@ class OnchainviewBalanceOf:
         sp.set_type(requests, sp.TList(t_balance_of_request))
         sp.result(
             sp.set_type_expr(
-                self.balance_of_(requests), sp.TList(t_balance_of_response)
+                self.balance_of_batch(requests), sp.TList(t_balance_of_response)
             )
         )
 
