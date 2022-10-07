@@ -682,9 +682,7 @@ class Fa2Fungible(Common):
         if self.has_royalties:
             return self.data.token_extra.get(token_id, sp.record(
                 supply=sp.nat(0),
-                royalty_info=sp.record(
-                    royalties=0, contributors=[]
-                )
+                royalty_info=sp.record(royalties=0, contributors=[])
             )).supply
         else:
             return self.data.token_extra.get(token_id, sp.record(supply=sp.nat(0))).supply
