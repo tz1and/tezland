@@ -368,126 +368,6 @@ class PauseTransfer:
         return self.policy.is_operator(contract, operator_param)
 
 
-##################
-# Onchain views #
-##################
-
-
-class OnchainViewsNft:
-    """(Mixin) All standard offchain views for NFTs except the optional
-    `token_metadata`."""
-
-    @sp.onchain_view(pure=True)
-    def all_tokens(self):
-        """Return the list of all the token IDs known to the contract."""
-        sp.result(sp.range(0, self.data.last_token_id))
-
-    @sp.onchain_view(pure=True)
-    def get_balance(self, params):
-        """Return the balance of an address for the specified `token_id`."""
-        sp.set_type(
-            params,
-            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
-                ("owner", "token_id")
-            ),
-        )
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(
-            sp.eif(
-                self.data.ledger[params.token_id] == params.owner, sp.nat(1), sp.nat(0)
-            )
-        )
-
-    @sp.onchain_view(pure=True)
-    def total_supply(self, params):
-        """Return the total number of tokens for the given `token_id`."""
-        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(sp.nat(1))
-
-    @sp.onchain_view(pure=True)
-    def is_operator(self, params):
-        """Return whether `operator` is allowed to transfer `token_id` tokens
-        owned by `owner`."""
-        sp.set_type(params, t_operator_permission)
-        sp.result(self.policy.is_operator(self, params))
-
-
-class OnchainViewsFungible:
-    """(Mixin) All standard offchain views for Fungible except the optional
-    `token_metadata`."""
-
-    @sp.onchain_view(pure=True)
-    def all_tokens(self):
-        """Return the list of all the token IDs known to the contract."""
-        sp.result(sp.range(0, self.data.last_token_id))
-
-    @sp.onchain_view(pure=True)
-    def get_balance(self, params):
-        """Return the balance of an address for the specified `token_id`."""
-        sp.set_type(
-            params,
-            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
-                ("owner", "token_id")
-            ),
-        )
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(self.data.ledger.get((params.owner, params.token_id), sp.nat(0)))
-
-    @sp.onchain_view(pure=True)
-    def total_supply(self, params):
-        """Return the total number of tokens for the given `token_id`."""
-        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        with sp.if_(self.data.token_extra.contains(params.token_id)):
-            sp.result(self.data.token_extra[params.token_id].supply)
-        with sp.else_():
-            sp.result(sp.nat(0))
-
-    @sp.onchain_view(pure=True)
-    def is_operator(self, params):
-        """Return whether `operator` is allowed to transfer `token_id` tokens
-        owned by `owner`."""
-        sp.set_type(params, t_operator_permission)
-        sp.result(self.policy.is_operator(self, params))
-
-
-class OnchainViewsSingleAsset:
-    """(Mixin) All standard offchain views for single asset except the optional
-    `token_metadata`."""
-
-    @sp.onchain_view(pure=True)
-    def all_tokens(self):
-        """Return the list of all the token IDs known to the contract."""
-        sp.result([sp.nat(0)])
-
-    @sp.onchain_view(pure=True)
-    def get_balance(self, params):
-        """Return the balance of an address for the specified `token_id`."""
-        sp.set_type(
-            params,
-            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
-                ("owner", "token_id")
-            ),
-        )
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(self.data.ledger.get(params.owner, sp.nat(0)))
-
-    @sp.onchain_view(pure=True)
-    def total_supply(self, params):
-        """Return the total number of tokens for the given `token_id`."""
-        sp.set_type(params, sp.TRecord(token_id=sp.TNat))
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(self.data.supply)
-
-    @sp.onchain_view(pure=True)
-    def is_operator(self, params):
-        """Return whether `operator` is allowed to transfer `token_id` tokens
-        owned by `owner`."""
-        sp.set_type(params, t_operator_permission)
-        sp.result(self.policy.is_operator(self, params))
-
-
 ##########
 # Common #
 ##########
@@ -569,13 +449,44 @@ class Common(sp.Contract):
         else:
             sp.failwith("FA2_OPERATORS_UNSUPPORTED")
 
+    # Onchain views
+
+    @sp.onchain_view(pure=True)
+    def all_tokens(self):
+        """OffchainView: Return the list of all the token IDs known to the contract."""
+        sp.result(sp.range(0, self.data.last_token_id))
+
+    @sp.onchain_view(pure=True)
+    def is_operator(self, params):
+        """Return whether `operator` is allowed to transfer `token_id` tokens
+        owned by `owner`."""
+        sp.set_type(params, t_operator_permission)
+        sp.result(self.policy.is_operator(self, params))
+
+    @sp.onchain_view(pure=True)
+    def get_balance(self, params):
+        """Return the balance of an address for the specified `token_id`."""
+        sp.set_type(
+            params,
+            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
+                ("owner", "token_id")
+            ),
+        )
+        sp.result(self.balance_(params.owner, params.token_id))
+
+    @sp.onchain_view(pure=True)
+    def total_supply(self, params):
+        """Return the total number of tokens for the given `token_id`."""
+        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
+        sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
+
 
 ################
 # Base classes #
 ################
 
 
-class Fa2Nft(OnchainViewsNft, Common):
+class Fa2Nft(Common):
     """Base class for a FA2 NFT contract.
 
     Respects the FA2 standard.
@@ -630,6 +541,14 @@ class Fa2Nft(OnchainViewsNft, Common):
                 )
         return (ledger, token_extra_dict, token_metadata_dict)
 
+    def balance_(self, owner, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return sp.eif(self.data.ledger[token_id] == owner, 1, 0)
+
+    def supply_(self, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return sp.nat(1)
+
     def balance_of_(self, requests):
         """Logic of the balance_of entrypoint."""
         sp.set_type(requests, sp.TList(t_balance_of_request))
@@ -678,7 +597,7 @@ class Fa2Nft(OnchainViewsNft, Common):
 
 
 # TODO: test allow_mint_existing=False
-class Fa2Fungible(OnchainViewsFungible, Common):
+class Fa2Fungible(Common):
     """Base class for a FA2 fungible contract.
 
     Respects the FA2 standard.
@@ -743,6 +662,22 @@ class Fa2Fungible(OnchainViewsFungible, Common):
             token_extra_dict[token_id].supply += amount
         return (ledger, token_extra_dict, token_metadata_dict)
 
+    def balance_(self, owner, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return self.data.ledger.get((owner, token_id), 0)
+
+    def supply_(self, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        if self.has_royalties:
+            return self.data.token_extra.get(token_id, sp.record(
+                supply=sp.nat(0),
+                royalty_info=sp.record(
+                    royalties=0, contributors=[]
+                )
+            )).supply
+        else:
+            return self.data.token_extra.get(token_id, sp.record(supply=sp.nat(0))).supply
+
     def balance_of_(self, requests):
         """Logic of the balance_of entrypoint."""
         sp.set_type(requests, sp.TList(t_balance_of_request))
@@ -795,7 +730,7 @@ class Fa2Fungible(OnchainViewsFungible, Common):
         else:
             sp.failwith("FA2_TX_DENIED")
 
-class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
+class Fa2SingleAsset(Common):
     """Base class for a FA2 single asset contract.
 
     Respects the FA2 standard.
@@ -842,6 +777,14 @@ class Fa2SingleAsset(OnchainViewsSingleAsset, Common):
                 raise Exception("Ledger contains a token_id with no metadata")
             supply += amount
         return (ledger, supply, token_metadata_dict)
+
+    def balance_(self, owner, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return self.data.ledger.get(owner, 0)
+
+    def supply_(self, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return self.data.supply
 
     def balance_of_(self, requests):
         """Logic of the balance_of entrypoint."""
