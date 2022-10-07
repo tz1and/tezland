@@ -541,12 +541,13 @@ class Fa2Nft(Common):
     Respects the FA2 standard.
     """
 
+    ledger_type = "NFT"
+
     def __init__(
         self, metadata, name="FA2", description="A NFT FA2 implementation.",
         token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        self.ledger_type = "NFT"
         self.has_royalties = has_royalties
         ledger, token_extra, token_metadata = self.initial_mint(token_metadata, ledger, has_royalties)
         self.init(
@@ -614,12 +615,13 @@ class Fa2Fungible(Common):
     Respects the FA2 standard.
     """
 
+    ledger_type = "Fungible"
+
     def __init__(
         self, metadata, name="FA2", description="A Fungible FA2 implementation.",
         token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        self.ledger_type = "Fungible"
         self.has_royalties = has_royalties
         self.allow_mint_existing = allow_mint_existing
         ledger, token_extra, token_metadata = self.initial_mint(token_metadata, ledger, has_royalties)
@@ -710,12 +712,13 @@ class Fa2SingleAsset(Common):
     Respects the FA2 standard.
     """
 
+    ledger_type = "SingleAsset"
+
     def __init__(
         self, metadata, name="FA2", description="A Single Asset FA2 implementation.",
         token_metadata=[], ledger={}, policy=None, metadata_base=None
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        self.ledger_type = "SingleAsset"
         ledger, supply, token_metadata = self.initial_mint(token_metadata, ledger)
         self.init(
             ledger=sp.big_map(
