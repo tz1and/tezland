@@ -691,7 +691,6 @@ class Fa2Fungible(Common):
 
     def transfer_tx_(self, from_, tx):
         from_ = (from_, tx.token_id)
-        # Transfer from.
         from_balance = sp.compute(sp.as_nat(
             self.data.ledger.get(from_, 0) - tx.amount,
             message="FA2_INSUFFICIENT_BALANCE",
@@ -763,12 +762,7 @@ class Fa2SingleAsset(Common):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return self.data.ledger.get(owner, 0)
 
-    def supply_(self, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return self.data.supply
-
     def transfer_tx_(self, from_, tx):
-        # Transfer from.
         from_balance = sp.compute(sp.as_nat(
             self.data.ledger.get(from_, 0) - tx.amount,
             message="FA2_INSUFFICIENT_BALANCE",
@@ -781,6 +775,10 @@ class Fa2SingleAsset(Common):
         # Do the transfer
         to_ = tx.to_
         self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
+
+    def supply_(self, token_id):
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        return self.data.supply
 
 
 ##########
@@ -1059,27 +1057,22 @@ class BurnSingleAsset:
             self.policy.check_tx_transfer_permissions(
                 self, action.from_, action.from_, action.token_id
             )
-            from_ = action.from_
-            # Burn from.
+            # Burn the tokens
             from_balance = sp.compute(sp.as_nat(
-                self.data.ledger.get(from_, 0) - action.amount,
+                self.data.ledger.get(action.from_, 0) - action.amount,
                 message="FA2_INSUFFICIENT_BALANCE",
             ))
             with sp.if_(from_balance == 0):
-                del self.data.ledger[from_]
+                del self.data.ledger[action.from_]
             with sp.else_():
-                self.data.ledger[from_] = from_balance
+                self.data.ledger[action.from_] = from_balance
 
             # Decrease supply.
-            supply = sp.compute(
-                sp.is_nat(self.data.supply - action.amount)
-            )
+            supply = sp.compute(sp.is_nat(self.data.supply - action.amount))
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
                     self.data.supply = nat_supply
                 with arg.match("None"):
-                    # NOTE: this is a failure case, but we give up instead
-                    # of allowing a catstrophic failiure.
                     self.data.supply = 0
 
 
