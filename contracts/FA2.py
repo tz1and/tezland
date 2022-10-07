@@ -477,6 +477,27 @@ class Common(sp.Contract):
             self.balance_of_batch(params.requests), sp.mutez(0), params.callback
         )
 
+    @sp.entry_point
+    def transfer(self, batch):
+        """Accept a list of transfer operations between a source and multiple
+        destinations.
+
+        `transfer_tx_` must be defined in the child class.
+        """
+        sp.set_type(batch, t_transfer_params)
+        if self.policy.supports_transfer:
+            with sp.for_("transfer", batch) as transfer:
+                with sp.for_("tx", transfer.txs) as tx:
+                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
+                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
+                    self.policy.check_tx_transfer_permissions(
+                        self, transfer.from_, tx.to_, tx.token_id
+                    )
+                    with sp.if_(tx.amount > 0):
+                        self.transfer_tx_(transfer.from_, tx)
+        else:
+            sp.failwith("FA2_TX_DENIED")
+
     # Onchain views
 
     @sp.onchain_view(pure=True)
@@ -577,29 +598,13 @@ class Fa2Nft(Common):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return sp.nat(1)
 
-    @sp.entry_point
-    def transfer(self, batch):
-        """Accept a list of transfer operations between a source and multiple
-        destinations."""
-        sp.set_type(batch, t_transfer_params)
-        if self.policy.supports_transfer:
-            with sp.for_("transfer", batch) as transfer:
-                with sp.for_("tx", transfer.txs) as tx:
-                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
-                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
-                    self.policy.check_tx_transfer_permissions(
-                        self, transfer.from_, tx.to_, tx.token_id
-                    )
-                    with sp.if_(tx.amount > 0):
-                        sp.verify(
-                            (tx.amount == 1)
-                            & (self.data.ledger[tx.token_id] == transfer.from_),
-                            message="FA2_INSUFFICIENT_BALANCE",
-                        )
-                        # Do the transfer
-                        self.data.ledger[tx.token_id] = tx.to_
-        else:
-            sp.failwith("FA2_TX_DENIED")
+    def transfer_tx_(self, from_, tx):
+        sp.verify(
+            (tx.amount == 1) & (self.data.ledger[tx.token_id] == from_),
+            message="FA2_INSUFFICIENT_BALANCE",
+        )
+        # Do the transfer
+        self.data.ledger[tx.token_id] = tx.to_
 
 
 # TODO: test allow_mint_existing=False
@@ -684,35 +689,22 @@ class Fa2Fungible(Common):
         else:
             return self.data.token_extra.get(token_id, sp.record(supply=sp.nat(0))).supply
 
-    @sp.entry_point
-    def transfer(self, batch):
-        """Accept a list of transfer operations between a source and multiple
-        destinations."""
-        sp.set_type(batch, t_transfer_params)
-        if self.policy.supports_transfer:
-            with sp.for_("transfer", batch) as transfer:
-                with sp.for_("tx", transfer.txs) as tx:
-                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
-                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
-                    self.policy.check_tx_transfer_permissions(
-                        self, transfer.from_, tx.to_, tx.token_id
-                    )
-                    from_ = (transfer.from_, tx.token_id)
-                    # Transfer from.
-                    from_balance = sp.compute(sp.as_nat(
-                        self.data.ledger.get(from_, 0) - tx.amount,
-                        message="FA2_INSUFFICIENT_BALANCE",
-                    ))
-                    with sp.if_(from_balance == 0):
-                        del self.data.ledger[from_]
-                    with sp.else_():
-                        self.data.ledger[from_] = from_balance
+    def transfer_tx_(self, from_, tx):
+        from_ = (from_, tx.token_id)
+        # Transfer from.
+        from_balance = sp.compute(sp.as_nat(
+            self.data.ledger.get(from_, 0) - tx.amount,
+            message="FA2_INSUFFICIENT_BALANCE",
+        ))
+        with sp.if_(from_balance == 0):
+            del self.data.ledger[from_]
+        with sp.else_():
+            self.data.ledger[from_] = from_balance
 
-                    # Do the transfer
-                    to_ = (tx.to_, tx.token_id)
-                    self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
-        else:
-            sp.failwith("FA2_TX_DENIED")
+        # Do the transfer
+        to_ = (tx.to_, tx.token_id)
+        self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
+
 
 class Fa2SingleAsset(Common):
     """Base class for a FA2 single asset contract.
@@ -774,35 +766,20 @@ class Fa2SingleAsset(Common):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
         return self.data.supply
 
-    @sp.entry_point
-    def transfer(self, batch):
-        """Accept a list of transfer operations between a source and multiple
-        destinations."""
-        sp.set_type(batch, t_transfer_params)
-        if self.policy.supports_transfer:
-            with sp.for_("transfer", batch) as transfer:
-                with sp.for_("tx", transfer.txs) as tx:
-                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
-                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
-                    self.policy.check_tx_transfer_permissions(
-                        self, transfer.from_, tx.to_, tx.token_id
-                    )
-                    from_ = transfer.from_
-                    # Transfer from.
-                    from_balance = sp.compute(sp.as_nat(
-                        self.data.ledger.get(from_, 0) - tx.amount,
-                        message="FA2_INSUFFICIENT_BALANCE",
-                    ))
-                    with sp.if_(from_balance == 0):
-                        del self.data.ledger[from_]
-                    with sp.else_():
-                        self.data.ledger[from_] = from_balance
+    def transfer_tx_(self, from_, tx):
+        # Transfer from.
+        from_balance = sp.compute(sp.as_nat(
+            self.data.ledger.get(from_, 0) - tx.amount,
+            message="FA2_INSUFFICIENT_BALANCE",
+        ))
+        with sp.if_(from_balance == 0):
+            del self.data.ledger[from_]
+        with sp.else_():
+            self.data.ledger[from_] = from_balance
 
-                    # Do the transfer
-                    to_ = tx.to_
-                    self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
-        else:
-            sp.failwith("FA2_TX_DENIED")
+        # Do the transfer
+        to_ = tx.to_
+        self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
 
 
 ##########
