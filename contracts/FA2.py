@@ -269,6 +269,7 @@ class OwnerOrOperatorAdhocTransfer:
                 with arg.match("add_adhoc_operators") as updates:
                     num_additions = sp.compute(sp.len(updates))
                     sp.verify(num_additions <= 100, "ADHOC_LIMIT")
+
                     # Remove as many adhoc operators as we added.
                     # We do this to make sure the storage diffs aren't lost
                     # on minting tokens. And to make sure the set doesn't grow larger
