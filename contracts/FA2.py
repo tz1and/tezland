@@ -559,6 +559,9 @@ class Fa2Nft(Common):
             self.update_initial_storage(
                 token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties)
             )
+            self.token_extra_default = sp.record(
+                royalty_info=sp.record(royalties=0, contributors=[])
+            )
         Common.__init__(
             self,
             name,
@@ -636,10 +639,15 @@ class Fa2Fungible(Common):
             self.update_initial_storage(
                 token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties_supply)
             )
+            self.token_extra_default = sp.record(
+                supply=sp.nat(0),
+                royalty_info=sp.record(royalties=0, contributors=[])
+            )
         else:
             self.update_initial_storage(
                 token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_supply)
             )
+            self.token_extra_default = sp.record(supply=sp.nat(0))
         Common.__init__(
             self,
             name,
@@ -681,13 +689,7 @@ class Fa2Fungible(Common):
 
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        if self.has_royalties:
-            return self.data.token_extra.get(token_id, sp.record(
-                supply=sp.nat(0),
-                royalty_info=sp.record(royalties=0, contributors=[])
-            )).supply
-        else:
-            return self.data.token_extra.get(token_id, sp.record(supply=sp.nat(0))).supply
+        return self.data.token_extra.get(token_id, self.token_extra_default).supply
 
     def transfer_tx_(self, from_, tx):
         from_ = (from_, tx.token_id)
@@ -1022,24 +1024,26 @@ class BurnFungible:
                 self.data.ledger[from_] = from_balance
 
             # Decrease supply or delete of it becomes 0.
-            supply = sp.compute(
-                sp.is_nat(self.data.token_extra[action.token_id].supply - action.amount)
-            )
+            extra = sp.local("extra", self.data.token_extra.get(action.token_id, self.token_extra_default))
+            supply = sp.compute(sp.is_nat(extra.value.supply - action.amount))
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
                     # NOTE: if existing tokens can't be minted again, delete on 0.
                     if self.allow_mint_existing:
-                        self.data.token_extra[action.token_id].supply = nat_supply
+                        extra.value.supply = nat_supply
+                        self.data.token_extra[action.token_id] = extra.value
                     else:
                         with sp.if_(nat_supply == 0):
                             del self.data.token_extra[action.token_id]
                             del self.data.token_metadata[action.token_id]
                         with sp.else_():
-                            self.data.token_extra[action.token_id].supply = nat_supply
+                            extra.value.supply = nat_supply
+                            self.data.token_extra[action.token_id] = extra.value
                 with arg.match("None"):
                     # NOTE: this is a failure case, but we give up instead
                     # of allowing a catstrophic failiure.
-                    self.data.token_extra[action.token_id].supply = 0
+                    extra.value.supply = 0
+                    self.data.token_extra[action.token_id] = extra.value
 
 
 class BurnSingleAsset:
@@ -1116,10 +1120,7 @@ class Royalties:
         """Returns the token royalties information"""
         sp.set_type(token_id, sp.TNat)
 
-        with sp.if_(self.data.token_extra.contains(token_id)):
-            sp.result(self.data.token_extra[token_id].royalty_info)
-        with sp.else_():
-            sp.result(sp.record(royalties=sp.nat(0), contributors=[]))
+        sp.result(self.data.token_extra.get(token_id, self.token_extra_default).royalty_info)
 
 
 class OnchainviewCountTokens:
