@@ -1616,14 +1616,14 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
             contract.update_adhoc_operators(
                 sp.variant(
                     "add_adhoc_operators",
-                    [
+                    sp.set([
                         sp.record(
                             operator=bob.address, token_id=0
                         ),
                         sp.record(
                             operator=admin.address, token_id=0
                         ),
-                    ]
+                    ])
                 )
             ).run(sender=alice)
 
@@ -1651,7 +1651,7 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
             contract.update_adhoc_operators(
                 sp.variant(
                     "add_adhoc_operators",
-                    [
+                    sp.set([
                         sp.record(
                             operator=bob.address, token_id=0
                         ),
@@ -1661,7 +1661,7 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
                         sp.record(
                             operator=admin.address, token_id=0
                         ),
-                    ]
+                    ])
                 )
             ).run(sender=alice, level=2)
 
