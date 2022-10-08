@@ -83,7 +83,7 @@ t_adhoc_operator_permission = sp.TRecord(
 ).layout(("operator", "token_id"))
 
 t_adhoc_operator_params = sp.TVariant(
-    add_adhoc_operators = sp.TList(t_adhoc_operator_permission),
+    add_adhoc_operators = sp.TSet(t_adhoc_operator_permission),
     clear_adhoc_operators = sp.TUnit
 ).layout(("add_adhoc_operators", "clear_adhoc_operators"))
 
@@ -267,22 +267,12 @@ class OwnerOrOperatorAdhocTransfer:
 
             with params.match_cases() as arg:
                 with arg.match("add_adhoc_operators") as updates:
-                    # Check adhoc operator limit. To prevent potential gaslock.
-                    sp.verify(sp.len(updates) <= 100, "ADHOC_OPERATOR_LIMIT")
-
-                    # Add new adhoc operators to temp set.
-                    additions = sp.local("additions", sp.set(t=sp.TBytes))
-                    with sp.for_("upd", updates) as upd:
-                        additions.value.add(self.make_adhoc_operator_key(
-                            sp.sender, # Sender must be the owner
-                            upd.operator,
-                            upd.token_id))
-
+                    num_additions = sp.compute(sp.len(updates))
+                    sp.verify(num_additions <= 100, "ADHOC_LIMIT")
                     # Remove as many adhoc operators as we added.
                     # We do this to make sure the storage diffs aren't lost
                     # on minting tokens. And to make sure the set doesn't grow larger
                     # than the adhoc operator limit.
-                    num_additions = sp.compute(sp.len(additions.value))
                     counter = sp.local("counter", sp.nat(0))
                     with sp.for_("op", self.data.adhoc_operators.elements()) as op:
                         with sp.if_(counter.value < num_additions):
@@ -290,8 +280,11 @@ class OwnerOrOperatorAdhocTransfer:
                             counter.value += 1
 
                     # Add adhoc ops from temp set.
-                    with sp.for_("add", additions.value.elements()) as add:
-                        self.data.adhoc_operators.add(add)
+                    with sp.for_("upd", updates.elements()) as upd:
+                        self.data.adhoc_operators.add(self.make_adhoc_operator_key(
+                            sp.sender, # Sender must be the owner
+                            upd.operator,
+                            upd.token_id))
 
                 with arg.match("clear_adhoc_operators"):
                     # Only admin is allowed to do this.
