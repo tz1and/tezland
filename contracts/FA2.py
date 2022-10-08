@@ -291,7 +291,7 @@ class OwnerOrOperatorAdhocTransfer:
                     # Only admin is allowed to do this.
                     # Otherwise someone could sneakily get storage diffs at
                     # the cost of everyone else.
-                    sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
+                    self.onlyAdministrator()
                     # Clear adhoc operators.
                     self.data.adhoc_operators = sp.set(t = sp.TBytes)
 
@@ -342,7 +342,7 @@ class PauseTransfer:
         # Add a set_pause entrypoint
         def set_pause(self, params):
             sp.set_type(params, sp.TBool)
-            sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
+            self.onlyAdministrator()
             self.data.paused = params
 
         contract.set_pause = sp.entry_point(set_pause)
@@ -792,7 +792,7 @@ class ChangeMetadata:
     def set_metadata(self, metadata):
         """(Admin only) Set the contract metadata."""
         sp.set_type(metadata, sp.TBigMap(sp.TString, sp.TBytes))
-        sp.verify(self.isAdministrator(sp.sender), message="FA2_NOT_ADMIN")
+        self.onlyAdministrator()
         self.data.metadata = metadata
 
 
@@ -808,7 +808,7 @@ class WithdrawMutez:
         """(Admin only) Transfer `amount` mutez to `destination`."""
         sp.set_type(destination, sp.TAddress)
         sp.set_type(amount, sp.TMutez)
-        sp.verify(self.isAdministrator(sp.sender), message="FA2_NOT_ADMIN")
+        self.onlyAdministrator()
         sp.send(destination, amount)
 
 
@@ -863,7 +863,7 @@ class MintNft:
             sp.set_type(batch, t_mint_nft_royalties_batch)
         else:
             sp.set_type(batch, t_mint_nft_batch)
-        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
+        self.onlyAdministrator()
         with sp.for_("action", batch) as action:
             if self.has_royalties:
                 self.validateRoyalties(action.royalties)
@@ -890,7 +890,7 @@ class MintFungible:
             sp.set_type(batch, t_mint_fungible_royalties_batch)
         else:
             sp.set_type(batch, t_mint_fungible_batch)
-        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
+        self.onlyAdministrator()
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as new:
@@ -934,7 +934,7 @@ class MintSingleAsset:
     def mint(self, batch):
         """Admin can mint tokens."""
         sp.set_type(batch, t_mint_fungible_batch)
-        sp.verify(self.isAdministrator(sp.sender), "FA2_NOT_ADMIN")
+        self.onlyAdministrator()
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as new:
@@ -1022,10 +1022,10 @@ class BurnFungible:
             supply = sp.compute(sp.is_nat(extra.value.supply - action.amount))
             with supply.match_cases() as arg:
                 with arg.match("Some") as nat_supply:
-                    # NOTE: if existing tokens can't be minted again, delete on 0.
                     if self.allow_mint_existing:
                         extra.value.supply = nat_supply
                         self.data.token_extra[action.token_id] = extra.value
+                    # NOTE: if existing tokens can't be minted again, delete on 0.
                     else:
                         with sp.if_(nat_supply == 0):
                             del self.data.token_extra[action.token_id]

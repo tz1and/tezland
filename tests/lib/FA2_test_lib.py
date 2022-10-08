@@ -922,7 +922,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
     def test_mint(sc, nft, fungible, single_asset):
         """Test `MintNft` and `MintFungible` with the `owner-or-operator-transfer` policy.
 
-        - `mint` fails with `FA2_NOT_ADMIN` for non-admin.
+        - `mint` fails with `ONLY_ADMIN` for non-admin.
         - `mint` works for the Nft and Fungible contracts.
         - `mint` works for existing tokens in Fungible contract.
         """
@@ -930,7 +930,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         # Non admin cannot mint a new NFT token.
         sc.h3("NFT mint failure")
         nft.mint([sp.record(metadata=tok0_md, to_=alice.address)]).run(
-            sender=alice, valid=False, exception="FA2_NOT_ADMIN"
+            sender=alice, valid=False, exception="ONLY_ADMIN"
         )
 
         # Non admin cannot mint a new fungible token.
@@ -941,7 +941,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
                     token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
-        ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
+        ).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
         # Non admin cannot mint a new signle asset token.
         sc.h3("Single Asset mint failure")
@@ -951,7 +951,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
                     token=sp.variant("new", sp.record(metadata=tok0_md)), to_=alice.address, amount=1000
                 )
             ]
-        ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
+        ).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
         sc.h3("Mint")
         # Mint of a new NFT token.
@@ -1191,7 +1191,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
     def test_withdraw_mutez(sc, nft, fungible):
         """Test of WithdrawMutez.
 
-        - non admin cannot withdraw mutez: FA2_NOT_ADMIN.
+        - non admin cannot withdraw mutez: ONLY_ADMIN.
         - admin can withdraw mutez.
         """
         sc.h2("Withdraw Mutez entrypoint")
@@ -1208,7 +1208,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         # Non admin cannot withdraw mutez.
         sc.h3("Non admin cannot withdraw_mutez")
         fungible.withdraw_mutez(destination=wallet.address, amount=sp.tez(10)).run(
-            sender=alice, amount=sp.tez(42), valid=False, exception="FA2_NOT_ADMIN"
+            sender=alice, amount=sp.tez(42), valid=False, exception="ONLY_ADMIN"
         )
 
         # Contract's balance can be withdrawn by admin with the withdraw_mutez entrypoint.
@@ -1230,7 +1230,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         sc.h2("Change metadata")
         sc.h3("Non admin cannot set metadata")
         fungible.set_metadata(sp.utils.metadata_of_url("http://example.com")).run(
-            sender=alice, valid=False, exception="FA2_NOT_ADMIN"
+            sender=alice, valid=False, exception="ONLY_ADMIN"
         )
 
         sc.h3("Admin set metadata")
@@ -1534,7 +1534,7 @@ def test_pause(nft_contract, fungible_contract, single_asset_contract):
             sc.h2("Pause entrypoint")
             sc.h3("Non admin cannot set pause")
             contract.set_pause(True).run(
-                sender=alice, valid=False, exception="FA2_NOT_ADMIN"
+                sender=alice, valid=False, exception="ONLY_ADMIN"
             )
 
             sc.h3("Admin set pause")
@@ -1685,13 +1685,13 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
                 sp.variant(
                     "clear_adhoc_operators", sp.unit
                 )
-            ).run(sender=alice, valid=False, exception="FA2_NOT_ADMIN")
+            ).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
             contract.update_adhoc_operators(
                 sp.variant(
                     "clear_adhoc_operators", sp.unit
                 )
-            ).run(sender=bob, valid=False, exception="FA2_NOT_ADMIN")
+            ).run(sender=bob, valid=False, exception="ONLY_ADMIN")
 
             contract.update_adhoc_operators(
                 sp.variant(
