@@ -590,7 +590,7 @@ class Fa2Nft(Common):
 
     def balance_(self, owner, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return sp.eif(self.data.ledger[token_id] == owner, 1, 0)
+        return sp.eif(self.data.ledger[token_id] == owner, sp.nat(1), sp.nat(0))
 
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
@@ -679,7 +679,7 @@ class Fa2Fungible(Common):
 
     def balance_(self, owner, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return self.data.ledger.get((owner, token_id), 0)
+        return self.data.ledger.get((owner, token_id), sp.nat(0))
 
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
@@ -756,11 +756,11 @@ class Fa2SingleAsset(Common):
 
     def balance_(self, owner, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return self.data.ledger.get(owner, 0)
+        return self.data.ledger.get(owner, sp.nat(0))
 
     def transfer_tx_(self, from_, tx):
         from_balance = sp.compute(sp.as_nat(
-            self.data.ledger.get(from_, 0) - tx.amount,
+            self.data.ledger.get(from_, sp.nat(0)) - tx.amount,
             message="FA2_INSUFFICIENT_BALANCE",
         ))
         with sp.if_(from_balance == 0):
@@ -770,7 +770,7 @@ class Fa2SingleAsset(Common):
 
         # Do the transfer
         to_ = tx.to_
-        self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
+        self.data.ledger[to_] = self.data.ledger.get(to_, sp.nat(0)) + tx.amount
 
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
@@ -917,7 +917,7 @@ class MintFungible:
                         self.data.token_extra[token_id].supply += action.amount
                         from_ = (action.to_, token_id)
                         self.data.ledger[from_] = (
-                            self.data.ledger.get(from_, 0) + action.amount
+                            self.data.ledger.get(from_, sp.nat(0)) + action.amount
                         )
                     else:
                         sp.failwith("FA2_TX_DENIED")
@@ -951,7 +951,7 @@ class MintSingleAsset:
                     self.data.supply += action.amount
                     from_ = action.to_
                     self.data.ledger[from_] = (
-                        self.data.ledger.get(from_, 0) + action.amount
+                        self.data.ledger.get(from_, sp.nat(0)) + action.amount
                     )
 
 
@@ -1009,7 +1009,7 @@ class BurnFungible:
             from_ = (action.from_, action.token_id)
             # Burn from.
             from_balance = sp.compute(sp.as_nat(
-                self.data.ledger.get(from_, 0) - action.amount,
+                self.data.ledger.get(from_, sp.nat(0)) - action.amount,
                 message="FA2_INSUFFICIENT_BALANCE",
             ))
             with sp.if_(from_balance == 0):
@@ -1036,7 +1036,7 @@ class BurnFungible:
                 with arg.match("None"):
                     # NOTE: this is a failure case, but we give up instead
                     # of allowing a catstrophic failiure.
-                    extra.value.supply = 0
+                    extra.value.supply = sp.nat(0)
                     self.data.token_extra[action.token_id] = extra.value
 
 
@@ -1057,7 +1057,7 @@ class BurnSingleAsset:
             )
             # Burn the tokens
             from_balance = sp.compute(sp.as_nat(
-                self.data.ledger.get(action.from_, 0) - action.amount,
+                self.data.ledger.get(action.from_, sp.nat(0)) - action.amount,
                 message="FA2_INSUFFICIENT_BALANCE",
             ))
             with sp.if_(from_balance == 0):
@@ -1071,7 +1071,7 @@ class BurnSingleAsset:
                 with arg.match("Some") as nat_supply:
                     self.data.supply = nat_supply
                 with arg.match("None"):
-                    self.data.supply = 0
+                    self.data.supply = sp.nat(0)
 
 
 # TODO: implement versum views?
