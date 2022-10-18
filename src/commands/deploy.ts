@@ -3,6 +3,8 @@ import assert from 'assert';
 import { DeployContractBatch } from './DeployBase';
 import { MichelsonMap, OpKind } from '@taquito/taquito';
 import PostDeploy from './postdeploy';
+import config from '../user.config';
+import { DeployMode } from '../config/config';
 
 
 // TODO: finish this stuff!
@@ -142,7 +144,10 @@ export default class Deploy extends PostDeploy {
         //
         // Post deploy
         //
-        await this.runPostDeploy(new Map(Object.entries({
+        // If this is a sandbox deploy, run the post deploy tasks.
+        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
+        
+        await this.runPostDeploy(deploy_mode, new Map(Object.entries({
             items_FA2_contract: items_FA2_contract,
             places_FA2_contract: places_FA2_contract,
             dao_FA2_contract: dao_FA2_contract,

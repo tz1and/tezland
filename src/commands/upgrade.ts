@@ -7,6 +7,8 @@ import { DeployContractBatch } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet } from '@taquito/taquito';
 import fs from 'fs';
 import PostUpgrade from './postupgrade';
+import config from '../user.config';
+import { DeployMode } from '../config/config';
 
 
 // TODO: need to move the deploy code here and make it update from v1.
@@ -271,7 +273,10 @@ export default class Upgrade extends PostUpgrade {
         //
         // TODO: run world migration
         // TODO: post upgrade step, gas tests, etc
-        await this.runPostDeploy(new Map(Object.entries({
+        // If this is a sandbox deploy, run the post deploy tasks.
+        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
+        
+        await this.runPostDeploy(deploy_mode, new Map(Object.entries({
             items_FA2_contract: tezlandItems,
             places_FA2_contract: tezlandPlaces,
             interiors_FA2_contract: interiors_FA2_contract,

@@ -10,10 +10,7 @@ export type PostDeployContracts = Map<string, ContractAbstraction<Wallet>>;
 
 
 export default class PostDeployBase extends DeployBase {
-    public async runPostDeploy(contracts: PostDeployContracts) {
-        // If this is a sandbox deploy, run the post deploy tasks.
-        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
-
+    public async runPostDeploy(deploy_mode: DeployMode, contracts: PostDeployContracts) {
         console.log(kleur.magenta("Running post deploy tasks...\n"));
         switch (deploy_mode) {
             case DeployMode.DevWorld:
