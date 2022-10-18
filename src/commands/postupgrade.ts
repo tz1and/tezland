@@ -7,14 +7,17 @@ import config from "../user.config";
 import { sleep } from "./DeployBase";
 
 
-export default class PostDeploy extends PostDeployBase {
+export default class PostUpgrade extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
         console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
+        console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
         console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
         console.log("REACT_APP_WORLD_CONTRACT=" + contracts.get("World_contract")!.address);
         console.log("REACT_APP_MINTER_CONTRACT=" + contracts.get("Minter_contract")!.address);
         console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_contract")!.address);
+        console.log("REACT_APP_FACTORY_CONTRACT=" + contracts.get("Factory_contract")!.address);
+        console.log("REACT_APP_REGISTRY_CONTRACT=" + contracts.get("Registry_contract")!.address);
         console.log()
         console.log(`contracts:
   tezlandItems:
@@ -23,6 +26,10 @@ export default class PostDeploy extends PostDeployBase {
 
   tezlandPlaces:
     address: ${contracts.get("places_FA2_contract")!.address}
+    typename: tezlandPlaces
+
+  tezlandInteriors:
+    address: ${contracts.get("interiors_FA2_contract")!.address}
     typename: tezlandPlaces
 
   tezlandDAO:
@@ -39,10 +46,18 @@ export default class PostDeploy extends PostDeployBase {
 
   tezlandDutchAuctions:
     address: ${contracts.get("Dutch_contract")!.address}
-    typename: tezlandDutchAuctions\n`);
+    typename: tezlandDutchAuctions
+    
+  tezlandFactory:
+    address: ${contracts.get("Factory_contract")!.address}
+    typename: tezlandFactory
+    
+  tezlandRegistry:
+    address: ${contracts.get("Registry_contract")!.address}
+    typename: tezlandRegistry\n`);
     }
 
-    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
         assert(this.accountAddress);
 
         // Create item metadata and upload it
@@ -55,7 +70,8 @@ export default class PostDeploy extends PostDeployBase {
 
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_Item({
+            ...Minter_contract.methodsObject.mint_public({
+                collection: collection_contract.address,
                 to_: this.accountAddress,
                 amount: amount,
                 royalties: 250,
@@ -66,10 +82,19 @@ export default class PostDeploy extends PostDeployBase {
     }
 
     // Create place metadata and upload it
-    private mintNewPlaces(mint_args: any[], batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>) {
+    private mintNewPlaces(mint_args: any[], batch: WalletOperationBatch, places_FA2_contract: ContractAbstraction<Wallet>) {
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_Place(
+            ...places_FA2_contract.methodsObject.mint(
+                mint_args
+            ).toTransferParams()
+        }]);
+    }
+
+    private mintNewInteriorPlaces(mint_args: any[], batch: WalletOperationBatch, interiors_FA2_contract: ContractAbstraction<Wallet>) {
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...interiors_FA2_contract.methodsObject.mint(
                 mint_args
             ).toTransferParams()
         }]);
@@ -95,6 +120,26 @@ export default class PostDeploy extends PostDeployBase {
         }
     }
 
+    private async prepareNewInteriorPlace(center: number[], border: number[][]): Promise<any> {
+        const place_metadata_url = await ipfs.upload_place_metadata({
+            name: "Interior Place",
+            description: "A nice place",
+            minter: this.accountAddress!,
+            centerCoordinates: center,
+            borderCoordinates: border,
+            buildHeight: 200,
+            placeType: "interior"
+        }, this.isSandboxNet);
+        console.log(`interior place token metadata: ${place_metadata_url}`);
+
+        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
+        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
+        return {
+            to_: this.accountAddress,
+            metadata: metadata_map
+        }
+    }
+
     protected async deployDevWorld(contracts: PostDeployContracts) {
         assert(this.tezos);
 
@@ -103,10 +148,10 @@ export default class PostDeploy extends PostDeployBase {
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
-        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!);
+        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
 
         // don't mint places for now. use generate map.
         const places = [];
@@ -114,16 +159,19 @@ export default class PostDeploy extends PostDeployBase {
         places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
-        this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
+        this.mintNewPlaces(places, mint_batch, contracts.get("places_FA2_contract")!);
+
+        const interior_places = [];
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
+        this.mintNewInteriorPlaces(interior_places, mint_batch, contracts.get("interiors_FA2_contract")!);
 
         // send batch.
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
-
-        console.log("Successfully minted items");
-        console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
-
-        // TODO: place a few items.
+        console.log(`>> Done. Transaction hash: ${mint_batch_op.opHash}\n`);
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {
@@ -133,9 +181,9 @@ export default class PostDeploy extends PostDeployBase {
         console.log(kleur.bgGreen("Running gas test suite"));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
         console.log();
@@ -151,20 +199,24 @@ export default class PostDeploy extends PostDeployBase {
         await op_op.confirmation();
         console.log("update_operators:\t" + await this.feesToString(op_op));
 
+        const placeKey0 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 0 };
+        const placeKey1 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 1 };
+
         /**
          * World
          */
         // place one item to make sure storage is set.
-        const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }];
+        const list_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
+        list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }]);
         const setup_storage = await contracts.get("World_contract")!.methodsObject.place_items({
-            lot_id: 0, item_list: list_one_item
+            place_key: placeKey0, place_item_map: list_one_item
         }).send();
         await setup_storage.confirmation();
         console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         const setup_storage1 = await contracts.get("World_contract")!.methodsObject.place_items({
-            lot_id: 1, item_list: list_one_item
+            place_key: placeKey1, place_item_map: list_one_item
         }).send();
         await setup_storage1.confirmation();
         console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
@@ -181,27 +233,28 @@ export default class PostDeploy extends PostDeployBase {
         await transfer_op.confirmation();
 
         // create place
-        const creat_op = await World_contract.methodsObject.set_place_props({ lot_id: 0, props: "ffffff" }).send();
+        const creat_op = await World_contract.methodsObject.set_place_props({ place_key: placeKey0, props: "ffffff" }).send();
         await creat_op.confirmation();
         console.log("create place (props):\t" + await feesToString(creat_op));*/
 
         // place props
         const props_map = new MichelsonMap<string, string>();
         props_map.set('00', '000000');
-        const place_props_op = await contracts.get("World_contract")!.methodsObject.set_place_props({ lot_id: 0, props: props_map }).send();
+        const place_props_op = await contracts.get("World_contract")!.methodsObject.set_place_props({ place_key: placeKey0, props: props_map }).send();
         await place_props_op.confirmation();
         console.log("set_place_props:\t" + await this.feesToString(place_props_op));
         console.log();
 
         // place one item
         const place_one_item_op = await contracts.get("World_contract")!.methodsObject.place_items({
-            lot_id: 0, item_list: list_one_item
+            place_key: placeKey0, place_item_map: list_one_item
         }).send();
         await place_one_item_op.confirmation();
         console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
 
         // place ten items
-        const list_ten_items = [
+        const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
+        list_ten_items.set (contracts.get("items_FA2_contract")!.address, [
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
@@ -212,58 +265,66 @@ export default class PostDeploy extends PostDeployBase {
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
-        ];
+        ]);
         const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
-            lot_id: 0, item_list: list_ten_items
+            place_key: placeKey0, place_item_map: list_ten_items
         }).send();
         await place_ten_items_op.confirmation();
         console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
         console.log();
 
         // set one items data
-        const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
+        const map_update_one_item_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
+        const map_update_one_item_token: MichelsonMap<string, object[]> = new MichelsonMap();
+        map_update_one_item_token.set(contracts.get("items_FA2_contract")!.address, [{ item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]);
+        map_update_one_item_issuer.set(this.accountAddress!, map_update_one_item_token);
         const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
-            lot_id: 0, update_map: map_update_one_item
+            place_key: placeKey0, update_map: map_update_one_item_issuer
         }).send();
         await set_item_data_op.confirmation();
         console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
 
             // set ten items data
-        const map_update_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_ten_items.set(this.accountAddress!, [
-            { item_id: 1, item_data: "000000000000000000000000000000" },
-            { item_id: 2, item_data: "000000000000000000000000000000" },
-            { item_id: 3, item_data: "000000000000000000000000000000" },
-            { item_id: 4, item_data: "000000000000000000000000000000" },
-            { item_id: 5, item_data: "000000000000000000000000000000" },
-            { item_id: 6, item_data: "000000000000000000000000000000" },
-            { item_id: 7, item_data: "000000000000000000000000000000" },
-            { item_id: 8, item_data: "000000000000000000000000000000" },
-            { item_id: 9, item_data: "000000000000000000000000000000" },
-            { item_id: 10, item_data: "000000000000000000000000000000" }
+        const map_update_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
+        const map_update_ten_items_token: MichelsonMap<string, object[]> = new MichelsonMap();
+        map_update_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [
+            { item_id: 1, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 2, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 4, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 5, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 6, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 7, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 8, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 9, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+            { item_id: 10, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
         ]);
+        map_update_ten_items_issuer.set(this.accountAddress!, map_update_ten_items_token);
         const set_ten_items_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
-            lot_id: 0, update_map: map_update_ten_items
+            place_key: placeKey0, update_map: map_update_ten_items_issuer
         }).send();
         await set_ten_items_data_op.confirmation();
         console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
         console.log();
 
         // remove one item
-        const map_remove_one_item: MichelsonMap<string, number[]> = new MichelsonMap();
-        map_remove_one_item.set(this.accountAddress!, [0]);
+        const map_remove_one_item_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
+        const map_remove_one_item_token: MichelsonMap<string, number[]> = new MichelsonMap();
+        map_remove_one_item_token.set(contracts.get("items_FA2_contract")!.address, [0]);
+        map_remove_one_item_issuer.set(this.accountAddress!, map_remove_one_item_token);
         const remove_one_item_op = await contracts.get("World_contract")!.methodsObject.remove_items({
-            lot_id: 0, remove_map: map_remove_one_item
+            place_key: placeKey0, remove_map: map_remove_one_item_issuer
         }).send();
         await remove_one_item_op.confirmation();
         console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
 
         // remove ten items
-        const map_remove_ten_items: MichelsonMap<string, number[]> = new MichelsonMap();
-        map_remove_ten_items.set(this.accountAddress!, [1,2,3,4,5,6,7,8,9,10]);
+        const map_remove_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
+        const map_remove_ten_items_token: MichelsonMap<string, number[]> = new MichelsonMap();
+        map_remove_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [1,2,3,4,5,6,7,8,9,10]);
+        map_remove_ten_items_issuer.set(this.accountAddress!, map_remove_ten_items_token);
         const remove_ten_items_op = await contracts.get("World_contract")!.methodsObject.remove_items({
-            lot_id: 0, remove_map: map_remove_ten_items
+            place_key: placeKey0, remove_map: map_remove_ten_items_issuer
         }).send();
         await remove_ten_items_op.confirmation();
         console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
@@ -272,9 +333,9 @@ export default class PostDeploy extends PostDeployBase {
         // set_permissions
         const perm_op = await contracts.get("World_contract")!.methods.set_permissions([{
             add_permission: {
+                place_key: placeKey0,
                 owner: this.accountAddress,
                 permittee: contracts.get("Dutch_contract")!.address,
-                token_id: 0,
                 perm: 7
             }
         }]).send()
@@ -283,7 +344,7 @@ export default class PostDeploy extends PostDeployBase {
 
         // get item
         const get_item_op = await contracts.get("World_contract")!.methodsObject.get_item({
-            lot_id: 0, issuer: this.accountAddress, item_id: 11
+            place_key: placeKey0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 11
         }).send({ mutez: true, amount: 1000000 });
         await get_item_op.confirmation();
         console.log("get_item:\t\t" + await this.feesToString(get_item_op));
@@ -445,8 +506,8 @@ export default class PostDeploy extends PostDeployBase {
 
         // mint again
         const mint_batch2 = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
         const mint_batch2_op = await mint_batch2.send();
         await mint_batch2_op.confirmation();
         console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
@@ -463,8 +524,8 @@ export default class PostDeploy extends PostDeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
+        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 
@@ -482,23 +543,26 @@ export default class PostDeploy extends PostDeployBase {
         for (let i = 0; i < per_batch; ++i)
             item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } });
 
+        const item_map: MichelsonMap<string, object[]> = new MichelsonMap();
+        item_map.set(contracts.get("items_FA2_contract")!.address, item_list)
+
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
-                lot_id: token_id, item_list: item_list
+                place_key: {place_contract: contracts.get("places_FA2_contract")!.address, lot_id: token_id }, place_item_map: item_map
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items:\t" + await this.feesToString(place_ten_items_op));
         }
 
-        /*const place_items_op = await contracts.World_contract.methodsObject.place_items({
-            lot_id: token_id, item_list: [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
+        /*const place_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
+            lot_id: token_id, place_item_map: michelsonmap... [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
         }).send();
         await place_items_op.confirmation();
 
         const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
         map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
-        const set_item_data_op = await contracts.World_contract.methodsObject.set_item_data({
+        const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
             lot_id: token_id, update_map: map_update_one_item
         }).send();
         await set_item_data_op.confirmation();
