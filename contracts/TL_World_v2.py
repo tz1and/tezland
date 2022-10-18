@@ -37,6 +37,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: chunk key needs to be (place_key, chunk_id)
 # TODO: change place props to not set all props but specific props
 # TODO: should return data in same view as get_place_data? maybe with selectable chunks?
+# TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
+# TODO: remove empty chunks? make sure to delete them from place as well.
+# TODO: investigate use of inline_result. and bound blocks in general.
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -540,6 +543,8 @@ class TL_World(
 
         # Place token must be allowed
         place_limits = self.getAllowedPlaceTokenLimits(params.chunk_key.place_key.place_contract)
+
+        sp.verify(params.chunk_key.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
 
         # Caller must have PlaceItems permissions.
         permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
