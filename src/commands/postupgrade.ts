@@ -200,7 +200,9 @@ export default class PostUpgrade extends PostDeployBase {
         console.log("update_operators:\t" + await this.feesToString(op_op));
 
         const placeKey0 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 0 };
+        const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
         const placeKey1 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 1 };
+        const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
 
         /**
          * World
@@ -209,14 +211,14 @@ export default class PostUpgrade extends PostDeployBase {
         const list_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
         list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }]);
         const setup_storage = await contracts.get("World_contract")!.methodsObject.place_items({
-            place_key: placeKey0, place_item_map: list_one_item
+            chunk_key: placeKey0Chunk0, place_item_map: list_one_item
         }).send();
         await setup_storage.confirmation();
         console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         const setup_storage1 = await contracts.get("World_contract")!.methodsObject.place_items({
-            place_key: placeKey1, place_item_map: list_one_item
+            chunk_key: placeKey1Chunk0, place_item_map: list_one_item
         }).send();
         await setup_storage1.confirmation();
         console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
@@ -247,7 +249,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // place one item
         const place_one_item_op = await contracts.get("World_contract")!.methodsObject.place_items({
-            place_key: placeKey0, place_item_map: list_one_item
+            chunk_key: placeKey0Chunk0, place_item_map: list_one_item
         }).send();
         await place_one_item_op.confirmation();
         console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
@@ -267,7 +269,7 @@ export default class PostUpgrade extends PostDeployBase {
             { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
         ]);
         const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
-            place_key: placeKey0, place_item_map: list_ten_items
+            chunk_key: placeKey0Chunk0, place_item_map: list_ten_items
         }).send();
         await place_ten_items_op.confirmation();
         console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
@@ -279,7 +281,7 @@ export default class PostUpgrade extends PostDeployBase {
         map_update_one_item_token.set(contracts.get("items_FA2_contract")!.address, [{ item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]);
         map_update_one_item_issuer.set(this.accountAddress!, map_update_one_item_token);
         const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
-            place_key: placeKey0, update_map: map_update_one_item_issuer
+            chunk_key: placeKey0Chunk0, update_map: map_update_one_item_issuer
         }).send();
         await set_item_data_op.confirmation();
         console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
@@ -301,7 +303,7 @@ export default class PostUpgrade extends PostDeployBase {
         ]);
         map_update_ten_items_issuer.set(this.accountAddress!, map_update_ten_items_token);
         const set_ten_items_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
-            place_key: placeKey0, update_map: map_update_ten_items_issuer
+            chunk_key: placeKey0Chunk0, update_map: map_update_ten_items_issuer
         }).send();
         await set_ten_items_data_op.confirmation();
         console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
@@ -313,7 +315,7 @@ export default class PostUpgrade extends PostDeployBase {
         map_remove_one_item_token.set(contracts.get("items_FA2_contract")!.address, [0]);
         map_remove_one_item_issuer.set(this.accountAddress!, map_remove_one_item_token);
         const remove_one_item_op = await contracts.get("World_contract")!.methodsObject.remove_items({
-            place_key: placeKey0, remove_map: map_remove_one_item_issuer
+            chunk_key: placeKey0Chunk0, remove_map: map_remove_one_item_issuer
         }).send();
         await remove_one_item_op.confirmation();
         console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
@@ -324,7 +326,7 @@ export default class PostUpgrade extends PostDeployBase {
         map_remove_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [1,2,3,4,5,6,7,8,9,10]);
         map_remove_ten_items_issuer.set(this.accountAddress!, map_remove_ten_items_token);
         const remove_ten_items_op = await contracts.get("World_contract")!.methodsObject.remove_items({
-            place_key: placeKey0, remove_map: map_remove_ten_items_issuer
+            chunk_key: placeKey0Chunk0, remove_map: map_remove_ten_items_issuer
         }).send();
         await remove_ten_items_op.confirmation();
         console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
@@ -344,7 +346,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // get item
         const get_item_op = await contracts.get("World_contract")!.methodsObject.get_item({
-            place_key: placeKey0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 11
+            chunk_key: placeKey0Chunk0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 11
         }).send({ mutez: true, amount: 1000000 });
         await get_item_op.confirmation();
         console.log("get_item:\t\t" + await this.feesToString(get_item_op));
