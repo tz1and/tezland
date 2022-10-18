@@ -30,8 +30,13 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 # TODO: consider putting mixin setters into update_settings to redruce size of contract. set_allowed_place_token, set_metadata, set_moderation_contract, set_paused.
-# TODO: try to always use .get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
+# TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
+# TODO: FA2 origination is too large! try and optimise
 # TODO: migration stub types!
+# TODO: delete empty chunks? chunk store remove_if_empty
+# TODO: chunk key needs to be (place_key, chunk_id)
+# TODO: change place props to not set all props but specific props
+# TODO: should return data in same view as get_place_data? maybe with selectable chunks?
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -105,20 +110,6 @@ itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
 chunkStoreType = sp.TMap(sp.TAddress, itemStoreType)
 chunkStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreType)
 
-# TODO: handle issuer and token store levels in this class, with remove if empty, etc.
-class Item_store_map_old:
-    def make(self):
-        return itemStoreLiteral
-    def get(self, map, issuer):
-        return map[issuer]
-    def get_or_create(self, map, issuer):
-        with sp.if_(~map.contains(issuer)):
-            map[issuer] = itemStoreMapLiteral
-        return map[issuer]
-    def remove_if_empty(self, map, issuer):
-        with sp.if_(map.contains(issuer) & (sp.len(map[issuer]) == 0)):
-            del map[issuer]
-
 #
 # Place prop storage
 placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
@@ -126,23 +117,21 @@ placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
-    next_id=sp.TNat,
     interaction_counter=sp.TNat,
     place_props=placePropsType,
-    stored_items=chunkStoreType
-).layout(("next_id", ("interaction_counter", ("place_props", "stored_items"))))
+    chunks=sp.TSet(sp.TNat)
+).layout(("interaction_counter", ("place_props", "chunks")))
 
 placeStorageDefault = sp.record(
-    next_id = sp.nat(0),
     interaction_counter = sp.nat(0),
     place_props = defaultPlaceProps,
-    stored_items=chunkStoreLiteral
-)
+    chunks = sp.set([]))
 
 placeKeyType = sp.TRecord(
     place_contract = sp.TAddress,
     lot_id = sp.TNat
 ).layout(("place_contract", "lot_id"))
+
 
 class Place_store_map:
     def make(self):
@@ -157,22 +146,35 @@ class Place_store_map:
 #
 # Chunk storage
 # TODO:
-#chunkStorageType = sp.TRecord(
-#    next_id = sp.TNat, # per cunk item ids
-#    chunk_storage=chunkStoreType
-#)
+chunkStorageType = sp.TRecord(
+    next_id = sp.TNat, # per cunk item ids
+    stored_items=chunkStoreType
+).layout(("next_id", "stored_items"))
+
+chunkStorageDefault = sp.record(
+    next_id = sp.nat(0),
+    stored_items=chunkStoreLiteral)
+
+chunkPlaceKeyType = sp.TRecord(
+    place_key = placeKeyType,
+    chunk_id = sp.TNat
+).layout(("place_key", "chunk_id"))
+
+
+class Chunk_store_map:
+    def make(self):
+        return sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
+    def get(self, map, key):
+        return map.get(key)
+    def get_or_create(self, map, key, place):
+        with sp.if_(~map.contains(key)):
+            map[key] = chunkStorageDefault
+            place.chunks.add(sp.nat(0))
+        return map[key]
+    # TODO: remove_if_empty
+
 #
-#chunkStorageDefault = sp.record(
-#    next_id = sp.nat(0),
-#    chunk_storage=chunkStoreLiteral
-#)
-
-#chunkType = sp.TMap(sp.TAddress, # from issuer
-#    sp.TMap(sp.TAddress, # to token
-#        sp.TMap(sp.TNat, # to item id
-#            extensibleVariantType # to item
-#        )))
-
+# Item storage
 # TODO: per chunk item limit and chunk limit.
 # TODO: this kind of breaks ext type items... could maybe store them with a special contract address????
 # +++++ or maybe store ext type items in a special map???? or maybe it just doesn't matter under what token they are stored?
@@ -348,13 +350,15 @@ class TL_World(
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
         self.place_store_map = Place_store_map()
+        self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
         self.init_storage(
             token_registry = token_registry,
             migration_contract = sp.none,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
-            places = self.place_store_map.make()
+            places = self.place_store_map.make(),
+            chunks = self.chunk_store_map.make()
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator)
@@ -480,6 +484,7 @@ class TL_World(
         return permission.value
 
 
+    # TODO: change place props to not set all props but specific props
     @sp.entry_point(lazify = True)
     def set_place_props(self, params):
         sp.set_type(params, sp.TRecord(
@@ -525,27 +530,28 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def place_items(self, params):
         sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
+            chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
             place_item_map = sp.TMap(sp.TAddress, sp.TList(placeItemListType)),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("place_item_map", "extension")))))
+        ).layout(("chunk_key", ("owner", ("place_item_map", "extension")))))
 
         self.onlyUnpaused()
 
         # Place token must be allowed
-        place_limits = self.getAllowedPlaceToken(params.place_key.place_contract)
+        place_limits = self.getAllowedPlaceToken(params.chunk_key.place_key.place_contract)
 
         # Caller must have PlaceItems permissions.
-        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
         # Get or create the place.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
+        this_place = self.place_store_map.get_or_create(self.data.places, params.chunk_key.place_key)
+        this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, params.chunk_key, this_place)
 
         # Count items in place item storage.
         place_item_count = sp.local("place_item_count", sp.nat(0))
-        with sp.for_("issuer_map", this_place.stored_items.values()) as issuer_map:
+        with sp.for_("issuer_map", this_chunk.stored_items.values()) as issuer_map:
             with sp.for_("token_map", issuer_map.values()) as token_map:
                 place_item_count.value += sp.len(token_map)
 
@@ -565,7 +571,7 @@ class TL_World(
             item_list = params.place_item_map[fa2]
 
             # Get or create item storage.
-            item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender, fa2)
+            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.sender, fa2)
 
             # Our token transfer map.
             # TODO: we could do this outside the loops with a 2-level transfer map
@@ -594,7 +600,7 @@ class TL_World(
                             transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
                         # Add item to storage.
-                        item_store[this_place.next_id] = sp.variant("item", sp.record(
+                        item_store[this_chunk.next_id] = sp.variant("item", sp.record(
                             item_amount = item.token_amount,
                             token_id = item.token_id,
                             mutez_per_item = item.mutez_per_token,
@@ -603,10 +609,10 @@ class TL_World(
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
                         # Add item to storage.
-                        item_store[this_place.next_id] = sp.variant("ext", ext_data)
+                        item_store[this_chunk.next_id] = sp.variant("ext", ext_data)
 
                 # Increment next_id.
-                this_place.next_id += 1
+                this_chunk.next_id += 1
 
             # only transfer if list has items
             # TODO: we could do this outside the loops with a 2-level transfer map
@@ -617,22 +623,23 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
         sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
+            chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
             update_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("update_map", "extension")))))
+        ).layout(("chunk_key", ("owner", ("update_map", "extension")))))
 
         self.onlyUnpaused()
 
         # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+        self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.place_key)
+        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
@@ -645,7 +652,7 @@ class TL_World(
             with sp.for_("fa2", params.update_map[issuer].keys()) as fa2:
                 update_list = params.update_map[issuer][fa2]
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_place.stored_items, issuer, fa2)
+                item_store = self.item_store_map.get(this_chunk.stored_items, issuer, fa2)
                 
                 with sp.for_("update", update_list) as update:
                     self.validateItemData(update.item_data)
@@ -666,22 +673,23 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
+            chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
             remove_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("remove_map", "extension")))))
+        ).layout(("chunk_key", ("owner", ("remove_map", "extension")))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
-        #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.place_key)
+        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
+        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
@@ -695,7 +703,7 @@ class TL_World(
                 item_list = params.remove_map[issuer][fa2]
 
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_place.stored_items, issuer, fa2)
+                item_store = self.item_store_map.get(this_chunk.stored_items, issuer, fa2)
 
                 # Our token transfer map.
                 # TODO: we could do this outside the loops with a 2-level transfer map
@@ -723,7 +731,7 @@ class TL_World(
                     utils.fa2_transfer_multi(fa2, sp.self_address, transferMap.value.values())
 
                 # Remove the item store if empty.
-                self.item_store_map.remove_if_empty(this_place.stored_items, issuer, fa2)
+                self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
@@ -771,23 +779,24 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
+            chunk_key =  chunkPlaceKeyType,
             item_id = sp.TNat,
             issuer = sp.TAddress,
             fa2 = sp.TAddress,
             extension = extensionArgType
-        ).layout(("place_key", ("item_id", ("issuer", ("fa2", "extension"))))))
+        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", "extension"))))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
-        #self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.place_key)
+        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Get item store - must exist.
-        item_store = self.item_store_map.get(this_place.stored_items, params.issuer, params.fa2)
+        item_store = self.item_store_map.get(this_chunk.stored_items, params.issuer, params.fa2)
 
         # Swap based on item type.
         with item_store[params.item_id].match_cases() as arg:
@@ -825,7 +834,7 @@ class TL_World(
                 sp.failwith(self.error_message.wrong_item_type())
         
         # Remove the item store if empty.
-        self.item_store_map.remove_if_empty(this_place.stored_items, params.issuer, params.fa2)
+        self.item_store_map.remove_if_empty(this_chunk.stored_items, params.issuer, params.fa2)
 
         # Increment interaction counter, next_id does not change.
         this_place.interaction_counter += 1
@@ -834,6 +843,8 @@ class TL_World(
     #
     # Migration
     #
+    # TODO: Props!
+    # TODO: Permissions!
     @sp.entry_point(lazify = True)
     def migration(self, params):
         """An entrypoint to recieve/send migrations.
@@ -860,26 +871,33 @@ class TL_World(
     @sp.onchain_view(pure=True)
     def get_place_data(self, place_key):
         sp.set_type(place_key, placeKeyType)
-        with sp.if_(self.data.places.contains(place_key) == False):
-            sp.result(sp.set_type_expr(placeStorageDefault, placeStorageType))
-        with sp.else_():
-            sp.result(sp.set_type_expr(self.data.places[place_key], placeStorageType))
+        with sp.set_result_type(placeStorageType):
+            sp.result(self.data.places.get(place_key, placeStorageDefault))
+
+
+    # TODO: should return data in same view as get_place_data? maybe with selectable chunks?
+    @sp.onchain_view(pure=True)
+    def get_chunk_data(self, chunk_key):
+        sp.set_type(chunk_key, chunkPlaceKeyType)
+        with sp.set_result_type(chunkStorageType):
+            sp.result(self.data.chunks.get(chunk_key, chunkStorageDefault))
 
 
     @sp.onchain_view(pure=True)
     def get_place_seqnum(self, place_key):
         sp.set_type(place_key, placeKeyType)
-        with sp.if_(self.data.places.contains(place_key) == False):
-            sp.result(sp.sha3(sp.pack(sp.pair(
-                sp.nat(0),
-                sp.nat(0)
-            ))))
-        with sp.else_():
-            this_place = self.data.places[place_key]
-            sp.result(sp.sha3(sp.pack(sp.pair(
-                this_place.interaction_counter,
-                this_place.next_id
-            ))))
+
+        # Collect next_ids in chunks ordered by id.
+        this_place = self.data.places.get(place_key, placeStorageDefault)
+        id_counter_list = sp.local("id_counter_list", [], sp.TList(sp.TNat))
+        with sp.for_("chunk", this_place.chunks.elements()) as chunk:
+            id_counter_list.value.push(self.data.chunks[sp.record(place_key = place_key, chunk_id = chunk)].next_id)
+
+        # Return the result.
+        sp.result(sp.sha3(sp.pack(sp.pair(
+            this_place.interaction_counter,
+            id_counter_list.value
+        ))))
 
 
     @sp.onchain_view(pure=True)
