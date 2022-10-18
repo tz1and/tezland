@@ -3,9 +3,10 @@ import * as ipfs from '../ipfs'
 import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
-import DeployBase, { DeployContractBatch, sleep } from './DeployBase';
-import { ContractAbstraction, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from '@taquito/taquito';
+import { DeployContractBatch } from './DeployBase';
+import { ContractAbstraction, MichelsonMap, OpKind, Wallet } from '@taquito/taquito';
 import fs from 'fs';
+import PostUpgrade from './postupgrade';
 
 
 // TODO: need to move the deploy code here and make it update from v1.
@@ -13,7 +14,7 @@ import fs from 'fs';
 // TODO: actually update metadata on World and Minter v1
 
 
-export default class Upgrade extends DeployBase {
+export default class Upgrade extends PostUpgrade {
     constructor(options: any) {
         super(options);
         this.cleanDeploymentsInSandbox = false;
@@ -260,8 +261,21 @@ export default class Upgrade extends DeployBase {
             console.log(`>> Done. Transaction hash: ${minter_metadata_op.opHash}\n`);
         }
 
+        //
+        // Post deploy
+        //
         // TODO: run world migration
-
         // TODO: post upgrade step, gas tests, etc
+        await this.runPostDeploy(new Map(Object.entries({
+            items_FA2_contract: tezlandItems,
+            places_FA2_contract: tezlandPlaces,
+            interiors_FA2_contract: interiors_FA2_contract,
+            dao_FA2_contract: tezlandDAO,
+            Minter_contract: Minter_v2_contract,
+            World_contract: World_v2_contract,
+            Dutch_contract: tezlandDutchAuctions,
+            Factory_contract: Factory_contract,
+            Registry_contract: Registry_contract
+        })));
     }
 }
