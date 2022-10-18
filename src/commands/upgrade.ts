@@ -125,6 +125,11 @@ export default class Upgrade extends PostUpgrade {
                     {
                         kind: OpKind.TRANSACTION,
                         ...Registry_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
+                    },
+                    // accept places admin from wallet
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...tezlandPlaces.methods.accept_administrator().toTransferParams()
                     }
                 ])
 
