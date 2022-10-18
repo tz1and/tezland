@@ -18,9 +18,9 @@ class AllowedPlaceTokensTest(allowed_place_tokens.AllowedPlaceTokens, sp.Contrac
         sp.verify(self.isAllowedPlaceToken(params.fa2) == params.expected, "unexpected result")
 
     @sp.entry_point
-    def testGetAllowedPlaceToken(self, params):
+    def testGetAllowedPlaceTokenLimits(self, params):
         sp.set_type(params, sp.TRecord(fa2 = sp.TAddress, expected = allowed_place_tokens.allowedPlaceLimitsType))
-        sp.verify(self.getAllowedPlaceToken(params.fa2) == params.expected, "unexpected result")
+        sp.verify(self.getAllowedPlaceTokenLimits(params.fa2) == params.expected, "unexpected result")
 
 
 @sp.add_test(name = "AllowedPlaceTokens_tests", profile = True)
@@ -92,7 +92,7 @@ def test():
     allowedPlaceTokens.set_allowed_place_token(remove_allowed).run(sender = admin)
     allowedPlaceTokens.testOnlyAllowedPlaceTokens(other_token.address).run(sender = admin, valid = False, exception = "PLACE_TOKEN_NOT_ALLOWED")
 
-    scenario.h3("testGetAllowedPlaceTokens")
-    allowedPlaceTokens.testGetAllowedPlaceToken(sp.record(fa2 = other_token.address, expected = test_place_limits)).run(sender = admin, valid = False, exception = "PLACE_TOKEN_NOT_ALLOWED")
+    scenario.h3("testGetAllowedPlaceTokenLimits")
+    allowedPlaceTokens.testGetAllowedPlaceTokenLimits(sp.record(fa2 = other_token.address, expected = test_place_limits)).run(sender = admin, valid = False, exception = "PLACE_TOKEN_NOT_ALLOWED")
     allowedPlaceTokens.set_allowed_place_token(add_allowed).run(sender = admin)
-    allowedPlaceTokens.testGetAllowedPlaceToken(sp.record(fa2 = other_token.address, expected = test_place_limits)).run(sender = admin)
+    allowedPlaceTokens.testGetAllowedPlaceTokenLimits(sp.record(fa2 = other_token.address, expected = test_place_limits)).run(sender = admin)

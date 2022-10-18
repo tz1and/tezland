@@ -539,7 +539,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # Place token must be allowed
-        place_limits = self.getAllowedPlaceToken(params.chunk_key.place_key.place_contract)
+        place_limits = self.getAllowedPlaceTokenLimits(params.chunk_key.place_key.place_contract)
 
         # Caller must have PlaceItems permissions.
         permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)

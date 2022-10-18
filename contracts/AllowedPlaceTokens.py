@@ -75,7 +75,7 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
         return sp.compute(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2))
 
 
-    def getAllowedPlaceToken(self, fa2):
+    def getAllowedPlaceTokenLimits(self, fa2):
         """Returns allowed place limits or fails"""
         fa2 = sp.set_type_expr(fa2, sp.TAddress)
         return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.allowed_place_tokens, fa2))
