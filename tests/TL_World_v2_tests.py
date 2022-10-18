@@ -23,7 +23,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def count_items(self, params):
-        sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.placeItemListType)))
+        sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))
 
         item_count = sp.local("item_count", sp.nat(0))
         with sp.for_("item_list", params.values()) as item_list:
@@ -34,7 +34,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def token_amounts(self, params):
-        sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.placeItemListType)))
+        sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))
         # TODO: this is a bit fucked? key being token id?
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
         with sp.for_("fa2", params.keys()) as fa2:
@@ -66,9 +66,9 @@ class FA2_utils(sp.Contract):
                     with fa2_store[item_id].match_cases() as arg:
                         with arg.match("item") as item:
                             with sp.if_(token_amts.value.contains(item.token_id)):
-                                token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.item_amount
+                                token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
                             with sp.else_():
-                                token_amts.value[item.token_id] = sp.record(amount = item.item_amount, fa2 = fa2)
+                                token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
 
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
@@ -281,7 +281,7 @@ def test():
 
     # utility function for checking correctness of placing item using the FA2_utils contract
     # TODO: also check item id is in map now
-    def place_items(chunk_key: places_contract.chunkPlaceKeyType, token_arr: sp.TMap(sp.TAddress, sp.TList(places_contract.placeItemListType)), sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
+    def place_items(chunk_key: places_contract.chunkPlaceKeyType, token_arr: sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)), sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key))
             tokens_amounts = scenario.compute(items_utils.token_amounts(token_arr))
@@ -495,9 +495,9 @@ def test():
     place_data = world.get_place_data(place_alice)
     chunk_data = world.get_chunk_data(place_alice_chunk_0)
     scenario.verify(place_data.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
-    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][2].open_variant("item").item_amount == 1)
-    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][3].open_variant("item").item_amount == 1)
-    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][4].open_variant("item").item_amount == 1)
+    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][2].open_variant("item").token_amount == 1)
+    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][3].open_variant("item").token_amount == 1)
+    scenario.verify(chunk_data.stored_items[alice.address][items_tokens.address][4].open_variant("item").token_amount == 1)
     scenario.show(chunk_data)
 
     empty_place_key = sp.record(place_contract = places_tokens.address, lot_id = sp.nat(5))

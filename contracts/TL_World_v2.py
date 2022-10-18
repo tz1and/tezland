@@ -40,6 +40,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
 # TODO: remove empty chunks? make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
+# TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -84,15 +85,15 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 # Item types
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
-    item_amount=sp.TNat, # number of fa2 tokens to store.
     token_id=sp.TNat, # the fa2 token id
-    mutez_per_item=sp.TMutez, # 0 if not for sale.
+    token_amount=sp.TNat, # number of fa2 tokens to store.
+    mutez_per_token=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
-).layout(("item_amount", ("token_id", ("mutez_per_item", "item_data"))))
+).layout(("token_id", ("token_amount", ("mutez_per_token", "item_data"))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
-extensibleVariantType = sp.TVariant(
+extensibleVariantItemType = sp.TVariant(
     item = itemRecordType,
     ext = sp.TBytes # transforms, etc
 ).layout(("item", "ext"))
@@ -104,8 +105,8 @@ extensibleVariantType = sp.TVariant(
 # itemStore = tokenStore?
 # itemStoreMap = itemStore?
 # map from item id to item
-itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantType)
-itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantType)
+itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantItemType)
+itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantItemType)
 # map from token address to item
 itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
@@ -223,16 +224,6 @@ updateItemListType = sp.TRecord(
     item_id=sp.TNat,
     item_data=sp.TBytes
 ).layout(("item_id", "item_data"))
-
-placeItemListType = sp.TVariant(
-    item = sp.TRecord(
-        token_id=sp.TNat,
-        token_amount=sp.TNat,
-        mutez_per_token=sp.TMutez,
-        item_data=sp.TBytes
-    ).layout(("token_id", ("token_amount", ("mutez_per_token", "item_data")))),
-    ext = sp.TBytes
-).layout(("item", "ext"))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -524,10 +515,11 @@ class TL_World(
         sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
-    def getTokenRegistry(self, fa2):
-        return sp.view("is_registered", self.data.token_registry,
+    def onlyRegisteredTokens(self, fa2):
+        registered = sp.view("is_registered", self.data.token_registry,
             sp.set_type_expr(fa2, sp.TAddress),
             t = sp.TBool).open_some()
+        sp.verify(registered == True, self.error_message.token_not_registered())
 
 
     @sp.entry_point(lazify = True)
@@ -535,7 +527,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
-            place_item_map = sp.TMap(sp.TAddress, sp.TList(placeItemListType)),
+            place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
             extension = extensionArgType
         ).layout(("chunk_key", ("owner", ("place_item_map", "extension")))))
 
@@ -570,8 +562,7 @@ class TL_World(
 
         # For each fa2 in the map.
         with sp.for_("fa2", params.place_item_map.keys()) as fa2:
-            registered = self.getTokenRegistry(fa2)
-            sp.verify(registered == True, self.error_message.token_not_registered())
+            self.onlyRegisteredTokens(fa2)
 
             item_list = params.place_item_map[fa2]
 
@@ -604,17 +595,11 @@ class TL_World(
                         with sp.else_():
                             transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
 
-                        # Add item to storage.
-                        item_store[this_chunk.next_id] = sp.variant("item", sp.record(
-                            item_amount = item.token_amount,
-                            token_id = item.token_id,
-                            mutez_per_item = item.mutez_per_token,
-                            item_data = item.item_data))
-
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
-                        # Add item to storage.
-                        item_store[this_chunk.next_id] = sp.variant("ext", ext_data)
+
+                # Add item to storage.
+                item_store[this_chunk.next_id] = curr
 
                 # Increment next_id.
                 this_chunk.next_id += 1
@@ -721,9 +706,9 @@ class TL_World(
                             # Transfer all remaining items back to issuer
                             # do multi-transfer by building up a list of transfers
                             with sp.if_(transferMap.value.contains(the_item.token_id)):
-                                transferMap.value[the_item.token_id].amount += the_item.item_amount
+                                transferMap.value[the_item.token_id].amount += the_item.token_amount
                             with sp.else_():
-                                transferMap.value[the_item.token_id] = sp.record(amount=the_item.item_amount, to_=issuer, token_id=the_item.token_id)
+                                transferMap.value[the_item.token_id] = sp.record(amount=the_item.token_amount, to_=issuer, token_id=the_item.token_id)
 
                         # Nothing to do here with ext items. Just remove them.
                     
@@ -743,15 +728,16 @@ class TL_World(
 
 
     # Inline function for sending royalties, fees, etc
+    # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
     def sendValueRoyaltiesFeesInline(self, params):
         sp.set_type(params, sp.TRecord(
-            mutez_per_item = sp.TMutez,
+            mutez_per_token = sp.TMutez,
             issuer = sp.TAddress,
             item_royalty_info = FA2.t_royalties
-        ).layout(("mutez_per_item", ("issuer", "item_royalty_info"))))
+        ).layout(("mutez_per_token", ("issuer", "item_royalty_info"))))
 
         # Calculate fee and royalties.
-        fee = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_item) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
+        fee = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_token) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
         royalties = sp.compute(params.item_royalty_info.royalties * fee / (params.item_royalty_info.royalties + self.data.fees))
 
         # Collect amounts to send in a map.
@@ -773,7 +759,7 @@ class TL_World(
         addToSendMap(self.data.fees_to, send_mgr_fees)
 
         # Send rest of the value to seller.
-        send_issuer = sp.compute(params.mutez_per_item - sp.utils.nat_to_mutez(fee))
+        send_issuer = sp.compute(params.mutez_per_token - sp.utils.nat_to_mutez(fee))
         addToSendMap(params.issuer, send_issuer)
 
         # Transfer.
@@ -811,25 +797,25 @@ class TL_World(
                 the_item = sp.local("the_item", immutable)
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.value.mutez_per_item > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.value.mutez_per_item == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.value.mutez_per_token > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.value.mutez_per_token == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
+                with sp.if_(the_item.value.mutez_per_token != sp.tez(0)):
                     # Get the royalties for this item
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
+                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_token=the_item.value.mutez_per_token, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
-                with sp.if_(the_item.value.item_amount > 1):
-                    the_item.value.item_amount = abs(the_item.value.item_amount - 1)
+                with sp.if_(the_item.value.token_amount > 1):
+                    the_item.value.token_amount = abs(the_item.value.token_amount - 1)
                     item_store[params.item_id] = sp.variant("item", the_item.value)
                 with sp.else_():
                     del item_store[params.item_id]
@@ -860,9 +846,10 @@ class TL_World(
             place_key =  placeKeyType,
             owner = sp.TOption(sp.TAddress),
             # TODO: full issuer.token.item map
-            migrate_item_map = sp.TMap(sp.TAddress, sp.TList(placeItemListType)),
+            migrate_item_map = chunkStoreType,
+            place_props = placePropsType,
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("migrate_item_map", "extension")))))
+        ).layout(("place_key", ("owner", ("migrate_item_map", ("place_props", "extension"))))))
 
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
