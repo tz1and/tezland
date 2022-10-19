@@ -16,28 +16,22 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: the extra level for token address is to alleviate storage penalty for collections and other fa2s.
-# TODO: chunks. separate storage in bigmap with key (place_key, chunk_id).
-# TODO: place should have map of chunks with sequence numbers.
-# TODO: collections. collection factory, minter and registry.
-# TODO: allowed fa2s are checked against registry? which should also contain information about royalties.
+# TODO: place should have set of chunks. sequence numbers are calculated from interaction counter and next_id.
+# TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
+# TODO: per chunk AND per place interaction counter!
+# TODO: get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
+# TODO: should return data in same view as get_place_data? maybe with selectable chunks?
+# TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
+# TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
 # TODO: 2-level fa2 transfer map?
-# TODO: migration mechanism to allow recieving (from lower version) and forwarding items(to higher version) migrations. could do v1 to v2 migration as an upgrade to v1?
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
 # TODO: gas optimisations!
-# TODO: per chunk AND per place interaction counter?
-# TODO: restore v1 deply to be able to test deploy and upgrades on sandbox
-# TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
-# TODO: consider putting mixin setters into update_settings to redruce size of contract. set_allowed_place_token, set_metadata, set_moderation_contract, set_paused.
-# TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: FA2 origination is too large! try and optimise
+# TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: migration stub types!
 # TODO: delete empty chunks? chunk store remove_if_empty
-# TODO: chunk key needs to be (place_key, chunk_id)
-# TODO: change place props to not set all props but specific props
-# TODO: should return data in same view as get_place_data? maybe with selectable chunks?
-# TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
+# TODO: change place props to not set all props but specific props.
 # TODO: remove empty chunks? make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
 # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
@@ -61,8 +55,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 #
 # V2
-# TODO: should I do chunking? I could make room for it right now by hashing pair (place, chunk) and storing chunks in separate bigmap.
-#  + chunk limit. get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
 # TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 
 
@@ -136,13 +128,22 @@ placeKeyType = sp.TRecord(
     lot_id = sp.TNat
 ).layout(("place_contract", "lot_id"))
 
+placeMapType = sp.TBigMap(placeKeyType, placeStorageType)
+placeMapLiteral = sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
+
 
 class Place_store_map:
     def make(self):
-        return sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
+        return placeMapLiteral
+
     def get(self, map, key):
+        sp.set_type(map, placeMapType)
+        sp.set_type(key, placeKeyType)
         return map.get(key)
+
     def get_or_create(self, map, key):
+        sp.set_type(map, placeMapType)
+        sp.set_type(key, placeKeyType)
         with sp.if_(~map.contains(key)):
             map[key] = placeStorageDefault
         return map[key]
@@ -157,6 +158,7 @@ chunkStorageType = sp.TRecord(
 
 chunkStorageDefault = sp.record(
     next_id = sp.nat(0),
+    #interaction_counter=sp.TNat, # TODO
     stored_items=chunkStoreLiteral)
 
 chunkPlaceKeyType = sp.TRecord(
@@ -164,17 +166,28 @@ chunkPlaceKeyType = sp.TRecord(
     chunk_id = sp.TNat
 ).layout(("place_key", "chunk_id"))
 
+chunkMapType = sp.TBigMap(chunkPlaceKeyType, chunkStorageType)
+chunkMapLiteral = sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
+
 
 class Chunk_store_map:
     def make(self):
-        return sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
+        return chunkMapLiteral
+
     def get(self, map, key):
+        sp.set_type(map, chunkMapType)
+        sp.set_type(key, chunkPlaceKeyType)
         return map.get(key)
+
     def get_or_create(self, map, key, place):
+        sp.set_type(map, chunkMapType)
+        sp.set_type(key, chunkPlaceKeyType)
+        sp.set_type(place, placeStorageType)
         with sp.if_(~map.contains(key)):
             map[key] = chunkStorageDefault
             place.chunks.add(sp.nat(0))
         return map[key]
+
     # TODO: remove_if_empty
 
 #
@@ -188,15 +201,15 @@ class Item_store_map:
         return chunkStoreLiteral
 
     def get(self, map, issuer, fa2):
-        #map = sp.set_type_expr(map, chunkStoreType)
-        #issuer = sp.set_type_expr(issuer, sp.TAddress)
-        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(map, chunkStoreType)
+        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         return map[issuer][fa2]
 
     def get_or_create(self, map, issuer, fa2):
-        #map = sp.set_type_expr(map, chunkStoreType)
-        #issuer = sp.set_type_expr(issuer, sp.TAddress)
-        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(map, chunkStoreType)
+        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         # if the issuer map does not exist, create it.
         with sp.if_(~map.contains(issuer)):
             map[issuer] = itemStoreLiteral
@@ -206,9 +219,9 @@ class Item_store_map:
         return map[issuer][fa2]
 
     def remove_if_empty(self, map, issuer, fa2):
-        #map = sp.set_type_expr(map, chunkStoreType)
-        #issuer = sp.set_type_expr(issuer, sp.TAddress)
-        #fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(map, chunkStoreType)
+        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         # If the chunk has a map for the issuer
         with sp.if_(map.contains(issuer)):
             # and it has a map for the token and it's empty
@@ -271,8 +284,7 @@ class Permission_map:
         metakey = sp.record(owner = owner,
                             permittee = permittee,
                             place_key = place_key)
-        metakey = sp.set_type_expr(metakey, self.key_type())
-        return metakey
+        return sp.set_type_expr(metakey, self.key_type())
 
     def add(self, set, owner, permittee, place_key, perm):
         set[self.make_key(owner, permittee, place_key)] = perm
@@ -346,6 +358,7 @@ class TL_World(
         self.place_store_map = Place_store_map()
         self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
+
         self.init_storage(
             token_registry = token_registry,
             migration_contract = sp.none,
@@ -354,12 +367,14 @@ class TL_World(
             places = self.place_store_map.make(),
             chunks = self.chunk_store_map.make()
         )
+
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+
         self.generate_contract_metadata(name, description)
 
     def generate_contract_metadata(self, name, description):
@@ -455,9 +470,9 @@ class TL_World(
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
     def getPermissionsInline(self, place_key, owner, permittee):
-        place_key = sp.set_type_expr(place_key, placeKeyType)
-        owner = sp.set_type_expr(owner, sp.TOption(sp.TAddress))
-        permittee = sp.set_type_expr(permittee, sp.TAddress)
+        sp.set_type(place_key, placeKeyType)
+        sp.set_type(owner, sp.TOption(sp.TAddress))
+        sp.set_type(permittee, sp.TAddress)
 
         # TODO: check if place contract is allowed in this world.
 
@@ -516,9 +531,9 @@ class TL_World(
 
 
     def onlyRegisteredTokens(self, fa2):
+        sp.set_type(fa2, sp.TAddress)
         registered = sp.view("is_registered", self.data.token_registry,
-            sp.set_type_expr(fa2, sp.TAddress),
-            t = sp.TBool).open_some()
+            fa2, t = sp.TBool).open_some()
         sp.verify(registered == True, self.error_message.token_not_registered())
 
 
@@ -728,17 +743,14 @@ class TL_World(
 
 
     # Inline function for sending royalties, fees, etc
-    # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
-    def sendValueRoyaltiesFeesInline(self, params):
-        sp.set_type(params, sp.TRecord(
-            mutez_per_token = sp.TMutez,
-            issuer = sp.TAddress,
-            item_royalty_info = FA2.t_royalties
-        ).layout(("mutez_per_token", ("issuer", "item_royalty_info"))))
+    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer, item_royalty_info):
+        sp.set_type(mutez_per_token, sp.TMutez)
+        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(item_royalty_info, FA2.t_royalties)
 
         # Calculate fee and royalties.
-        fee = sp.compute(sp.utils.mutez_to_nat(params.mutez_per_token) * (params.item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
-        royalties = sp.compute(params.item_royalty_info.royalties * fee / (params.item_royalty_info.royalties + self.data.fees))
+        fee = sp.compute(sp.utils.mutez_to_nat(mutez_per_token) * (item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
+        royalties = sp.compute(item_royalty_info.royalties * fee / (item_royalty_info.royalties + self.data.fees))
 
         # Collect amounts to send in a map.
         send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
@@ -748,7 +760,7 @@ class TL_World(
         # If there are any royalties to be paid.
         with sp.if_(royalties > sp.nat(0)):
             # Pay each contributor his relative share.
-            with sp.for_("contributor", params.item_royalty_info.contributors) as contributor:
+            with sp.for_("contributor", item_royalty_info.contributors) as contributor:
                 # Calculate amount to be paid from relative share.
                 absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.relative_royalties / 1000))
                 addToSendMap(contributor.address, absolute_amount)
@@ -759,8 +771,8 @@ class TL_World(
         addToSendMap(self.data.fees_to, send_mgr_fees)
 
         # Send rest of the value to seller.
-        send_issuer = sp.compute(params.mutez_per_token - sp.utils.nat_to_mutez(fee))
-        addToSendMap(params.issuer, send_issuer)
+        send_issuer = sp.compute(mutez_per_token - sp.utils.nat_to_mutez(fee))
+        addToSendMap(issuer, send_issuer)
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
@@ -808,7 +820,7 @@ class TL_World(
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_token=the_item.value.mutez_per_token, issuer=params.issuer, item_royalty_info=item_royalty_info))
+                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, params.issuer, item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
