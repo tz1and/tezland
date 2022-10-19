@@ -864,17 +864,92 @@ class TL_World(
         be upgraded to send migrations."""
         sp.set_type(params, sp.TRecord(
             place_key =  placeKeyType,
-            owner = sp.TOption(sp.TAddress),
-            # TODO: full issuer.token.item map
-            migrate_item_map = chunkStoreType,
-            place_props = placePropsType,
+            # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+            migrate_item_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType))),
+            migrate_place_props = placePropsType,
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("migrate_item_map", ("place_props", "extension"))))))
+        ).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension")))))
 
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
         sp.verify((sp.sender == self.data.migration_contract.open_some("NO_MIGRATION_CONTRACT")) &
             (sp.source == self.data.administrator))
+
+        # Place token must be allowed
+        place_limits = self.getAllowedPlaceTokenLimits(params.place_key.place_contract)
+
+        # Caller doesn't need permissions, is admin.
+
+        # Get or create the place.
+        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
+        # Make sure the place is empty.
+        sp.verify(sp.len(this_place.chunks) == 0, message = "MIGRATION_PLACE_NOT_EMPTY")
+
+        # Keep a running count of items, so we can switch chunks.
+        add_item_count = sp.local("add_item_count", sp.nat(0))
+        # The current chunk we're working on.
+        current_chunk = sp.local("current_chunk", sp.nat(0))
+
+        # Get or create the current chunk.
+        this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
+
+        # Set the props on the place to migrate
+        this_place.place_props = params.migrate_place_props
+
+        # For each fa2 in the map.
+        with sp.for_("issuer", params.migrate_item_map.keys()) as issuer:
+            with sp.for_("fa2", params.migrate_item_map[issuer].keys()) as fa2:
+                self.onlyRegisteredTokens(fa2)
+
+                item_list = params.migrate_item_map[issuer][fa2]
+
+                # Get or create item storage.
+                item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
+
+                # Our token transfer map.
+                # TODO: we could do this outside the loops with a 2-level transfer map
+                transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+
+                # For each item in the list.
+                with sp.for_("curr", item_list) as curr:
+                    # if we added more items than the chunk limit, switch chunks and reset add count to 0
+                    with sp.if_(add_item_count.value >= place_limits.chunk_item_limit):
+                        add_item_count.value = sp.nat(0)
+                        current_chunk.value += sp.nat(1)
+                        sp.verify(current_chunk.value < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+                        # update chunk and item storage
+                        this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
+                        item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
+
+                    with curr.match_cases() as arg:
+                        with arg.match("item") as item:
+                            self.validateItemData(item.item_data)
+
+                            # transfer item to this contract
+                            # do multi-transfer by building up a list of transfers
+                            with sp.if_(transferMap.value.contains(item.token_id)):
+                                transferMap.value[item.token_id].amount += item.token_amount
+                            with sp.else_():
+                                transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
+
+                        with arg.match("ext") as ext_data:
+                            self.validateItemData(ext_data)
+
+                    # Add item to storage.
+                    item_store[this_chunk.next_id] = curr
+
+                    # Increment next_id.
+                    this_chunk.next_id += sp.nat(1)
+
+                    # Add to item add counter
+                    add_item_count.value += sp.nat(1)
+
+                # only transfer if list has items
+                # TODO: we could do this outside the loops with a 2-level transfer map
+                with sp.if_(sp.len(transferMap.value) > 0):
+                    utils.fa2_transfer_multi(fa2, sp.sender, transferMap.value.values())
+
+        # Don't increment chunk interaction counter, as next_id changes.
 
 
     #

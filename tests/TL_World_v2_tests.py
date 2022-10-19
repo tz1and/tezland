@@ -211,8 +211,16 @@ def test():
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
+    minter.mint_public(collection = items_tokens.address,
+        to_ = admin.address,
+        amount = 1000,
+        royalties = 250,
+        contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
+
     item_bob = sp.nat(0)
     item_alice = sp.nat(1)
+    item_admin = sp.nat(2)
 
     # mint some place tokens for testing
     scenario.h3("minting places")
@@ -223,6 +231,10 @@ def test():
         ),
         sp.record(
             to_ = alice.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = carol.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
     ]).run(sender = admin)
@@ -235,12 +247,22 @@ def test():
         place_key = place_bob,
         chunk_id = sp.nat(0)
     )
+
     place_alice = sp.record(
         place_contract = places_tokens.address,
         lot_id = sp.nat(1)
     )
     place_alice_chunk_0 = sp.record(
         place_key = place_alice,
+        chunk_id = sp.nat(0)
+    )
+
+    place_carol = sp.record(
+        place_contract = places_tokens.address,
+        lot_id = sp.nat(2)
+    )
+    place_carol_chunk_0 = sp.record(
+        place_key = place_carol,
         chunk_id = sp.nat(0)
     )
 
@@ -276,6 +298,14 @@ def test():
             token_id = item_alice
         ))
     ]).run(sender = alice, valid = True)
+
+    items_tokens.update_operators([
+        sp.variant("add_operator", sp.record(
+            owner = admin.address,
+            operator = world.address,
+            token_id = item_admin
+        ))
+    ]).run(sender = admin, valid = True)
 
     position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
@@ -1005,6 +1035,77 @@ def test():
     scenario.verify(world.data.paused == False)
 
     world.set_place_props(place_key=place_bob, owner=sp.none, props=valid_place_props, extension = sp.none).run(sender=carol)
+
+    #
+    # Test migration
+    #
+    scenario.h2("migration")
+
+    # Set migration contract to be admin address.
+    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = admin)
+    world.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 2, chunk_item_limit = 4)))])).run(sender = admin)
+
+    # Invalid migration - place not not empty.
+    world.migration(
+        place_key=place_bob,
+        # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+        migrate_item_map = {
+            carol.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(8)
+                ]
+            }
+        },
+        migrate_place_props = {sp.bytes("0x00"): sp.bytes("0xaaaaaa")},
+        extension = sp.none
+    ).run(sender=admin, valid=False, exception="MIGRATION_PLACE_NOT_EMPTY")
+
+    # Invalid migration - chunk limit.
+    world.migration(
+        place_key=place_carol,
+        # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+        migrate_item_map = {
+            carol.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(9)
+                ]
+            }
+        },
+        migrate_place_props = {sp.bytes("0x00"): sp.bytes("0xaaaaaa")},
+        extension = sp.none
+    ).run(sender=admin, valid=False, exception="CHUNK_LIMIT")
+
+    # Valid migration.
+    world.migration(
+        place_key=place_carol,
+        # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+        migrate_item_map = {
+            carol.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(2)
+                ]
+            },
+            alice.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(3)
+                ]
+            },
+            bob.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(2)
+                ]
+            },
+            admin.address: {
+                items_tokens.address: [
+                    sp.variant("item", sp.record(token_amount = 1, token_id = item_admin, mutez_per_token = sp.tez(1), item_data = position)) for n in range(1)
+                ]
+            }
+        },
+        migrate_place_props = {sp.bytes("0x00"): sp.bytes("0xaaaaaa")},
+        extension = sp.none
+    ).run(sender=admin)
+
+    # TODO: make sure we have n chunks an all the items, somehow.
 
     #
     # the end.
