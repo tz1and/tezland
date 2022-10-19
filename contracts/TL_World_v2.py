@@ -35,6 +35,8 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: remove empty chunks? make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
 # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
+# TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
+#       at least in terms of what "type" of royalties.
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -563,7 +565,7 @@ class TL_World(
         permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
 
-        # Get or create the place.
+        # Get or create the place and chunk.
         this_place = self.place_store_map.get_or_create(self.data.places, params.chunk_key.place_key)
         this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, params.chunk_key, this_place)
 
@@ -647,8 +649,7 @@ class TL_World(
         # Place token must be allowed
         self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
@@ -697,8 +698,7 @@ class TL_World(
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
@@ -802,8 +802,7 @@ class TL_World(
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # Get the place - must exist.
-        #this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Get item store - must exist.
@@ -854,8 +853,7 @@ class TL_World(
     #
     # Migration
     #
-    # TODO: Props!
-    # TODO: Permissions!
+    # TODO: Permissions?
     @sp.entry_point(lazify = True)
     def migration(self, params):
         """An entrypoint to recieve/send migrations.
