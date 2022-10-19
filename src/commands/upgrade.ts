@@ -199,7 +199,7 @@ export default class Upgrade extends PostUpgrade {
                         add_allowed_place_token: {
                             fa2: tezlandPlaces.address,
                             place_limits: {
-                                chunk_limit: 1,
+                                chunk_limit: 2,
                                 chunk_item_limit: 64
                             }
                         }
@@ -208,7 +208,7 @@ export default class Upgrade extends PostUpgrade {
                         add_allowed_place_token: {
                             fa2: interiors_FA2_contract.address,
                             place_limits: {
-                                chunk_limit: 1,
+                                chunk_limit: 4,
                                 chunk_item_limit: 64
                             }
                         }
