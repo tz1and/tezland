@@ -233,7 +233,7 @@ def test():
     )
     place_bob_chunk_0 = sp.record(
         place_key = place_bob,
-        chunk_id = 0
+        chunk_id = sp.nat(0)
     )
     place_alice = sp.record(
         place_contract = places_tokens.address,
@@ -241,7 +241,7 @@ def test():
     )
     place_alice_chunk_0 = sp.record(
         place_key = place_alice,
-        chunk_id = 0
+        chunk_id = sp.nat(0)
     )
 
     #
@@ -283,7 +283,7 @@ def test():
     # TODO: also check item id is in map now
     def place_items(chunk_key: places_contract.chunkPlaceKeyType, token_arr: sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)), sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
         if valid == True:
-            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key))
+            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums.get(chunk_key.chunk_id, sp.bytes("0x00")))
             tokens_amounts = scenario.compute(items_utils.token_amounts(token_arr))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
@@ -293,7 +293,7 @@ def test():
     
         if valid == True:
             # check seqnum
-            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key))
+            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             # check counter
             scenario.verify(prev_next_id + scenario.compute(items_utils.count_items(token_arr)) == world.data.chunks[chunk_key].next_id)
             # check tokens were transferred
@@ -306,19 +306,19 @@ def test():
     # TODO: also check item in map changed
     def get_item(chunk_key: places_contract.chunkPlaceKeyType, item_id: sp.TNat, issuer: sp.TAddress, fa2: sp.TAddress, sender: sp.TestAccount, amount: sp.TMutez, valid: bool = True, message: str = None, now = None):
         if valid == True:
-            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key))
+            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             tokens_amounts = {scenario.compute(world.data.chunks[chunk_key].stored_items[issuer].get(fa2).get(item_id).open_variant("item").token_id) : sp.record(amount=1, fa2=items_tokens.address)}
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
-        prev_interaction_counter = scenario.compute(world.data.places.get(chunk_key.place_key, default_value=places_contract.placeStorageDefault).interaction_counter)
+        prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
         world.get_item(chunk_key = chunk_key, item_id = item_id, issuer = issuer, fa2 = fa2, extension = sp.none).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
     
         if valid == True:
             # check seqnum
-            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key))
+            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             # check counter
-            scenario.verify(prev_interaction_counter + 1 == world.data.places[chunk_key.place_key].interaction_counter)
+            scenario.verify(prev_interaction_counter + 1 == world.data.chunks[chunk_key].interaction_counter)
             # check tokens were transferred
             balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
@@ -329,19 +329,19 @@ def test():
     # TODO: make sure item is not in map
     def remove_items(chunk_key: places_contract.chunkPlaceKeyType, remove_map, sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
         if valid == True:
-            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key))
+            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, chunk_key = chunk_key, remove_map = remove_map)))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
         
-        prev_interaction_counter = scenario.compute(world.data.places.get(chunk_key.place_key, default_value=places_contract.placeStorageDefault).interaction_counter)
+        prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
         world.remove_items(chunk_key = chunk_key, owner = lot_owner, remove_map = remove_map, extension = sp.none).run(sender = sender, valid = valid, exception = message)
         
         if valid == True:
             # check seqnum
-            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key))
+            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             # check counter
-            scenario.verify(prev_interaction_counter + 1 == world.data.places[chunk_key.place_key].interaction_counter)
+            scenario.verify(prev_interaction_counter + 1 == world.data.chunks[chunk_key].interaction_counter)
             # check tokens were transferred
             # TODO: breaks when removing tokens from multiple issuers. needs to be map of issuer to map of whatever
             balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
@@ -388,10 +388,8 @@ def test():
     #
     scenario.h2("Gettting items")
 
-    # make sure sequence number changes on interaction. need to use compute here to eval immediate.
-    check_before_sequence_number = scenario.compute(world.get_place_seqnum(place_bob))
+    # test valid
     get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender = alice, amount = sp.tez(1))
-    scenario.verify(check_before_sequence_number != world.get_place_seqnum(place_bob))
 
     # test wrong amount
     get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(15), valid=False, message="WRONG_AMOUNT")
@@ -508,11 +506,14 @@ def test():
 
     scenario.h3("Sequence numbers")
     sequence_number = scenario.compute(world.get_place_seqnum(place_alice))
-    scenario.verify(sequence_number == sp.sha3(sp.pack(sp.pair(sp.nat(3), [sp.nat(5)]))))
+    scenario.verify(sequence_number.place_seq_num == sp.sha3(sp.pack(sp.nat(0))))
+    scenario.verify(sp.len(sequence_number.chunk_seq_nums) == 1)
+    scenario.verify(sequence_number.chunk_seq_nums[0] == sp.sha3(sp.pack(sp.pair(sp.nat(3), sp.nat(5)))))
     scenario.show(sequence_number)
 
     sequence_number_empty = scenario.compute(world.get_place_seqnum(empty_place_key))
-    scenario.verify(sequence_number_empty == sp.sha3(sp.pack(sp.pair(sp.nat(0), []))))
+    scenario.verify(sequence_number_empty.place_seq_num == sp.sha3(sp.pack(sp.nat(0))))
+    scenario.verify(sp.len(sequence_number_empty.chunk_seq_nums) == 0)
     scenario.show(sequence_number_empty)
 
     #

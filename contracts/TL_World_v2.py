@@ -16,7 +16,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: place should have set of chunks. sequence numbers are calculated from interaction counter and next_id.
+# TODO: place should have set of chunks. sequence numbers are calculated from chunk interaction counter and next_id.
 # TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
 # TODO: per chunk AND per place interaction counter!
 # TODO: get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
@@ -153,12 +153,13 @@ class Place_store_map:
 # TODO:
 chunkStorageType = sp.TRecord(
     next_id = sp.TNat, # per cunk item ids
+    interaction_counter=sp.TNat,
     stored_items=chunkStoreType
-).layout(("next_id", "stored_items"))
+).layout(("next_id", ("interaction_counter", "stored_items")))
 
 chunkStorageDefault = sp.record(
     next_id = sp.nat(0),
-    #interaction_counter=sp.TNat, # TODO
+    interaction_counter=sp.nat(0),
     stored_items=chunkStoreLiteral)
 
 chunkPlaceKeyType = sp.TRecord(
@@ -237,6 +238,11 @@ updateItemListType = sp.TRecord(
     item_id=sp.TNat,
     item_data=sp.TBytes
 ).layout(("item_id", "item_data"))
+
+seqNumResultType = sp.TRecord(
+    place_seq_num = sp.TBytes,
+    chunk_seq_nums = sp.TMap(sp.TNat, sp.TBytes)
+).layout(("place_seq_num", "chunk_seq_nums"))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -521,7 +527,7 @@ class TL_World(
             message = self.error_message.data_length())
         this_place.place_props = params.props
 
-        # Increment interaction counter, next_id does not change.
+        # Increment place interaction counter.
         this_place.interaction_counter += 1
 
 
@@ -624,6 +630,8 @@ class TL_World(
             with sp.if_(sp.len(transferMap.value) > 0):
                 utils.fa2_transfer_multi(fa2, sp.sender, transferMap.value.values())
 
+        # Don't increment chunk interaction counter, as next_id changes.
+
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
@@ -671,8 +679,8 @@ class TL_World(
                         with arg.match("ext"):
                             item_store[update.item_id] = sp.variant("ext", update.item_data)
 
-        # Increment interaction counter, next_id does not change.
-        this_place.interaction_counter += 1
+        # Increment chunk interaction counter, as next_id does not change.
+        this_chunk.interaction_counter += 1
 
 
     @sp.entry_point(lazify = True)
@@ -738,8 +746,8 @@ class TL_World(
                 # Remove the item store if empty.
                 self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
 
-        # Increment interaction counter, next_id does not change.
-        this_place.interaction_counter += 1
+        # Increment chunk interaction counter, as next_id does not change.
+        this_chunk.interaction_counter += 1
 
 
     # Inline function for sending royalties, fees, etc
@@ -795,7 +803,7 @@ class TL_World(
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the place - must exist.
-        this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
+        #this_place = self.place_store_map.get(self.data.places, params.chunk_key.place_key)
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Get item store - must exist.
@@ -839,8 +847,8 @@ class TL_World(
         # Remove the item store if empty.
         self.item_store_map.remove_if_empty(this_chunk.stored_items, params.issuer, params.fa2)
 
-        # Increment interaction counter, next_id does not change.
-        this_place.interaction_counter += 1
+        # Increment chunk interaction counter, as next_id does not change.
+        this_chunk.interaction_counter += 1
 
 
     #
@@ -891,17 +899,20 @@ class TL_World(
     def get_place_seqnum(self, place_key):
         sp.set_type(place_key, placeKeyType)
 
-        # Collect next_ids in chunks ordered by id.
-        this_place = self.data.places.get(place_key, placeStorageDefault)
-        id_counter_list = sp.local("id_counter_list", [], sp.TList(sp.TNat))
-        with sp.for_("chunk", this_place.chunks.elements()) as chunk:
-            id_counter_list.value.push(self.data.chunks[sp.record(place_key = place_key, chunk_id = chunk)].next_id)
+        with sp.set_result_type(seqNumResultType):
+            # Collect chunk sequence numbers.
+            this_place = self.data.places.get(place_key, placeStorageDefault)
+            chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, sp.TMap(sp.TNat, sp.TBytes))
+            with sp.for_("chunk_id", this_place.chunks.elements()) as chunk_id:
+                this_chunk = self.data.chunks[sp.record(place_key = place_key, chunk_id = chunk_id)]
+                chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
+                    this_chunk.interaction_counter,
+                    this_chunk.next_id)))
 
-        # Return the result.
-        sp.result(sp.sha3(sp.pack(sp.pair(
-            this_place.interaction_counter,
-            id_counter_list.value
-        ))))
+            # Return the result.
+            sp.result(sp.record(
+                place_seq_num = sp.sha3(sp.pack(this_place.interaction_counter)),
+                chunk_seq_nums = chunk_sequence_numbers_map.value))
 
 
     @sp.onchain_view(pure=True)
