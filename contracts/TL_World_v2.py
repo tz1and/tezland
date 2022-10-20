@@ -359,7 +359,7 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, metadata, name, description, exception_optimization_level="default-line"):
+    def __init__(self, administrator, token_registry, paused, metadata, name, description, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -388,7 +388,7 @@ class TL_World(
         )
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused)
         fees_mixin.Fees.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
