@@ -912,9 +912,16 @@ class TL_World(
                 with sp.for_("curr", item_list) as curr:
                     # if we added more items than the chunk limit, switch chunks and reset add count to 0
                     with sp.if_(add_item_count.value >= place_limits.chunk_item_limit):
+                        # Remove itemstore if empty. Can happen in some cases,
+                        # because the item store is created at the beginning of a token loop.
+                        # Alternatively we could call item_store_map.get_or_create() inside the loop.
+                        self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
+
+                        # Reset counters and increment current chunk.
                         add_item_count.value = sp.nat(0)
                         current_chunk.value += sp.nat(1)
                         sp.verify(current_chunk.value < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+
                         # update chunk and item storage
                         this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
                         item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)

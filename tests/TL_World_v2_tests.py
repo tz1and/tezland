@@ -241,30 +241,27 @@ def test():
 
     place_bob = sp.record(
         place_contract = places_tokens.address,
-        lot_id = sp.nat(0)
-    )
+        lot_id = sp.nat(0))
     place_bob_chunk_0 = sp.record(
         place_key = place_bob,
-        chunk_id = sp.nat(0)
-    )
+        chunk_id = sp.nat(0))
 
     place_alice = sp.record(
         place_contract = places_tokens.address,
-        lot_id = sp.nat(1)
-    )
+        lot_id = sp.nat(1))
     place_alice_chunk_0 = sp.record(
         place_key = place_alice,
-        chunk_id = sp.nat(0)
-    )
+        chunk_id = sp.nat(0))
 
     place_carol = sp.record(
         place_contract = places_tokens.address,
-        lot_id = sp.nat(2)
-    )
+        lot_id = sp.nat(2))
     place_carol_chunk_0 = sp.record(
         place_key = place_carol,
-        chunk_id = sp.nat(0)
-    )
+        chunk_id = sp.nat(0))
+    place_carol_chunk_1 = sp.record(
+        place_key = place_carol,
+        chunk_id = sp.nat(1))
 
     #
     # Test places
@@ -1105,7 +1102,23 @@ def test():
         extension = sp.none
     ).run(sender=admin)
 
-    # TODO: make sure we have n chunks an all the items, somehow.
+    # Make sure we have n chunks an all the items, somehow.
+    # Check chunk 0 contents
+    scenario.verify(world.data.chunks.contains(place_carol_chunk_0))
+    scenario.verify(world.data.chunks[place_carol_chunk_0].stored_items.contains(bob.address))
+    scenario.verify(world.data.chunks[place_carol_chunk_0].stored_items.contains(carol.address))
+    scenario.verify(~world.data.chunks[place_carol_chunk_0].stored_items.contains(alice.address))
+    scenario.verify(~world.data.chunks[place_carol_chunk_0].stored_items.contains(admin.address))
+
+    # Check chunk 1 contents
+    scenario.verify(world.data.chunks.contains(place_carol_chunk_1))
+    scenario.verify(~world.data.chunks[place_carol_chunk_1].stored_items.contains(bob.address))
+    scenario.verify(~world.data.chunks[place_carol_chunk_1].stored_items.contains(carol.address))
+    scenario.verify(world.data.chunks[place_carol_chunk_1].stored_items.contains(alice.address))
+    scenario.verify(world.data.chunks[place_carol_chunk_1].stored_items.contains(admin.address))
+
+    scenario.verify(items_tokens.get_balance(sp.record(owner = world.address, token_id = item_admin)) == 8)
+    scenario.verify(items_tokens.get_balance(sp.record(owner = admin.address, token_id = item_admin)) == 992)
 
     #
     # the end.
