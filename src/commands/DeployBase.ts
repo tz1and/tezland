@@ -1,4 +1,5 @@
-import { TezosToolkit, ContractAbstraction, WalletOperationBatch, OpKind, Wallet } from "@taquito/taquito";
+import { TezosToolkit, ContractAbstraction, WalletOperationBatch, OpKind, Wallet, TransactionWalletOperation } from "@taquito/taquito";
+import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
 import { OperationContentsAndResult } from "@taquito/rpc";
 import { InMemorySigner } from "@taquito/signer";
 import { OperationContentsAndResultOrigination } from '@taquito/rpc';
@@ -240,6 +241,13 @@ export default class DeployBase {
 
         return this.tezos.wallet.at(contract_address);
     };
+
+    protected async run_op_task(task_name: string, f: () => Promise<TransactionWalletOperation | BatchWalletOperation>) {
+        console.log(task_name);
+        const operation = await f();
+        await operation.confirmation();
+        console.log(kleur.green(">> Done."), `Transaction hash: ${operation.opHash}\n`);
+    }
 
     private async confirmDeploy() {
         const properties = [
