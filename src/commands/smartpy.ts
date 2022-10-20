@@ -15,11 +15,13 @@ export function test(contract_names: string[]) {
     if(contract_names.length > 0)
         contract_names.forEach(contract_name => test_single('./tests', contract_name));
     else {
-        for (const test_dir of ['./tests/upgrades', './tests'])
+        for (const test_dir of ['./tests/upgrades', './tests']) {
+            console.log(`\nIn dir: ${test_dir}`)
             fs.readdirSync(test_dir).forEach(file => {
                 if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))
                     test_single(test_dir, file.slice(0, -9));
             });
+        }
     }
 
     console.log(`Test results are in ${test_out_dir}`)
