@@ -13,19 +13,19 @@ const CROSS_MARK = "\u2717"
 
 export function test(contract_names: string[]) {
     if(contract_names.length > 0)
-        contract_names.forEach(contract_name => test_single(contract_name));
+        contract_names.forEach(contract_name => test_single('./tests', contract_name));
     else {
-        const test_dir = './tests/';
-        fs.readdirSync(test_dir).forEach(file => {
-            if(fs.lstatSync(test_dir + file).isFile() && file.endsWith('_tests.py'))
-                test_single(file.slice(0, -9));
-        });
+        for (const test_dir of ['./tests/upgrades', './tests'])
+            fs.readdirSync(test_dir).forEach(file => {
+                if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))
+                    test_single(test_dir, file.slice(0, -9));
+            });
     }
 
     console.log(`Test results are in ${test_out_dir}`)
 }
 
-export function test_single(contract_name: string) {
+export function test_single(dir: string, contract_name: string) {
     if (config.smartpy.exclude_tests.has(contract_name)) {
         console.log(kleur.blue(`- Skipping tests for contract '${contract_name}' (excluded in user.config)`));
         return;
@@ -35,7 +35,7 @@ export function test_single(contract_name: string) {
 
     try {
         // Build artifact directory.
-        const contract_in = `./tests/${contract_name}_tests.py`
+        const contract_in = `${dir}/${contract_name}_tests.py`
 
         child.execSync(`${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
 
