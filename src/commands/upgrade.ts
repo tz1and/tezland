@@ -30,13 +30,12 @@ export default class Upgrade extends PostUpgrade {
         const code_map = smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
 
         for (const ep_name of entrypoints) {
-            console.log(`Updating entrypoint ${kleur.yellow(ep_name)}...`)
-            const upgrade_op = await contract.methodsObject.update_ep({
-                ep_name: {[ep_name]: null},
-                new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
-            }).send();
-            await upgrade_op.confirmation();
-            console.log(kleur.green(">> Done."), `Transaction hash: ${upgrade_op.opHash}`);
+            await this.run_op_task(`Updating entrypoint ${kleur.yellow(ep_name)}...`, async () => {
+                return contract.methodsObject.update_ep({
+                    ep_name: {[ep_name]: null},
+                    new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
+                }).send();
+            });
         }
 
         let metdata_url;
@@ -70,10 +69,8 @@ export default class Upgrade extends PostUpgrade {
         //
         // Pause World v1 and Minter v1 for upgrade.
         //
-        {
-            console.log("Pausing World v1 and Minter v1...")
-            const pause_batch = this.tezos.wallet.batch();
-            pause_batch.with([
+        await this.run_op_task("Pausing World v1 and Minter v1...", async () => {
+            return this.tezos!.wallet.batch().with([
                 // Pause world v1.
                 {
                     kind: OpKind.TRANSACTION,
@@ -84,17 +81,13 @@ export default class Upgrade extends PostUpgrade {
                     kind: OpKind.TRANSACTION,
                     ...tezlandMinter.methods.set_paused(true).toTransferParams()
                 }
-            ])
-
-            const pause_batch_op = await pause_batch.send();
-            await pause_batch_op.confirmation();
-            console.log(`>> Done. Transaction hash: ${pause_batch_op.opHash}\n`);
-        }
+            ]).send();
+        });
 
         //
         // Token Registry
         //
-        let Registry_contract;
+        let Registry_contract: ContractAbstraction<Wallet>;
         {
             // Compile and deploy registry contract.
             await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
@@ -107,7 +100,7 @@ export default class Upgrade extends PostUpgrade {
         //
         // Minter v2 and Interiors.
         //
-        let Minter_v2_contract, interiors_FA2_contract;
+        let Minter_v2_contract: ContractAbstraction<Wallet>, interiors_FA2_contract: ContractAbstraction<Wallet>;
         {
             const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
 
@@ -130,38 +123,34 @@ export default class Upgrade extends PostUpgrade {
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
-                console.log("Setting minter as token admin...")
-                const set_admin_batch = this.tezos.wallet.batch();
-                set_admin_batch.with([
-                    // Transfer items admin from minter v1 to minter v2
-                    // Transfer places admin back to admin wallet
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...tezlandMinter.methods.transfer_fa2_administrator([
-                            {fa2: tezlandItems.address, proposed_fa2_administrator: Minter_v2_contract.address},
-                            {fa2: tezlandPlaces.address, proposed_fa2_administrator: this.accountAddress},
-                        ]).toTransferParams()
-                    },
-                    // accept items admin in minter v2
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...Minter_v2_contract.methods.accept_fa2_administrator([tezlandItems.address]).toTransferParams()
-                    },
-                    // add items as public collection to minter v2
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...Registry_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
-                    },
-                    // accept places admin from wallet
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...tezlandPlaces.methods.accept_administrator().toTransferParams()
-                    }
-                ])
-
-                const set_admin_batch_op = await set_admin_batch.send();
-                await set_admin_batch_op.confirmation();
-                console.log(`>> Done. Transaction hash: ${set_admin_batch_op.opHash}\n`);
+                await this.run_op_task("Setting minter as token admin...", async () => {
+                    return this.tezos!.wallet.batch().with([
+                        // Transfer items admin from minter v1 to minter v2
+                        // Transfer places admin back to admin wallet
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...tezlandMinter.methods.transfer_fa2_administrator([
+                                {fa2: tezlandItems.address, proposed_fa2_administrator: Minter_v2_contract.address},
+                                {fa2: tezlandPlaces.address, proposed_fa2_administrator: this.accountAddress},
+                            ]).toTransferParams()
+                        },
+                        // accept items admin in minter v2
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Minter_v2_contract.methods.accept_fa2_administrator([tezlandItems.address]).toTransferParams()
+                        },
+                        // add items as public collection to minter v2
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Registry_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
+                        },
+                        // accept places admin from wallet
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...tezlandPlaces.methods.accept_administrator().toTransferParams()
+                        }
+                    ]).send();
+                });
             }
         }
 
@@ -169,7 +158,7 @@ export default class Upgrade extends PostUpgrade {
         // Token Factory
         //
         // TODO: could probably deploy with world v2.
-        let Factory_contract;
+        let Factory_contract: ContractAbstraction<Wallet>;
         {
             const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
 
@@ -183,25 +172,21 @@ export default class Upgrade extends PostUpgrade {
             Factory_contract = await this.deploy_contract("TL_TokenFactory");
 
             if (!factoryWasDeployed) {
-                console.log("Giving registry permissions to factory contract...")
-                const factory_permissions_batch = this.tezos.wallet.batch();
-                factory_permissions_batch.with([
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...Registry_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
-                    }
-                ])
-    
-                const factory_permissions_batch_op = await factory_permissions_batch.send();
-                await factory_permissions_batch_op.confirmation();
-                console.log(`>> Done. Transaction hash: ${factory_permissions_batch_op.opHash}\n`);
+                await this.run_op_task("Giving registry permissions to factory contract...", async () => {
+                    return this.tezos!.wallet.batch().with([
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Registry_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
+                        }
+                    ]).send();
+                });
             }
         }
 
         //
         // World v2 (Marketplaces)
         //
-        let World_v2_contract;
+        let World_v2_contract: ContractAbstraction<Wallet>;
         {
             const worldV2WasDeployed = this.getDeployment("TL_World_v2");
 
@@ -218,29 +203,28 @@ export default class Upgrade extends PostUpgrade {
             World_v2_contract = await this.deploy_contract("TL_World_v2");
 
             if (!worldV2WasDeployed) {
-                console.log("Set allowed place tokens on world...")
-                const allowed_places_op = await World_v2_contract.methodsObject.set_allowed_place_token([
-                    {
-                        add_allowed_place_token: {
-                            fa2: tezlandPlaces.address,
-                            place_limits: {
-                                chunk_limit: 2,
-                                chunk_item_limit: 64
+                await this.run_op_task("Set allowed place tokens on world...", async () => {
+                    return World_v2_contract.methodsObject.set_allowed_place_token([
+                        {
+                            add_allowed_place_token: {
+                                fa2: tezlandPlaces.address,
+                                place_limits: {
+                                    chunk_limit: 2,
+                                    chunk_item_limit: 64
+                                }
+                            }
+                        },
+                        {
+                            add_allowed_place_token: {
+                                fa2: interiors_FA2_contract.address,
+                                place_limits: {
+                                    chunk_limit: 4,
+                                    chunk_item_limit: 64
+                                }
                             }
                         }
-                    },
-                    {
-                        add_allowed_place_token: {
-                            fa2: interiors_FA2_contract.address,
-                            place_limits: {
-                                chunk_limit: 4,
-                                chunk_item_limit: 64
-                            }
-                        }
-                    }
-                ]).send();
-                await allowed_places_op.confirmation();
-                console.log(`>> Done. Transaction hash: ${allowed_places_op.opHash}\n`);
+                    ]).send();
+                });
             }
         }
 
@@ -271,27 +255,47 @@ export default class Upgrade extends PostUpgrade {
             ["mint_Place"], true);
 
         // Update metadata on v1 contracts
-        {
-            console.log("Updating metadata on v1 world contract...")
+        await this.run_op_task("Updating metadata on v1 world contract...", async () => {
             assert(world_v1_1_metadata);
-            const world_metadata_op = await tezlandWorld.methodsObject.get_item({
+            return tezlandWorld.methodsObject.get_item({
                 lot_id: 0,
                 item_id: 0,
                 issuer: this.accountAddress,
                 extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(world_v1_1_metadata) })
             }).send();
-            await world_metadata_op.confirmation();
-            console.log(`>> Done. Transaction hash: ${world_metadata_op.opHash}\n`);
+        });
 
-            console.log("Updating metadata on v1 minter contract...")
+        await this.run_op_task("Updating metadata on v1 minter contract...", async () => {
             assert(minter_v1_1_metadata);
-            const minter_metadata_op = await tezlandMinter.methodsObject.mint_Place([{
+            return tezlandMinter.methodsObject.mint_Place([{
                 to_: this.accountAddress,
                 metadata: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(minter_v1_1_metadata) })
             }]).send();
-            await minter_metadata_op.confirmation();
-            console.log(`>> Done. Transaction hash: ${minter_metadata_op.opHash}\n`);
-        }
+        });
+
+        //
+        // TODO: Run migration and unpause World v2.
+        //
+        await this.run_op_task("Set migration contract on World v2...", async () => {
+            return World_v2_contract.methods.update_settings([{migration_contract: tezlandWorld.address}]).send()
+        });
+
+        // TODO: actually run migration.
+
+        await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
+            return this.tezos!.wallet.batch().with([
+                // Pause world v1.
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...World_v2_contract.methods.update_settings([{migration_contract: null}]).toTransferParams()
+                },
+                // Pause minter v1.
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...World_v2_contract.methods.set_paused(false).toTransferParams()
+                }
+            ]).send();
+        });
 
         //
         // Post deploy
