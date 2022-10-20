@@ -65,7 +65,7 @@ def fa2_get_balance(fa2, token_id, owner):
 #
 # FA2 transfers
 def fa2_transfer_multi(contract, from_, transfer_list):
-    transfer_list = sp.set_type_expr(transfer_list, sp.TList(FA2.t_transfer_tx))
+    sp.set_type(transfer_list, sp.TList(FA2.t_transfer_tx))
     c = sp.contract(
         FA2.t_transfer_params,
         contract,
@@ -78,8 +78,8 @@ def fa2_transfer(contract, from_, to_, token_id, item_amount):
 #
 # FA2 mint
 def fa2_nft_mint(batch, contract):
-    batch = sp.set_type_expr(batch, FA2.t_mint_nft_batch)
-    contract = sp.set_type_expr(contract, sp.TAddress)
+    sp.set_type(batch, FA2.t_mint_nft_batch)
+    sp.set_type(contract, sp.TAddress)
     c = sp.contract(
         FA2.t_mint_nft_batch,
         contract,
@@ -87,8 +87,8 @@ def fa2_nft_mint(batch, contract):
     sp.transfer(batch, sp.mutez(0), c)
 
 def fa2_nft_royalties_mint(batch, contract):
-    batch = sp.set_type_expr(batch, FA2.t_mint_nft_royalties_batch)
-    contract = sp.set_type_expr(contract, sp.TAddress)
+    sp.set_type(batch, FA2.t_mint_nft_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
     c = sp.contract(
         FA2.t_mint_nft_royalties_batch,
         contract,
@@ -96,8 +96,8 @@ def fa2_nft_royalties_mint(batch, contract):
     sp.transfer(batch, sp.mutez(0), c)
 
 def fa2_fungible_mint(batch, contract):
-    batch = sp.set_type_expr(batch, FA2.t_mint_fungible_batch)
-    contract = sp.set_type_expr(contract, sp.TAddress)
+    sp.set_type(batch, FA2.t_mint_fungible_batch)
+    sp.set_type(contract, sp.TAddress)
     c = sp.contract(
         FA2.t_mint_fungible_batch,
         contract,
@@ -105,8 +105,8 @@ def fa2_fungible_mint(batch, contract):
     sp.transfer(batch, sp.mutez(0), c)
 
 def fa2_fungible_royalties_mint(batch, contract):
-    batch = sp.set_type_expr(batch, FA2.t_mint_fungible_royalties_batch)
-    contract = sp.set_type_expr(contract, sp.TAddress)
+    sp.set_type(batch, FA2.t_mint_fungible_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
     c = sp.contract(
         FA2.t_mint_fungible_royalties_batch,
         contract,
@@ -119,8 +119,8 @@ def fa2_single_asset_mint(batch, contract):
 #
 # FA2/ContractMetadata set_metadata
 def contract_set_metadata(contract, metadata_uri):
-    contract = sp.set_type_expr(contract, sp.TAddress)
-    metadata_uri = sp.set_type_expr(metadata_uri, sp.TBytes)
+    sp.set_type(contract, sp.TAddress)
+    sp.set_type(metadata_uri, sp.TBytes)
     set_metadata_handle = sp.contract(
         sp.TBigMap(sp.TString, sp.TBytes),
         contract,

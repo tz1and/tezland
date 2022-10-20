@@ -13,7 +13,7 @@ class Administrable:
         )
 
     def isAdministrator(self, address):
-        address = sp.set_type_expr(address, sp.TAddress)
+        sp.set_type(address, sp.TAddress)
         return self.data.administrator == address
 
     def onlyAdministrator(self):

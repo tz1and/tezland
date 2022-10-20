@@ -64,20 +64,20 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
 
     def onlyAllowedPlaceTokens(self, fa2):
         """Fails if not allowed"""
-        fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         sp.verify(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2),
             message = "PLACE_TOKEN_NOT_ALLOWED")
 
 
     def isAllowedPlaceToken(self, fa2):
         """Returns if place token is allowed"""
-        fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         return sp.compute(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2))
 
 
     def getAllowedPlaceTokenLimits(self, fa2):
         """Returns allowed place limits or fails"""
-        fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.allowed_place_tokens, fa2))
 
 

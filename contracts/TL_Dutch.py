@@ -278,7 +278,7 @@ class TL_Dutch(
 
     def getAuctionPriceInline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
-        the_auction = sp.set_type_expr(the_auction, TL_Dutch.AUCTION_TYPE)
+        sp.set_type(the_auction, TL_Dutch.AUCTION_TYPE)
         
         # Local var for the result.
         result = sp.local("result", sp.tez(0))

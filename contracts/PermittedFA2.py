@@ -72,21 +72,21 @@ class PermittedFA2(admin_mixin.Administrable):
 
     def onlyPermittedFA2(self, fa2):
         """Fails if not permitted"""
-        fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         sp.verify(self.permitted_fa2_map.is_permitted(self.data.permitted_fa2, fa2),
             message = "TOKEN_NOT_PERMITTED")
 
 
     def getPermittedFA2Props(self, fa2):
         """Returns permitted props or fails if not permitted"""
-        fa2 = sp.set_type_expr(fa2, sp.TAddress)
+        sp.set_type(fa2, sp.TAddress)
         return sp.compute(self.permitted_fa2_map.get_props(self.data.permitted_fa2, fa2))
 
 
     def getRoyaltiesForPermittedFA2(self, token_id, auction_fa2):
         """Returns roaylties info for a token of a specified contract."""
-        token_id = sp.set_type_expr(token_id, sp.TNat)
-        auction_fa2 = sp.set_type_expr(auction_fa2, sp.TAddress)
+        sp.set_type(token_id, sp.TNat)
+        sp.set_type(auction_fa2, sp.TAddress)
 
         # Get permitted FA2 props.
         fa2_props = self.getPermittedFA2Props(auction_fa2)
