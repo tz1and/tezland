@@ -4,9 +4,9 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 
 class Pausable(admin_mixin.Administrable):
-    def __init__(self, administrator):
+    def __init__(self, administrator, paused = False):
         self.update_initial_storage(
-            paused = False
+            paused = paused
         )
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
