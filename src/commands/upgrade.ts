@@ -186,6 +186,7 @@ export default class Upgrade extends PostUpgrade {
             await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `token_registry = sp.address("${Registry_contract.address}")`,
+                `paused = sp.bool(True)`,
                 `name = "tz1and World"`,
                 `description = "tz1and Virtual World v2"`
             ]);
