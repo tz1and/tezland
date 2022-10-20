@@ -246,6 +246,17 @@ seqNumResultType = sp.TRecord(
     chunk_seq_nums = sp.TMap(sp.TNat, sp.TBytes)
 ).layout(("place_seq_num", "chunk_seq_nums"))
 
+# Types for the migration ep.
+migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))
+
+migrationType = sp.TRecord(
+    place_key =  placeKeyType,
+    # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+    migrate_item_map = migrationItemMapType,
+    migrate_place_props = placePropsType,
+    extension = extensionArgType
+).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension"))))
+
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
 
@@ -860,13 +871,7 @@ class TL_World(
         
         Initially set up to recieve migrations but can
         be upgraded to send migrations."""
-        sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
-            # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
-            migrate_item_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType))),
-            migrate_place_props = placePropsType,
-            extension = extensionArgType
-        ).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension")))))
+        sp.set_type(params, migrationType)
 
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
