@@ -1,6 +1,7 @@
 import smartpy as sp
 
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
+worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 
 
 class TL_World_v1_1(world_contract.TL_World):
@@ -10,6 +11,23 @@ class TL_World_v1_1(world_contract.TL_World):
         world_contract.TL_World.__init__(self, administrator,
             items_contract, places_contract, dao_contract, metadata,
             name, description, version)
+
+    def send_migration(self, migration_to_contract, migration_map, place_props, lot_id):
+        sp.set_type(migration_to_contract, sp.TAddress)
+        sp.set_type(migration_map, worldv2_contract.migrationItemMapType)
+        sp.set_type(place_props, worldv2_contract.placePropsType)
+        sp.set_type(lot_id, sp.TNat)
+        migration_handle = sp.contract(
+            worldv2_contract.migrationType,
+            migration_to_contract,
+            entry_point='migration').open_some()
+        sp.transfer(sp.record(
+            place_key = sp.record(place_contract = self.data.places_contract, lot_id = lot_id),
+            # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
+            migrate_item_map = migration_map,
+            migrate_place_props = place_props,
+            extension = sp.none
+        ), sp.mutez(0), migration_handle)
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
@@ -24,45 +42,45 @@ class TL_World_v1_1(world_contract.TL_World):
 
         self.onlyAdministrator()
 
-        sp.failwith("WHOOPS")
+        migration_map = sp.local("migration_map", {}, worldv2_contract.migrationItemMapType)
 
-        # Get the place - must exist.
-        """this_place = self.place_store_map.get(self.data.places, params.lot_id)
+        this_place = self.place_store_map.get(self.data.places, params.lot_id)
 
-        # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.lot_id, params.owner, sp.sender)
-        hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
+        # TODO: do nothing or fail for empty places.
+        # depends if I want to detect them advance or call any place anyway and waste a little gas...
 
-        # If ModifyAll permission is not given, make sure update map only contains sender items.
-        with sp.if_(~hasModifyAll):
-            with sp.for_("remove_key", params.update_map.keys()) as remove_key:
-                sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
-
-        # Update items.
-        with sp.for_("issuer", params.update_map.keys()) as issuer:
-            update_list = params.update_map[issuer]
+        # Fill migration map with items from storage
+        with sp.for_("issuer", this_place.stored_items.keys()) as issuer:
             # Get item store - must exist.
             item_store = self.item_store_map.get(this_place.stored_items, issuer)
-            
-            with sp.for_("update", update_list) as update:
-                self.validateItemData(update.item_data)
 
-                with item_store[update.item_id].match_cases() as arg:
-                    with arg.match("item") as immutable:
-                        # sigh - variants are not mutable
-                        item_var = sp.compute(immutable)
-                        item_var.item_data = update.item_data
-                        item_store[update.item_id] = sp.variant("item", item_var)
-                    with arg.match("other") as immutable:
-                        # sigh - variants are not mutable
-                        other_var = sp.compute(immutable)
-                        other_var.item_data = update.item_data
-                        item_store[update.item_id] = sp.variant("other", other_var)
-                    with arg.match("ext"):
-                        item_store[update.item_id] = sp.variant("ext", update.item_data)
+            migration_map.value[issuer] = sp.map({})
+            migration_map.value[issuer][self.data.items_contract] = sp.list([])
+            current_list = migration_map.value[issuer][self.data.items_contract]
 
-        # Increment interaction counter, next_id does not change.
-        this_place.interaction_counter += 1"""
+            with sp.for_("update", item_store.values()) as item_variant:
+                with item_variant.match_cases() as arg:
+                    with arg.match("item") as item:
+                        # TODO: add adhoc operators
+                        current_list.push(sp.variant("item", sp.record(
+                            token_amount = item.item_amount,
+                            token_id = item.token_id,
+                            mutez_per_token = item.mutez_per_item,
+                            item_data = item.item_data)))
+                    with arg.match("other"):
+                        sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
+                    with arg.match("ext") as ext:
+                        current_list.push(sp.variant("ext", ext))
+
+        # TODO: update adhoc operators.
+
+        # Send migration to world v2.
+        # TODO: somehow get the world v2 contract in here. maybe a constructor arg?
+        # TODO: only send if there actually are items to transfer, I guess.
+        self.send_migration(self.data.places_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
+
+        # Finally, delete the place from storage.
+        del self.data.places[params.lot_id]
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):
