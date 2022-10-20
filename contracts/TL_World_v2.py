@@ -250,7 +250,7 @@ seqNumResultType = sp.TRecord(
 migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))
 
 migrationType = sp.TRecord(
-    place_key =  placeKeyType,
+    place_key = placeKeyType,
     # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
     migrate_item_map = migrationItemMapType,
     migrate_place_props = placePropsType,
