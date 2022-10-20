@@ -1,0 +1,361 @@
+Baseline - 5.7415
+-----------------
+update_operators:       storage: 0.006700, gas: 0.000574
+create place (item):    storage: 0.023300, gas: 0.002418
+set_place_props:        storage: 0.000000, gas: 0.001422
+
+place_items (1):        storage: 0.004100, gas: 0.002153
+place_items (10):       storage: 0.041000, gas: 0.002509
+
+set_item_data (1):      storage: 0.000000, gas: 0.001568
+set_item_data (10):     storage: 0.000000, gas: 0.001798
+
+remove_items (1):       storage: 0.000000, gas: 0.002014
+remove_items (10):      storage: 0.000000, gas: 0.002029
+
+set_permissions:        storage: 0.000000, gas: 0.000587
+
+
+Duplicated permission code - 5.86575
+with items()
+------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+create place (item):    storage: 0.023300, gas: 0.001920
+set_place_props:        storage: 0.000000, gas: 0.000922
+
+place_items (1):        storage: 0.004100, gas: 0.001655
+place_items (10):       storage: 0.041000, gas: 0.002011
+
+set_item_data (1):      storage: 0.000000, gas: 0.001067
+set_item_data (10):     storage: 0.000000, gas: 0.001297
+
+remove_items (1):       storage: 0.000000, gas: 0.001513
+remove_items (10):      storage: 0.000000, gas: 0.001528
+
+set_permissions:        storage: 0.000000, gas: 0.000587
+
+
+Duplicated permission code - 5.86575
+with keys()
+------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+create place (item):    storage: 0.023300, gas: 0.001920
+set_place_props:        storage: 0.000000, gas: 0.000922
+
+place_items (1):        storage: 0.004100, gas: 0.001655
+place_items (10):       storage: 0.043000, gas: 0.002032
+
+set_item_data (1):      storage: 0.000000, gas: 0.001067
+set_item_data (10):     storage: 0.000000, gas: 0.001298
+
+remove_items (1):       storage: 0.000000, gas: 0.001514
+remove_items (10):      storage: 0.000000, gas: 0.001529
+
+set_permissions:        storage: 0.000000, gas: 0.000587
+get_item:               storage: 0.000600, gas: 0.0022127
+
+
+
+Dutch baseline - 2.37725
+------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+manage_whitelist:       storage: 0.000000, gas: 0.000758
+
+create_auction:         storage: 0.021900, gas: 0.001376
+bid:                    storage: 0.000000, gas: 0.002101
+
+create_auction:         storage: 0.000000, gas: 0.001419
+cancel:                 storage: 0.000000, gas: 0.001183
+
+
+Dutch inline price - 2.35375
+----------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+manage_whitelist:       storage: 0.000000, gas: 0.000755
+
+create_auction:         storage: 0.021900, gas: 0.001376
+bid:                    storage: 0.000000, gas: 0.001363
+
+create_auction:         storage: 0.000000, gas: 0.001419
+cancel:                 storage: 0.000000, gas: 0.001183
+
+
+Lazy EP fa2
+----------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000626
+create place (item):    storage: 0.022700, gas: 0.001455
+set_place_props:        storage: 0.000000, gas: 0.000931
+
+place_items (1):        storage: 0.003700, gas: 0.001690
+place_items (10):       storage: 0.039000, gas: 0.002038
+
+set_item_data (1):      storage: 0.000000, gas: 0.001076
+set_item_data (10):     storage: 0.000000, gas: 0.001297
+
+remove_items (1):       storage: 0.000000, gas: 0.001559
+remove_items (10):      storage: 0.000000, gas: 0.001575
+
+set_permissions:        storage: 0.000000, gas: 0.000642
+get_item:               storage: 0.000000, gas: 0.001958
+
+
+update_operators:       storage: 0.006700, gas: 0.000625
+manage_whitelist:       storage: 0.000000, gas: 0.000812
+
+create_auction:         storage: 0.014600, gas: 0.001353
+bid:                    storage: 0.000000, gas: 0.001297
+
+create_auction:         storage: 0.000000, gas: 0.001353
+cancel:                 storage: 0.000000, gas: 0.001111
+
+Non-lazy fa2
+-----------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000574
+create place (item):    storage: 0.022700, gas: 0.001400
+set_place_props:        storage: 0.000000, gas: 0.000936
+
+place_items (1):        storage: 0.003700, gas: 0.001635
+place_items (10):       storage: 0.039000, gas: 0.001983
+
+set_item_data (1):      storage: 0.000000, gas: 0.001080
+set_item_data (10):     storage: 0.000000, gas: 0.001301
+
+remove_items (1):       storage: 0.000000, gas: 0.001504
+remove_items (10):      storage: 0.000000, gas: 0.001520
+
+set_permissions:        storage: 0.000000, gas: 0.000643
+get_item:               storage: 0.000000, gas: 0.001929
+
+
+update_operators:       storage: 0.006700, gas: 0.000575
+manage_whitelist:       storage: 0.000000, gas: 0.000813
+
+create_auction:         storage: 0.014600, gas: 0.001297
+bid:                    storage: 0.000000, gas: 0.001238
+
+create_auction:         storage: 0.000000, gas: 0.001297
+cancel:                 storage: 0.000000, gas: 0.001051
+
+Minter, dutch no lazy
+------------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+create place (item):    storage: 0.022700, gas: 0.001400
+set_place_props:        storage: 0.000000, gas: 0.000936
+
+place_items (1):        storage: 0.003700, gas: 0.001635
+place_items (10):       storage: 0.039000, gas: 0.001983
+
+set_item_data (1):      storage: 0.000000, gas: 0.001080
+set_item_data (10):     storage: 0.000000, gas: 0.001301
+
+remove_items (1):       storage: 0.000000, gas: 0.001504
+remove_items (10):      storage: 0.000000, gas: 0.001520
+
+set_permissions:        storage: 0.000000, gas: 0.000643
+get_item:               storage: 0.000000, gas: 0.001929
+
+
+update_operators:       storage: 0.006700, gas: 0.000575
+manage_whitelist:       storage: 0.000000, gas: 0.000793
+
+create_auction:         storage: 0.014600, gas: 0.001296
+bid:                    storage: 0.000000, gas: 0.001237
+
+create_auction:         storage: 0.000000, gas: 0.001296
+cancel:                 storage: 0.000000, gas: 0.001051
+
+World no lazy
+------------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000575
+create place (item):    storage: 0.022700, gas: 0.001399
+set_place_props:        storage: 0.000000, gas: 0.000935
+
+place_items (1):        storage: 0.003700, gas: 0.001634
+place_items (10):       storage: 0.039000, gas: 0.001983
+
+set_item_data (1):      storage: 0.000000, gas: 0.001080
+set_item_data (10):     storage: 0.000000, gas: 0.001301
+
+remove_items (1):       storage: 0.000000, gas: 0.001503
+remove_items (10):      storage: 0.000000, gas: 0.001519
+
+set_permissions:        storage: 0.000000, gas: 0.000584
+get_item:               storage: 0.000000, gas: 0.001928
+
+
+update_operators:       storage: 0.006700, gas: 0.000575
+manage_whitelist:       storage: 0.000000, gas: 0.000793
+
+create_auction:         storage: 0.014600, gas: 0.001296
+bid:                    storage: 0.000000, gas: 0.001237
+
+create_auction:         storage: 0.000000, gas: 0.001296
+cancel:                 storage: 0.000000, gas: 0.001051
+
+
+World - sendValue lambda
+------------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000574
+create place (item):    storage: 0.022700, gas: 0.001358
+set_place_props:        storage: 0.000000, gas: 0.000928
+
+place_items (1):        storage: 0.003700, gas: 0.001571
+place_items (10):       storage: 0.039000, gas: 0.001919
+
+set_item_data (1):      storage: 0.000000, gas: 0.001074
+set_item_data (10):     storage: 0.000000, gas: 0.001296
+
+remove_items (1):       storage: 0.000000, gas: 0.001438
+remove_items (10):      storage: 0.000000, gas: 0.001454
+
+set_permissions:        storage: 0.000000, gas: 0.000583
+get_item:               storage: 0.000000, gas: 0.002062
+
+
+World - sendValue inline
+------------------------------------------
+update_operators:       storage: 0.006700, gas: 0.000574
+create place (item):    storage: 0.022700, gas: 0.001358
+set_place_props:        storage: 0.000000, gas: 0.000928
+
+place_items (1):        storage: 0.003700, gas: 0.001571
+place_items (10):       storage: 0.039000, gas: 0.001919
+
+set_item_data (1):      storage: 0.000000, gas: 0.001074
+set_item_data (10):     storage: 0.000000, gas: 0.001296
+
+remove_items (1):       storage: 0.000000, gas: 0.001438
+remove_items (10):      storage: 0.000000, gas: 0.001454
+
+set_permissions:        storage: 0.000000, gas: 0.000583
+get_item:               storage: 0.000000, gas: 0.002091
+
+
+Adhoc operator stuff
+----------------------------------
+update_operators:               storage: 0.006700, gas: 0.000575
+create place (item):            storage: 0.022700, gas: 0.001371
+set_place_props:                storage: 0.000000, gas: 0.000935
+
+place_items (1):                storage: 0.003700, gas: 0.001584
+place_items (10):               storage: 0.039000, gas: 0.001932
+
+set_item_data (1):              storage: 0.000000, gas: 0.001081
+set_item_data (10):             storage: 0.000000, gas: 0.001302
+
+remove_items (1):               storage: 0.000000, gas: 0.001445
+remove_items (10):              storage: 0.000000, gas: 0.001461
+
+set_permissions:                storage: 0.000000, gas: 0.000585
+get_item:                       storage: 0.000000, gas: 0.002017
+
+
+update_operators:               storage: 0.006700, gas: 0.000575
+manage_whitelist:               storage: 0.000000, gas: 0.000873
+
+create_auction:                 storage: 0.014600, gas: 0.001262
+bid:                            storage: 0.000000, gas: 0.001261
+
+create_auction:                 storage: 0.000000, gas: 0.001262
+cancel:                         storage: 0.000000, gas: 0.001017
+
+
+update_operators (100):         storage: 0.663300, gas: 0.013311
+
+transfer:                       storage: 0.006700, gas: 0.000684
+update_adhoc_operators:         storage: 0.003700, gas: 0.000509
+update_adhoc_operators (100):   storage: 0.366300, gas: 0.005863
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005873
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000713
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000518
+transfer (reset):               storage: 0.000000, gas: 0.000713
+
+mint some:                      storage: 0.065400, gas: 0.001888
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005873
+
+
+No item counter
+---------------------------------
+update_operators:               storage: 0.006700, gas: 0.000574
+create place (item):            storage: 0.023800, gas: 0.001375
+set_place_props:                storage: 0.000000, gas: 0.000952
+
+place_items (1):                storage: 0.003700, gas: 0.001588
+place_items (10):               storage: 0.039000, gas: 0.001934
+
+set_item_data (1):              storage: 0.000000, gas: 0.001084
+set_item_data (10):             storage: 0.000000, gas: 0.001305
+
+remove_items (1):               storage: 0.000000, gas: 0.001443
+remove_items (10):              storage: 0.000000, gas: 0.001456
+
+set_permissions:                storage: 0.000000, gas: 0.000584
+get_item:                       storage: 0.000000, gas: 0.002012
+
+
+update_operators:               storage: 0.006700, gas: 0.000574
+manage_whitelist:               storage: 0.000000, gas: 0.000871
+
+create_auction:                 storage: 0.014600, gas: 0.001265
+bid:                            storage: 0.000000, gas: 0.001260
+
+create_auction:                 storage: 0.000000, gas: 0.001265
+cancel:                         storage: 0.000000, gas: 0.001016
+
+
+update_operators (100):         storage: 0.663300, gas: 0.013310
+
+transfer:                       storage: 0.006700, gas: 0.000683
+update_adhoc_operators:         storage: 0.003700, gas: 0.000508
+update_adhoc_operators (100):   storage: 0.366300, gas: 0.005867
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005877
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000711
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000517
+transfer (reset):               storage: 0.000000, gas: 0.000711
+
+mint some:                      storage: 0.065400, gas: 0.001888
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005877
+
+
+World v2
+---------------------------------
+update_operators:               storage: 0.006700, gas: 0.000561
+create place 0 (item):          storage: 0.034500, gas: 0.001747
+create place 1 (item):          storage: 0.027800, gas: 0.001770
+set_place_props:                storage: 0.000000, gas: 0.000974
+
+place_items (1):                storage: 0.003700, gas: 0.001977
+place_items (10):               storage: 0.039000, gas: 0.002330
+
+set_item_data (1):              storage: 0.000000, gas: 0.001209
+set_item_data (10):             storage: 0.000000, gas: 0.001435
+
+remove_items (1):               storage: 0.000000, gas: 0.001559
+remove_items (10):              storage: 0.000000, gas: 0.001576
+
+set_permissions:                storage: 0.000000, gas: 0.000610
+get_item:                       storage: 0.000000, gas: 0.001684
+
+
+update_operators:               storage: 0.006700, gas: 0.000561
+manage_whitelist:               storage: 0.000000, gas: 0.000727
+
+create_auction:                 storage: 0.014600, gas: 0.001236
+bid:                            storage: 0.000000, gas: 0.001047
+
+create_auction:                 storage: 0.000000, gas: 0.001236
+cancel:                         storage: 0.000000, gas: 0.000978
+
+
+update_operators (100):         storage: 0.670000, gas: 0.011919
+
+transfer:                       storage: 0.006700, gas: 0.000676
+update_adhoc_operators:         storage: 0.003700, gas: 0.000501
+update_adhoc_operators (100):   storage: 0.366300, gas: 0.005109
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000706
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000509
+transfer (reset):               storage: 0.000000, gas: 0.000706
+
+mint some:                      storage: 0.065400, gas: 0.002464
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
