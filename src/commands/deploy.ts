@@ -49,22 +49,18 @@ export default class Deploy extends PostDeploy {
         const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
 
         if(!daoWasDeployed) {
-            // Mint 0 dao.
-            console.log("Minting dao tokens")
-            const tokenMetadataMap = new MichelsonMap();
-            tokenMetadataMap.set("decimals", char2Bytes("6"));
-            tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
-            tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
+            await this.run_op_task("Minting dao tokens...", async () => {
+                const tokenMetadataMap = new MichelsonMap();
+                tokenMetadataMap.set("decimals", char2Bytes("6"));
+                tokenMetadataMap.set("name", char2Bytes("tz1and DAO"));
+                tokenMetadataMap.set("symbol", char2Bytes("tz1aDAO"));
 
-            const dao_mint_op = await dao_FA2_contract.methodsObject.mint([{
-                to_: this.accountAddress,
-                amount: 0,
-                token: { new: tokenMetadataMap }
-            }]).send();
-            await dao_mint_op.confirmation();
-
-            console.log("Successfully minted 0 DAO");
-            console.log(`>> Transaction hash: ${dao_mint_op.opHash}\n`);
+                return dao_FA2_contract.methodsObject.mint([{
+                    to_: this.accountAddress,
+                    amount: 0,
+                    token: { new: tokenMetadataMap }
+                }]).send();
+            });
         }
 
         //
@@ -101,29 +97,22 @@ export default class Deploy extends PostDeploy {
         const [Minter_contract, Dutch_contract] = await tezland_batch.deployBatch();
 
         if (!minterWasDeployed) {
-            // Set the minter as the token administrator
-            console.log("Setting minter as token admin...")
-            const set_admin_batch = this.tezos.wallet.batch();
-            set_admin_batch.with([
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...items_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...places_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
-                },
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...Minter_contract.methods.accept_fa2_administrator([places_FA2_contract.address, items_FA2_contract.address]).toTransferParams()
-                }
-            ])
-
-            const set_admin_batch_op = await set_admin_batch.send();
-            await set_admin_batch_op.confirmation();
-
-            console.log("Successfully set minter as tokens admin");
-            console.log(`>> Transaction hash: ${set_admin_batch_op.opHash}\n`);
+            await this.run_op_task("Setting minter as token admin...", async () => {
+                return this.tezos!.wallet.batch().with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...items_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
+                    },
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...places_FA2_contract.methods.transfer_administrator(Minter_contract.address).toTransferParams()
+                    },
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Minter_contract.methods.accept_fa2_administrator([places_FA2_contract.address, items_FA2_contract.address]).toTransferParams()
+                    }
+                ]).send();
+            });
         }
 
         //
