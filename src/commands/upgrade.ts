@@ -65,7 +65,31 @@ export default class Upgrade extends PostUpgrade {
         const tezlandMinter = await this.tezos.wallet.at(this.getDeployment("TL_Minter"));
         const tezlandDutchAuctions = await this.tezos.wallet.at(this.getDeployment("TL_Dutch"));
 
-        // TODO: pause relevant contracts during upgrade. Then unpause in the end.
+        // TODO: add task flags to deploy registry. so I can tell if something already happened.
+
+        //
+        // Pause World v1 and Minter v1 for upgrade.
+        //
+        {
+            console.log("Pausing World v1 and Minter v1...")
+            const pause_batch = this.tezos.wallet.batch();
+            pause_batch.with([
+                // Pause world v1.
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...tezlandWorld.methods.set_paused(true).toTransferParams()
+                },
+                // Pause minter v1.
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...tezlandMinter.methods.set_paused(true).toTransferParams()
+                }
+            ])
+
+            const pause_batch_op = await pause_batch.send();
+            await pause_batch_op.confirmation();
+            console.log(`>> Done. Transaction hash: ${pause_batch_op.opHash}\n`);
+        }
 
         //
         // Token Registry
