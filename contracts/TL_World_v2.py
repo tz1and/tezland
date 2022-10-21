@@ -37,6 +37,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
 # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
 #       at least in terms of what "type" of royalties.
+# TODO: have issuer be an option. so place can be owner of an item and some items can transfer with place ownership. sp.eif
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -188,7 +189,7 @@ class Chunk_store_map:
         sp.set_type(place, placeStorageType)
         with sp.if_(~map.contains(key)):
             map[key] = chunkStorageDefault
-            place.chunks.add(sp.nat(0))
+            place.chunks.add(key.chunk_id)
         return map[key]
 
     # TODO: remove_if_empty
