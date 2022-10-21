@@ -1103,6 +1103,9 @@ def test():
     ).run(sender=admin)
 
     # Make sure we have n chunks an all the items, somehow.
+    scenario.verify(sp.len(world.data.places.get(place_carol).chunks) == 2)
+    scenario.verify(world.data.places.get(place_carol).chunks.contains(0))
+    scenario.verify(world.data.places.get(place_carol).chunks.contains(1))
     # Check chunk 0 contents
     scenario.verify(world.data.chunks.contains(place_carol_chunk_0))
     scenario.verify(world.data.chunks[place_carol_chunk_0].stored_items.contains(bob.address))
