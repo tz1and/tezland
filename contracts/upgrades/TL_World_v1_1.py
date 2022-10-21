@@ -9,8 +9,10 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       I suppose it's a little risky, but if done carefully, it should save some fees.
 
 class TL_World_v1_1(world_contract.TL_World):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata,
-        name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, world_v2_contract,
+        metadata, name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
+
+        self.migrate_to_contract = sp.set_type_expr(world_v2_contract, sp.TAddress)
 
         world_contract.TL_World.__init__(self, administrator,
             items_contract, places_contract, dao_contract, metadata,
@@ -105,10 +107,8 @@ class TL_World_v1_1(world_contract.TL_World):
                 self.update_adhoc_operators(self.data.items_contract, token_id_set.value)
 
             # Send migration to world v2.
-            # TODO: somehow get the world v2 contract in here. maybe a constructor arg?
-            migrate_to_contract = self.data.places_contract
             # NOTE: still have to send migration even if map is empty, for the props.
-            self.send_migration(migrate_to_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
+            self.send_migration(self.migrate_to_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
 
             # Finally, delete the place from storage.
             del self.data.places[params.lot_id]
