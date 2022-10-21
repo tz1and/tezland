@@ -114,6 +114,10 @@ def test():
         sp.record(
             to_ = alice.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
     ]).run(sender = admin)
 
@@ -123,6 +127,7 @@ def test():
     place_carol_uninit = sp.nat(3)
     place_carol_only_props = sp.nat(4)
     place_alice_emptied = sp.nat(5)
+    place_bob_only_ext = sp.nat(6)
 
     #
     # Originate contract
@@ -161,7 +166,7 @@ def test():
     scenario.h3("preparation")
 
     scenario.h4("set world v1 item limit")
-    world.update_item_limit(8).run(sender=admin)
+    world.update_item_limit(6).run(sender=admin)
 
     scenario.h4("registry permissions for factory")
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
@@ -170,7 +175,7 @@ def test():
     token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
 
     scenario.h4("add allowed place token")
-    world_v2.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 4, chunk_item_limit = 12)))])).run(sender = admin)
+    world_v2.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 4, chunk_item_limit = 2)))])).run(sender = admin)
 
     scenario.h4("set migration contract")
     world_v2.update_settings([sp.variant("migration_contract", sp.some(world.address))]).run(sender = admin)
@@ -214,8 +219,33 @@ def test():
     item_data = sp.bytes("0xFFFFFFFAAFFFFFFFFFFFFCCFFFFFFF")
 
     # - contain items and ext items
-    # - contain only items
+    # - contain multiple types of items
     # - contain only ext items
+    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_only_ext)
+    chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
+    chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
+    chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
+
+    world.place_items(
+        lot_id = place_bob_only_ext,
+        owner = sp.none,
+        item_list = [sp.variant("ext", item_data) for x in range(6)],
+        extension = sp.none).run(sender=bob)
+
+    world.set_item_data(
+        lot_id = place_bob_only_ext,
+        owner = sp.none,
+        update_map = {},
+        extension = sp.none).run(sender=admin)
+
+    # have props and three chunks in v2.
+    scenario.verify(world_v2.data.places.contains(place_key))
+    scenario.verify(sp.len(world_v2.data.places.get(place_key).chunks) == 3)
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_0))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_1))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_2))
+    # place deleted in world v1
+    scenario.verify(~world.data.places.contains(place_bob_only_ext))
 
 
     # - used to contain items but props weren't changed
@@ -248,7 +278,7 @@ def test():
     scenario.verify(~world_v2.data.places.contains(place_key))
     scenario.verify(~world_v2.data.chunks.contains(chunk_key_0))
     # place deleted in world v1
-    scenario.verify(~world.data.places.contains(place_carol_only_props))
+    scenario.verify(~world.data.places.contains(place_alice_emptied))
 
 
     # - just have props set
