@@ -196,6 +196,7 @@ export default class Upgrade extends PostUpgrade {
                 `administrator = sp.address("${this.accountAddress}")`,
                 `token_registry = sp.address("${Registry_contract.address}")`,
                 `paused = sp.bool(True)`,
+                `items_tokens = sp.address("${tezlandItems.address}")`,
                 `name = "tz1and World"`,
                 `description = "tz1and Virtual World v2"`
             ]);
@@ -238,7 +239,8 @@ export default class Upgrade extends PostUpgrade {
                 `administrator = sp.address("${this.accountAddress}")`,
                 `items_contract = sp.address("${tezlandItems.address}")`,
                 `places_contract = sp.address("${tezlandPlaces.address}")`,
-                `dao_contract = sp.address("${tezlandDAO.address}")`
+                `dao_contract = sp.address("${tezlandDAO.address}")`,
+                `world_v2_contract = sp.address("${World_v2_contract.address}")`
             ],
             // entrypoints to upgrade
             ["set_item_data", "get_item"], true);
@@ -280,7 +282,9 @@ export default class Upgrade extends PostUpgrade {
             return World_v2_contract.methods.update_settings([{migration_contract: tezlandWorld.address}]).send()
         });
 
+        //
         // TODO: actually run migration.
+        //
 
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
             return this.tezos!.wallet.batch().with([
