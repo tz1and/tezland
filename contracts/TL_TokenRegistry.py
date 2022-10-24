@@ -214,10 +214,8 @@ class TL_TokenRegistry(
 
         the_collection = self.data.private_collections[collection]
 
-        # Check that there is a proposed owner
-        sp.verify(the_collection.proposed_owner.is_some(), message="NO_OWNER_TRANSFER")
-
-        # Check that the proposed owner executed the entry point
+        # Check that there is a proposed owner and
+        # check that the proposed owner executed the entry point
         sp.verify(sp.some(sp.sender) == the_collection.proposed_owner, message="NOT_PROPOSED_OWNER")
 
         # Set the new owner address

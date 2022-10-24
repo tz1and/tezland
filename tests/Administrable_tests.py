@@ -68,9 +68,9 @@ def test():
 
     administrable.transfer_administrator(admin.address).run(sender = admin, valid = False, exception = "ONLY_ADMIN")
 
-    administrable.accept_administrator().run(sender = admin, valid = False, exception = "NO_ADMIN_TRANSFER")
-    administrable.accept_administrator().run(sender = alice, valid = False, exception = "NO_ADMIN_TRANSFER")
-    administrable.accept_administrator().run(sender = bob, valid = False, exception = "NO_ADMIN_TRANSFER")
+    administrable.accept_administrator().run(sender = admin, valid = False, exception = "NOT_PROPOSED_ADMIN")
+    administrable.accept_administrator().run(sender = alice, valid = False, exception = "NOT_PROPOSED_ADMIN")
+    administrable.accept_administrator().run(sender = bob, valid = False, exception = "NOT_PROPOSED_ADMIN")
 
     scenario.h3("get_administrator view")
 

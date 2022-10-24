@@ -37,14 +37,14 @@ def test():
     scenario.verify(fa2_admin.data.administrator == admin.address)
 
     scenario.h3("accept_fa2_administrator")
-    fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = admin, valid = False, exception = "NO_ADMIN_TRANSFER")
+    fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = admin, valid = False, exception = "NOT_PROPOSED_ADMIN")
     fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
 
     # transfer to fa2_admin
     places_tokens.transfer_administrator(fa2_admin.address).run(sender = admin)
     scenario.verify(places_tokens.data.administrator == admin.address)
-    scenario.verify(places_tokens.data.proposed_administrator.open_some() == fa2_admin.address)
+    scenario.verify(places_tokens.data.proposed_administrator == sp.some(fa2_admin.address))
 
     fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     fa2_admin.accept_fa2_administrator([places_tokens.address]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
@@ -59,7 +59,7 @@ def test():
     fa2_admin.transfer_fa2_administrator([sp.record(fa2 = places_tokens.address, proposed_fa2_administrator = bob.address)]).run(sender = admin)
 
     scenario.verify(places_tokens.data.administrator == fa2_admin.address)
-    scenario.verify(places_tokens.data.proposed_administrator.open_some() == bob.address)
+    scenario.verify(places_tokens.data.proposed_administrator == sp.some(bob.address))
 
     places_tokens.accept_administrator().run(sender = admin, valid = False, exception = "NOT_PROPOSED_ADMIN")
     places_tokens.accept_administrator().run(sender = alice, valid = False, exception = "NOT_PROPOSED_ADMIN")

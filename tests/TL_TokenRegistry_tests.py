@@ -140,9 +140,9 @@ def test():
     scenario.verify(token_registry.data.private_collections[items_tokens.address].owner == alice.address)
     scenario.verify(token_registry.data.private_collections[items_tokens.address].proposed_owner == sp.none)
 
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NO_OWNER_TRANSFER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NO_OWNER_TRANSFER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NO_OWNER_TRANSFER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
+    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NOT_PROPOSED_OWNER")
 
     token_registry.set_paused(True).run(sender = admin)
     token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = bob.address)).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
