@@ -185,7 +185,7 @@ def test():
     scenario += other_token
 
     scenario.h2("private collection token")
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
+    token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
 
     scenario.h2("preparation")
