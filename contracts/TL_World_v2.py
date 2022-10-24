@@ -383,6 +383,7 @@ class TL_World(
         self.place_store_map = Place_store_map()
         self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
+        self.token_transfer_map = utils.TokenTransferMap()
 
         self.init_storage(
             token_registry = token_registry,
@@ -611,7 +612,7 @@ class TL_World(
 
             # Our token transfer map.
             # TODO: we could do this outside the loops with a 2-level transfer map
-            transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+            transferMap = self.token_transfer_map.init()
 
             # For each item in the list.
             with sp.for_("curr", item_list) as curr:
@@ -630,10 +631,8 @@ class TL_World(
 
                         # transfer item to this contract
                         # do multi-transfer by building up a list of transfers
-                        with sp.if_(transferMap.value.contains(item.token_id)):
-                            transferMap.value[item.token_id].amount += item.token_amount
-                        with sp.else_():
-                            transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
+                        #
+                        self.token_transfer_map.add_token(transferMap, sp.self_address, item.token_id, item.token_amount)
 
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
@@ -646,8 +645,7 @@ class TL_World(
 
             # only transfer if list has items
             # TODO: we could do this outside the loops with a 2-level transfer map
-            with sp.if_(sp.len(transferMap.value) > 0):
-                utils.fa2_transfer_multi(fa2, sp.sender, transferMap.value.values())
+            self.token_transfer_map.transfer_tokens(transferMap, fa2, sp.sender)
 
         # Don't increment chunk interaction counter, as next_id changes.
 
@@ -737,7 +735,7 @@ class TL_World(
 
                 # Our token transfer map.
                 # TODO: we could do this outside the loops with a 2-level transfer map
-                transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+                transferMap = self.token_transfer_map.init()
                 
                 with sp.for_("curr", item_list) as curr:
                     with item_store[curr].match_cases() as arg:
@@ -745,10 +743,7 @@ class TL_World(
                             # TODO: 2 level transfer map!
                             # Transfer all remaining items back to issuer
                             # do multi-transfer by building up a list of transfers
-                            with sp.if_(transferMap.value.contains(the_item.token_id)):
-                                transferMap.value[the_item.token_id].amount += the_item.token_amount
-                            with sp.else_():
-                                transferMap.value[the_item.token_id] = sp.record(amount=the_item.token_amount, to_=issuer, token_id=the_item.token_id)
+                            self.token_transfer_map.add_token(transferMap, issuer, the_item.token_id, the_item.token_amount)
 
                         # Nothing to do here with ext items. Just remove them.
                     
@@ -757,8 +752,7 @@ class TL_World(
 
                 # Only transfer if transfer map has items.
                 # TODO: we could do this outside the loops with a 2-level transfer map
-                with sp.if_(sp.len(transferMap.value) > 0):
-                    utils.fa2_transfer_multi(fa2, sp.self_address, transferMap.value.values())
+                self.token_transfer_map.transfer_tokens(transferMap, fa2, sp.self_address)
 
                 # Remove the item store if empty.
                 self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
@@ -911,7 +905,7 @@ class TL_World(
 
             # Our token transfer map.
             # Since all transfers come from migration_contract, we can have single map.
-            transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+            transferMap = self.token_transfer_map.init()
 
             # For each fa2 in the map.
             with sp.for_("issuer", params.migrate_item_map.keys()) as issuer:
@@ -947,10 +941,7 @@ class TL_World(
 
                                 # transfer item to this contract
                                 # do multi-transfer by building up a list of transfers
-                                with sp.if_(transferMap.value.contains(item.token_id)):
-                                    transferMap.value[item.token_id].amount += item.token_amount
-                                with sp.else_():
-                                    transferMap.value[item.token_id] = sp.record(amount=item.token_amount, to_=sp.self_address, token_id=item.token_id)
+                                self.token_transfer_map.add_token(transferMap, sp.self_address, item.token_id, item.token_amount)
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
@@ -965,8 +956,7 @@ class TL_World(
                         add_item_count.value += sp.nat(1)
 
             # Transfer if list has items.
-            with sp.if_(sp.len(transferMap.value) > 0):
-                utils.fa2_transfer_multi(self.items_tokens, sp.sender, transferMap.value.values())
+            self.token_transfer_map.transfer_tokens(transferMap, self.items_tokens, sp.sender)
 
             # Don't increment chunk interaction counter, as chunks must be new.
 
