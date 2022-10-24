@@ -92,7 +92,11 @@ def test():
     scenario.h3("minting places")
     minter.mint_Place([
         sp.record(
-            to_ = bob.address,
+            to_ = carol.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = carol.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         ),
         sp.record(
@@ -100,15 +104,11 @@ def test():
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         ),
         sp.record(
-            to_ = carol.address,
+            to_ = bob.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         ),
         sp.record(
-            to_ = carol.address,
-            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
-        ),
-        sp.record(
-            to_ = carol.address,
+            to_ = bob.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         ),
         sp.record(
@@ -121,13 +121,13 @@ def test():
         )
     ]).run(sender = admin)
 
-    place_bob = sp.nat(0)
-    place_alice = sp.nat(1)
-    place_carol = sp.nat(2)
-    place_carol_uninit = sp.nat(3)
-    place_carol_only_props = sp.nat(4)
-    place_alice_emptied = sp.nat(5)
-    place_bob_only_ext = sp.nat(6)
+    place_carol_uninit = sp.nat(0)
+    place_carol_only_props = sp.nat(1)
+    place_alice_emptied = sp.nat(2)
+    place_bob_only_ext = sp.nat(3)
+    place_bob_mixed_items = sp.nat(4)
+    place_alice_multiple_tokens = sp.nat(5)
+    place_bob_multiple_issuers = sp.nat(6)
 
     #
     # Originate contract
@@ -166,7 +166,7 @@ def test():
     scenario.h3("preparation")
 
     scenario.h4("set world v1 item limit")
-    world.update_item_limit(6).run(sender=admin)
+    world.update_item_limit(9).run(sender=admin)
 
     scenario.h4("registry permissions for factory")
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
@@ -175,7 +175,7 @@ def test():
     token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
 
     scenario.h4("add allowed place token")
-    world_v2.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 4, chunk_item_limit = 2)))])).run(sender = admin)
+    world_v2.set_allowed_place_token(sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 6, chunk_item_limit = 2)))])).run(sender = admin)
 
     scenario.h4("set migration contract")
     world_v2.update_settings([sp.variant("migration_contract", sp.some(world.address))]).run(sender = admin)
@@ -192,6 +192,24 @@ def test():
     set_operators(bob, item_ids)
     set_operators(alice, item_ids)
     set_operators(carol, item_ids)
+
+    scenario.h4("transfer tokens")
+    def transfer_tokens(from_, to, token_id, amount):
+        items_tokens.transfer([sp.record(from_=from_.address, txs=[
+            sp.record(to_=to.address, token_id=token_id, amount=amount)
+        ])]).run(sender=from_)
+
+    transfer_tokens(bob, alice, item_bob, 10)
+    transfer_tokens(carol, alice, item_carol, 4)
+
+    transfer_tokens(alice, bob, item_alice, 1)
+    transfer_tokens(alice, carol, item_alice, 1)
+
+    transfer_tokens(carol, alice, item_carol, 1)
+    transfer_tokens(carol, bob, item_carol, 1)
+
+    transfer_tokens(bob, alice, item_bob, 1)
+    transfer_tokens(bob, carol, item_bob, 1)
 
 
     scenario.h1("Test migration")
@@ -218,9 +236,162 @@ def test():
     scenario.h2("Test migration")
     item_data = sp.bytes("0xFFFFFFFAAFFFFFFFFFFFFCCFFFFFFF")
 
-    # - contain items and ext items
+    # - contains items from multiple issuers
+    scenario.h3("Place that contains items from multiple issuers")
+    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_multiple_issuers)
+    chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
+    chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
+    chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
+    chunk_key_3 = sp.record(place_key=place_key, chunk_id=sp.nat(3))
+    chunk_key_4 = sp.record(place_key=place_key, chunk_id=sp.nat(4))
+
+    world.place_items(
+        lot_id = place_bob_multiple_issuers,
+        owner = sp.none,
+        item_list = [
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_carol, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data))
+        ],
+        extension = sp.none).run(sender=bob)
+
+    world.set_permissions([sp.variant("add_permission", sp.record(
+        owner = bob.address,
+        permittee = alice.address,
+        token_id = place_bob_multiple_issuers, perm = sp.nat(7)))]).run(sender=bob)
+
+    world.place_items(
+        lot_id = place_bob_multiple_issuers,
+        owner = sp.some(bob.address),
+        item_list = [
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_carol, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data))
+        ],
+        extension = sp.none).run(sender=alice)
+
+    world.set_permissions([sp.variant("add_permission", sp.record(
+        owner = bob.address,
+        permittee = carol.address,
+        token_id = place_bob_multiple_issuers, perm = sp.nat(7)))]).run(sender=bob)
+
+    world.place_items(
+        lot_id = place_bob_multiple_issuers,
+        owner = sp.some(bob.address),
+        item_list = [
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_carol, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data))
+        ],
+        extension = sp.none).run(sender=carol)
+
+    world.set_item_data(
+        lot_id = place_bob_multiple_issuers,
+        owner = sp.none,
+        update_map = {},
+        extension = sp.none).run(sender=admin)
+
+    # have props and three chunks in v2.
+    scenario.verify(world_v2.data.places.contains(place_key))
+    scenario.verify(sp.len(world_v2.data.places.get(place_key).chunks) == 5)
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_0))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_1))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_2))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_3))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_4))
+    # place deleted in world v1
+    scenario.verify(~world.data.places.contains(place_bob_multiple_issuers))
+    # check token balances
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_alice)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_alice)) == 5)
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_bob)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_bob)) == 10)
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_carol)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_carol)) == 4)
+
+
     # - contain multiple types of items
+    scenario.h3("Place that contains items and ext items")
+    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_alice_multiple_tokens)
+    chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
+    chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
+    chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
+
+    world.place_items(
+        lot_id = place_alice_multiple_tokens,
+        owner = sp.none,
+        item_list = [
+            sp.variant("item", sp.record(token_amount = 3, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 4, token_id = item_carol, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 6, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 2, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 4, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data)),
+        ],
+        extension = sp.none).run(sender=alice)
+
+    world.set_item_data(
+        lot_id = place_alice_multiple_tokens,
+        owner = sp.none,
+        update_map = {},
+        extension = sp.none).run(sender=admin)
+
+    # have props and three chunks in v2.
+    scenario.verify(world_v2.data.places.contains(place_key))
+    scenario.verify(sp.len(world_v2.data.places.get(place_key).chunks) == 3)
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_0))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_1))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_2))
+    # place deleted in world v1
+    scenario.verify(~world.data.places.contains(place_alice_multiple_tokens))
+    # check token balances
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_alice)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_alice)) == 5)
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_bob)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_bob)) == 10)
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_carol)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_carol)) == 4)
+
+
+    # - contain items and ext items
+    scenario.h3("Place that contains items and ext items")
+    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_mixed_items)
+    chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
+    chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
+    chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
+
+    world.place_items(
+        lot_id = place_bob_mixed_items,
+        owner = sp.none,
+        item_list = [
+            sp.variant("ext", item_data),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data)),
+            sp.variant("ext", item_data),
+            sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = item_data)),
+        ],
+        extension = sp.none).run(sender=bob)
+
+    world.set_item_data(
+        lot_id = place_bob_mixed_items,
+        owner = sp.none,
+        update_map = {},
+        extension = sp.none).run(sender=admin)
+
+    # have props and three chunks in v2.
+    scenario.verify(world_v2.data.places.contains(place_key))
+    scenario.verify(sp.len(world_v2.data.places.get(place_key).chunks) == 3)
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_0))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_1))
+    scenario.verify(world_v2.data.chunks.contains(chunk_key_2))
+    # place deleted in world v1
+    scenario.verify(~world.data.places.contains(place_bob_mixed_items))
+    # check token balances
+    scenario.verify(items_tokens.get_balance(sp.record(owner=world.address, token_id=item_bob)) == 0)
+    #scenario.verify(items_tokens.get_balance(sp.record(owner=world_v2.address, token_id=item_bob)) == 3)
+
+
     # - contain only ext items
+    scenario.h3("Place that only contains ext items")
     place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_only_ext)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
