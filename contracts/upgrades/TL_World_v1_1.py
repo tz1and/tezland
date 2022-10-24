@@ -44,7 +44,7 @@ class TL_World_v1_1(world_contract.TL_World):
         operator_permissions = sp.local("operator_permissions", [], sp.TList(FA2.t_adhoc_operator_permission))
         with sp.for_("id", token_id_set.elements()) as id:
             operator_permissions.value.push(sp.record(
-                operator=sp.self_address,
+                operator=self.migrate_to_contract,
                 token_id=id))
 
         # Call token contract to add operators.
