@@ -151,7 +151,7 @@ def test():
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("World v2")
-    world_v2 = places_contract.TL_World(admin.address, token_registry.address, paused = True,
+    world_v2 = places_contract.TL_World(admin.address, token_registry.address, True, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world_v2
 
@@ -311,7 +311,7 @@ def test():
 
 
     # - contain multiple types of items
-    scenario.h3("Place that contains items and ext items")
+    scenario.h3("Place that contains multiple types of items")
     place_key = sp.record(place_contract=places_tokens.address, lot_id=place_alice_multiple_tokens)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))

@@ -360,7 +360,12 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, paused, metadata, name, description, exception_optimization_level="default-line"):
+    def __init__(self, administrator, token_registry, paused, items_tokens, metadata,
+        name, description, exception_optimization_level="default-line"):
+
+        # Needed for migration ep but not really needed otherwise.
+        self.items_tokens = sp.set_type_expr(items_tokens, sp.TAddress)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
@@ -904,6 +909,10 @@ class TL_World(
             # Get or create the current chunk.
             this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
 
+            # Our token transfer map.
+            # Since all transfers come from migration_contract, we can have single map.
+            transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+
             # For each fa2 in the map.
             with sp.for_("issuer", params.migrate_item_map.keys()) as issuer:
                 with sp.for_("fa2", params.migrate_item_map[issuer].keys()) as fa2:
@@ -913,10 +922,6 @@ class TL_World(
 
                     # Get or create item storage.
                     item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
-
-                    # Our token transfer map.
-                    # TODO: we could do this outside the loops with a 2-level transfer map
-                    transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
 
                     # For each item in the list.
                     with sp.for_("curr", item_list) as curr:
@@ -959,10 +964,9 @@ class TL_World(
                         # Add to item add counter
                         add_item_count.value += sp.nat(1)
 
-                    # only transfer if list has items
-                    # TODO: we could do this outside the loops with a 2-level transfer map
-                    with sp.if_(sp.len(transferMap.value) > 0):
-                        utils.fa2_transfer_multi(fa2, sp.sender, transferMap.value.values())
+            # Transfer if list has items.
+            with sp.if_(sp.len(transferMap.value) > 0):
+                utils.fa2_transfer_multi(self.items_tokens, sp.sender, transferMap.value.values())
 
             # Don't increment chunk interaction counter, as chunks must be new.
 
