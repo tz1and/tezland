@@ -24,14 +24,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
-# TODO: 2-level fa2 transfer map?
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
 # TODO: gas optimisations!
 # TODO: FA2 origination is too large! try and optimise
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
-# TODO: migration stub types!
 # TODO: delete empty chunks? chunk store remove_if_empty
-# TODO: change place props to not set all props but specific props.
 # TODO: remove empty chunks? make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
 # TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
@@ -39,7 +36,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       at least in terms of what "type" of royalties.
 # TODO: have issuer be an option. so place can be owner of an item and some items can transfer with place ownership. sp.eif
 
-# Probably kinda urgent:
+# maybe?
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
 
 # Other
@@ -54,7 +51,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: research storage deserialisation limits
 # TODO: investgate using a "metadata map" for item data.
 # TODO: check if packing/unpacking michelson maps works well for script variables
-# TODO: turn transferMap into a metaclass?
 #
 #
 # V2
@@ -236,6 +232,11 @@ class Item_store_map:
             with sp.if_(sp.len(map[issuer]) == 0):
                 # delete the issuer map
                 del map[issuer]
+
+setPlacePropsVariantType = sp.TVariant(
+    add_props = placePropsType,
+    del_props = sp.TList(sp.TBytes)
+).layout(("add_props", "del_props"))
 
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
@@ -521,13 +522,13 @@ class TL_World(
 
     # TODO: change place props to not set all props but specific props
     @sp.entry_point(lazify = True)
-    def set_place_props(self, params):
+    def update_place_props(self, params):
         sp.set_type(params, sp.TRecord(
-            place_key =  placeKeyType,
-            owner =  sp.TOption(sp.TAddress),
-            props =  placePropsType,
+            place_key = placeKeyType,
+            owner = sp.TOption(sp.TAddress),
+            prop_updates = sp.TList(setPlacePropsVariantType),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("props", "extension")))))
+        ).layout(("place_key", ("owner", ("prop_updates", "extension")))))
 
         self.onlyUnpaused()
 
@@ -541,11 +542,20 @@ class TL_World(
         # Get or create the place.
         this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
 
+        with sp.for_("item", params.prop_updates) as item:
+            with item.match_cases() as arg:
+                with arg.match("add_props") as add_props:
+                    with sp.for_("prop", add_props.items()) as prop:
+                        this_place.place_props[prop.key] = prop.value
+
+                with arg.match("del_props") as del_props:
+                    with sp.for_("prop", del_props) as prop:
+                        del this_place.place_props[prop]
+
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
-        sp.verify(sp.len(params.props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
+        sp.verify(sp.len(this_place.place_props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
             message = self.error_message.data_length())
-        this_place.place_props = params.props
 
         # Increment place interaction counter.
         this_place.interaction_counter += 1

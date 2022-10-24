@@ -485,13 +485,19 @@ def test():
     # set place props
     #
     scenario.h2("Set place props")
-    valid_place_props = {sp.bytes("0x00"): sp.bytes('0xFFFFFF')}
-    world.set_place_props(place_key = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = bob)
+    valid_place_props = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFFFF')})]
+    other_valid_place_props_2 = [sp.variant("add_props", {sp.bytes("0xf1"): sp.utils.bytes_of_string("blablablabla")})]
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = valid_place_props, extension = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].place_props.get(sp.bytes("0x00")) == sp.bytes('0xFFFFFF'))
-    world.set_place_props(place_key = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = bob)
-    world.set_place_props(place_key = place_bob, owner=sp.none, props = {sp.bytes("0x00"): sp.bytes('0xFFFF')}, extension = sp.none).run(sender = bob, valid = False, exception = "DATA_LEN")
-    world.set_place_props(place_key = place_bob, owner=sp.none, props = {sp.bytes("0x01"): sp.bytes('0xFFFFFF')}, extension = sp.none).run(sender = bob, valid = False, exception = "PARAM_ERROR")
-    world.set_place_props(place_key = place_bob, owner=sp.none, props = valid_place_props, extension = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = other_valid_place_props_2, extension = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].place_props.contains(sp.bytes("0x00")))
+    scenario.verify(world.data.places[place_bob].place_props.get(sp.bytes("0xf1")) == sp.utils.bytes_of_string("blablablabla"))
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = valid_place_props, extension = sp.none).run(sender = bob)
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFF')})], extension = sp.none).run(sender = bob, valid = False, exception = "DATA_LEN")
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = [sp.variant("del_props", [sp.bytes("0x00")])], extension = sp.none).run(sender = bob, valid = False, exception = "PARAM_ERROR")
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = valid_place_props, extension = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
+    world.update_place_props(place_key = place_bob, owner=sp.none, prop_updates = [sp.variant("del_props", [sp.bytes("0xf1")])], extension = sp.none).run(sender = bob)
+    scenario.verify(~world.data.places[place_bob].place_props.contains(sp.bytes("0xf1")))
 
     #
     # set_item_data
@@ -695,7 +701,7 @@ def test():
     scenario.verify(world.get_permissions(sp.record(place_key=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     scenario.h3("Permissions")
 
@@ -734,7 +740,7 @@ def test():
 
     scenario.verify(world.data.chunks[place_bob_chunk_0].stored_items[alice.address][items_tokens.address][last_item].open_variant('item').item_data == new_item_data)
 
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     # remove place item and one of bobs
     remove_items(place_bob_chunk_0, {alice.address: {items_tokens.address: [last_item]}}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -772,7 +778,7 @@ def test():
     ]}} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can remove own items
     remove_items(place_bob_chunk_0, {alice.address: {items_tokens.address: [last_item]}}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -814,7 +820,7 @@ def test():
     ]}} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), extension = sp.none, props=valid_place_props).run(sender=alice, valid=False, exception="NO_PERMISSION")
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), extension = sp.none, prop_updates=valid_place_props).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can remove own items
     remove_items(place_bob_chunk_0, {alice.address: {items_tokens.address: [last_item]}}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -851,7 +857,7 @@ def test():
     ]}} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can't set props
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     # can remove own items. no need to test that again...
     #remove_items(place_bob_chunk_0, {alice.address: {items_tokens.address: [last_item]}}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
@@ -886,7 +892,7 @@ def test():
         sp.record(item_id = bobs_last_item, item_data = new_item_data)
     ]}} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    world.set_place_props(place_key=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
+    world.update_place_props(place_key=place_bob, owner=sp.some(bob.address), prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
     remove_items(place_bob_chunk_0, {alice.address: {items_tokens.address: [last_item]}}, lot_owner=sp.some(bob.address), sender=alice, valid=True)
     # can't remove others items
@@ -1007,7 +1013,7 @@ def test():
     scenario.verify(world.data.paused == True)
 
     # anything that changes a place or transfers tokens is now disabled
-    world.set_place_props(place_key=place_bob, owner=sp.none, props=valid_place_props, extension = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
+    world.update_place_props(place_key=place_bob, owner=sp.none, prop_updates=valid_place_props, extension = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
 
     place_items(place_alice_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount=1, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
@@ -1031,7 +1037,7 @@ def test():
     world.set_paused(False).run(sender = admin)
     scenario.verify(world.data.paused == False)
 
-    world.set_place_props(place_key=place_bob, owner=sp.none, props=valid_place_props, extension = sp.none).run(sender=carol)
+    world.update_place_props(place_key=place_bob, owner=sp.none, prop_updates=valid_place_props, extension = sp.none).run(sender=carol)
 
     #
     # Test migration
