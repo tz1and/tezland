@@ -601,6 +601,9 @@ class TL_World(
         # Make sure chunk item limit is not exceeded.
         sp.verify(place_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
+        # Our token transfer map.
+        transferMap = self.token_transfer_map.init()
+
         # For each fa2 in the map.
         with sp.for_("fa2", params.place_item_map.keys()) as fa2:
             self.onlyRegisteredTokens(fa2)
@@ -610,9 +613,7 @@ class TL_World(
             # Get or create item storage.
             item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.sender, fa2)
 
-            # Our token transfer map.
-            # TODO: we could do this outside the loops with a 2-level transfer map
-            transferMap = self.token_transfer_map.init()
+            self.token_transfer_map.add_fa2(transferMap, fa2)
 
             # For each item in the list.
             with sp.for_("curr", item_list) as curr:
@@ -629,10 +630,8 @@ class TL_World(
                         #with sp.if_(~ fa2_props.swap_allowed):
                         #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
-                        # transfer item to this contract
-                        # do multi-transfer by building up a list of transfers
-                        #
-                        self.token_transfer_map.add_token(transferMap, sp.self_address, item.token_id, item.token_amount)
+                        # Transfer item to this contract.
+                        self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
 
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
@@ -643,9 +642,8 @@ class TL_World(
                 # Increment next_id.
                 this_chunk.next_id += 1
 
-            # only transfer if list has items
-            # TODO: we could do this outside the loops with a 2-level transfer map
-            self.token_transfer_map.transfer_tokens(transferMap, fa2, sp.sender)
+        # Transfer the tokens.
+        self.token_transfer_map.transfer_tokens(transferMap, sp.sender)
 
         # Don't increment chunk interaction counter, as next_id changes.
 
@@ -725,6 +723,9 @@ class TL_World(
             with sp.for_("remove_key", params.remove_map.keys()) as remove_key:
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
+        # Token transfer map.
+        transferMap = self.token_transfer_map.init()
+
         # Remove items.
         with sp.for_("issuer", params.remove_map.keys()) as issuer:
             with sp.for_("fa2", params.remove_map[issuer].keys()) as fa2:
@@ -733,29 +734,24 @@ class TL_World(
                 # Get item store - must exist.
                 item_store = self.item_store_map.get(this_chunk.stored_items, issuer, fa2)
 
-                # Our token transfer map.
-                # TODO: we could do this outside the loops with a 2-level transfer map
-                transferMap = self.token_transfer_map.init()
+                self.token_transfer_map.add_fa2(transferMap, fa2)
                 
                 with sp.for_("curr", item_list) as curr:
                     with item_store[curr].match_cases() as arg:
                         with arg.match("item") as the_item:
-                            # TODO: 2 level transfer map!
-                            # Transfer all remaining items back to issuer
-                            # do multi-transfer by building up a list of transfers
-                            self.token_transfer_map.add_token(transferMap, issuer, the_item.token_id, the_item.token_amount)
+                            # Transfer items back to issuer.
+                            self.token_transfer_map.add_token(transferMap, fa2, issuer, the_item.token_id, the_item.token_amount)
 
                         # Nothing to do here with ext items. Just remove them.
                     
                     # Delete item from storage.
                     del item_store[curr]
 
-                # Only transfer if transfer map has items.
-                # TODO: we could do this outside the loops with a 2-level transfer map
-                self.token_transfer_map.transfer_tokens(transferMap, fa2, sp.self_address)
-
                 # Remove the item store if empty.
                 self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
+
+        # Transfer tokens.
+        self.token_transfer_map.transfer_tokens(transferMap, sp.self_address)
 
         # Increment chunk interaction counter, as next_id does not change.
         this_chunk.interaction_counter += 1
@@ -912,6 +908,8 @@ class TL_World(
                 with sp.for_("fa2", params.migrate_item_map[issuer].keys()) as fa2:
                     self.onlyRegisteredTokens(fa2)
 
+                    self.token_transfer_map.add_fa2(transferMap, fa2)
+
                     item_list = params.migrate_item_map[issuer][fa2]
 
                     # Get or create item storage.
@@ -941,7 +939,7 @@ class TL_World(
 
                                 # transfer item to this contract
                                 # do multi-transfer by building up a list of transfers
-                                self.token_transfer_map.add_token(transferMap, sp.self_address, item.token_id, item.token_amount)
+                                self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
@@ -956,7 +954,7 @@ class TL_World(
                         add_item_count.value += sp.nat(1)
 
             # Transfer if list has items.
-            self.token_transfer_map.transfer_tokens(transferMap, self.items_tokens, sp.sender)
+            self.token_transfer_map.transfer_tokens(transferMap, sp.sender)
 
             # Don't increment chunk interaction counter, as chunks must be new.
 

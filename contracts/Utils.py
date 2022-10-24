@@ -28,24 +28,31 @@ def send_if_value(to, amount):
 # Metaclass for token transfers.
 class TokenTransferMap:
     def init(self):
-        return sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+        return sp.local("transferMap", sp.map(tkey = sp.TAddress, tvalue = sp.TMap(sp.TNat, FA2.t_transfer_tx)))
 
-    def add_token(self, transferMap, to_, token_id, token_amount):
+    def add_fa2(self, transferMap, fa2):
+        sp.set_type(fa2, sp.TAddress)
+
+        with sp.if_(~transferMap.value.contains(fa2)):
+            transferMap.value[fa2] = {}
+
+    def add_token(self, transferMap, fa2, to_, token_id, token_amount):
+        sp.set_type(fa2, sp.TAddress)
         sp.set_type(to_, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
         sp.set_type(token_amount, sp.TNat)
 
-        with sp.if_(transferMap.value.contains(token_id)):
-            transferMap.value[token_id].amount += token_amount
+        with sp.if_(transferMap.value[fa2].contains(token_id)):
+            transferMap.value[fa2][token_id].amount += token_amount
         with sp.else_():
-            transferMap.value[token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
+            transferMap.value[fa2][token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
 
-    def transfer_tokens(self, transferMap, fa2, from_):
-        sp.set_type(fa2, sp.TAddress)
+    def transfer_tokens(self, transferMap, from_):
         sp.set_type(from_, sp.TAddress)
 
-        with sp.if_(sp.len(transferMap.value) > 0):
-            fa2_transfer_multi(fa2, from_, transferMap.value.values())
+        with sp.for_("transfer_item", transferMap.value.items()) as transfer_item:
+            with sp.if_(sp.len(transfer_item.value) > 0):
+                fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.values())
 
 
 #
