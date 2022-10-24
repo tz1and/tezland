@@ -75,12 +75,12 @@ def test():
 
     # test create_token
     scenario.h2("create_token")
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url(""))).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("https://newtoken.com"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://newtoken.com"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn"))).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.utils.bytes_of_string("")).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.utils.bytes_of_string("https://newtoken.com")).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.utils.bytes_of_string("ipfs://newtoken.com")).run(sender=admin, valid=False, exception="INVALID_METADATA")
+    token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn")).run(sender=admin, valid=False, exception="INVALID_METADATA")
 
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin)
+    token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
     scenario.verify(token_registry.is_registered(dyn_collection_token.address) == True)
     scenario.verify(token_registry.is_private_collection(dyn_collection_token.address) == True)
@@ -89,7 +89,7 @@ def test():
     scenario.verify(token_registry.data.private_collections.contains(dyn_collection_token.address))
 
     token_factory.set_paused(True).run(sender=admin)
-    token_factory.create_token(sp.record(metadata = sp.utils.metadata_of_url("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR"))).run(sender=admin, valid=False, exception="ONLY_UNPAUSED")
+    token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin, valid=False, exception="ONLY_UNPAUSED")
     token_factory.set_paused(False).run(sender=admin)
 
     # TODO: check FA2 ownership, check if collection can be minted with minter, etc...

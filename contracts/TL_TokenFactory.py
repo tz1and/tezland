@@ -11,11 +11,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 # TODO: figure out if entrypoints should be lazy!!!!
-# TODO: update_settings - minter: make sure contract has mint eps?
-# TODO: basic validation of the metadata? i.e. make sure it's an IPFS link
 # TODO: figure out if we *need* FA2.PauseTransfer()
-# TODO: change create_token to just take bytes for metadata URI
-# TODO: change update settings not to take a variant and to update_minter (maybe)
 
 #
 # The template FA2 contract.
@@ -131,21 +127,19 @@ class TL_TokenFactory(
     # Public entry points
     #
     @sp.entry_point(lazify = True)
-    def create_token(self, params):
+    def create_token(self, metadata_uri):
         """Originate an FA2 token contract"""
-        sp.set_type(params, sp.TRecord(
-            metadata = sp.TBigMap(sp.TString, sp.TBytes)
-        ))
+        sp.set_type(metadata_uri, sp.TBytes)
 
         self.onlyUnpaused()
 
-        utils.validate_ipfs_uri(params.metadata[""])
+        utils.validate_ipfs_uri(metadata_uri)
 
         # Originate FA2
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
             # The storage we need to modify
             administrator = self.data.minter,
-            metadata = params.metadata,
+            metadata = sp.big_map({"": metadata_uri}),
             # Just the default values
             adhoc_operators = sp.set(),
             last_token_id = 0,
