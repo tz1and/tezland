@@ -105,20 +105,20 @@ type ResultType = {
     cid: string,
 }
 
-type handlerFunction = (data: any, is_contract: boolean) => Promise<ResultType>;
+type handlerFunction = (data: any, is_contract: boolean, verbose: boolean) => Promise<ResultType>;
 
-const uploadToNFTStorage: handlerFunction = async (data: any, is_contract: boolean): Promise<ResultType> => {
+const uploadToNFTStorage: handlerFunction = async (data: any, is_contract: boolean, verbose: boolean): Promise<ResultType> => {
     const start_time = performance.now();
     const client = is_contract ? new NFTStorageNoValidation({ token: config.ipfs.nftStorageApiKey }) : new NFTStorageTZip({ token: config.ipfs.nftStorageApiKey })
 
     const metadata = await client.store(data);
     const file_cid = await get_root_file_from_dir(metadata.ipnft);
-    console.log("uploadToNFTStorage took " + (performance.now() - start_time).toFixed(2) + "ms");
+    if (verbose) console.log("uploadToNFTStorage took " + (performance.now() - start_time).toFixed(2) + "ms");
 
     return { metdata_uri: `ipfs://${file_cid}`, cid: file_cid };
 }
 
-const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean): Promise<ResultType> => {
+const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean, verbose: boolean): Promise<ResultType> => {
     const start_time = performance.now()
 
     // first we upload every blob in the object
@@ -150,14 +150,14 @@ const uploadToLocal: handlerFunction = async (data: any, is_contract: boolean): 
     const metadata = JSON.stringify(data);
 
     const result = await ipfs_client.add(metadata);
-    console.log("uploadToLocal took " + (performance.now() - start_time).toFixed(2) + "ms");
+    if (verbose) console.log("uploadToLocal took " + (performance.now() - start_time).toFixed(2) + "ms");
 
     const CIDstr = result.cid.toV0().toString();
 
     return { metdata_uri: `ipfs://${CIDstr}`, cid: CIDstr };
 }
 
-export const uploadToIpfs = (metadata: any, is_contract: boolean, localIpfs: boolean): Promise<ResultType> => {
+export const uploadToIpfs = (metadata: any, is_contract: boolean, localIpfs: boolean, verbose: boolean = false): Promise<ResultType> => {
     const handler: handlerFunction = localIpfs ? uploadToLocal : uploadToNFTStorage;
-    return handler(metadata, is_contract);
+    return handler(metadata, is_contract, verbose);
 }
