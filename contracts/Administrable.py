@@ -38,7 +38,7 @@ class Administrable:
         sp.verify(self.data.proposed_administrator.is_some(), message="NO_ADMIN_TRANSFER")
 
         # Check that the proposed administrator executed the entry point
-        sp.verify(sp.sender == self.data.proposed_administrator.open_some(), message="NOT_PROPOSED_ADMIN")
+        sp.verify(sp.some(sp.sender) == self.data.proposed_administrator, message="NOT_PROPOSED_ADMIN")
 
         # Set the new administrator address
         self.data.administrator = sp.sender
