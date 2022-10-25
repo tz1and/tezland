@@ -404,7 +404,7 @@ class TL_World(
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused)
         fees_mixin.Fees.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self, administrator = administrator)
+        mod_mixin.Moderation.__init__(self, administrator = administrator, meta_settings = True)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
 
@@ -454,7 +454,7 @@ class TL_World(
                     with arg.match(setting[0]) as value:
                         if setting[2] != None:
                             setting[2](value)
-                        self.data.__setattr__(setting[0], value)
+                        setattr(self.data, setting[0], value)
 
 
     #

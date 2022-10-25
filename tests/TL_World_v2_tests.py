@@ -577,6 +577,13 @@ def test():
     scenario.verify(world.data.migration_contract == sp.some(admin.address))
     world.update_settings([sp.variant("migration_contract", sp.none)]).run(sender = admin)
 
+    scenario.h3("update moderation_contract")
+    scenario.verify(world.data.moderation_contract == sp.none)
+    world.update_settings([sp.variant("moderation_contract", sp.some(admin.address))]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("moderation_contract", sp.some(admin.address))]).run(sender = admin)
+    scenario.verify(world.data.moderation_contract == sp.some(admin.address))
+    world.update_settings([sp.variant("moderation_contract", sp.none)]).run(sender = admin)
+
     scenario.h2("Limits")
 
     scenario.h3("chunk item limit on place_items")
