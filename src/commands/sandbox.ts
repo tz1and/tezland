@@ -51,11 +51,11 @@ export async function start(full?: boolean): Promise<void> {
     }
 }
 
-export async function pull(): Promise<void> {
-    console.log(kleur.yellow('pulling sandbox...'));
+export async function pull(services: string[]): Promise<void> {
+    console.log(kleur.yellow('pulling sandbox... ' + services.join(' ')));
 
     try {
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml pull`;
+        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml pull ${services.join(' ')}`;
         console.log("running: ", command);
         child.execSync(
             command,

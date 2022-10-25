@@ -132,7 +132,7 @@ services:
   ipfs:
     container_name: ipfs-node
     restart: always
-    image: ipfs/go-ipfs:latest
+    image: ipfs/kubo:latest
     environment:
       - IPFS_PATH=/ipfsdata
     volumes:

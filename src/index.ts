@@ -34,7 +34,10 @@ sandbox_command
     .command('pull')
     .alias('p')
     .description('Pull sandbox images.')
-    .action(sandbox.pull)
+    .argument('[service_names...]', 'names of services (optional)')
+    .action(async (service_names: string[]) => {
+        await sandbox.pull(service_names);
+    });
 
 sandbox_command
     .command('kill')
