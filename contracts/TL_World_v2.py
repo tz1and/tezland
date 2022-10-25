@@ -815,31 +815,29 @@ class TL_World(
         sp.set_type(issuer_or_place_owner, sp.TAddress)
         sp.set_type(item_royalty_info, FA2.t_royalties)
 
-        # Calculate fee and royalties.
-        fee = sp.compute(sp.utils.mutez_to_nat(mutez_per_token) * (item_royalty_info.royalties + self.data.fees) / sp.nat(1000))
-        royalties = sp.compute(item_royalty_info.royalties * fee / (item_royalty_info.royalties + self.data.fees))
+        # Calculate fees and royalties.
+        royalties_amount = sp.compute(sp.split_tokens(mutez_per_token, item_royalty_info.royalties, 1000))
+        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, 1000))
+        left_amount = mutez_per_token - royalties_amount - fees_amount
 
         # Collect amounts to send in a map.
         send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
         def addToSendMap(address, amount):
             send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
 
-        # If there are any royalties to be paid.
-        with sp.if_(royalties > sp.nat(0)):
+        # If there are any royalties to be paid, split the royalties according to the splits.
+        with sp.if_(royalties_amount > sp.mutez(0)):
             # Pay each contributor his relative share.
             with sp.for_("contributor", item_royalty_info.contributors) as contributor:
                 # Calculate amount to be paid from relative share.
-                absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.relative_royalties / 1000))
+                absolute_amount = sp.split_tokens(royalties_amount, contributor.relative_royalties, 1000)
                 addToSendMap(contributor.address, absolute_amount)
 
-        # TODO: don't localise nat_to_mutez, is probably a cast and free.
         # Send management fees.
-        send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-        addToSendMap(self.data.fees_to, send_mgr_fees)
+        addToSendMap(self.data.fees_to, fees_amount)
 
         # Send rest of the value to seller.
-        send_issuer = sp.compute(mutez_per_token - sp.utils.nat_to_mutez(fee))
-        addToSendMap(issuer_or_place_owner, send_issuer)
+        addToSendMap(issuer_or_place_owner, left_amount)
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
@@ -886,14 +884,14 @@ class TL_World(
                 sp.verify(the_item.value.mutez_per_token == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
-                with sp.if_(the_item.value.mutez_per_token != sp.tez(0)):
+                with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, self.issuer_or_owner(params.issuer, params.owner), item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(sp.amount, self.issuer_or_owner(params.issuer, params.owner), item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
