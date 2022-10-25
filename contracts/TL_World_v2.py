@@ -810,10 +810,9 @@ class TL_World(
 
 
     # Inline function for sending royalties, fees, etc
-    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer, place_owner, item_royalty_info):
+    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info):
         sp.set_type(mutez_per_token, sp.TMutez)
-        sp.set_type(issuer, sp.TOption(sp.TAddress))
-        sp.set_type(place_owner, sp.TOption(sp.TAddress))
+        sp.set_type(issuer_or_place_owner, sp.TAddress)
         sp.set_type(item_royalty_info, FA2.t_royalties)
 
         # Calculate fee and royalties.
@@ -840,7 +839,7 @@ class TL_World(
 
         # Send rest of the value to seller.
         send_issuer = sp.compute(mutez_per_token - sp.utils.nat_to_mutez(fee))
-        addToSendMap(sp.compute(self.issuer_or_owner(issuer, place_owner)), send_issuer)
+        addToSendMap(issuer_or_place_owner, send_issuer)
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
@@ -894,7 +893,7 @@ class TL_World(
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, params.issuer, params.owner, item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, self.issuer_or_owner(params.issuer, params.owner), item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
