@@ -64,6 +64,9 @@ t_ownership_check = sp.TRecord(
     collection = sp.TAddress,
     address = sp.TAddress).layout(("collection", "address"))
 
+t_registry_param = sp.TList(sp.TAddress)
+t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
+
 #
 # Token registry contract.
 # NOTE: should be pausable for code updates.
@@ -228,26 +231,38 @@ class TL_TokenRegistry(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def is_registered(self, contract):
+    def is_registered(self, contract_list):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns true if contract is registered, false otherwise."""
-        sp.set_type(contract, sp.TAddress)
-        with sp.set_result_type(sp.TBool):
-            sp.result(self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract))
+        sp.set_type(contract_list, t_registry_param)
+
+        with sp.set_result_type(t_registry_result):
+            result_map = sp.local("result_map", {}, t_registry_result)
+            with sp.for_("contract", contract_list) as contract:
+                result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
+            sp.result(result_map.value)
 
     @sp.onchain_view(pure=True)
-    def is_private_collection(self, contract):
+    def is_private_collection(self, contract_list):
         """Returns true if contract is a private collection, false otherwise."""
-        sp.set_type(contract, sp.TAddress)
-        with sp.set_result_type(sp.TBool):
-            sp.result(self.data.private_collections.contains(contract))
+        sp.set_type(contract_list, t_registry_param)
+
+        with sp.set_result_type(t_registry_result):
+            result_map = sp.local("result_map", {}, t_registry_result)
+            with sp.for_("contract", contract_list) as contract:
+                result_map.value[contract] = self.data.private_collections.contains(contract)
+            sp.result(result_map.value)
 
     @sp.onchain_view(pure=True)
-    def is_public_collection(self, contract):
+    def is_public_collection(self, contract_list):
         """Returns true if contract is a public collection, false otherwise."""
-        sp.set_type(contract, sp.TAddress)
-        with sp.set_result_type(sp.TBool):
-            sp.result(self.data.public_collections.contains(contract))
+        sp.set_type(contract_list, t_registry_param)
+
+        with sp.set_result_type(t_registry_result):
+            result_map = sp.local("result_map", {}, t_registry_result)
+            with sp.for_("contract", contract_list) as contract:
+                result_map.value[contract] = self.data.public_collections.contains(contract)
+            sp.result(result_map.value)
 
     @sp.onchain_view(pure=True)
     def is_private_owner(self, params):

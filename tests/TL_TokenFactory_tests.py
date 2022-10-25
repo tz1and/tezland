@@ -82,9 +82,9 @@ def test():
 
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
-    scenario.verify(token_registry.is_registered(dyn_collection_token.address) == True)
-    scenario.verify(token_registry.is_private_collection(dyn_collection_token.address) == True)
-    scenario.verify(token_registry.is_public_collection(dyn_collection_token.address) == False)
+    scenario.verify_equal(token_registry.is_registered([dyn_collection_token.address]), {dyn_collection_token.address: True})
+    scenario.verify_equal(token_registry.is_private_collection([dyn_collection_token.address]), {dyn_collection_token.address: True})
+    scenario.verify_equal(token_registry.is_public_collection([dyn_collection_token.address]), {dyn_collection_token.address: False})
     scenario.verify(token_registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)
     scenario.verify(token_registry.data.private_collections.contains(dyn_collection_token.address))
 

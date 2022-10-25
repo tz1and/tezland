@@ -96,8 +96,8 @@ class TL_Minter(
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
         sp.verify(sp.view("is_public_collection", self.data.token_registry,
-            sp.set_type_expr(collection, sp.TAddress),
-            t = sp.TBool).open_some(), "INVALID_COLLECTION")
+            sp.set_type_expr([collection], sp.TList(sp.TAddress)),
+            t = sp.TMap(sp.TAddress, sp.TBool)).open_some().get(collection, default_value=False), "INVALID_COLLECTION")
 
     #
     # Admin-only entry points
