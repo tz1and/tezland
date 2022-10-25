@@ -29,7 +29,9 @@ def test():
 
     scenario.h3("set_moderation_contract")
 
-    moderation.set_moderation_contract(bob.address).run(sender = bob, valid = False)
-    scenario.verify(moderation.data.moderation_contract == admin.address)
-    moderation.set_moderation_contract(bob.address).run(sender = admin)
-    scenario.verify(moderation.data.moderation_contract == bob.address)
+    moderation.set_moderation_contract(sp.some(bob.address)).run(sender = bob, valid = False)
+    scenario.verify(moderation.data.moderation_contract == sp.none)
+    moderation.set_moderation_contract(sp.some(bob.address)).run(sender = admin)
+    scenario.verify(moderation.data.moderation_contract == sp.some(bob.address))
+    moderation.set_moderation_contract(sp.none).run(sender = admin)
+    scenario.verify(moderation.data.moderation_contract == sp.none)
