@@ -16,25 +16,27 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: place should have set of chunks. sequence numbers are calculated from chunk interaction counter and next_id.
-# TODO: figure out a better way to do per-chunk sequence numbers so we can pull changes only from changed chunks. maybe return an array of sequence numbers and have a per-chunk interaction counter.
-# TODO: per chunk AND per place interaction counter!
-# TODO: get_place_data takes list of chunks to query. have per-chunk seq-num. and a global one.
-# TODO: should return data in same view as get_place_data? maybe with selectable chunks?
+# TODO: get_place_data should take list of chunks to query. should return data in same view as get_place_data? maybe with selectable chunks?
 # TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
+# TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
+#       at least in terms of what "type" of royalties.
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
 # TODO: gas optimisations!
 # TODO: FA2 origination is too large! try and optimise
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
-# TODO: delete empty chunks? chunk store remove_if_empty
-# TODO: remove empty chunks? make sure to delete them from place as well.
+# TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
-# TODO: sendValueRoyaltiesFeesInline: use variables and set_type or set_type_expr, maybe...
-# TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
-#       at least in terms of what "type" of royalties.
 # TODO: have issuer be an option. so place can be owner of an item and some items can transfer with place ownership. sp.eif
+# TODO: test owner = none when sender not place owner (for all eps where it matters)
+# TODO: test owner = "not actual owner" when issuer is none for get_item.
+# TODO: test owner = "not actual owner" when issuer is none for remove_items.
+# TODO: if the issuer is none, owner must be set AND be the place owner.
+        # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
+# TODO: so many empty FAILWITHs. Optimise...
+# TODO: use open_some(unit) where it makes sense (views?)
+# TODO: special permission for sending items to place? Might be good.
 
 # maybe?
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -102,8 +104,8 @@ itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantItemType)
 itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
 itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
 # map from issuer to item store
-chunkStoreType = sp.TMap(sp.TAddress, itemStoreType)
-chunkStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreType)
+chunkStoreType = sp.TMap(sp.TOption(sp.TAddress), itemStoreType)
+chunkStoreLiteral = sp.map(tkey=sp.TOption(sp.TAddress), tvalue=itemStoreType)
 
 #
 # Place prop storage
@@ -149,9 +151,8 @@ class Place_store_map:
 
 #
 # Chunk storage
-# TODO:
 chunkStorageType = sp.TRecord(
-    next_id = sp.TNat, # per cunk item ids
+    next_id = sp.TNat, # per chunk item ids
     interaction_counter=sp.TNat,
     stored_items=chunkStoreType
 ).layout(("next_id", ("interaction_counter", "stored_items")))
@@ -192,7 +193,6 @@ class Chunk_store_map:
 
 #
 # Item storage
-# TODO: per chunk item limit and chunk limit.
 # TODO: this kind of breaks ext type items... could maybe store them with a special contract address????
 # +++++ or maybe store ext type items in a special map???? or maybe it just doesn't matter under what token they are stored?
 # +++++ or maybe the issuer map could be a record(ext_items_map, tokens_map)
@@ -202,13 +202,13 @@ class Item_store_map:
 
     def get(self, map, issuer, fa2):
         sp.set_type(map, chunkStoreType)
-        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
         sp.set_type(fa2, sp.TAddress)
         return map[issuer][fa2]
 
     def get_or_create(self, map, issuer, fa2):
         sp.set_type(map, chunkStoreType)
-        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
         sp.set_type(fa2, sp.TAddress)
         # if the issuer map does not exist, create it.
         with sp.if_(~map.contains(issuer)):
@@ -220,7 +220,7 @@ class Item_store_map:
 
     def remove_if_empty(self, map, issuer, fa2):
         sp.set_type(map, chunkStoreType)
-        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
         sp.set_type(fa2, sp.TAddress)
         # If the chunk has a map for the issuer
         with sp.if_(map.contains(issuer)):
@@ -279,7 +279,6 @@ class Error_message:
     def make(self, s): return (self.prefix + s)
     def no_permission(self):        return self.make("NO_PERMISSION")
     def not_owner(self):            return self.make("NOT_OWNER")
-    def fee_error(self):            return self.make("FEE_ERROR")
     def parameter_error(self):      return self.make("PARAM_ERROR")
     def data_length(self):          return self.make("DATA_LEN")
     def chunk_limit(self):          return self.make("CHUNK_LIMIT")
@@ -288,6 +287,7 @@ class Error_message:
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
     def token_not_registered(self): return self.make("TOKEN_NOT_REGISTERED")
+    def unknown_owner(self):        return self.make("UNKNOWN_OWNER")
 
 #
 # Like Operator_set from legacy FA2. Lazy set for place permissions.
@@ -496,31 +496,44 @@ class TL_World(
 
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
+    @sp.inline_result
     def getPermissionsInline(self, place_key, owner, permittee):
         sp.set_type(place_key, placeKeyType)
         sp.set_type(owner, sp.TOption(sp.TAddress))
         sp.set_type(permittee, sp.TAddress)
 
-        # TODO: check if place contract is allowed in this world.
-
-        # Local var for permissions.
-        permission = sp.local("permission", permissionNone)
+        # NOTE: no need to check if place contract is allowed in this world.
 
         # If permittee is the owner, he has full permission.
-        with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, permittee) > 0):
-            permission.value = self.data.max_permission
+        with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, permittee) > sp.nat(0)):
+            sp.result(self.data.max_permission)
         with sp.else_():
-            # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            with sp.if_(owner.is_some() & (utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner.open_some()) > 0)):
-                permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
-                    owner.open_some(),
-                    permittee,
-                    place_key))
+            with owner.match_cases() as arg:
+                with arg.match("Some") as owner_open:
+                    with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner_open) > sp.nat(0)):
+                        sp.result(self.permission_map.get_octal(self.data.permissions,
+                            owner_open,
+                            permittee,
+                            place_key))
+                    with sp.else_():
+                        sp.result(permissionNone)
+                with arg.match("None"):
+                    sp.result(permissionNone)
 
-        return permission.value
+
+    # TODO: pretty sure we have to check the owner like this in some place
+    #def checkOwnerInline(self, place_key, owner):
+    #    sp.set_type(place_key, placeKeyType)
+    #    sp.set_type(owner, sp.TOption(sp.TAddress))
+    #
+    #    return sp.eif(
+    #        # Is the sender the owner?
+    #        utils.fa2_get_balance((place_key.place_contract, place_key.lot_id, sp.sender) > 0) |
+    #        # otherwise, if the owner is set, check the owner.
+    #        ((owner.is_some()) & (utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner.open_some(sp.unit)) > 0)),
+    #        True, False)
 
 
-    # TODO: change place props to not set all props but specific props
     @sp.entry_point(lazify = True)
     def update_place_props(self, params):
         sp.set_type(params, sp.TRecord(
@@ -566,11 +579,11 @@ class TL_World(
         sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
-    def onlyRegisteredTokens(self, fa2):
-        sp.set_type(fa2, sp.TAddress)
-        registered = sp.view("is_registered", self.data.token_registry,
-            fa2, t = sp.TBool).open_some()
-        sp.verify(registered == True, self.error_message.token_not_registered())
+    def getTokenRegistryInfo(self, fa2_list):
+        sp.set_type(fa2_list, sp.TList(sp.TAddress))
+        registry_info = sp.local("registery_info", sp.view("is_registered", self.data.token_registry,
+            fa2_list, t = sp.TMap(sp.TAddress, sp.TBool)).open_some(sp.unit))
+        return registry_info.value
 
 
     @sp.entry_point(lazify = True)
@@ -579,8 +592,9 @@ class TL_World(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
+            send_to_place = sp.TBool,
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("place_item_map", "extension")))))
+        ).layout(("chunk_key", ("owner", ("place_item_map", ("send_to_place", "extension"))))))
 
         self.onlyUnpaused()
 
@@ -592,6 +606,7 @@ class TL_World(
         # Caller must have PlaceItems permissions.
         permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
+        # TODO: special permission for sending items to place? Might be good.
 
         # Get or create the place and chunk.
         this_place = self.place_store_map.get_or_create(self.data.places, params.chunk_key.place_key)
@@ -614,16 +629,21 @@ class TL_World(
         # Our token transfer map.
         transferMap = self.token_transfer_map.init()
 
-        # For each fa2 in the map.
-        with sp.for_("fa2", params.place_item_map.keys()) as fa2:
-            self.onlyRegisteredTokens(fa2)
+        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys())
 
-            item_list = params.place_item_map[fa2]
+        # If tokens are sent to place, the issuer should be none, otherwise sender.
+        issuer = sp.compute(sp.eif(params.send_to_place, sp.none, sp.some(sp.sender)))
+
+        # For each fa2 in the map.
+        with sp.for_("fa2_item", params.place_item_map.items()) as fa2_item:
+            sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
+
+            item_list = fa2_item.value
 
             # Get or create item storage.
-            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.sender, fa2)
+            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2_item.key)
 
-            self.token_transfer_map.add_fa2(transferMap, fa2)
+            self.token_transfer_map.add_fa2(transferMap, fa2_item.key)
 
             # For each item in the list.
             with sp.for_("curr", item_list) as curr:
@@ -641,7 +661,7 @@ class TL_World(
                         #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                         # Transfer item to this contract.
-                        self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
+                        self.token_transfer_map.add_token(transferMap, fa2_item.key, sp.self_address, item.token_id, item.token_amount)
 
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
@@ -663,7 +683,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
-            update_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
+            update_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
             extension = extensionArgType
         ).layout(("chunk_key", ("owner", ("update_map", "extension")))))
 
@@ -682,15 +702,16 @@ class TL_World(
         # If ModifyAll permission is not given, make sure update map only contains sender items.
         with sp.if_(~hasModifyAll):
             with sp.for_("remove_key", params.update_map.keys()) as remove_key:
-                sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
+                sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Update items.
-        with sp.for_("issuer", params.update_map.keys()) as issuer:
-            with sp.for_("fa2", params.update_map[issuer].keys()) as fa2:
-                update_list = params.update_map[issuer][fa2]
+        with sp.for_("issuer_item", params.update_map.items()) as issuer_item:
+            with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                update_list = fa2_item.value
+
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_chunk.stored_items, issuer, fa2)
-                
+                item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
+
                 with sp.for_("update", update_list) as update:
                     self.validateItemData(update.item_data)
 
@@ -707,12 +728,30 @@ class TL_World(
         this_chunk.interaction_counter += 1
 
 
+    @sp.inline_result
+    def issuer_or_owner(self, issuer, owner):
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
+        sp.set_type(owner, sp.TOption(sp.TAddress))
+        sp.result(sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit)))
+        #return sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit))
+
+        # NOTE: this saves 2 bytes in storage overall. but whatever.
+        #with issuer.match_cases() as issuer_arg:
+        #    with issuer_arg.match("Some", "issuer_open") as issuer_open:
+        #        sp.result(issuer_open)
+        #    with issuer_arg.match("None", "issuer_none"):
+        #        with owner.match_cases() as owner_arg:
+        #            with owner_arg.match("Some", "owner_open") as owner_open:
+        #                sp.result(owner_open)
+        #            with issuer_arg.match("None", "owner_none"):
+        #                sp.failwith(sp.unit)
+
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
-            remove_map = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
+            remove_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
             extension = extensionArgType
         ).layout(("chunk_key", ("owner", ("remove_map", "extension")))))
 
@@ -731,26 +770,29 @@ class TL_World(
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
         with sp.if_(~hasModifyAll):
             with sp.for_("remove_key", params.remove_map.keys()) as remove_key:
-                sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
+                sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Token transfer map.
         transferMap = self.token_transfer_map.init()
 
         # Remove items.
-        with sp.for_("issuer", params.remove_map.keys()) as issuer:
-            with sp.for_("fa2", params.remove_map[issuer].keys()) as fa2:
-                item_list = params.remove_map[issuer][fa2]
+        with sp.for_("issuer_item", params.remove_map.items()) as issuer_item:
+            with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                item_list = fa2_item.value
 
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_chunk.stored_items, issuer, fa2)
+                item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
 
-                self.token_transfer_map.add_fa2(transferMap, fa2)
+                self.token_transfer_map.add_fa2(transferMap, fa2_item.key)
                 
                 with sp.for_("curr", item_list) as curr:
                     with item_store[curr].match_cases() as arg:
                         with arg.match("item") as the_item:
-                            # Transfer items back to issuer.
-                            self.token_transfer_map.add_token(transferMap, fa2, issuer, the_item.token_id, the_item.token_amount)
+                            # Transfer items back to issuer/owner
+                            self.token_transfer_map.add_token(
+                                transferMap, fa2_item.key,
+                                self.issuer_or_owner(issuer_item.key, params.owner),
+                                the_item.token_id, the_item.token_amount)
 
                         # Nothing to do here with ext items. Just remove them.
                     
@@ -758,7 +800,7 @@ class TL_World(
                     del item_store[curr]
 
                 # Remove the item store if empty.
-                self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
+                self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer_item.key, fa2_item.key)
 
         # Transfer tokens.
         self.token_transfer_map.transfer_tokens(transferMap, sp.self_address)
@@ -768,9 +810,10 @@ class TL_World(
 
 
     # Inline function for sending royalties, fees, etc
-    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer, item_royalty_info):
+    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer, place_owner, item_royalty_info):
         sp.set_type(mutez_per_token, sp.TMutez)
-        sp.set_type(issuer, sp.TAddress)
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
+        sp.set_type(place_owner, sp.TOption(sp.TAddress))
         sp.set_type(item_royalty_info, FA2.t_royalties)
 
         # Calculate fee and royalties.
@@ -797,7 +840,7 @@ class TL_World(
 
         # Send rest of the value to seller.
         send_issuer = sp.compute(mutez_per_token - sp.utils.nat_to_mutez(fee))
-        addToSendMap(issuer, send_issuer)
+        addToSendMap(sp.compute(self.issuer_or_owner(issuer, place_owner)), send_issuer)
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
@@ -808,16 +851,23 @@ class TL_World(
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
+            owner = sp.TOption(sp.TAddress), # TODO: rename all owner references to place_owner?
             item_id = sp.TNat,
-            issuer = sp.TAddress,
+            issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
             extension = extensionArgType
-        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", "extension"))))))
+        ).layout(("chunk_key", ("owner", ("item_id", ("issuer", ("fa2", "extension")))))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
+
+        # TODO: if the issuer is none, owner must be set AND be the place owner.
+        # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
+
+        # Either owner or issuer must be set!
+        sp.verify(params.issuer.is_some() | params.owner.is_some(), message = self.error_message.unknown_owner())
 
         # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
@@ -844,7 +894,7 @@ class TL_World(
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, params.issuer, item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(the_item.value.mutez_per_token, params.issuer, params.owner, item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
@@ -871,7 +921,6 @@ class TL_World(
     # Migration
     #
     # TODO: Permissions?
-    # TODO: delete empty chunks after migration?
     @sp.entry_point(lazify = True)
     def migration(self, params):
         """An entrypoint to recieve/send migrations.
@@ -882,7 +931,7 @@ class TL_World(
 
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
-        sp.verify((sp.sender == self.data.migration_contract.open_some("NO_MIGRATION_CONTRACT")) &
+        sp.verify((sp.some(sp.sender) == self.data.migration_contract) &
             (sp.source == self.data.administrator))
 
         # Place token must be allowed
@@ -914,16 +963,18 @@ class TL_World(
             transferMap = self.token_transfer_map.init()
 
             # For each fa2 in the map.
-            with sp.for_("issuer", params.migrate_item_map.keys()) as issuer:
-                with sp.for_("fa2", params.migrate_item_map[issuer].keys()) as fa2:
-                    self.onlyRegisteredTokens(fa2)
+            with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
+                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys())
 
-                    self.token_transfer_map.add_fa2(transferMap, fa2)
+                with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                    sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-                    item_list = params.migrate_item_map[issuer][fa2]
+                    self.token_transfer_map.add_fa2(transferMap, fa2_item.key)
+
+                    item_list = fa2_item.value
 
                     # Get or create item storage.
-                    item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
+                    item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                     # For each item in the list.
                     with sp.for_("curr", item_list) as curr:
@@ -932,7 +983,7 @@ class TL_World(
                             # Remove itemstore if empty. Can happen in some cases,
                             # because the item store is created at the beginning of a token loop.
                             # Alternatively we could call item_store_map.get_or_create() inside the loop.
-                            self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer, fa2)
+                            self.item_store_map.remove_if_empty(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                             # Reset counters and increment current chunk.
                             add_item_count.value = sp.nat(0)
@@ -941,7 +992,7 @@ class TL_World(
 
                             # update chunk and item storage
                             this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
-                            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
+                            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                         with curr.match_cases() as arg:
                             with arg.match("item") as item:
@@ -949,7 +1000,7 @@ class TL_World(
 
                                 # transfer item to this contract
                                 # do multi-transfer by building up a list of transfers
-                                self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
+                                self.token_transfer_map.add_token(transferMap, fa2_item.key, sp.self_address, item.token_id, item.token_amount)
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
@@ -996,7 +1047,7 @@ class TL_World(
             this_place = self.data.places.get(place_key, placeStorageDefault)
             chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, sp.TMap(sp.TNat, sp.TBytes))
             with sp.for_("chunk_id", this_place.chunks.elements()) as chunk_id:
-                this_chunk = self.data.chunks[sp.record(place_key = place_key, chunk_id = chunk_id)]
+                this_chunk = self.data.chunks.get(sp.record(place_key = place_key, chunk_id = chunk_id), chunkStorageDefault)
                 chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
                     this_chunk.interaction_counter,
                     this_chunk.next_id)))
