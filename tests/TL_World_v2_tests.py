@@ -1016,9 +1016,9 @@ def test():
     #
     scenario.h2("pausing")
     scenario.verify(world.data.paused == False)
-    world.set_paused(True).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    world.set_paused(True).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-    world.set_paused(True).run(sender = admin)
+    world.update_settings([sp.variant("paused", True)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    world.update_settings([sp.variant("paused", True)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    world.update_settings([sp.variant("paused", True)]).run(sender = admin)
     scenario.verify(world.data.paused == True)
 
     # anything that changes a place or transfers tokens is now disabled
@@ -1041,9 +1041,9 @@ def test():
         ))
     ]).run(sender=bob, valid=True)
 
-    world.set_paused(False).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    world.set_paused(False).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-    world.set_paused(False).run(sender = admin)
+    world.update_settings([sp.variant("paused", False)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    world.update_settings([sp.variant("paused", False)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    world.update_settings([sp.variant("paused", False)]).run(sender = admin)
     scenario.verify(world.data.paused == False)
 
     world.update_place_props(place_key=place_bob, owner=sp.none, prop_updates=valid_place_props, extension = sp.none).run(sender=carol)

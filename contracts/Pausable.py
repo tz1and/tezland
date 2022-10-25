@@ -4,10 +4,17 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 
 class Pausable(admin_mixin.Administrable):
-    def __init__(self, administrator, paused = False):
+    def __init__(self, administrator, paused = False, meta_settings = False):
         self.update_initial_storage(
             paused = paused
         )
+
+        if meta_settings:
+            self.available_settings.append(
+                ("paused", sp.TBool, None)
+            )
+            setattr(self, "set_paused", sp.entry_point(None, None))
+
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def isPaused(self):
