@@ -287,18 +287,7 @@ export default class Upgrade extends PostUpgrade {
         //
 
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
-            return this.tezos!.wallet.batch().with([
-                // Pause world v1.
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...World_v2_contract.methods.update_settings([{migration_contract: null}]).toTransferParams()
-                },
-                // Pause minter v1.
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...World_v2_contract.methods.set_paused(false).toTransferParams()
-                }
-            ]).send();
+            return World_v2_contract.methods.update_settings([{migration_contract: null}, {paused: false}]).send()
         });
 
         //
