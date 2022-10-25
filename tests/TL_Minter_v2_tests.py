@@ -71,7 +71,7 @@ def test():
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
-    minter.set_paused(True).run(sender = admin)
+    minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
 
     minter.mint_public(collection = items_tokens.address,
         to_ = alice.address,
@@ -80,7 +80,7 @@ def test():
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
-    minter.set_paused(False).run(sender = admin)
+    minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
     token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 
     # test private collections
@@ -124,7 +124,7 @@ def test():
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = "ONLY_OWNER_OR_COLLABORATOR")
 
-    minter.set_paused(True).run(sender = admin)
+    minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
 
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
@@ -133,7 +133,7 @@ def test():
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
-    minter.set_paused(False).run(sender = admin)
+    minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 
     scenario.h3("update_private_metadata")
@@ -151,9 +151,9 @@ def test():
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob)
     scenario.verify(items_tokens.data.metadata[""] == valid_metadata_uri)
 
-    minter.set_paused(True).run(sender = admin)
+    minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
-    minter.set_paused(False).run(sender = admin)
+    minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 

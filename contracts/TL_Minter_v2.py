@@ -39,8 +39,13 @@ class TL_Minter(
         self.init_storage(
             token_registry = token_registry
         )
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
+
+        self.available_settings = [
+            ("token_registry", sp.TAddress, None)
+        ]
+
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
+        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
@@ -136,23 +141,21 @@ class TL_Minter(
     # TODO: test
     @sp.entry_point(lazify = True)
     def update_settings(self, params):
-        """Allows the administrator to update the token registry."""
+        """Allows the administrator to update various settings.
+        
+        Parameters are metaprogrammed with self.available_settings"""
         sp.set_type(params, sp.TList(sp.TVariant(
-            token_registry = sp.TAddress
-        )))
+            **{setting[0]: setting[1] for setting in self.available_settings})))
 
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                # TODO: test
-                with arg.match("token_registry") as address:
-                    # TODO: does this make sure contract has token_registry ep?
-                    #register_fa2_handle = sp.contract(sp.TList(sp.TAddress), contract, 
-                    #    entry_point = "register_fa2").open_some()
-                    #
-                    #sp.transfer([], sp.mutez(0), register_fa2_handle)
-                    self.data.token_registry = address
+                for setting in self.available_settings:
+                    with arg.match(setting[0]) as value:
+                        if setting[2] != None:
+                            setting[2](value)
+                        setattr(self.data, setting[0], value)
 
     #
     # Public entry points
