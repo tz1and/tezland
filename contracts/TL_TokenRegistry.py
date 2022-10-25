@@ -65,7 +65,7 @@ t_ownership_check = sp.TRecord(
     address = sp.TAddress).layout(("collection", "address"))
 
 #
-# Minter contract.
+# Token registry contract.
 # NOTE: should be pausable for code updates.
 class TL_TokenRegistry(
     contract_metadata_mixin.ContractMetadata,
