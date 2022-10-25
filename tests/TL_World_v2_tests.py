@@ -584,6 +584,23 @@ def test():
     scenario.verify(world.data.moderation_contract == sp.some(admin.address))
     world.update_settings([sp.variant("moderation_contract", sp.none)]).run(sender = admin)
 
+    scenario.h3("update fees_to")
+    scenario.verify(world.data.fees_to == admin.address)
+    world.update_settings([sp.variant("fees_to", bob.address)]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("fees_to", bob.address)]).run(sender = admin)
+    scenario.verify(world.data.fees_to == bob.address)
+    world.update_settings([sp.variant("fees_to", admin.address)]).run(sender = admin)
+
+    scenario.h3("update fees")
+    scenario.verify(world.data.fees == sp.nat(25))
+    world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("fees", sp.nat(61))]).run(sender = admin, valid = False, exception = "FEE_ERROR")
+    world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = admin)
+    scenario.verify(world.data.fees == 55)
+    world.update_settings([sp.variant("fees", sp.nat(25))]).run(sender = admin)
+
+    # NOTE: paused is tested elsewhere
+
     scenario.h2("Limits")
 
     scenario.h3("chunk item limit on place_items")

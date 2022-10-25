@@ -403,7 +403,7 @@ class TL_World(
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused, meta_settings = True)
-        fees_mixin.Fees.__init__(self, administrator = administrator)
+        fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
         mod_mixin.Moderation.__init__(self, administrator = administrator, meta_settings = True)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
