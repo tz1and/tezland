@@ -7,10 +7,17 @@ class ContractMetadata(admin_mixin.Administrable):
 
     Requires the `Administrable` mixin.
     """
-    def __init__(self, metadata, administrator):
+    def __init__(self, metadata, administrator, meta_settings = False):
         self.update_initial_storage(
             metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         )
+
+        if meta_settings:
+            self.available_settings.append(
+                ("metadata", sp.TBigMap(sp.TString, sp.TBytes), None)
+            )
+            setattr(self, "set_metadata", sp.entry_point(None, None))
+
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     @sp.entry_point

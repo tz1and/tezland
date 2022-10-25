@@ -599,6 +599,13 @@ def test():
     scenario.verify(world.data.fees == 55)
     world.update_settings([sp.variant("fees", sp.nat(25))]).run(sender = admin)
 
+    scenario.h3("update metadata")
+    scenario.verify(world.data.metadata.get("") == sp.utils.bytes_of_string("https://example.com"))
+    world.update_settings([sp.variant("metadata", sp.utils.metadata_of_url("https://elpmaxe.com"))]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("metadata", sp.utils.metadata_of_url("https://elpmaxe.com"))]).run(sender = admin)
+    scenario.verify(world.data.metadata.get("") == sp.utils.bytes_of_string("https://elpmaxe.com"))
+    world.update_settings([sp.variant("metadata", sp.utils.metadata_of_url("https://example.com"))]).run(sender = admin)
+
     # NOTE: paused is tested elsewhere
 
     scenario.h2("Limits")

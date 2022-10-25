@@ -401,7 +401,7 @@ class TL_World(
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
         pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused, meta_settings = True)
         fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
         mod_mixin.Moderation.__init__(self, administrator = administrator, meta_settings = True)
