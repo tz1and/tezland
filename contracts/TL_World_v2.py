@@ -395,6 +395,12 @@ class TL_World(
             chunks = self.chunk_store_map.make()
         )
 
+        self.available_settings = [
+            ("token_registry", sp.TAddress, None),
+            ("migration_contract", sp.TOption(sp.TAddress), None),
+            ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
+        ]
+
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused)
         fees_mixin.Fees.__init__(self, administrator = administrator)
@@ -434,26 +440,21 @@ class TL_World(
 
     @sp.entry_point(lazify = True)
     def update_settings(self, params):
-        """Allows the administrator to update various settings."""
+        """Allows the administrator to update various settings.
+        
+        Parameters are metaprogrammed with self.available_settings"""
         sp.set_type(params, sp.TList(sp.TVariant(
-            max_permission = sp.TNat,
-            token_registry = sp.TAddress,
-            migration_contract = sp.TOption(sp.TAddress)
-        )))
+            **{setting[0]: setting[1] for setting in self.available_settings})))
 
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("max_permission") as max_permission:
-                    sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
-                    self.data.max_permission = max_permission
-
-                with arg.match("token_registry") as token_registry:
-                    self.data.token_registry = token_registry
-
-                with arg.match("migration_contract") as migration_contract:
-                    self.data.migration_contract = migration_contract
+                for setting in self.available_settings:
+                    with arg.match(setting[0]) as value:
+                        if setting[2] != None:
+                            setting[2](value)
+                        self.data.__setattr__(setting[0], value)
 
 
     #
