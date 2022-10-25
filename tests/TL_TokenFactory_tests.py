@@ -88,9 +88,9 @@ def test():
     scenario.verify(token_registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)
     scenario.verify(token_registry.data.private_collections.contains(dyn_collection_token.address))
 
-    token_factory.set_paused(True).run(sender=admin)
+    token_factory.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin, valid=False, exception="ONLY_UNPAUSED")
-    token_factory.set_paused(False).run(sender=admin)
+    token_factory.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     # TODO: check FA2 ownership, check if collection can be minted with minter, etc...
 
