@@ -68,7 +68,7 @@ services:
       - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
     depends_on:
       - db
-      - metrics
+      #- metrics
     links:
       - "flextesa:sandbox"
       - "ipfs:localipfs"
@@ -76,26 +76,26 @@ services:
       - bcdshare:/etc/bcd
     logging: *bcd-logging
 
-  metrics:
-    restart: always
-    image: ghcr.io/baking-bad/bcdhub-metrics:${TAG}
-    environment:
-      - BCD_ENV=sandbox
-      - DB_HOSTNAME=db
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=indexer
-      - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
-    depends_on:
-      - elastic
-      - db
-    links:
-      - "flextesa:sandbox"
-      - "ipfs:localipfs"
-    volumes:
-      - bcdshare:/etc/bcd
-    logging: *bcd-logging
+  #metrics:
+  #  restart: always
+  #  image: ghcr.io/baking-bad/bcdhub-metrics:${TAG}
+  #  environment:
+  #    - BCD_ENV=sandbox
+  #    - DB_HOSTNAME=db
+  #    - POSTGRES_USER=root
+  #    - POSTGRES_PASSWORD=root
+  #    - POSTGRES_DB=indexer
+  #    - SANDBOX_NODE_URI=http://sandbox:20000
+  #    - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
+  #  depends_on:
+  #    - elastic
+  #    - db
+  #  links:
+  #    - "flextesa:sandbox"
+  #    - "ipfs:localipfs"
+  #  volumes:
+  #    - bcdshare:/etc/bcd
+  #  logging: *bcd-logging
 
   gui:
     container_name: sandbox-gui
