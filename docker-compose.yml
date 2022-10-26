@@ -39,8 +39,8 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
-      - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
+      - SANDBOX_NODE_URI=http://flextesa:20000
+      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
     depends_on:
       - elastic
       - db
@@ -50,9 +50,6 @@ services:
       - 14000/tcp
     volumes:
       - bcdshare:/etc/bcd
-    links:
-      - "flextesa:sandbox"
-      - "ipfs:localipfs"
     logging: *bcd-logging
 
   indexer:
@@ -64,14 +61,11 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
-      - SANDBOX_NODE_URI=http://sandbox:20000
-      - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
+      - SANDBOX_NODE_URI=http://flextesa:20000
+      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
     depends_on:
       - db
       #- metrics
-    links:
-      - "flextesa:sandbox"
-      - "ipfs:localipfs"
     volumes:
       - bcdshare:/etc/bcd
     logging: *bcd-logging
@@ -85,14 +79,11 @@ services:
   #    - POSTGRES_USER=root
   #    - POSTGRES_PASSWORD=root
   #    - POSTGRES_DB=indexer
-  #    - SANDBOX_NODE_URI=http://sandbox:20000
-  #    - SANDBOX_IPFS_GATEWAY=http://localipfs:8080
+  #    - SANDBOX_NODE_URI=http://flextesa:20000
+  #    - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
   #  depends_on:
   #    - elastic
   #    - db
-  #  links:
-  #    - "flextesa:sandbox"
-  #    - "ipfs:localipfs"
   #  volumes:
   #    - bcdshare:/etc/bcd
   #  logging: *bcd-logging
@@ -200,10 +191,8 @@ services:
     restart: always
     image: bakingbad/tzkt-sync:${TZKT_VERSION}
     environment:
-      TezosNode__Endpoint: http://sandbox:20000
+      TezosNode__Endpoint: http://flextesa:20000
       ConnectionStrings__DefaultConnection: host=db-tzkt;port=15432;database=${POSTGRES_DB:-tzkt_db};username=${POSTGRES_USER:-tzkt};password=${POSTGRES_PASSWORD:-qwerty};
-    links:
-      - "flextesa:sandbox"
     depends_on:
       - db-tzkt
       - flextesa
