@@ -273,7 +273,7 @@ export default class DeployBase {
         if(this.isSandboxNet && this.cleanDeploymentsInSandbox) {
             console.log(kleur.yellow("Cleaning deployments dir."))
             if (fs.existsSync(this.deploymentsDir))
-                fs.rmdirSync(this.deploymentsDir, { recursive: true });
+                fs.rmSync(this.deploymentsDir, { recursive: true });
         }
         
         if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
