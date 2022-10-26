@@ -1,5 +1,5 @@
 import * as child from 'child_process';
-import * as kleur from 'kleur';
+import kleur from 'kleur';
 import * as fs from 'fs';
 import config from '../user.config';
 

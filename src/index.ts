@@ -3,7 +3,11 @@ import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
 import Deploy from './commands/deploy';
 import Upgrade from './commands/upgrade';
-const packageJson = require('../package.json');
+import { readFileSync } from 'fs';
+
+const packageJson = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), { encoding: "utf-8" })
+);
 
 // configuration
 

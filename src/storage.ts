@@ -3,7 +3,8 @@
 
 import { Blob, NFTStorage, Service, Token } from 'nft.storage'
 import * as ipfs from 'ipfs-http-client';
-import { TimeoutError } from 'ipfs-utils/src/http'
+import pkg from 'ipfs-utils/src/http';
+const { TimeoutError } = pkg;
 import { performance } from 'perf_hooks';
 import config from './user.config';
 //import { Blockstore } from 'nft.storage/dist/src/platform';
@@ -70,7 +71,7 @@ class NFTStorageNoValidation extends NFTStorage {
 async function get_root_file_from_dir(cid: string): Promise<string> {
     console.log("get_root_file_from_dir: ", cid)
     try {
-        const max_num_retries = 5;
+        const max_num_retries = 10;
         let num_retries = 0;
         while(num_retries < max_num_retries) {
             try {

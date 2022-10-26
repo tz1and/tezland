@@ -1,7 +1,8 @@
 import * as child from 'child_process';
-import * as kleur from 'kleur';
+import kleur from 'kleur';
 import config from '../user.config';
-const sleep = require('util').promisify(setTimeout);
+import { promisify } from 'util';
+const sleep = promisify(setTimeout);
 
 
 function configEnv(): string {

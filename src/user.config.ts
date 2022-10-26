@@ -1,5 +1,9 @@
 import { DeployMode, SmartpyNodeDevConfig, LedgerAccount, PrivateKeyAccount } from './config/config';
-const { testnetDeployerKey, deployerKey, nftStorageApiKey } = require('../secrets.json');
+import { readFileSync } from 'fs';
+
+const { testnetDeployerKey, deployerKey, nftStorageApiKey } = JSON.parse(
+    readFileSync(new URL('../secrets.json', import.meta.url), { encoding: "utf-8" })
+);
 
 const config: SmartpyNodeDevConfig = {
     defaultNetwork: "sandbox",

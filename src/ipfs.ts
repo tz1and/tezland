@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import assert = require('assert');
 import { uploadToIpfs } from './storage';
 import { File } from 'nft.storage';
+import assert from 'assert';
 
 
 export async function upload_place_metadata(metadata: PlaceMetadata, localIpfs: boolean): Promise<string> {

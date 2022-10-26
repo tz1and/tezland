@@ -1,19 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2016",
-    "lib": [
-      "ES2016"
-    ],
-    "module": "commonjs",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "module": "es2022",
     "rootDir": "src",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "noImplicitAny": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "moduleResolution": "node"
     /*"allowJs": true,
       "skipLibCheck": true,
-      "esModuleInterop": true,
       "allowSyntheticDefaultImports": true,
       "forceConsistentCasingInFileNames": true,
       "noFallthroughCasesInSwitch": true,
