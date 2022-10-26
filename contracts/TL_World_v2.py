@@ -28,12 +28,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
 # TODO: investigate use of inline_result. and bound blocks in general.
-# TODO: have issuer be an option. so place can be owner of an item and some items can transfer with place ownership. sp.eif
 # TODO: test owner = none when sender not place owner (for all eps where it matters)
 # TODO: test owner = "not actual owner" when issuer is none for get_item.
 # TODO: test owner = "not actual owner" when issuer is none for remove_items.
-# TODO: if the issuer is none, owner must be set AND be the place owner.
-        # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
 # TODO: so many empty FAILWITHs. Optimise...
 # TODO: use open_some(unit) where it makes sense (views?)
 # TODO: special permission for sending items to place? Might be good.
@@ -521,19 +518,6 @@ class TL_World(
                         sp.result(permissionNone)
                 with arg.match("None"):
                     sp.result(permissionNone)
-
-
-    # TODO: pretty sure we have to check the owner like this in some place
-    #def checkOwnerInline(self, place_key, owner):
-    #    sp.set_type(place_key, placeKeyType)
-    #    sp.set_type(owner, sp.TOption(sp.TAddress))
-    #
-    #    return sp.eif(
-    #        # Is the sender the owner?
-    #        utils.fa2_get_balance((place_key.place_contract, place_key.lot_id, sp.sender) > 0) |
-    #        # otherwise, if the owner is set, check the owner.
-    #        ((owner.is_some()) & (utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner.open_some(sp.unit)) > 0)),
-    #        True, False)
 
 
     @sp.entry_point(lazify = True)
