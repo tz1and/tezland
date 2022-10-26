@@ -37,6 +37,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: so many empty FAILWITHs. Optimise...
 # TODO: use open_some(unit) where it makes sense (views?)
 # TODO: special permission for sending items to place? Might be good.
+# TODO: add tests for issuerOrOwner and checkIssuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
 
 # maybe?
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -730,7 +731,7 @@ class TL_World(
 
 
     @sp.inline_result
-    def issuer_or_owner(self, issuer, owner):
+    def issuerOrOwner(self, issuer, owner):
         sp.set_type(issuer, sp.TOption(sp.TAddress))
         sp.set_type(owner, sp.TOption(sp.TAddress))
         sp.result(sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit)))
@@ -792,7 +793,7 @@ class TL_World(
                             # Transfer items back to issuer/owner
                             self.token_transfer_map.add_token(
                                 transferMap, fa2_item.key,
-                                self.issuer_or_owner(issuer_item.key, params.owner),
+                                self.issuerOrOwner(issuer_item.key, params.owner),
                                 the_item.token_id, the_item.token_amount)
 
                         # Nothing to do here with ext items. Just remove them.
@@ -845,6 +846,19 @@ class TL_World(
             utils.send_if_value(send.key, send.value)
 
 
+    # Inline function for checking if issuer is set or owner is set to place owner.
+    def checkIssuerOrPlaceOwnerInline(self, place_key, issuer, owner):
+        sp.set_type(place_key, placeKeyType)
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
+        sp.set_type(owner, sp.TOption(sp.TAddress))
+
+        # TODO: do we need to check if place is allowed in world?
+
+        with sp.if_(issuer.is_none()):
+            owner_open = owner.open_some(self.error_message.unknown_owner())
+            sp.verify(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner_open) > 0, self.error_message.not_owner())
+
+
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
@@ -861,11 +875,9 @@ class TL_World(
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # TODO: if the issuer is none, owner must be set AND be the place owner.
+        # If the issuer is none, owner must be set AND be the place owner.
         # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
-
-        # Either owner or issuer must be set!
-        sp.verify(params.issuer.is_some() | params.owner.is_some(), message = self.error_message.unknown_owner())
+        self.checkIssuerOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer, params.owner)
 
         # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
@@ -892,7 +904,7 @@ class TL_World(
                     item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(params.fa2, the_item.value.token_id))
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.amount, self.issuer_or_owner(params.issuer, params.owner), item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(sp.amount, self.issuerOrOwner(params.issuer, params.owner), item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
