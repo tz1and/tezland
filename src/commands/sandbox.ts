@@ -6,7 +6,11 @@ const sleep = promisify(setTimeout);
 
 
 function configEnv(): string {
-    return `TAG=${config.sandbox.bcdVersion} TZKT_VERSION=${config.sandbox.tzktVersion} SANDBOX_VERSION=${config.sandbox.flextesaVersion} SANDBOX_TYPE=${config.sandbox.flextesaProtocol} SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
+    return `COMPOSE_PROJECT_NAME=bcdbox TAG=${config.sandbox.bcdVersion} \
+TZKT_VERSION=${config.sandbox.tzktVersion} \
+SANDBOX_VERSION=${config.sandbox.flextesaVersion} \
+SANDBOX_TYPE=${config.sandbox.flextesaProtocol} \
+SANDBOX_BLOCKTIME=${config.sandbox.blockTime}`;
 }
 
 export async function start(full?: boolean): Promise<void> {
@@ -14,14 +18,14 @@ export async function start(full?: boolean): Promise<void> {
 
     try {
         /*child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox TAG=${bcdtag} docker-compose -f docker-compose.yml pull`,
+            `TAG=${bcdtag} docker-compose -f docker-compose.yml pull`,
             {stdio: 'inherit'}
         )*/
 
         const containers = full ? '' : 'ipfs';
 
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml up -d ${containers}`;
-        console.log("running: ", command);
+        const command = `${configEnv()} docker-compose -f docker-compose.yml up -d ${containers}`;
+        console.log("running:", command);
         child.execSync(
             command,
             {stdio: 'inherit'}
@@ -56,8 +60,8 @@ export async function pull(services: string[]): Promise<void> {
     console.log(kleur.yellow('pulling sandbox... ' + services.join(' ')));
 
     try {
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml pull ${services.join(' ')}`;
-        console.log("running: ", command);
+        const command = `${configEnv()} docker-compose -f docker-compose.yml pull ${services.join(' ')}`;
+        console.log("running:", command);
         child.execSync(
             command,
             {stdio: 'inherit'}
@@ -71,8 +75,8 @@ export async function kill(): Promise<void> {
     console.log(kleur.yellow('killing sandbox...'));
 
     try {
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml down -v`;
-        console.log("running: ", command);
+        const command = `${configEnv()} docker-compose -f docker-compose.yml down -v`;
+        console.log("running:", command);
         child.execSync(
             command,
             {stdio: 'inherit'}
@@ -82,25 +86,25 @@ export async function kill(): Promise<void> {
     }
 }
 
-export async function logs(): Promise<void> {
-    console.log(kleur.yellow('killing sandbox...'));
+export async function logs(services: string[]): Promise<void> {
+    console.log(kleur.yellow('sandbox logs... ' + services.join(' ')));
 
     try {
-        const command = `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose -f docker-compose.yml logs -f`;
-        console.log("running: ", command);
+        const command = `${configEnv()} docker-compose -f docker-compose.yml logs -f ${services.join(' ')}`;
+        console.log("running:", command);
         child.execSync(
             command,
             {stdio: 'inherit'}
         )
     } catch (err) {
-        console.log(kleur.red("failed to kill sandbox"))
+        console.log(kleur.red("failed start sandbox log"))
     }
 }
 
 export async function info(): Promise<void> {
     try {
         child.execSync(
-            `COMPOSE_PROJECT_NAME=bcdbox ${configEnv()} docker-compose exec flextesa ${config.sandbox.flextesaProtocol} info`,
+            `${configEnv()} docker-compose exec flextesa ${config.sandbox.flextesaProtocol} info`,
             {stdio: 'inherit'}
         )
     } catch (err) {

@@ -59,7 +59,10 @@ sandbox_command
     .command('logs')
     .alias('l')
     .description('Displays sandbox logs.')
-    .action(sandbox.logs)
+    .argument('[service_names...]', 'names of services (optional)')
+    .action(async (service_names: string[]) => {
+        await sandbox.logs(service_names);
+    });
 
 //
 // SmartPy stuff
