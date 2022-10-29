@@ -165,6 +165,16 @@ chunkPlaceKeyType = sp.TRecord(
     chunk_id = sp.TNat
 ).layout(("place_key", "chunk_id"))
 
+placeDataParam = sp.TRecord(
+    place_key = placeKeyType,
+    chunk_ids = sp.TSet(sp.TNat)
+).layout(("place_key", "chunk_ids"))
+
+placeDataResultType = sp.TRecord(
+    place = placeStorageType,
+    chunks = sp.TMap(sp.TNat, chunkStorageType)
+).layout(("place", "chunks"))
+
 chunkMapType = sp.TBigMap(chunkPlaceKeyType, chunkStorageType)
 chunkMapLiteral = sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
 
@@ -1018,18 +1028,20 @@ class TL_World(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def get_place_data(self, place_key):
-        sp.set_type(place_key, placeKeyType)
-        with sp.set_result_type(placeStorageType):
-            sp.result(self.data.places.get(place_key, placeStorageDefault))
+    def get_place_data(self, params):
+        sp.set_type(params, placeDataParam)
+        with sp.set_result_type(placeDataResultType):
+            res = sp.local("res", sp.record(
+                place = self.data.places.get(params.place_key, placeStorageDefault),
+                chunks = {}))
 
+            with sp.for_("chunk_id", params.chunk_ids.elements()) as chunk_id:
+                res.value.chunks[chunk_id ] = self.data.chunks.get(sp.record(
+                    place_key = params.place_key,
+                    chunk_id = chunk_id
+                ), chunkStorageDefault)
 
-    # TODO: should return data in same view as get_place_data? maybe with selectable chunks?
-    @sp.onchain_view(pure=True)
-    def get_chunk_data(self, chunk_key):
-        sp.set_type(chunk_key, chunkPlaceKeyType)
-        with sp.set_result_type(chunkStorageType):
-            sp.result(self.data.chunks.get(chunk_key, chunkStorageDefault))
+            sp.result(res.value)
 
 
     @sp.onchain_view(pure=True)

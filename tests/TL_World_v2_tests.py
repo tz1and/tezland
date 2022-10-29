@@ -52,23 +52,25 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def token_amounts_in_storage(self, params):
-        sp.set_type(params.chunk_key, places_contract.chunkPlaceKeyType)
+        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
         sp.set_type(params.remove_map, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))))
 
-        world_data = sp.compute(self.world_get_chunk_data(params.world, params.chunk_key))
+        world_data = sp.compute(self.world_get_place_data(params.world, params.place_key, params.chunk_ids))
         # TODO: this is a bit fucked? key being token id?
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
         with sp.for_("issuer", params.remove_map.keys()) as issuer:
             with sp.for_("fa2", params.remove_map[issuer].keys()) as fa2:
-                fa2_store = world_data.stored_items[issuer][fa2]
-                with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
-                    with fa2_store[item_id].match_cases() as arg:
-                        with arg.match("item") as item:
-                            with sp.if_(token_amts.value.contains(item.token_id)):
-                                token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                            with sp.else_():
-                                token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
+                with sp.for_("chunk", world_data.chunks.values()) as chunk:
+                    fa2_store = chunk.stored_items[issuer][fa2]
+                    with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
+                        with fa2_store[item_id].match_cases() as arg:
+                            with arg.match("item") as item:
+                                with sp.if_(token_amts.value.contains(item.token_id)):
+                                    token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
+                                with sp.else_():
+                                    token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
 
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
@@ -103,19 +105,12 @@ class FA2_utils(sp.Contract):
         
         sp.result(True)
 
-    def world_get_place_data(self, world, place_key):
+    def world_get_place_data(self, world, place_key, chunk_ids):
         return sp.view("get_place_data", world,
             sp.set_type_expr(
-                place_key,
-                places_contract.placeKeyType),
-            t = places_contract.placeStorageType).open_some()
-
-    def world_get_chunk_data(self, world, place_key):
-        return sp.view("get_chunk_data", world,
-            sp.set_type_expr(
-                place_key,
-                places_contract.chunkPlaceKeyType),
-            t = places_contract.chunkStorageType).open_some()
+                sp.record(place_key = place_key, chunk_ids = chunk_ids),
+                places_contract.placeDataParam),
+            t = places_contract.placeDataResultType).open_some()
 
 
 
@@ -359,7 +354,7 @@ def test():
     def remove_items(chunk_key: places_contract.chunkPlaceKeyType, remove_map, sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none):
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
-            tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, chunk_key = chunk_key, remove_map = remove_map)))
+            tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, place_key = chunk_key.place_key, chunk_ids = sp.set([chunk_key.chunk_id]), remove_map = remove_map)))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
         
@@ -525,19 +520,25 @@ def test():
     scenario.h2("Place views")
 
     scenario.h3("Stored items")
-    place_data = world.get_place_data(place_alice)
-    chunk_data = world.get_chunk_data(place_alice_chunk_0)
-    scenario.verify(place_data.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
-    scenario.verify(chunk_data.stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
-    scenario.verify(chunk_data.stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
-    scenario.verify(chunk_data.stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
-    scenario.show(chunk_data)
+    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.set([0])))
+    scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
+    scenario.show(place_data)
+
+    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.set([0, 1])))
+    scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
+    scenario.verify(sp.len(place_data.chunks[1].stored_items) == 0)
+    scenario.show(place_data)
 
     empty_place_key = sp.record(place_contract = places_tokens.address, lot_id = sp.nat(5))
-    empty_chunk_key = sp.record(place_key = empty_place_key, chunk_id = 0)
-    chunk_data_empty = world.get_chunk_data(empty_chunk_key)
-    scenario.verify(sp.len(chunk_data_empty.stored_items) == 0)
-    scenario.show(chunk_data_empty)
+    place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.set([0])))
+    scenario.verify(sp.len(place_data.chunks[0].stored_items) == 0)
+    scenario.show(place_data)
 
     scenario.h3("Sequence numbers")
     sequence_number = scenario.compute(world.get_place_seqnum(place_alice))
