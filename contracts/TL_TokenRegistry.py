@@ -24,6 +24,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       might need a layer on top of the registry anyway, for the merkle tree stuff. can always add that later.
 #       both world and minter would then use registry to check for inclusion. probably cheaper for world to only call registry.
 #       Gotta see how it actually works out in terms of size.
+# TODO: finish get_token_royalties view
 # TODO: layouts!!!
 
 privateCollectionValueType = sp.TRecord(
@@ -68,6 +69,8 @@ t_ownership_check = sp.TRecord(
 t_registry_param = sp.TList(sp.TAddress)
 t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
 
+royaltiesLeafType = sp.TRecord(bla = sp.TString, otherbla = sp.TList(sp.TNat))
+
 #
 # Token registry contract.
 # NOTE: should be pausable for code updates.
@@ -83,15 +86,22 @@ class TL_TokenRegistry(
 
         royalties_merkle_root = sp.set_type_expr(royalties_merkle_root, sp.TBytes)
 
+        self.merkle_tree = MerkleTree(royaltiesLeafType)
+
         self.init_storage(
             private_collections = privateCollectionMapLiteral,
             public_collections = publicCollectionMapLiteral,
             collaborators = collaboratorsMapLiteral,
             royalties_merkle_root = royalties_merkle_root
         )
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
+
+        self.available_settings = [
+            ("royalties_merkle_root", sp.TBytes, None)
+        ]
+
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
         basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
@@ -138,6 +148,24 @@ class TL_TokenRegistry(
     #
     # Admin and permitted entry points
     #
+    @sp.entry_point(lazify = True)
+    def update_settings(self, params):
+        """Allows the administrator to update various settings.
+        
+        Parameters are metaprogrammed with self.available_settings"""
+        sp.set_type(params, sp.TList(sp.TVariant(
+            **{setting[0]: setting[1] for setting in self.available_settings})))
+
+        self.onlyAdministrator()
+
+        with sp.for_("update", params) as update:
+            with update.match_cases() as arg:
+                for setting in self.available_settings:
+                    with arg.match(setting[0]) as value:
+                        if setting[2] != None:
+                            setting[2](value)
+                        setattr(self.data, setting[0], value)
+
     @sp.entry_point(lazify = True)
     def manage_public_collections(self, params):
         """Admin or permitted can add/remove public collections in minter"""
@@ -287,3 +315,27 @@ class TL_TokenRegistry(
         with sp.set_result_type(sp.TBool):
             collection_props = self.data.private_collections.get(params.collection, message="INVALID_COLLECTION")
             sp.result((collection_props.owner == params.address) | (self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))))
+
+    @sp.onchain_view(pure=True)
+    def get_token_royalties(self, params):
+        sp.set_type(params, sp.TRecord(
+            fa2 = sp.TAddress,
+            token_id = sp.TNat,
+            merkle_proof = sp.TOption(self.merkle_tree.MerkleProofType)
+        ))
+
+        # If a merkle proof is supplied
+        with params.merkle_proof.match_cases() as arg:
+            with arg.match("Some") as merkle_proof_open:
+                # Verify that the computed merkle root from proof matches the actual merkle root
+                sp.verify(MerkleTree.compute_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf) == self.data.royalties_merkle_root,
+                    "INVALID_MERKLE_PROOF")
+
+                # TODO: return royalties from leaf.
+
+            with arg.match("None"):
+                # TODO: check if token is registered and valid, if it is, return royalties.
+                # based on roylties type defined in registry.
+                pass
+
+        sp.result(True)

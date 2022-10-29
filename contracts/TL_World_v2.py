@@ -868,7 +868,7 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
-            merkle_proof = sp.TOption(royaltiesLeafType),
+            merkle_proof = sp.TOption(self.merkle_tree.MerkleProofType),
             extension = extensionArgType
         ).layout(("chunk_key", ("owner", ("item_id", ("issuer", ("fa2", ("merkle_proof", "extension"))))))))
 

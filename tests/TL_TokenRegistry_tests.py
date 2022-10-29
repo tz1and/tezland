@@ -67,9 +67,9 @@ def test():
     scenario.verify(~token_registry.data.public_collections.contains(items_tokens.address))
 
     # only unpaused
-    token_registry.set_paused(True).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.set_paused(False).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
 
@@ -97,9 +97,9 @@ def test():
     scenario.verify(~token_registry.data.private_collections.contains(items_tokens.address))
 
     # only unpaused
-    token_registry.set_paused(True).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.set_paused(False).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
 
@@ -119,9 +119,9 @@ def test():
     token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
     scenario.verify(~token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
 
-    token_registry.set_paused(True).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.set_paused(False).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 
@@ -144,10 +144,10 @@ def test():
     token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
     token_registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NOT_PROPOSED_OWNER")
 
-    token_registry.set_paused(True).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = bob.address)).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
     token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.set_paused(False).run(sender = admin)
+    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
 
