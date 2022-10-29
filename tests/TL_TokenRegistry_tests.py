@@ -31,7 +31,7 @@ def test():
 
     # create token_registry contract
     scenario.h1("Test TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address, sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 

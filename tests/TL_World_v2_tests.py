@@ -149,7 +149,7 @@ def test():
     scenario += places_tokens
 
     scenario.h2("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    token_registry = token_registry_contract.TL_TokenRegistry(admin.address, sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
@@ -313,7 +313,13 @@ def test():
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
         prev_next_id = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).next_id)
-        world.place_items(chunk_key = chunk_key, owner = lot_owner, place_item_map = token_arr, send_to_place = send_to_place, extension = sp.none).run(sender = sender, valid = valid, exception = message)
+        world.place_items(
+            chunk_key = chunk_key,
+            owner = lot_owner,
+            place_item_map = token_arr,
+            send_to_place = send_to_place,
+            extension = sp.none
+        ).run(sender = sender, valid = valid, exception = message)
     
         if valid == True:
             # check seqnum
@@ -336,7 +342,15 @@ def test():
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
         prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
-        world.get_item(chunk_key = chunk_key, item_id = item_id, issuer = sp.some(issuer), owner = sp.none, fa2 = fa2, extension = sp.none).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
+        world.get_item(
+            chunk_key = chunk_key,
+            item_id = item_id,
+            issuer = sp.some(issuer),
+            owner = sp.none,
+            fa2 = fa2,
+            merkle_proof = sp.none,
+            extension = sp.none
+        ).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
     
         if valid == True:
             # check seqnum
@@ -359,7 +373,12 @@ def test():
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
         
         prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
-        world.remove_items(chunk_key = chunk_key, owner = lot_owner, remove_map = remove_map, extension = sp.none).run(sender = sender, valid = valid, exception = message)
+        world.remove_items(
+            chunk_key = chunk_key,
+            owner = lot_owner,
+            remove_map = remove_map,
+            extension = sp.none
+        ).run(sender = sender, valid = valid, exception = message)
         
         if valid == True:
             # check seqnum

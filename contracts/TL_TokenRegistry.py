@@ -4,6 +4,7 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -76,14 +77,17 @@ class TL_TokenRegistry(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, royalties_merkle_root, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
+
+        royalties_merkle_root = sp.set_type_expr(royalties_merkle_root, sp.TBytes)
 
         self.init_storage(
             private_collections = privateCollectionMapLiteral,
             public_collections = publicCollectionMapLiteral,
-            collaborators = collaboratorsMapLiteral
+            collaborators = collaboratorsMapLiteral,
+            royalties_merkle_root = royalties_merkle_root
         )
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
         basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)

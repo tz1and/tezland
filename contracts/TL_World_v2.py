@@ -12,6 +12,7 @@ mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -19,6 +20,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: get_place_data should take list of chunks to query. should return data in same view as get_place_data? maybe with selectable chunks?
 # TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
+#       + properly define the royalties type for the merkle proof stuff. probably the same as explicit royalties!
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
 # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
 #       at least in terms of what "type" of royalties.
@@ -267,6 +269,10 @@ migrationType = sp.TRecord(
     extension = extensionArgType
 ).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension"))))
 
+# royalties merkle tree types
+# TODO: properly define this type.
+royaltiesLeafType = sp.TRecord(address=sp.TAddress, value=sp.TNat).layout(("address", "value"))
+
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
 
@@ -393,6 +399,7 @@ class TL_World(
         self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
         self.token_transfer_map = utils.TokenTransferMap()
+        self.merkle_tree = MerkleTree(royaltiesLeafType)
 
         self.init_storage(
             token_registry = token_registry,
@@ -861,8 +868,9 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
+            merkle_proof = sp.TOption(royaltiesLeafType),
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("item_id", ("issuer", ("fa2", "extension")))))))
+        ).layout(("chunk_key", ("owner", ("item_id", ("issuer", ("fa2", ("merkle_proof", "extension"))))))))
 
         self.onlyUnpaused()
 
