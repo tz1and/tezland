@@ -4,14 +4,15 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
-MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
+merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 # TODO: store information about a contracts royalties?
 # TODO: convert tz1and royalties to the more common decimals and shares format? (see fa2 metadata)
-# TODO: add support for merkle tree to check for supported tokens? object.com, etc...
+# TODO: merkle tree for royalties - test
+# TODO: merkle tree for registry - test
 # TODO: can drastically optimise the size by not having the admin/contract metadata mixins. Maybe useful to optimise.
 # TODO: decide laziness of entrypoints...
 # TODO: should we address collections by id or by address???? shouldn't make a diff in bigmap keys...
@@ -25,6 +26,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       both world and minter would then use registry to check for inclusion. probably cheaper for world to only call registry.
 #       Gotta see how it actually works out in terms of size.
 # TODO: finish get_token_royalties view
+# TODO: test update_settings
 # TODO: layouts!!!
 
 privateCollectionValueType = sp.TRecord(
@@ -62,14 +64,20 @@ t_manage_collaborators = sp.TList(sp.TVariant(
         collaborators = sp.TList(sp.TAddress)).layout(("collection", "collaborators"))
 ).layout(("add_collaborators", "remove_collaborators")))
 
+# View params
 t_ownership_check = sp.TRecord(
     collection = sp.TAddress,
     address = sp.TAddress).layout(("collection", "address"))
 
 t_registry_param = sp.TList(sp.TAddress)
+t_registry_merkle_param = sp.TList(merkle_tree.t_fa2_with_merkle_proof)
 t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
 
-royaltiesLeafType = sp.TRecord(bla = sp.TString, otherbla = sp.TList(sp.TNat))
+t_get_token_royalties = sp.TRecord(
+    fa2 = sp.TAddress,
+    token_id = sp.TNat,
+    merkle_proof = sp.TOption(merkle_tree.royalties.MerkleProofType)
+).layout(("fa2", ("token_id", "merkle_proof")))
 
 #
 # Token registry contract.
@@ -80,23 +88,24 @@ class TL_TokenRegistry(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, royalties_merkle_root, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, royalties_merkle_root, collections_merkle_root, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         royalties_merkle_root = sp.set_type_expr(royalties_merkle_root, sp.TBytes)
-
-        self.merkle_tree = MerkleTree(royaltiesLeafType)
+        collections_merkle_root = sp.set_type_expr(collections_merkle_root, sp.TBytes)
 
         self.init_storage(
             private_collections = privateCollectionMapLiteral,
             public_collections = publicCollectionMapLiteral,
             collaborators = collaboratorsMapLiteral,
-            royalties_merkle_root = royalties_merkle_root
+            royalties_merkle_root = royalties_merkle_root,
+            collections_merkle_root = collections_merkle_root
         )
 
         self.available_settings = [
-            ("royalties_merkle_root", sp.TBytes, None)
+            ("royalties_merkle_root", sp.TBytes, None),
+            ("collections_merkle_root", sp.TBytes, None)
         ]
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
@@ -156,6 +165,9 @@ class TL_TokenRegistry(
         sp.set_type(params, sp.TList(sp.TVariant(
             **{setting[0]: setting[1] for setting in self.available_settings})))
 
+        # NOTE: Currently this means updating the merkle tree root nodes
+        # would require admin permissions, which is tricky, should this
+        # ever be automated. But in that case this ep can be upgraded.
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
@@ -266,12 +278,22 @@ class TL_TokenRegistry(
     def is_registered(self, contract_list):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns true if contract is registered, false otherwise."""
-        sp.set_type(contract_list, t_registry_param)
+        sp.set_type(contract_list, t_registry_merkle_param)
 
         with sp.set_result_type(t_registry_result):
             result_map = sp.local("result_map", {}, t_registry_result)
+
             with sp.for_("contract", contract_list) as contract:
-                result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
+                with contract.merkle_proof.match_cases() as arg:
+                    with arg.match("None"):
+                        result_map.value[contract.fa2] = self.data.private_collections.contains(contract.fa2) | self.data.public_collections.contains(contract.fa2)
+
+                    with arg.match("Some") as proof_open:
+                        # Make sure leaf matches input.
+                        sp.verify(contract.fa2 == merkle_tree.collections.unpack_leaf(proof_open.leaf), "LEAF_DATA_DOES_NOT_MATCH")
+                        # Registered state true if merkle proof is valid.
+                        result_map.value[contract.fa2] = merkle_tree.collections.validate_merkle_root(proof_open.proof, proof_open.leaf, self.data.collections_merkle_root)
+
             sp.result(result_map.value)
 
     @sp.onchain_view(pure=True)
@@ -318,24 +340,44 @@ class TL_TokenRegistry(
 
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, params):
-        sp.set_type(params, sp.TRecord(
-            fa2 = sp.TAddress,
-            token_id = sp.TNat,
-            merkle_proof = sp.TOption(self.merkle_tree.MerkleProofType)
-        ))
+        sp.set_type(params, t_get_token_royalties)
 
-        # If a merkle proof is supplied
-        with params.merkle_proof.match_cases() as arg:
-            with arg.match("Some") as merkle_proof_open:
-                # Verify that the computed merkle root from proof matches the actual merkle root
-                sp.verify(MerkleTree.compute_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf) == self.data.royalties_merkle_root,
-                    "INVALID_MERKLE_PROOF")
+        # returns v2 royalties format
+        with sp.set_result_type(FA2.t_royalties_v2):
+            # If a merkle proof is supplied
+            with params.merkle_proof.match_cases() as arg:
+                with arg.match("Some") as merkle_proof_open:
+                    # for which royalties are requested.
+                    # Verify that the computed merkle root from proof matches the actual merkle root
+                    sp.verify(merkle_tree.royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, self.data.royalties_merkle_root),
+                        "INVALID_MERKLE_PROOF")
 
-                # TODO: return royalties from leaf.
+                    # TODO: leaf should match fa and token id. so it can be varified against the token.
+                    unpacked_leaf = sp.compute(merkle_tree.royalties.unpack_leaf(merkle_proof_open.leaf))
+                    sp.verify((params.fa2 == unpacked_leaf.fa2) & (params.token_id == unpacked_leaf.token_id), "LEAF_DATA_DOES_NOT_MATCH")
 
-            with arg.match("None"):
-                # TODO: check if token is registered and valid, if it is, return royalties.
-                # based on roylties type defined in registry.
-                pass
+                    sp.result(unpacked_leaf.token_royalties)
 
-        sp.result(True)
+                with arg.match("None"):
+                    # TODO: check if token is registered and valid, if it is, return royalties.
+                    # based on roylties type defined in registry.
+                    #with sp.if_(is_v1_royalties):
+                    #    # TODO: convert v1 to v2 royalties.
+                    #    royalties = sp.none
+                    #    sp.result(royalties)
+                    #with sp.else_():
+                    with sp.if_(self.data.private_collections.contains(params.fa2) | self.data.public_collections.contains(params.fa2)):
+                        royalties = sp.compute(utils.tz1and_items_get_royalties(params.fa2, params.token_id))
+
+                        royalties_v2 = sp.local("royalties_v2", sp.record(decimals = 3, shares = []), FA2.t_royalties_v2)
+
+                        with sp.for_("contributor", royalties.contributors) as contributor:
+                            royalties_v2.value.shares.push(sp.record(
+                                address = contributor.address,
+                                share = contributor.relative_royalties * royalties.royalties / 1000))
+
+                        sp.result(royalties_v2.value)
+
+                        # TODO: if v2 royalties, just return those.
+                    with sp.else_():
+                        sp.failwith("INVALID_COLLECTION")

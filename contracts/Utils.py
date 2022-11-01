@@ -23,6 +23,13 @@ def send_if_value(to, amount):
     with sp.if_(amount > sp.tez(0)):
         sp.send(to, amount)
 
+def tenToThePowerOf(e):
+    sp.set_type(e, sp.TNat)
+    r = sp.local("r", 10)
+    with sp.for_("c", sp.range(1, e)):
+        r.value *= 10
+    return r.value
+
 
 #
 # Metaclass for token transfers.
@@ -42,6 +49,8 @@ class TokenTransferMap:
         sp.set_type(token_id, sp.TNat)
         sp.set_type(token_amount, sp.TNat)
 
+        # TODO: maybe do this instead:
+        # send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
         with sp.if_(transferMap.value[fa2].contains(token_id)):
             transferMap.value[fa2][token_id].amount += token_amount
         with sp.else_():
@@ -69,6 +78,13 @@ def tz1and_items_get_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
         t = FA2.t_royalties).open_some()
+
+#
+# tz1and fa2 extension royalties v2
+def tz1and_items_get_royalties_v2(fa2, token_id):
+    return sp.view("get_token_royalties", fa2,
+        sp.set_type_expr(token_id, sp.TNat),
+        t = FA2.t_royalties_v2).open_some()
 
 #
 # FA2 views

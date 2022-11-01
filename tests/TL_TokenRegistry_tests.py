@@ -4,7 +4,6 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
-# TODO: test is_private_owner etc views
 
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
 def test():
@@ -162,18 +161,23 @@ def test():
     # Test onchain views
     scenario.h2("Test views")
 
+    is_reg_data = sp.record(fa2 = items_tokens.address, merkle_proof = sp.none)
+
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered([items_tokens.address]), {items_tokens.address: True})
+    scenario.verify_equal(token_registry.is_registered([is_reg_data]), {items_tokens.address: True})
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered([items_tokens.address]), {items_tokens.address: False})
+    scenario.verify_equal(token_registry.is_registered([is_reg_data]), {items_tokens.address: False})
 
     token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered([items_tokens.address]), {items_tokens.address: True})
+    scenario.verify_equal(token_registry.is_registered([is_reg_data]), {items_tokens.address: True})
     token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered([items_tokens.address]), {items_tokens.address: False})
+    scenario.verify_equal(token_registry.is_registered([is_reg_data]), {items_tokens.address: False})
+
+    # TODO: test is_private_owner etc views
+    # TODO: test non-native tokens with merkle proof.
 
     scenario.table_of_contents()
