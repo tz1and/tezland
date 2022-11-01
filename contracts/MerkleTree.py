@@ -45,9 +45,3 @@ t_royalties_merkle_leaf = sp.TRecord(
 # Tree classes
 royalties = MerkleTree(t_royalties_merkle_leaf)
 collections = MerkleTree(sp.TAddress)
-
-# Other related types.
-t_fa2_with_merkle_proof = sp.TRecord(
-    fa2 = sp.TAddress,
-    merkle_proof = sp.TOption(collections.MerkleProofType)
-).layout(("fa2", "merkle_proof"))

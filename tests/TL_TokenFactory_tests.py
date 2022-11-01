@@ -83,7 +83,7 @@ def test():
 
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
-    scenario.verify_equal(token_registry.is_registered([sp.record(fa2 = dyn_collection_token.address, merkle_proof = sp.none)]), {dyn_collection_token.address: True})
+    scenario.verify_equal(token_registry.is_registered(sp.record(fa2_list = [dyn_collection_token.address], merkle_proofs = {})), {dyn_collection_token.address: True})
     scenario.verify_equal(token_registry.is_private_collection([dyn_collection_token.address]), {dyn_collection_token.address: True})
     scenario.verify_equal(token_registry.is_public_collection([dyn_collection_token.address]), {dyn_collection_token.address: False})
     scenario.verify(token_registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)

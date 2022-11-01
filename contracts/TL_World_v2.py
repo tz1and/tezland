@@ -260,7 +260,7 @@ seqNumResultType = sp.TRecord(
 ).layout(("place_seq_num", "chunk_seq_nums"))
 
 # Types for the migration ep.
-migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(merkle_tree.t_fa2_with_merkle_proof, sp.TList(extensibleVariantItemType)))
+migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))
 
 migrationType = sp.TRecord(
     place_key = placeKeyType,
@@ -580,10 +580,14 @@ class TL_World(
         sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
-    def getTokenRegistryInfo(self, fa2_list):
-        sp.set_type(fa2_list, sp.TList(merkle_tree.t_fa2_with_merkle_proof))
+    def getTokenRegistryInfo(self, fa2_list, merkle_proofs):
+        sp.set_type(fa2_list, registry_contract.t_registry_merkle_param.fa2_list)
+        sp.set_type(merkle_proofs, registry_contract.t_registry_merkle_param.merkle_proofs)
         registry_info = sp.local("registry_info", sp.view("is_registered", self.data.token_registry,
-            fa2_list, t = sp.TMap(sp.TAddress, sp.TBool)).open_some(sp.unit))
+            sp.set_type_expr(
+                sp.record(fa2_list = fa2_list, merkle_proofs = merkle_proofs),
+                registry_contract.t_registry_merkle_param),
+            t = sp.TMap(sp.TAddress, sp.TBool)).open_some(sp.unit))
         return registry_info.value
 
 
@@ -592,10 +596,11 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
-            place_item_map = sp.TMap(merkle_tree.t_fa2_with_merkle_proof, sp.TList(extensibleVariantItemType)),
+            place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
+            merkle_proofs = registry_contract.t_registry_merkle_param.merkle_proofs,
             send_to_place = sp.TBool,
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("place_item_map", ("send_to_place", "extension"))))))
+        ).layout(("chunk_key", ("owner", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension")))))))
 
         self.onlyUnpaused()
 
@@ -630,14 +635,14 @@ class TL_World(
         # Our token transfer map.
         transferMap = self.token_transfer_map.init()
 
-        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys())
+        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys(), params.merkle_proofs)
 
         # If tokens are sent to place, the issuer should be none, otherwise sender.
         issuer = sp.compute(sp.eif(params.send_to_place, sp.none, sp.some(sp.sender)))
 
         # For each fa2 in the map.
         with sp.for_("fa2_item", params.place_item_map.items()) as fa2_item:
-            fa2 = fa2_item.key.fa2
+            fa2 = fa2_item.key
 
             sp.verify(registry_info.get(fa2, default_value=False), self.error_message.token_not_registered())
 
@@ -989,10 +994,10 @@ class TL_World(
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
-                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys())
+                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), {})
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                    fa2 = fa2_item.key.fa2
+                    fa2 = fa2_item.key
 
                     sp.verify(registry_info.get(fa2, default_value=False), self.error_message.token_not_registered())
 

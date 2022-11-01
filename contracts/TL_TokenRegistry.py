@@ -70,7 +70,10 @@ t_ownership_check = sp.TRecord(
     address = sp.TAddress).layout(("collection", "address"))
 
 t_registry_param = sp.TList(sp.TAddress)
-t_registry_merkle_param = sp.TList(merkle_tree.t_fa2_with_merkle_proof)
+t_registry_merkle_param = sp.TRecord(
+    fa2_list = sp.TList(sp.TAddress),
+    merkle_proofs = sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)
+).layout(("fa2_list", "merkle_proofs"))
 t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
 
 t_get_token_royalties = sp.TRecord(
@@ -275,24 +278,26 @@ class TL_TokenRegistry(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def is_registered(self, contract_list):
+    def is_registered(self, params):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns true if contract is registered, false otherwise."""
-        sp.set_type(contract_list, t_registry_merkle_param)
+        sp.set_type(params, t_registry_merkle_param)
 
         with sp.set_result_type(t_registry_result):
             result_map = sp.local("result_map", {}, t_registry_result)
 
-            with sp.for_("contract", contract_list) as contract:
-                with contract.merkle_proof.match_cases() as arg:
+            with sp.for_("contract", params.fa2_list) as contract:
+                merkle_opt = params.merkle_proofs.get_opt(contract)
+
+                with merkle_opt.match_cases() as arg:
                     with arg.match("None"):
-                        result_map.value[contract.fa2] = self.data.private_collections.contains(contract.fa2) | self.data.public_collections.contains(contract.fa2)
+                        result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
 
                     with arg.match("Some") as proof_open:
                         # Make sure leaf matches input.
-                        sp.verify(contract.fa2 == merkle_tree.collections.unpack_leaf(proof_open.leaf), "LEAF_DATA_DOES_NOT_MATCH")
+                        sp.verify(contract == merkle_tree.collections.unpack_leaf(proof_open.leaf), "LEAF_DATA_DOES_NOT_MATCH")
                         # Registered state true if merkle proof is valid.
-                        result_map.value[contract.fa2] = merkle_tree.collections.validate_merkle_root(proof_open.proof, proof_open.leaf, self.data.collections_merkle_root)
+                        result_map.value[contract] = merkle_tree.collections.validate_merkle_root(proof_open.proof, proof_open.leaf, self.data.collections_merkle_root)
 
             sp.result(result_map.value)
 

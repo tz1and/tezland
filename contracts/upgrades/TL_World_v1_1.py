@@ -83,9 +83,8 @@ class TL_World_v1_1(world_contract.TL_World):
                         # Get item store - must exist.
                         item_store = issuer_item.value
 
-                        fa2_key = sp.record(fa2 = self.data.items_contract, merkle_proof = sp.none)
-                        migration_map.value[issuer_item.key] = sp.map({fa2_key: sp.list([])})
-                        current_list = migration_map.value[issuer_item.key][fa2_key]
+                        migration_map.value[issuer_item.key] = sp.map({self.data.items_contract: sp.list([])})
+                        current_list = migration_map.value[issuer_item.key][self.data.items_contract]
 
                         with sp.for_("item_variant", item_store.values()) as item_variant:
                             with item_variant.match_cases() as arg:
