@@ -91,7 +91,9 @@ export default class Upgrade extends PostUpgrade {
         {
             // Compile and deploy registry contract.
             await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
-                `administrator = sp.address("${this.accountAddress}")`
+                `administrator = sp.address("${this.accountAddress}")`,
+                `royalties_merkle_root = sp.bytes("0x00")`,
+                `collections_merkle_root = sp.bytes("0x00")`
             ]);
 
             Registry_contract = await this.deploy_contract("TL_TokenRegistry");
