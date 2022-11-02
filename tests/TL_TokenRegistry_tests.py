@@ -161,7 +161,7 @@ def test():
     # Test onchain views
     scenario.h2("Test views")
 
-    is_reg_param = sp.record(fa2_list = [items_tokens.address], merkle_proofs = {})
+    is_reg_param = sp.record(fa2_list = [items_tokens.address], merkle_proofs = sp.none)
 
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})

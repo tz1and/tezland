@@ -45,6 +45,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
+# TODO: consider moving the merkle inclusion code outside of views. would allow for upgrades to merkle stuff.
 
 
 # maybe?
@@ -598,7 +599,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
-            merkle_proofs = sp.TOption(registry_contract.t_registry_merkle_param.merkle_proofs),
+            merkle_proofs = registry_contract.t_registry_merkle_param.merkle_proofs,
             send_to_place = sp.TBool,
             extension = extensionArgType
         ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension"))))))
@@ -636,7 +637,7 @@ class TL_World(
         # Our token transfer map.
         transferMap = utils.FA2TokenTransferMap()
 
-        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys(), utils.openSomeOrDefault(params.merkle_proofs, {}))
+        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys(), params.merkle_proofs)
 
         # If tokens are sent to place, the issuer should be none, otherwise sender.
         issuer = sp.compute(sp.eif(params.send_to_place, sp.none, sp.some(sp.sender)))
@@ -967,7 +968,7 @@ class TL_World(
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
-                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), {})
+                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), sp.none)
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())

@@ -72,7 +72,7 @@ t_ownership_check = sp.TRecord(
 t_registry_param = sp.TList(sp.TAddress)
 t_registry_merkle_param = sp.TRecord(
     fa2_list = sp.TList(sp.TAddress),
-    merkle_proofs = sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)
+    merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType))
 ).layout(("fa2_list", "merkle_proofs"))
 t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
 
@@ -285,9 +285,10 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_registry_result):
             result_map = sp.local("result_map", {}, t_registry_result)
+            merkle_proofs = utils.openSomeOrDefault(params.merkle_proofs, {})
 
             with sp.for_("contract", params.fa2_list) as contract:
-                merkle_opt = params.merkle_proofs.get_opt(contract)
+                merkle_opt = merkle_proofs.get_opt(contract)
 
                 with merkle_opt.match_cases() as arg:
                     with arg.match("None"):
