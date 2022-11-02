@@ -37,7 +37,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: so many empty FAILWITHs. Optimise...
 # TODO: use open_some(unit) where it makes sense (views?)
 # TODO: special permission for sending items to place? Might be good.
-# TODO: add tests for issuerOrOwner and checkIssuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
+# TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
 # TODO: optional send_to address on swaps. to allow customising where tez are sent to.
 # TODO: I should look into re-distributing places. it would allow me to simplify some code quite a lot if you could query the owner of a specific place directly.
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
@@ -519,38 +519,32 @@ class TL_World(
     # Don't use private lambda because we need to be able to update code
     # Also, duplicating code is cheaper at runtime.
     @sp.inline_result
-    def getPermissionsInline(self, place_key, owner, permittee):
+    def getPermissionsInline(self, place_key, permittee):
         sp.set_type(place_key, placeKeyType)
-        sp.set_type(owner, sp.TOption(sp.TAddress))
         sp.set_type(permittee, sp.TAddress)
 
         # NOTE: no need to check if place contract is allowed in this world.
 
+        place_owner = sp.local("place_owner", utils.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+
         # If permittee is the owner, he has full permission.
-        with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, permittee) > sp.nat(0)):
-            sp.result(self.data.max_permission)
+        with sp.if_(place_owner.value == permittee):
+            sp.result(sp.pair(place_owner.value, self.data.max_permission))
+        # Else, query permissions.
         with sp.else_():
-            with owner.match_cases() as arg:
-                with arg.match("Some") as owner_open:
-                    with sp.if_(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner_open) > sp.nat(0)):
-                        sp.result(self.permission_map.get_octal(self.data.permissions,
-                            owner_open,
-                            permittee,
-                            place_key))
-                    with sp.else_():
-                        sp.result(permissionNone)
-                with arg.match("None"):
-                    sp.result(permissionNone)
+            sp.result(sp.pair(place_owner.value, self.permission_map.get_octal(self.data.permissions,
+                place_owner.value,
+                permittee,
+                place_key)))
 
 
     @sp.entry_point(lazify = True)
     def update_place_props(self, params):
         sp.set_type(params, sp.TRecord(
             place_key = placeKeyType,
-            owner = sp.TOption(sp.TAddress),
             prop_updates = sp.TList(setPlacePropsVariantType),
             extension = extensionArgType
-        ).layout(("place_key", ("owner", ("prop_updates", "extension")))))
+        ).layout(("place_key", ("prop_updates", "extension"))))
 
         self.onlyUnpaused()
 
@@ -558,7 +552,7 @@ class TL_World(
         self.onlyAllowedPlaceTokens(params.place_key.place_contract)
 
         # Caller must have Full permissions.
-        permissions = self.getPermissionsInline(params.place_key, params.owner, sp.sender)
+        permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # Get or create the place.
@@ -603,12 +597,11 @@ class TL_World(
     def place_items(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
-            owner = sp.TOption(sp.TAddress),
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
             merkle_proofs = sp.TOption(registry_contract.t_registry_merkle_param.merkle_proofs),
             send_to_place = sp.TBool,
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension")))))))
+        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension"))))))
 
         self.onlyUnpaused()
 
@@ -618,7 +611,7 @@ class TL_World(
         sp.verify(params.chunk_key.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
 
         # Caller must have PlaceItems permissions.
-        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
+        permissions = sp.snd(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
         # TODO: special permission for sending items to place? Might be good.
 
@@ -627,10 +620,10 @@ class TL_World(
         this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, params.chunk_key, this_place)
 
         # Count items in place item storage.
-        place_item_count = sp.local("place_item_count", sp.nat(0))
+        chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
         with sp.for_("issuer_map", this_chunk.stored_items.values()) as issuer_map:
             with sp.for_("token_map", issuer_map.values()) as token_map:
-                place_item_count.value += sp.len(token_map)
+                chunk_item_count.value += sp.len(token_map)
 
         # Count items to be added.
         add_item_count = sp.local("add_item_count", sp.nat(0))
@@ -638,7 +631,7 @@ class TL_World(
             add_item_count.value += sp.len(item_list)
 
         # Make sure chunk item limit is not exceeded.
-        sp.verify(place_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
+        sp.verify(chunk_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
         # Our token transfer map.
         transferMap = utils.FA2TokenTransferMap()
@@ -696,10 +689,9 @@ class TL_World(
     def set_item_data(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
-            owner = sp.TOption(sp.TAddress),
             update_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("update_map", "extension")))))
+        ).layout(("chunk_key", ("update_map", "extension"))))
 
         self.onlyUnpaused()
 
@@ -710,7 +702,7 @@ class TL_World(
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
+        permissions = sp.snd(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
@@ -742,21 +734,13 @@ class TL_World(
         this_chunk.interaction_counter += 1
 
 
-    def issuerOrOwner(self, issuer, owner):
-        sp.set_type(issuer, sp.TOption(sp.TAddress))
-        sp.set_type(owner, sp.TOption(sp.TAddress))
-        return utils.openSomeOrDefault(issuer, owner.open_some(sp.unit))
-        #sp.result(sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit)))
-
-
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
-            owner = sp.TOption(sp.TAddress),
             remove_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("remove_map", "extension")))))
+        ).layout(("chunk_key", ("remove_map", "extension"))))
 
         self.onlyUnpaused()
 
@@ -767,7 +751,7 @@ class TL_World(
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = self.getPermissionsInline(params.chunk_key.place_key, params.owner, sp.sender)
+        owner, permissions = sp.match_pair(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
@@ -780,6 +764,8 @@ class TL_World(
 
         # Remove items.
         with sp.for_("issuer_item", params.remove_map.items()) as issuer_item:
+            item_owner = utils.openSomeOrDefault(issuer_item.key, owner)
+
             with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                 item_list = fa2_item.value
 
@@ -794,7 +780,7 @@ class TL_World(
                             # Transfer items back to issuer/owner
                             transferMap.add_token(
                                 fa2_item.key,
-                                self.issuerOrOwner(issuer_item.key, params.owner),
+                                item_owner,
                                 the_item.token_id, the_item.token_amount)
 
                         # Nothing to do here with ext items. Just remove them.
@@ -844,17 +830,13 @@ class TL_World(
         sendMap.transfer()
 
 
-    # Inline function for checking if issuer is set or owner is set to place owner.
-    def checkIssuerOrPlaceOwnerInline(self, place_key, issuer, owner):
+    # Inline function for getting the owner of an item (either issuer or place owner).
+    def issuerOrPlaceOwnerInline(self, place_key, issuer):
         sp.set_type(place_key, placeKeyType)
         sp.set_type(issuer, sp.TOption(sp.TAddress))
-        sp.set_type(owner, sp.TOption(sp.TAddress))
 
-        # TODO: do we need to check if place is allowed in world?
-
-        with sp.if_(issuer.is_none()):
-            owner_open = owner.open_some(self.error_message.unknown_owner())
-            sp.verify(utils.fa2_get_balance(place_key.place_contract, place_key.lot_id, owner_open) > 0, self.error_message.not_owner())
+        # the item owner is either the issuer (when set), or the place owner.
+        return utils.openSomeOrDefault(issuer, utils.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
 
 
     def getTokenRoyalties(self, fa2, token_id, merkle_proof_royalties):
@@ -874,22 +856,21 @@ class TL_World(
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
-            owner = sp.TOption(sp.TAddress), # TODO: rename all owner references to place_owner?
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
             merkle_proof_royalties = sp.TOption(merkle_tree.royalties.MerkleProofType), # TODO: use it with registry get_royalties
             extension = extensionArgType
-        ).layout(("chunk_key", ("owner", ("item_id", ("issuer", ("fa2", ("merkle_proof_royalties", "extension"))))))))
+        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", ("merkle_proof_royalties", "extension")))))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # If the issuer is none, owner must be set AND be the place owner.
+        # If the issuer is none, the owner is the place owner.
         # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
-        self.checkIssuerOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer, params.owner)
+        item_owner = self.issuerOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer)
 
         # Get the chunk - must exist.
         this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
@@ -916,7 +897,7 @@ class TL_World(
                     item_royalty_info = self.getTokenRoyalties(params.fa2, the_item.value.token_id, params.merkle_proof_royalties)
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.amount, self.issuerOrOwner(params.issuer, params.owner), item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
@@ -1086,7 +1067,7 @@ class TL_World(
     def get_permissions(self, query):
         sp.set_type(query, sp.TRecord(
             place_key = placeKeyType,
-            owner = sp.TOption(sp.TAddress),
             permittee = sp.TAddress
-        ).layout(("place_key", ("owner", "permittee"))))
-        sp.result(self.getPermissionsInline(query.place_key, query.owner, query.permittee))
+        ).layout(("place_key", "permittee")))
+        with sp.set_result_type(sp.TNat):
+            sp.result(sp.snd(self.getPermissionsInline(query.place_key, query.permittee)))

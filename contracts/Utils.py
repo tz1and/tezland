@@ -121,6 +121,15 @@ def fa2_get_balance(fa2, token_id, owner):
             ).layout(("owner", "token_id"))),
         t = sp.TNat).open_some()
 
+#
+# FA2 views
+def fa2_nft_get_owner(fa2, token_id):
+    return sp.view("get_owner", fa2,
+        sp.set_type_expr(
+            token_id,
+            sp.TNat),
+        t = sp.TAddress).open_some()
+
 # Not used, World now has it's own operators set.
 #def fa2_is_operator(self, fa2, token_id, owner, operator):
 #    return sp.view("is_operator", fa2,
