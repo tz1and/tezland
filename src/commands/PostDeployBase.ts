@@ -62,7 +62,7 @@ export default class PostDeployBase extends DeployBase {
         //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
         //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
         // TODO: figure out how to actually calculate burn.
-        const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 100 / 1000000;
+        const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 250 / 1000000;
         const totalFee = receipt.totalFee.toNumber() / 1000000;
         //const totalGas = receipt.totalGas.toNumber() / 1000000;
         //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
