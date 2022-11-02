@@ -30,20 +30,28 @@ def tenToThePowerOf(e):
         r.value *= 10
     return r.value
 
+@sp.inline_result
+def openSomeOrDefault(e: sp.TOption, default):
+    with e.match_cases() as arg:
+        with arg.match("None"):
+            sp.result(default)
+        with arg.match("Some") as open:
+            sp.result(open)
+
 
 #
-# Metaclass for token transfers.
-class TokenTransferMap:
-    def init(self):
-        return sp.local("transferMap", sp.map(tkey = sp.TAddress, tvalue = sp.TMap(sp.TNat, FA2.t_transfer_tx)))
+# Class for fa2 token transfers.
+class FA2TokenTransferMap:
+    def __init__(self):
+        self.internal_map = sp.local("transferMap", sp.map(tkey = sp.TAddress, tvalue = sp.TMap(sp.TNat, FA2.t_transfer_tx)))
 
-    def add_fa2(self, transferMap, fa2):
+    def add_fa2(self, fa2):
         sp.set_type(fa2, sp.TAddress)
 
-        with sp.if_(~transferMap.value.contains(fa2)):
-            transferMap.value[fa2] = {}
+        with sp.if_(~self.internal_map.value.contains(fa2)):
+            self.internal_map.value[fa2] = {}
 
-    def add_token(self, transferMap, fa2, to_, token_id, token_amount):
+    def add_token(self, fa2, to_, token_id, token_amount):
         sp.set_type(fa2, sp.TAddress)
         sp.set_type(to_, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
@@ -51,18 +59,33 @@ class TokenTransferMap:
 
         # TODO: maybe do this instead:
         # send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
-        with sp.if_(transferMap.value[fa2].contains(token_id)):
-            transferMap.value[fa2][token_id].amount += token_amount
+        with sp.if_(self.internal_map.value[fa2].contains(token_id)):
+            self.internal_map.value[fa2][token_id].amount += token_amount
         with sp.else_():
-            transferMap.value[fa2][token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
+            self.internal_map.value[fa2][token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
 
-    def transfer_tokens(self, transferMap, from_):
+    def transfer_tokens(self, from_):
         sp.set_type(from_, sp.TAddress)
 
-        with sp.for_("transfer_item", transferMap.value.items()) as transfer_item:
+        with sp.for_("transfer_item", self.internal_map.value.items()) as transfer_item:
             with sp.if_(sp.len(transfer_item.value) > 0):
                 fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.values())
 
+
+#
+# Class for native token transfers.
+class TokenSendMap:
+    def __init__(self):
+        self.internal_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
+
+    def add(self, address, amount):
+        sp.set_type(address, sp.TAddress)
+        sp.set_type(amount, sp.TMutez)
+        self.internal_map.value[address] = self.internal_map.value.get(address, sp.mutez(0)) + amount
+
+    def transfer(self):
+        with sp.for_("send", self.internal_map.value.items()) as send:
+            send_if_value(send.key, send.value)
 
 #
 # Validate IPFS Uri

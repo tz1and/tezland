@@ -397,7 +397,6 @@ class TL_World(
         self.place_store_map = Place_store_map()
         self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
-        self.token_transfer_map = utils.TokenTransferMap()
 
         self.init_storage(
             token_registry = token_registry,
@@ -597,7 +596,7 @@ class TL_World(
             chunk_key =  chunkPlaceKeyType,
             owner = sp.TOption(sp.TAddress),
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
-            merkle_proofs = registry_contract.t_registry_merkle_param.merkle_proofs,
+            merkle_proofs = sp.TOption(registry_contract.t_registry_merkle_param.merkle_proofs),
             send_to_place = sp.TBool,
             extension = extensionArgType
         ).layout(("chunk_key", ("owner", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension")))))))
@@ -633,25 +632,23 @@ class TL_World(
         sp.verify(place_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
         # Our token transfer map.
-        transferMap = self.token_transfer_map.init()
+        transferMap = utils.FA2TokenTransferMap()
 
-        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys(), params.merkle_proofs)
+        registry_info = self.getTokenRegistryInfo(params.place_item_map.keys(), utils.openSomeOrDefault(params.merkle_proofs, {}))
 
         # If tokens are sent to place, the issuer should be none, otherwise sender.
         issuer = sp.compute(sp.eif(params.send_to_place, sp.none, sp.some(sp.sender)))
 
         # For each fa2 in the map.
         with sp.for_("fa2_item", params.place_item_map.items()) as fa2_item:
-            fa2 = fa2_item.key
-
-            sp.verify(registry_info.get(fa2, default_value=False), self.error_message.token_not_registered())
+            sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
             item_list = fa2_item.value
 
             # Get or create item storage.
-            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2)
+            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2_item.key)
 
-            self.token_transfer_map.add_fa2(transferMap, fa2)
+            transferMap.add_fa2(fa2_item.key)
 
             # For each item in the list.
             with sp.for_("curr", item_list) as curr:
@@ -669,7 +666,7 @@ class TL_World(
                         #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                         # Transfer item to this contract.
-                        self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
+                        transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
 
                     with arg.match("ext") as ext_data:
                         self.validateItemData(ext_data)
@@ -681,7 +678,7 @@ class TL_World(
                 this_chunk.next_id += 1
 
         # Transfer the tokens.
-        self.token_transfer_map.transfer_tokens(transferMap, sp.sender)
+        transferMap.transfer_tokens(sp.sender)
 
         # Don't increment chunk interaction counter, as next_id changes.
 
@@ -781,7 +778,7 @@ class TL_World(
                 sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Token transfer map.
-        transferMap = self.token_transfer_map.init()
+        transferMap = utils.FA2TokenTransferMap()
 
         # Remove items.
         with sp.for_("issuer_item", params.remove_map.items()) as issuer_item:
@@ -791,14 +788,14 @@ class TL_World(
                 # Get item store - must exist.
                 item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
 
-                self.token_transfer_map.add_fa2(transferMap, fa2_item.key)
+                transferMap.add_fa2(fa2_item.key)
                 
                 with sp.for_("curr", item_list) as curr:
                     with item_store[curr].match_cases() as arg:
                         with arg.match("item") as the_item:
                             # Transfer items back to issuer/owner
-                            self.token_transfer_map.add_token(
-                                transferMap, fa2_item.key,
+                            transferMap.add_token(
+                                fa2_item.key,
                                 self.issuerOrOwner(issuer_item.key, params.owner),
                                 the_item.token_id, the_item.token_amount)
 
@@ -811,7 +808,7 @@ class TL_World(
                 self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer_item.key, fa2_item.key)
 
         # Transfer tokens.
-        self.token_transfer_map.transfer_tokens(transferMap, sp.self_address)
+        transferMap.transfer_tokens(sp.self_address)
 
         # Increment chunk interaction counter, as next_id does not change.
         this_chunk.interaction_counter += 1
@@ -824,9 +821,7 @@ class TL_World(
         sp.set_type(item_royalty_info, FA2.t_royalties_v2)
 
         # Collect amounts to send in a map.
-        send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
-        def addToSendMap(address, amount):
-            send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
+        sendMap = utils.TokenSendMap()
 
         # Calculate total quantity for royalties calc
         total_quantity = sp.local("total_quantity", utils.tenToThePowerOf(item_royalty_info.decimals))
@@ -836,20 +831,19 @@ class TL_World(
         with sp.for_("share", item_royalty_info.shares) as share:
             # Calculate amount to be paid from absolute share.
             share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, total_quantity.value))
-            addToSendMap(share.address, share_mutez)
+            sendMap.add(share.address, share_mutez)
             total_royalties.value += share_mutez
 
         # Our fees are in permille.
         fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, 1000))
-        addToSendMap(self.data.fees_to, fees_amount)
+        sendMap.add(self.data.fees_to, fees_amount)
 
         # Send rest of the value to seller.
         left_amount = mutez_per_token - fees_amount - total_royalties.value
-        addToSendMap(issuer_or_place_owner, left_amount)
+        sendMap.add(issuer_or_place_owner, left_amount)
 
         # Transfer.
-        with sp.for_("send", send_map.value.items()) as send:
-            utils.send_if_value(send.key, send.value)
+        sendMap.transfer()
 
 
     # Inline function for checking if issuer is set or owner is set to place owner.
@@ -990,23 +984,21 @@ class TL_World(
 
             # Our token transfer map.
             # Since all transfers come from migration_contract, we can have single map.
-            transferMap = self.token_transfer_map.init()
+            transferMap = utils.FA2TokenTransferMap()
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
                 registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), {})
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                    fa2 = fa2_item.key
+                    sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-                    sp.verify(registry_info.get(fa2, default_value=False), self.error_message.token_not_registered())
-
-                    self.token_transfer_map.add_fa2(transferMap, fa2)
+                    transferMap.add_fa2(fa2_item.key)
 
                     item_list = fa2_item.value
 
                     # Get or create item storage.
-                    item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2)
+                    item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                     # For each item in the list.
                     with sp.for_("curr", item_list) as curr:
@@ -1015,7 +1007,7 @@ class TL_World(
                             # Remove itemstore if empty. Can happen in some cases,
                             # because the item store is created at the beginning of a token loop.
                             # Alternatively we could call item_store_map.get_or_create() inside the loop.
-                            self.item_store_map.remove_if_empty(this_chunk.stored_items, sp.some(issuer_item.key), fa2)
+                            self.item_store_map.remove_if_empty(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                             # Reset counters and increment current chunk.
                             add_item_count.value = sp.nat(0)
@@ -1024,7 +1016,7 @@ class TL_World(
 
                             # update chunk and item storage
                             this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
-                            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2)
+                            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                         with curr.match_cases() as arg:
                             with arg.match("item") as item:
@@ -1032,7 +1024,7 @@ class TL_World(
 
                                 # transfer item to this contract
                                 # do multi-transfer by building up a list of transfers
-                                self.token_transfer_map.add_token(transferMap, fa2, sp.self_address, item.token_id, item.token_amount)
+                                transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
@@ -1047,7 +1039,7 @@ class TL_World(
                         add_item_count.value += sp.nat(1)
 
             # Transfer if list has items.
-            self.token_transfer_map.transfer_tokens(transferMap, sp.sender)
+            transferMap.transfer_tokens(sp.sender)
 
             # Don't increment chunk interaction counter, as chunks must be new.
 

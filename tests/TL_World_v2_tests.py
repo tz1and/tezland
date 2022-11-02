@@ -305,8 +305,15 @@ def test():
 
     # utility function for checking correctness of placing item using the FA2_utils contract
     # TODO: also check item id is in map now
-    def place_items(chunk_key: places_contract.chunkPlaceKeyType, token_arr: sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)),
-        sender: sp.TestAccount, valid: bool = True, message: str = None, lot_owner: sp.TOption = sp.none, send_to_place: sp.TBool = False):
+    def place_items(
+        chunk_key: places_contract.chunkPlaceKeyType,
+        token_arr: sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)),
+        sender: sp.TestAccount,
+        valid: bool = True,
+        message: str = None,
+        lot_owner: sp.TOption = sp.none,
+        send_to_place: sp.TBool = False,
+        merkle_proofs: sp.TOption(token_registry_contract.t_registry_merkle_param.merkle_proofs) = sp.none):
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums.get(chunk_key.chunk_id, sp.bytes("0x00")))
@@ -319,7 +326,7 @@ def test():
             chunk_key = chunk_key,
             owner = lot_owner,
             place_item_map = token_arr,
-            merkle_proofs = {},
+            merkle_proofs = merkle_proofs,
             send_to_place = send_to_place,
             extension = sp.none
         ).run(sender = sender, valid = valid, exception = message)
