@@ -96,7 +96,8 @@ class TL_World_v1_1(world_contract.TL_World):
                                         token_amount = item.item_amount,
                                         token_id = item.token_id,
                                         mutez_per_token = item.mutez_per_item,
-                                        item_data = item.item_data)))
+                                        item_data = item.item_data,
+                                        send_to = sp.none)))
                                 with arg.match("other"):
                                     sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
                                 with arg.match("ext") as ext:

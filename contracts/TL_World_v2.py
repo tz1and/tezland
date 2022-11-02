@@ -38,6 +38,14 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: use open_some(unit) where it makes sense (views?)
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests for issuerOrOwner and checkIssuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
+# TODO: optional send_to address on swaps. to allow customising where tez are sent to.
+# TODO: I should look into re-distributing places. it would allow me to simplify some code quite a lot if you could query the owner of a specific place directly.
+# TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
+#       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
+#       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
+#       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
+#       Can also have a global optional "send to" address in the place that can be set by the auction contract.
+
 
 # maybe?
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -83,7 +91,8 @@ itemRecordType = sp.TRecord(
     token_amount=sp.TNat, # number of fa2 tokens to store.
     mutez_per_token=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
-).layout(("token_id", ("token_amount", ("mutez_per_token", "item_data"))))
+    send_to=sp.TOption(sp.TAddress), # where to send the tez
+).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "send_to")))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
@@ -733,23 +742,12 @@ class TL_World(
         this_chunk.interaction_counter += 1
 
 
-    @sp.inline_result
     def issuerOrOwner(self, issuer, owner):
         sp.set_type(issuer, sp.TOption(sp.TAddress))
         sp.set_type(owner, sp.TOption(sp.TAddress))
-        sp.result(sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit)))
-        #return sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit))
+        return utils.openSomeOrDefault(issuer, owner.open_some(sp.unit))
+        #sp.result(sp.eif(issuer.is_some(), issuer.open_some(sp.unit), owner.open_some(sp.unit)))
 
-        # NOTE: this saves 2 bytes in storage overall. but whatever.
-        #with issuer.match_cases() as issuer_arg:
-        #    with issuer_arg.match("Some", "issuer_open") as issuer_open:
-        #        sp.result(issuer_open)
-        #    with issuer_arg.match("None", "issuer_none"):
-        #        with owner.match_cases() as owner_arg:
-        #            with owner_arg.match("Some", "owner_open") as owner_open:
-        #                sp.result(owner_open)
-        #            with issuer_arg.match("None", "owner_none"):
-        #                sp.failwith(sp.unit)
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
