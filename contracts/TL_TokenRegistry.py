@@ -98,7 +98,7 @@ def getTokenRegistryInfo(token_registry_contract, fa2_list, merkle_proofs = sp.n
         sp.set_type_expr(
             fa2_list,
             t_registry_param),
-        t = t_registry_result_with_merkle_root).open_some(sp.unit))
+        t = t_registry_result_with_merkle_root).open_some())
 
     if check_merkle_proofs:
         with merkle_proofs.match("Some") as merkle_proofs_open:
@@ -119,7 +119,7 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
     sp.set_type(token_id, sp.TNat)
     sp.set_type(merkle_proof_royalties, sp.TOption(merkle_tree.royalties.MerkleProofType))
     royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", token_registry_contract,
-        fa2, t = t_get_royalties_type_result).open_some(sp.unit))
+        fa2, t = t_get_royalties_type_result).open_some())
 
     with sp.if_(royalties_type.value.royalties_version == 0):
         merkle_proof_open = merkle_proof_royalties.open_some("NO_MERKLE_PROOF")

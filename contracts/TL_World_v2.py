@@ -39,7 +39,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
 # TODO: optional send_to address on swaps. to allow customising where tez are sent to.
-# TODO: I should look into re-distributing places. it would allow me to simplify some code quite a lot if you could query the owner of a specific place directly.
+# TODO: re-distributing places. added get_owner view
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
 #       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
