@@ -41,12 +41,11 @@ class FA2_utils(sp.Contract):
         with sp.for_("fa2", params.keys()) as fa2_key:
             item_list = params[fa2_key]
             with sp.for_("curr", item_list) as curr:
-                with curr.match_cases() as arg:
-                    with arg.match("item") as item:
-                        with sp.if_(token_amts.value.contains(item.token_id)):
-                            token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                        with sp.else_():
-                            token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2_key)
+                with curr.match("item") as item:
+                    with sp.if_(token_amts.value.contains(item.token_id)):
+                        token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
+                    with sp.else_():
+                        token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2_key)
         
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
@@ -66,12 +65,11 @@ class FA2_utils(sp.Contract):
                 with sp.for_("chunk", world_data.chunks.values()) as chunk:
                     fa2_store = chunk.stored_items[issuer][fa2]
                     with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
-                        with fa2_store[item_id].match_cases() as arg:
-                            with arg.match("item") as item:
-                                with sp.if_(token_amts.value.contains(item.token_id)):
-                                    token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                                with sp.else_():
-                                    token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
+                        with fa2_store[item_id].match("item") as item:
+                            with sp.if_(token_amts.value.contains(item.token_id)):
+                                token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
+                            with sp.else_():
+                                token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
 
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)

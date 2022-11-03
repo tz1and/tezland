@@ -71,48 +71,47 @@ class TL_World_v1_1(world_contract.TL_World):
         this_place_opt = self.data.places.get_opt(params.lot_id)
 
         # Do nothing for empty places.
-        with this_place_opt.match_cases() as arg:
-            with arg.match("Some") as this_place:
-                # Only migrate place has items or the props have been changed.
-                with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, worldv2_contract.defaultPlaceProps)):
-                    migration_map = sp.local("migration_map", {}, worldv2_contract.migrationItemMapType)
-                    token_id_set = sp.local("token_id_set", sp.set([]), sp.TSet(sp.TNat))
+        with this_place_opt.match("Some") as this_place:
+            # Only migrate place has items or the props have been changed.
+            with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, worldv2_contract.defaultPlaceProps)):
+                migration_map = sp.local("migration_map", {}, worldv2_contract.migrationItemMapType)
+                token_id_set = sp.local("token_id_set", sp.set([]), sp.TSet(sp.TNat))
 
-                    # Fill migration map with items from storage
-                    with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
-                        # Get item store - must exist.
-                        item_store = issuer_item.value
+                # Fill migration map with items from storage
+                with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
+                    # Get item store - must exist.
+                    item_store = issuer_item.value
 
-                        migration_map.value[issuer_item.key] = sp.map({self.data.items_contract: sp.list([])})
-                        current_list = migration_map.value[issuer_item.key][self.data.items_contract]
+                    migration_map.value[issuer_item.key] = sp.map({self.data.items_contract: sp.list([])})
+                    current_list = migration_map.value[issuer_item.key][self.data.items_contract]
 
-                        with sp.for_("item_variant", item_store.values()) as item_variant:
-                            with item_variant.match_cases() as arg:
-                                with arg.match("item") as item:
-                                    # Add to token_id_set for adhoc operators.
-                                    token_id_set.value.add(item.token_id)
-                                    # Add item to migration list.
-                                    current_list.push(sp.variant("item", sp.record(
-                                        token_amount = item.item_amount,
-                                        token_id = item.token_id,
-                                        mutez_per_token = item.mutez_per_item,
-                                        item_data = item.item_data,
-                                        send_to = sp.none)))
-                                with arg.match("other"):
-                                    sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
-                                with arg.match("ext") as ext:
-                                    current_list.push(sp.variant("ext", ext))
+                    with sp.for_("item_variant", item_store.values()) as item_variant:
+                        with item_variant.match_cases() as arg:
+                            with arg.match("item") as item:
+                                # Add to token_id_set for adhoc operators.
+                                token_id_set.value.add(item.token_id)
+                                # Add item to migration list.
+                                current_list.push(sp.variant("item", sp.record(
+                                    token_amount = item.item_amount,
+                                    token_id = item.token_id,
+                                    mutez_per_token = item.mutez_per_item,
+                                    item_data = item.item_data,
+                                    send_to = sp.none)))
+                            with arg.match("other"):
+                                sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
+                            with arg.match("ext") as ext:
+                                current_list.push(sp.variant("ext", ext))
 
-                    # Update adhoc operators.
-                    with sp.if_(sp.len(token_id_set.value) > 0):
-                        self.update_adhoc_operators(self.data.items_contract, token_id_set.value)
+                # Update adhoc operators.
+                with sp.if_(sp.len(token_id_set.value) > 0):
+                    self.update_adhoc_operators(self.data.items_contract, token_id_set.value)
 
-                    # Send migration to world v2.
-                    # NOTE: still have to send migration even if map is empty, for the props.
-                    self.send_migration(self.migrate_to_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
+                # Send migration to world v2.
+                # NOTE: still have to send migration even if map is empty, for the props.
+                self.send_migration(self.migrate_to_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
 
-                # Finally, delete the place from storage.
-                del self.data.places[params.lot_id]
+            # Finally, delete the place from storage.
+            del self.data.places[params.lot_id]
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):

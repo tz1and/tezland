@@ -595,13 +595,12 @@ class TL_World(
             t = registry_contract.t_registry_result_with_merkle_root).open_some(sp.unit))
 
         if check_merkle_proofs:
-            with merkle_proofs.match_cases() as arg:
-                with arg.match("Some") as merkle_proofs_open:
-                    with sp.for_("item", merkle_proofs_open.items()) as item:
-                        # Make sure leaf matches input.
-                        sp.verify(item.key == merkle_tree.collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
-                        # Registered state true if merkle proof is valid.
-                        registry_info.value.result_map[item.key] = merkle_tree.collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
+            with merkle_proofs.match("Some") as merkle_proofs_open:
+                with sp.for_("item", merkle_proofs_open.items()) as item:
+                    # Make sure leaf matches input.
+                    sp.verify(item.key == merkle_tree.collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
+                    # Registered state true if merkle proof is valid.
+                    registry_info.value.result_map[item.key] = merkle_tree.collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
         
         sp.result(registry_info.value.result_map)
 
@@ -788,16 +787,14 @@ class TL_World(
                 transferMap.add_fa2(fa2_item.key)
                 
                 with sp.for_("curr", item_list) as curr:
-                    with item_store[curr].match_cases() as arg:
-                        with arg.match("item") as the_item:
-                            # Transfer items back to issuer/owner
-                            transferMap.add_token(
-                                fa2_item.key,
-                                item_owner,
-                                the_item.token_id, the_item.token_amount)
+                    # Nothing to do here with ext items. Just remove them.
+                    with item_store[curr].match("item") as the_item:
+                        # Transfer items back to issuer/owner
+                        transferMap.add_token(
+                            fa2_item.key,
+                            item_owner,
+                            the_item.token_id, the_item.token_amount)
 
-                        # Nothing to do here with ext items. Just remove them.
-                    
                     # Delete item from storage.
                     del item_store[curr]
 

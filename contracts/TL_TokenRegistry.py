@@ -356,9 +356,8 @@ class TL_TokenRegistry(
                 with public_arg.match("None", "public_none"):
                     private_opt = self.data.private_collections.get_opt(fa2)
 
-                    with private_opt.match_cases() as private_arg:
-                        with private_arg.match("Some") as private_some:
-                            royalties_version.value = private_some.royalties_version
+                    with private_opt.match("Some") as private_some:
+                        royalties_version.value = private_some.royalties_version
 
             sp.result(sp.record(
                 royalties_version = royalties_version.value,
