@@ -426,3 +426,11 @@ class TL_TokenRegistry(
             sp.result(sp.record(
                 royalties_version = royalties_version.value,
                 merkle_root = self.data.royalties_merkle_root))
+
+    @sp.onchain_view(pure=True)
+    def get_collections_merkle_root(self):
+        sp.result(self.data.collections_merkle_root)
+
+    @sp.onchain_view(pure=True)
+    def get_royalties_merkle_root(self):
+        sp.result(self.data.royalties_merkle_root)

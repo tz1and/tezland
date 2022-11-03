@@ -45,7 +45,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
-# TODO: !!!consider moving the merkle inclusion code outside of views. would allow for upgrades to merkle stuff.!!! current task
 
 
 # maybe?
