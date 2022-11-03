@@ -5,7 +5,6 @@ token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFa
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-fa2_test_lib = sp.io.import_script_from_url("file:tests/lib/FA2_test_lib.py")
 merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 

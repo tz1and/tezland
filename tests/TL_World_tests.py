@@ -3,7 +3,6 @@ import smartpy as sp
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-fa2_test_lib = sp.io.import_script_from_url("file:tests/lib/FA2_test_lib.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 

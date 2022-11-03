@@ -14,7 +14,7 @@ permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+
 
 class Error_message:
     def __init__(self):
