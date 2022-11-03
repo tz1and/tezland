@@ -190,7 +190,7 @@ def test():
     scenario.h3("transfer/register/mint items tokens in minter")
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    token_registry.manage_public_collections([sp.variant("add_collections", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
@@ -312,7 +312,7 @@ def test():
         valid: bool = True,
         message: str = None,
         send_to_place: sp.TBool = False,
-        merkle_proofs: sp.TOption(token_registry_contract.t_registry_merkle_param.merkle_proofs) = sp.none):
+        merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)) = sp.none):
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums.get(chunk_key.chunk_id, sp.bytes("0x00")))

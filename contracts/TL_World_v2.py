@@ -45,7 +45,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
-# TODO: consider moving the merkle inclusion code outside of views. would allow for upgrades to merkle stuff.
+# TODO: !!!consider moving the merkle inclusion code outside of views. would allow for upgrades to merkle stuff.!!! current task
 
 
 # maybe?
@@ -391,7 +391,7 @@ class TL_World(
         self.items_tokens = sp.set_type_expr(items_tokens, sp.TAddress)
 
         self.add_flag("exceptions", exception_optimization_level)
-        #self.add_flag("erase-comments")
+        self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
         #self.add_flag("lazy-entry-points")
         # No noticeable effect on gas.
@@ -579,19 +579,31 @@ class TL_World(
 
 
     def validateItemData(self, item_data):
-        # Verify the item data has the right length.
+        """Verify the item data has the right length."""
         sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
-    def getTokenRegistryInfo(self, fa2_list, merkle_proofs):
-        sp.set_type(fa2_list, registry_contract.t_registry_merkle_param.fa2_list)
-        sp.set_type(merkle_proofs, registry_contract.t_registry_merkle_param.merkle_proofs)
+    @sp.inline_result
+    def getTokenRegistryInfo(self, fa2_list, merkle_proofs = sp.none, check_merkle_proofs: bool = True):
+        """Get token registry info and validate registry merkle proofs."""
+        sp.set_type(fa2_list, registry_contract.t_registry_param)
+        sp.set_type(merkle_proofs, sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)))
         registry_info = sp.local("registry_info", sp.view("is_registered", self.data.token_registry,
             sp.set_type_expr(
-                sp.record(fa2_list = fa2_list, merkle_proofs = merkle_proofs),
-                registry_contract.t_registry_merkle_param),
-            t = sp.TMap(sp.TAddress, sp.TBool)).open_some(sp.unit))
-        return registry_info.value
+                fa2_list,
+                registry_contract.t_registry_param),
+            t = registry_contract.t_registry_result_with_merkle_root).open_some(sp.unit))
+
+        if check_merkle_proofs:
+            with merkle_proofs.match_cases() as arg:
+                with arg.match("Some") as merkle_proofs_open:
+                    with sp.for_("item", merkle_proofs_open.items()) as item:
+                        # Make sure leaf matches input.
+                        sp.verify(item.key == merkle_tree.collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
+                        # Registered state true if merkle proof is valid.
+                        registry_info.value.result_map[item.key] = merkle_tree.collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
+        
+        sp.result(registry_info.value.result_map)
 
 
     @sp.entry_point(lazify = True)
@@ -599,7 +611,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
-            merkle_proofs = registry_contract.t_registry_merkle_param.merkle_proofs,
+            merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)),
             send_to_place = sp.TBool,
             extension = extensionArgType
         ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension"))))))
@@ -799,8 +811,8 @@ class TL_World(
         this_chunk.interaction_counter += 1
 
 
-    # Inline function for sending royalties, fees, etc
     def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info):
+        """Inline function for sending royalties, fees, etc."""
         sp.set_type(mutez_per_token, sp.TMutez)
         sp.set_type(issuer_or_place_owner, sp.TAddress)
         sp.set_type(item_royalty_info, FA2.t_royalties_v2)
@@ -831,8 +843,8 @@ class TL_World(
         sendMap.transfer()
 
 
-    # Inline function for getting the owner of an item (either issuer or place owner).
     def issuerOrPlaceOwnerInline(self, place_key, issuer):
+        """Inline function for getting the owner of an item (either issuer or place owner)."""
         sp.set_type(place_key, placeKeyType)
         sp.set_type(issuer, sp.TOption(sp.TAddress))
 
@@ -840,17 +852,43 @@ class TL_World(
         return utils.openSomeOrDefault(issuer, utils.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
 
 
+    @sp.inline_result
     def getTokenRoyalties(self, fa2, token_id, merkle_proof_royalties):
+        """Gets token royalties and validate royalties merkle proofs."""
         sp.set_type(fa2, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
         sp.set_type(merkle_proof_royalties, sp.TOption(merkle_tree.royalties.MerkleProofType))
-        royalties = sp.local("royalties", sp.view("get_token_royalties", self.data.token_registry,
-            sp.set_type_expr(sp.record(
-                fa2 = fa2,
-                token_id = token_id,
-                merkle_proof = merkle_proof_royalties
-        ), registry_contract.t_get_token_royalties), t = FA2.t_royalties_v2).open_some(sp.unit))
-        return royalties.value
+        royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", self.data.token_registry,
+            fa2, t = registry_contract.t_get_royalties_type_result).open_some(sp.unit))
+
+        with sp.if_(royalties_type.value.royalties_version == 0):
+            merkle_proof_open = merkle_proof_royalties.open_some("NO_MERKLE_PROOF")
+            # for which royalties are requested.
+            # Verify that the computed merkle root from proof matches the actual merkle root
+            sp.verify(merkle_tree.royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, royalties_type.value.merkle_root),
+                "INVALID_MERKLE_PROOF")
+
+            # Leaf should match fa and token id. so it can be verified against the token.
+            unpacked_leaf = sp.compute(merkle_tree.royalties.unpack_leaf(merkle_proof_open.leaf))
+            sp.verify((fa2 == unpacked_leaf.fa2) & (token_id == unpacked_leaf.token_id), "LEAF_DATA_DOES_NOT_MATCH")
+            sp.result(unpacked_leaf.token_royalties)
+
+        with sp.else_():
+            with sp.if_(royalties_type.value.royalties_version == 1):
+                royalties = sp.compute(utils.tz1and_items_get_royalties(fa2, token_id))
+                royalties_v2 = sp.local("royalties_v2", sp.record(decimals = 3, shares = []), FA2.t_royalties_v2)
+
+                with sp.for_("contributor", royalties.contributors) as contributor:
+                    royalties_v2.value.shares.push(sp.record(
+                        address = contributor.address,
+                        share = contributor.relative_royalties * royalties.royalties / 1000))
+
+                sp.result(royalties_v2.value)
+            with sp.else_():
+                with sp.if_(royalties_type.value.royalties_version == 2):
+                    sp.result(utils.tz1and_items_get_royalties_v2(fa2, token_id))
+                with sp.else_():
+                    sp.failwith("Royalties type not implemented")
 
 
     @sp.entry_point(lazify = True)
@@ -968,7 +1006,7 @@ class TL_World(
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
-                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), sp.none)
+                registry_info = self.getTokenRegistryInfo(issuer_item.value.keys(), check_merkle_proofs=False)
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())

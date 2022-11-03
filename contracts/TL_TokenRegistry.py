@@ -31,27 +31,33 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 privateCollectionValueType = sp.TRecord(
     owner = sp.TAddress,
-    proposed_owner = sp.TOption(sp.TAddress)).layout(("owner", "proposed_owner"))
+    proposed_owner = sp.TOption(sp.TAddress),
+    royalties_version = sp.TNat
+).layout(("owner", ("proposed_owner", "royalties_version")))
 privateCollectionMapType = sp.TBigMap(sp.TAddress, privateCollectionValueType)
 privateCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = privateCollectionValueType)
 
-publicCollectionMapType = sp.TBigMap(sp.TAddress, sp.TUnit)
-publicCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = sp.TUnit)
+publicCollectionMapType = sp.TBigMap(sp.TAddress, sp.TNat)
+publicCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = sp.TNat)
 
 collaboratorsKeyType = sp.TRecord(collection = sp.TAddress, collaborator = sp.TAddress).layout(("collection", "collaborator"))
 collaboratorsMapType = sp.TBigMap(collaboratorsKeyType, sp.TUnit)
 collaboratorsMapLiteral = sp.big_map(tkey = collaboratorsKeyType, tvalue = sp.TUnit)
 
 t_manage_public_collections = sp.TList(sp.TVariant(
-    add_collections = sp.TList(sp.TAddress),
+    add_collections = sp.TList(sp.TRecord(
+        contract = sp.TAddress,
+        royalties_version = sp.TNat
+    ).layout(("contract", "royalties_version"))),
     remove_collections = sp.TList(sp.TAddress)
 ).layout(("add_collections", "remove_collections")))
 
 t_manage_private_collections = sp.TList(sp.TVariant(
     add_collections = sp.TList(sp.TRecord(
         contract = sp.TAddress,
-        owner = sp.TAddress
-    ).layout(("contract", "owner"))),
+        owner = sp.TAddress,
+        royalties_version = sp.TNat
+    ).layout(("contract", ("owner", "royalties_version")))),
     remove_collections = sp.TList(sp.TAddress)
 ).layout(("add_collections", "remove_collections")))
 
@@ -70,17 +76,16 @@ t_ownership_check = sp.TRecord(
     address = sp.TAddress).layout(("collection", "address"))
 
 t_registry_param = sp.TList(sp.TAddress)
-t_registry_merkle_param = sp.TRecord(
-    fa2_list = sp.TList(sp.TAddress),
-    merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType))
-).layout(("fa2_list", "merkle_proofs"))
 t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
+t_registry_result_with_merkle_root = sp.TRecord(
+    result_map = sp.TMap(sp.TAddress, sp.TBool),
+    merkle_root = sp.TBytes
+).layout(("result_map", "merkle_root"))
 
-t_get_token_royalties = sp.TRecord(
-    fa2 = sp.TAddress,
-    token_id = sp.TNat,
-    merkle_proof = sp.TOption(merkle_tree.royalties.MerkleProofType)
-).layout(("fa2", ("token_id", "merkle_proof")))
+t_get_royalties_type_result = sp.TRecord(
+    royalties_version = sp.TNat,
+    merkle_root = sp.TBytes
+).layout(("royalties_version", "merkle_root"))
 
 #
 # Token registry contract.
@@ -192,10 +197,10 @@ class TL_TokenRegistry(
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
                 with arg.match("add_collections") as add_collections:
-                    with sp.for_("address", add_collections) as address:
+                    with sp.for_("address", add_collections) as collection:
                         # public collections cant be private
-                        sp.verify(self.data.private_collections.contains(address) == False, "PUBLIC_PRIVATE")
-                        self.data.public_collections[address] = sp.unit
+                        sp.verify(self.data.private_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
+                        self.data.public_collections[collection.contract] = collection.royalties_version
 
                 with arg.match("remove_collections") as remove_collections:
                     with sp.for_("address", remove_collections) as address:
@@ -215,7 +220,10 @@ class TL_TokenRegistry(
                     with sp.for_("collection", add_collections) as collection:
                         # private collections cant be public
                         sp.verify(self.data.public_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
-                        self.data.private_collections[collection.contract] = sp.record(owner = collection.owner, proposed_owner = sp.none)
+                        self.data.private_collections[collection.contract] = sp.record(
+                            owner = collection.owner,
+                            proposed_owner = sp.none,
+                            royalties_version = collection.royalties_version)
 
                 with arg.match("remove_collections") as remove_collections:
                     with sp.for_("address", remove_collections) as address:
@@ -278,29 +286,18 @@ class TL_TokenRegistry(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def is_registered(self, params):
+    def is_registered(self, contract_list):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns true if contract is registered, false otherwise."""
-        sp.set_type(params, t_registry_merkle_param)
+        sp.set_type(contract_list, t_registry_param)
 
-        with sp.set_result_type(t_registry_result):
+        with sp.set_result_type(t_registry_result_with_merkle_root):
             result_map = sp.local("result_map", {}, t_registry_result)
-            merkle_proofs = utils.openSomeOrDefault(params.merkle_proofs, {})
-
-            with sp.for_("contract", params.fa2_list) as contract:
-                merkle_opt = merkle_proofs.get_opt(contract)
-
-                with merkle_opt.match_cases() as arg:
-                    with arg.match("None"):
-                        result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
-
-                    with arg.match("Some") as proof_open:
-                        # Make sure leaf matches input.
-                        sp.verify(contract == merkle_tree.collections.unpack_leaf(proof_open.leaf), "LEAF_DATA_DOES_NOT_MATCH")
-                        # Registered state true if merkle proof is valid.
-                        result_map.value[contract] = merkle_tree.collections.validate_merkle_root(proof_open.proof, proof_open.leaf, self.data.collections_merkle_root)
-
-            sp.result(result_map.value)
+            with sp.for_("contract", contract_list) as contract:
+                result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
+            sp.result(sp.record(
+                result_map = result_map.value,
+                merkle_root = self.data.collections_merkle_root))
 
     @sp.onchain_view(pure=True)
     def is_private_collection(self, contract_list):
@@ -345,45 +342,24 @@ class TL_TokenRegistry(
             sp.result((collection_props.owner == params.address) | (self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))))
 
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, params):
-        sp.set_type(params, t_get_token_royalties)
+    def get_royalties_type(self, fa2):
+        sp.set_type(fa2, sp.TAddress)
 
-        # returns v2 royalties format
-        with sp.set_result_type(FA2.t_royalties_v2):
-            # If a merkle proof is supplied
-            with params.merkle_proof.match_cases() as arg:
-                with arg.match("Some") as merkle_proof_open:
-                    # for which royalties are requested.
-                    # Verify that the computed merkle root from proof matches the actual merkle root
-                    sp.verify(merkle_tree.royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, self.data.royalties_merkle_root),
-                        "INVALID_MERKLE_PROOF")
+        with sp.set_result_type(t_get_royalties_type_result):
+            royalties_version = sp.local("royalties_version", sp.nat(0))
 
-                    # TODO: leaf should match fa and token id. so it can be varified against the token.
-                    unpacked_leaf = sp.compute(merkle_tree.royalties.unpack_leaf(merkle_proof_open.leaf))
-                    sp.verify((params.fa2 == unpacked_leaf.fa2) & (params.token_id == unpacked_leaf.token_id), "LEAF_DATA_DOES_NOT_MATCH")
+            public_opt = self.data.public_collections.get_opt(fa2)
+            with public_opt.match_cases() as public_arg:
+                with public_arg.match("Some") as public_some:
+                    royalties_version.value = public_some
 
-                    sp.result(unpacked_leaf.token_royalties)
+                with public_arg.match("None", "public_none"):
+                    private_opt = self.data.private_collections.get_opt(fa2)
 
-                with arg.match("None"):
-                    # TODO: check if token is registered and valid, if it is, return royalties.
-                    # based on roylties type defined in registry.
-                    #with sp.if_(is_v1_royalties):
-                    #    # TODO: convert v1 to v2 royalties.
-                    #    royalties = sp.none
-                    #    sp.result(royalties)
-                    #with sp.else_():
-                    with sp.if_(self.data.private_collections.contains(params.fa2) | self.data.public_collections.contains(params.fa2)):
-                        royalties = sp.compute(utils.tz1and_items_get_royalties(params.fa2, params.token_id))
+                    with private_opt.match_cases() as private_arg:
+                        with private_arg.match("Some") as private_some:
+                            royalties_version.value = private_some.royalties_version
 
-                        royalties_v2 = sp.local("royalties_v2", sp.record(decimals = 3, shares = []), FA2.t_royalties_v2)
-
-                        with sp.for_("contributor", royalties.contributors) as contributor:
-                            royalties_v2.value.shares.push(sp.record(
-                                address = contributor.address,
-                                share = contributor.relative_royalties * royalties.royalties / 1000))
-
-                        sp.result(royalties_v2.value)
-
-                        # TODO: if v2 royalties, just return those.
-                    with sp.else_():
-                        sp.failwith("INVALID_COLLECTION")
+            sp.result(sp.record(
+                royalties_version = royalties_version.value,
+                merkle_root = self.data.royalties_merkle_root))

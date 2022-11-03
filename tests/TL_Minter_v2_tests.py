@@ -49,7 +49,9 @@ def test():
     # test Item minting
     scenario.h3("mint_public")
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    manage_public_params = sp.record(contract = items_tokens.address, royalties_version = 1)
+
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin)
 
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
@@ -90,7 +92,7 @@ def test():
     # test Item minting
     scenario.h3("mint_private")
 
-    manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address)
+    manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address, royalties_version = 1)
     manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
 

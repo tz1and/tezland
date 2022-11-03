@@ -157,4 +157,6 @@ class TL_TokenFactory(
             self.data.token_registry, 
             entry_point = "manage_private_collections").open_some()
 
-        sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender)])], sp.mutez(0), manage_private_collections_handle)
+        # TODO: currently creates tokens with version 1.
+        # MAKE SURE THIS IS CORRECT!!!!
+        sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender, royalties_version = 2)])], sp.mutez(0), manage_private_collections_handle)

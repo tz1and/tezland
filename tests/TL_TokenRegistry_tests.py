@@ -47,20 +47,23 @@ def test():
     # test public collections
     scenario.h2("Public Collections")
 
+    manage_public_params = sp.record(contract = items_tokens.address, royalties_version = 1)
+    manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address, royalties_version = 1)
+
     # test adding public collections
     scenario.h3("manage_public_collection")
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
     # add permission for alice
     token_registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice)
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice)
     scenario.verify(token_registry.data.public_collections.contains(items_tokens.address))
 
     # public collection can't be private
-    token_registry.manage_private_collections([sp.variant("add_collections", [sp.record(contract = items_tokens.address, owner = bob.address)])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
+    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
 
     token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
@@ -68,7 +71,7 @@ def test():
 
     # only unpaused
     token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
     token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
@@ -79,7 +82,6 @@ def test():
     # test adding private collections
     scenario.h3("manage_private_collections")
 
-    manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address)
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
@@ -90,7 +92,7 @@ def test():
     scenario.verify(token_registry.data.private_collections.contains(items_tokens.address))
 
     # private collection can't be public
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
 
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
@@ -161,21 +163,21 @@ def test():
     # Test onchain views
     scenario.h2("Test views")
 
-    is_reg_param = sp.record(fa2_list = [items_tokens.address], merkle_proofs = sp.none)
+    is_reg_param = [items_tokens.address]
 
     token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param), {items_tokens.address: True})
+    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
     token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param), {items_tokens.address: False})
+    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [items_tokens.address])]).run(sender = admin)
+    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param), {items_tokens.address: True})
+    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
     token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param), {items_tokens.address: False})
+    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
     # TODO: test is_private_owner etc views
     # TODO: test non-native tokens with merkle proof.
