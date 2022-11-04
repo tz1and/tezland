@@ -2,7 +2,7 @@ import smartpy as sp
 
 admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 # TODO: is_fa2_permitted/get_fa2_permitted is probably not needed? maybe for interop...
 # TODO: test getRoyaltiesForPermittedFA2
@@ -97,7 +97,7 @@ class PermittedFA2(admin_mixin.Administrable):
 
         token_royalty_info = sp.local("token_royalty_info",
             sp.record(royalties=0, contributors=[]),
-            t=FA2.t_royalties)
+            t=FA2_legacy.t_royalties)
 
         with fa2_props.royalties_kind.match_cases() as arg:
             #with arg.match("none"): # none is implied to return default royalty info

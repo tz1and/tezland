@@ -35,14 +35,20 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
+    scenario.h2("places legacy")
+    places_tokens_legacy = tokens.tz1andPlaces(
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += places_tokens_legacy
+
     scenario.h2("places")
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -60,8 +66,8 @@ def test():
 
     scenario.h2("preparation")
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
-    places_tokens.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens.address, places_tokens.address]).run(sender = admin)
+    places_tokens_legacy.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address, places_tokens_legacy.address]).run(sender = admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
@@ -88,8 +94,7 @@ def test():
     item_carol = sp.nat(2)
 
     # mint some place tokens for testing
-    scenario.h3("minting places")
-    minter.mint_Place([
+    places_mint_params = [
         sp.record(
             to_ = carol.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
@@ -118,7 +123,13 @@ def test():
             to_ = bob.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
-    ]).run(sender = admin)
+    ]
+
+    scenario.h3("minting places legacy")
+    minter.mint_Place(places_mint_params).run(sender = admin)
+
+    scenario.h3("minting places")
+    places_tokens.mint(places_mint_params).run(sender = admin)
 
     place_carol_uninit = sp.nat(0)
     place_carol_only_props = sp.nat(1)
@@ -156,7 +167,8 @@ def test():
     scenario += world_v2
 
     scenario.h3("Originate World v1 contract")
-    world = world_upgrade.TL_World_v1_1(admin.address, items_tokens.address, places_tokens.address, dao_token.address, world_v2.address,
+    world = world_upgrade.TL_World_v1_1(admin.address, items_tokens.address, places_tokens_legacy.address, dao_token.address,
+        world_v2.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 

@@ -141,7 +141,7 @@ def test():
     scenario += items_utils
 
     scenario.h2("places")
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
@@ -217,8 +217,7 @@ def test():
     item_admin = sp.nat(2)
 
     # mint some place tokens for testing
-    scenario.h3("minting places")
-    places_tokens.mint([
+    place_mint_params = [
         sp.record(
             to_ = bob.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
@@ -231,7 +230,10 @@ def test():
             to_ = carol.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
-    ]).run(sender = admin)
+    ]
+
+    scenario.h3("minting places")
+    places_tokens.mint(place_mint_params).run(sender = admin)
 
     place_bob = sp.record(
         place_contract = places_tokens.address,

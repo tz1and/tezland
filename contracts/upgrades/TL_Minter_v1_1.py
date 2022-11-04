@@ -1,7 +1,7 @@
 import smartpy as sp
 
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 class TL_Minter_v1_1(minter_contract.TL_Minter):
@@ -15,7 +15,7 @@ class TL_Minter_v1_1(minter_contract.TL_Minter):
     def mint_Place(self, params):
         """This upgraded entrypoint allows the admin to update
         the v1 minter's metadata."""
-        sp.set_type(params, FA2.t_mint_nft_batch)
+        sp.set_type(params, FA2_legacy.t_mint_nft_batch)
 
         self.onlyAdministrator()
 

@@ -1,5 +1,6 @@
 import smartpy as sp
 
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 #
@@ -100,7 +101,7 @@ def validate_ipfs_uri(metadata_uri):
 def tz1and_items_get_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
-        t = FA2.t_royalties).open_some()
+        t = FA2_legacy.t_royalties).open_some()
 
 #
 # tz1and fa2 extension royalties v2

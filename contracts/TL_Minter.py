@@ -5,7 +5,7 @@ mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 #
@@ -84,7 +84,7 @@ class TL_Minter(
     
         with sp.for_("fa2", [self.data.items_contract, self.data.places_contract]) as fa2:
             # call items contract
-            set_paused_handle = sp.contract(FA2.t_adhoc_operator_params, fa2, 
+            set_paused_handle = sp.contract(FA2_legacy.t_adhoc_operator_params, fa2, 
                 entry_point = "update_adhoc_operators").open_some()
                 
             sp.transfer(sp.variant("clear_adhoc_operators", sp.unit),
@@ -92,7 +92,7 @@ class TL_Minter(
 
     @sp.entry_point(lazify = True)
     def mint_Place(self, params):
-        sp.set_type(params, FA2.t_mint_nft_batch)
+        sp.set_type(params, FA2_legacy.t_mint_nft_batch)
 
         self.onlyAdministrator()
         self.onlyUnpaused()
@@ -111,7 +111,7 @@ class TL_Minter(
             to_ = sp.TAddress,
             amount = sp.TNat,
             royalties = sp.TNat,
-            contributors = FA2.t_contributor_list,
+            contributors = FA2_legacy.t_contributor_list,
             metadata = sp.TBytes
         ).layout(("to_", ("amount", ("royalties", ("contributors", "metadata"))))))
 

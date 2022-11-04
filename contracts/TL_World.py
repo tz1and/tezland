@@ -12,7 +12,7 @@ mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -443,7 +443,7 @@ class TL_World(
         item_store = self.item_store_map.get_or_create(this_place.stored_items, sp.sender)
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2_legacy.t_transfer_tx))
 
         # For each item in the list.
         with sp.for_("curr", params.item_list) as curr:
@@ -573,7 +573,7 @@ class TL_World(
                 sp.verify(remove_key == sp.sender, message = self.error_message.no_permission())
 
         # Our token transfer map.
-        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+        transferMap = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2_legacy.t_transfer_tx))
 
         # Remove items.
         with sp.for_("issuer", params.remove_map.keys()) as issuer:
@@ -616,7 +616,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             mutez_per_item = sp.TMutez,
             issuer = sp.TAddress,
-            item_royalty_info = FA2.t_royalties
+            item_royalty_info = FA2_legacy.t_royalties
         ).layout(("mutez_per_item", ("issuer", "item_royalty_info"))))
 
         # Calculate fee and royalties.

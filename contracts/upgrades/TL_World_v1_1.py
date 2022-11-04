@@ -2,17 +2,18 @@ import smartpy as sp
 
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 # TODO: instead of pulling tokens in v2 migrate, we could also transfer the from v1 to v2.
 #       I suppose it's a little risky, but if done carefully, it should save some fees.
 
 class TL_World_v1_1(world_contract.TL_World):
-    def __init__(self, administrator, items_contract, places_contract, dao_contract, world_v2_contract,
+    def __init__(self, administrator, items_contract, places_contract, dao_contract, world_v2_contract, world_v2_place_contract,
         metadata, name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
 
         self.migrate_to_contract = sp.set_type_expr(world_v2_contract, sp.TAddress)
+        self.new_place_tokens_contract = sp.set_type_expr(world_v2_place_contract, sp.TAddress)
 
         world_contract.TL_World.__init__(self, administrator,
             items_contract, places_contract, dao_contract, metadata,
@@ -30,7 +31,7 @@ class TL_World_v1_1(world_contract.TL_World):
             migration_to_contract,
             entry_point='migration').open_some()
         sp.transfer(sp.record(
-            place_key = sp.record(place_contract = self.data.places_contract, lot_id = lot_id),
+            place_key = sp.record(place_contract = self.new_place_tokens_contract, lot_id = lot_id),
             migrate_item_map = migration_map,
             migrate_place_props = place_props,
             extension = sp.none
@@ -41,7 +42,7 @@ class TL_World_v1_1(world_contract.TL_World):
         sp.set_type(token_id_set, sp.TSet(sp.TNat))
 
         # Build operator permissions list.
-        operator_permissions = sp.local("operator_permissions", [], sp.TList(FA2.t_adhoc_operator_permission))
+        operator_permissions = sp.local("operator_permissions", [], sp.TList(FA2_legacy.t_adhoc_operator_permission))
         with sp.for_("id", token_id_set.elements()) as id:
             operator_permissions.value.push(sp.record(
                 operator=self.migrate_to_contract,
@@ -49,7 +50,7 @@ class TL_World_v1_1(world_contract.TL_World):
 
         # Call token contract to add operators.
         token_handle = sp.contract(
-            FA2.t_adhoc_operator_params,
+            FA2_legacy.t_adhoc_operator_params,
             token_contract,
             entry_point='update_adhoc_operators').open_some()
         sp.transfer(sp.variant("add_adhoc_operators", operator_permissions.value),
