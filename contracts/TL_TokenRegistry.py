@@ -4,9 +4,10 @@ pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
-merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
+MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 # TODO: store information about a contracts royalties?
@@ -87,13 +88,34 @@ t_get_royalties_type_result = sp.TRecord(
     merkle_root = sp.TBytes
 ).layout(("royalties_version", "merkle_root"))
 
+# Interop royalties are based on new FA2 royalties, with total shares.
+t_royalties_interop = sp.TRecord(
+    total = sp.TNat,
+    shares = FA2.t_royalties
+).layout(("total", "shares"))
+
+#
+# Merkle trees
+#
+
+# Leaf types
+t_royalties_merkle_leaf = sp.TRecord(
+    fa2 = sp.TAddress,
+    token_id = sp.TNat,
+    token_royalties = t_royalties_interop
+).layout(("fa2", ("token_id", "token_royalties")))
+
+# Tree classes
+merkle_tree_royalties = MerkleTree(t_royalties_merkle_leaf)
+merkle_tree_collections = MerkleTree(sp.TAddress)
+
 
 @sp.inline_result
 def getTokenRegistryInfo(token_registry_contract, fa2_list, merkle_proofs = sp.none, check_merkle_proofs: bool = True):
     """Get token registry info and validate registry merkle proofs."""
     sp.set_type(token_registry_contract, sp.TAddress)
     sp.set_type(fa2_list, t_registry_param)
-    sp.set_type(merkle_proofs, sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)))
+    sp.set_type(merkle_proofs, sp.TOption(sp.TMap(sp.TAddress, merkle_tree_collections.MerkleProofType)))
     registry_info = sp.local("registry_info", sp.view("is_registered", token_registry_contract,
         sp.set_type_expr(
             fa2_list,
@@ -104,9 +126,9 @@ def getTokenRegistryInfo(token_registry_contract, fa2_list, merkle_proofs = sp.n
         with merkle_proofs.match("Some") as merkle_proofs_open:
             with sp.for_("item", merkle_proofs_open.items()) as item:
                 # Make sure leaf matches input.
-                sp.verify(item.key == merkle_tree.collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
+                sp.verify(item.key == merkle_tree_collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
                 # Registered state true if merkle proof is valid.
-                registry_info.value.result_map[item.key] = merkle_tree.collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
+                registry_info.value.result_map[item.key] = merkle_tree_collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
     
     sp.result(registry_info.value.result_map)
 
@@ -117,7 +139,7 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
     sp.set_type(token_registry_contract, sp.TAddress)
     sp.set_type(fa2, sp.TAddress)
     sp.set_type(token_id, sp.TNat)
-    sp.set_type(merkle_proof_royalties, sp.TOption(merkle_tree.royalties.MerkleProofType))
+    sp.set_type(merkle_proof_royalties, sp.TOption(merkle_tree_royalties.MerkleProofType))
     royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", token_registry_contract,
         fa2, t = t_get_royalties_type_result).open_some())
 
@@ -125,18 +147,18 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
         merkle_proof_open = merkle_proof_royalties.open_some("NO_MERKLE_PROOF")
         # for which royalties are requested.
         # Verify that the computed merkle root from proof matches the actual merkle root
-        sp.verify(merkle_tree.royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, royalties_type.value.merkle_root),
+        sp.verify(merkle_tree_royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, royalties_type.value.merkle_root),
             "INVALID_MERKLE_PROOF")
 
         # Leaf should match fa and token id. so it can be verified against the token.
-        unpacked_leaf = sp.compute(merkle_tree.royalties.unpack_leaf(merkle_proof_open.leaf))
+        unpacked_leaf = sp.compute(merkle_tree_royalties.unpack_leaf(merkle_proof_open.leaf))
         sp.verify((fa2 == unpacked_leaf.fa2) & (token_id == unpacked_leaf.token_id), "LEAF_DATA_DOES_NOT_MATCH")
         sp.result(unpacked_leaf.token_royalties)
 
     with sp.else_():
         with sp.if_(royalties_type.value.royalties_version == 1):
-            royalties = sp.compute(utils.tz1and_items_get_royalties(fa2, token_id))
-            royalties_v2 = sp.local("royalties_v2", sp.record(decimals = 3, shares = []), FA2.t_royalties_v2)
+            royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
+            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
                 royalties_v2.value.shares.push(sp.record(
@@ -146,7 +168,7 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
             sp.result(royalties_v2.value)
         with sp.else_():
             with sp.if_(royalties_type.value.royalties_version == 2):
-                sp.result(utils.tz1and_items_get_royalties_v2(fa2, token_id))
+                sp.result(sp.record(total = 1000, shares = FA2.get_token_royalties(fa2, token_id)))
             with sp.else_():
                 sp.failwith("Royalties type not implemented")
 
