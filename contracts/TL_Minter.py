@@ -120,7 +120,7 @@ class TL_Minter(
         sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
             message = "PARAM_ERROR")
 
-        utils.fa2_fungible_royalties_mint(
+        FA2_legacy.fa2_fungible_royalties_mint(
             [sp.record(
                 to_=params.to_,
                 amount=params.amount,

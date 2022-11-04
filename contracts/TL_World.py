@@ -681,7 +681,7 @@ class TL_World(
                 # Transfer royalties, etc.
                 with sp.if_(the_item.value.mutez_per_item != sp.tez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = sp.compute(utils.tz1and_items_get_royalties(self.data.items_contract, the_item.value.token_id))
+                    item_royalty_info = sp.compute(FA2_legacy.get_token_royalties(self.data.items_contract, the_item.value.token_id))
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
