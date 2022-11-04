@@ -11,7 +11,7 @@ import { sleep } from "./DeployBase";
 export default class PostUpgrade extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
         console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
-        console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
+        console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
         console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
         console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
         console.log("REACT_APP_WORLD_CONTRACT=" + contracts.get("World_contract")!.address);
@@ -26,7 +26,7 @@ export default class PostUpgrade extends PostDeployBase {
     typename: tezlandItems
 
   tezlandPlaces:
-    address: ${contracts.get("places_FA2_contract")!.address}
+    address: ${contracts.get("places_v2_FA2_contract")!.address}
     typename: tezlandPlaces
 
   tezlandInteriors:
@@ -58,7 +58,7 @@ export default class PostUpgrade extends PostDeployBase {
     typename: tezlandRegistry\n`);
     }
 
-    private async mintNewItem(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
+    private async mintNewItem_v1(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
         assert(this.accountAddress);
 
         // Create item metadata and upload it
@@ -71,7 +71,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_public({
+            ...Minter_contract.methodsObject.mint_public_v1({
                 collection: collection_contract.address,
                 to_: this.accountAddress,
                 amount: amount,
@@ -149,10 +149,10 @@ export default class PostUpgrade extends PostDeployBase {
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
-        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
 
         // don't mint places for now. use generate map.
         const places = [];
@@ -160,7 +160,7 @@ export default class PostUpgrade extends PostDeployBase {
         places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
         places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
-        this.mintNewPlaces(places, mint_batch, contracts.get("places_FA2_contract")!);
+        this.mintNewPlaces(places, mint_batch, contracts.get("places_v2_FA2_contract")!);
 
         const interior_places = [];
         interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
@@ -183,7 +183,11 @@ export default class PostUpgrade extends PostDeployBase {
 
         {
             const mint_batch = this.tezos.wallet.batch();
-            await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            // Mint some places in new place contract
+            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            // TODO: TEMP: FIXME: Mint some places in old place contract
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
             const mint_batch_op = await mint_batch.send();
@@ -205,9 +209,9 @@ export default class PostUpgrade extends PostDeployBase {
             console.log("update_operators:\t" + await this.feesToString(op_op));
         }
 
-        const placeKey0 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 0 };
+        const placeKey0 = { place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: 0 };
         const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
-        const placeKey1 = { place_contract: contracts.get("places_FA2_contract")!.address, lot_id: 1 };
+        const placeKey1 = { place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: 1 };
         const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
 
         /**
@@ -582,8 +586,8 @@ export default class PostUpgrade extends PostDeployBase {
         // mint again
         {
             const mint_batch2 = this.tezos.wallet.batch();
-            await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-            await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
             const mint_batch2_op = await mint_batch2.send();
             await mint_batch2_op.confirmation();
             console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
@@ -619,8 +623,8 @@ export default class PostUpgrade extends PostDeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 
@@ -644,7 +648,7 @@ export default class PostUpgrade extends PostDeployBase {
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
-                place_key: {place_contract: contracts.get("places_FA2_contract")!.address, lot_id: token_id }, place_item_map: item_map
+                place_key: {place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: token_id }, place_item_map: item_map
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items:\t" + await this.feesToString(place_ten_items_op));

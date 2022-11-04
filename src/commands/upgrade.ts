@@ -102,7 +102,9 @@ export default class Upgrade extends PostUpgrade {
         //
         // Minter v2 and Interiors.
         //
-        let Minter_v2_contract: ContractAbstraction<Wallet>, interiors_FA2_contract: ContractAbstraction<Wallet>;
+        let Minter_v2_contract: ContractAbstraction<Wallet>,
+            interiors_FA2_contract: ContractAbstraction<Wallet>,
+            places_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
             const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
 
@@ -121,7 +123,12 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("FA2_Interiors");
 
-            [Minter_v2_contract, interiors_FA2_contract] = await tezland_batch.deployBatch();
+            await this.compile_contract("FA2_Places_v2", "Tokens", "tz1andPlaces_v2", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
+            tezland_batch.addToBatch("FA2_Places_v2");
+
+            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
@@ -144,7 +151,7 @@ export default class Upgrade extends PostUpgrade {
                         // add items as public collection to minter v2
                         {
                             kind: OpKind.TRANSACTION,
-                            ...Registry_contract.methods.manage_public_collections([{add_collections: [tezlandItems.address]}]).toTransferParams()
+                            ...Registry_contract.methods.manage_public_collections([{add_collections: [{ contract: tezlandItems.address, royalties_version: 1}]}]).toTransferParams()
                         },
                         // accept places admin from wallet
                         {
@@ -210,7 +217,7 @@ export default class Upgrade extends PostUpgrade {
                     return World_v2_contract.methodsObject.set_allowed_place_token([
                         {
                             add_allowed_place_token: {
-                                fa2: tezlandPlaces.address,
+                                fa2: places_v2_FA2_contract.address,
                                 place_limits: {
                                     chunk_limit: 2,
                                     chunk_item_limit: 64
@@ -242,7 +249,8 @@ export default class Upgrade extends PostUpgrade {
                 `items_contract = sp.address("${tezlandItems.address}")`,
                 `places_contract = sp.address("${tezlandPlaces.address}")`,
                 `dao_contract = sp.address("${tezlandDAO.address}")`,
-                `world_v2_contract = sp.address("${World_v2_contract.address}")`
+                `world_v2_contract = sp.address("${World_v2_contract.address}")`,
+                `world_v2_place_contract = sp.address("${places_v2_FA2_contract.address}")`
             ],
             // entrypoints to upgrade
             ["set_item_data", "get_item"], true);
@@ -285,6 +293,18 @@ export default class Upgrade extends PostUpgrade {
         });
 
         //
+        // TODO: re-distribute updated place NFTs:
+        // - pause auctions contract
+        // - upgrade auctions to allow admin to cancel
+        // - cancel all auctions
+        // - pause transfers
+        // - originate new places contract
+        // - re-mint all places and send to owners (unless still owned by a contract)
+        // - deploy new auctions contract
+        // - ....
+        //
+
+        //
         // TODO: actually run migration.
         //
 
@@ -303,6 +323,7 @@ export default class Upgrade extends PostUpgrade {
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
             items_FA2_contract: tezlandItems,
             places_FA2_contract: tezlandPlaces,
+            places_v2_FA2_contract: places_v2_FA2_contract,
             interiors_FA2_contract: interiors_FA2_contract,
             dao_FA2_contract: tezlandDAO,
             Minter_contract: Minter_v2_contract,
