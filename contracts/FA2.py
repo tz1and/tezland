@@ -89,26 +89,13 @@ t_adhoc_operator_params = sp.TVariant(
 
 # royalties
 
-t_contributor_list = sp.TList(
-    # The relative royalties, per contributor, in permille.
-    # must add up to 1000. And the role.
+t_royalties = sp.TList(
+    # The absolute royalties, per contributor, in permille (3 decimals).
+    # Must be less than the maximum royalties.
     sp.TRecord(
         address=sp.TAddress,
-        relative_royalties=sp.TNat,
-        role=sp.TVariant(
-            minter=sp.TUnit,
-            creator=sp.TUnit,
-            donation=sp.TUnit,
-            custom=sp.TString
-        ).layout(("minter", ("creator", ("donation", "custom"))))
-    ).layout(("address", ("relative_royalties", "role"))))
-
-t_royalties = sp.TRecord(
-    # The absolute royalties in permille.
-    royalties=sp.TNat,
-    # The minter address
-    contributors=t_contributor_list
-).layout(("royalties", "contributors"))
+        share=sp.TNat
+    ).layout(("address", "share")))
 
 # mint with royalties
 
@@ -520,7 +507,6 @@ class Common(sp.Contract):
     @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
-        sp.verify(self.is_defined(params.token_id), "FA2_TOKEN_UNDEFINED")
         sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
 
 
@@ -554,7 +540,7 @@ class Fa2Nft(Common):
                 token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties)
             )
             self.token_extra_default = sp.record(
-                royalty_info=sp.record(royalties=0, contributors=[])
+                royalty_info=[]
             )
         Common.__init__(
             self,
@@ -604,6 +590,15 @@ class Fa2Nft(Common):
         # Do the transfer
         self.data.ledger[tx.token_id] = tx.to_
 
+    @sp.onchain_view(pure=True)
+    def get_owner(self, token_id):
+        """Non-standard onchain view allowing direct retrieval of
+        owner for Nft type ledgers.
+        
+        Return the owner for the given `token_id`."""
+        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+        sp.result(sp.set_type_expr(self.data.ledger[token_id], sp.TAddress))
+
 
 # TODO: test allow_mint_existing=False
 class Fa2Fungible(Common):
@@ -635,7 +630,7 @@ class Fa2Fungible(Common):
             )
             self.token_extra_default = sp.record(
                 supply=sp.nat(0),
-                royalty_info=sp.record(royalties=0, contributors=[])
+                royalty_info=[]
             )
         else:
             self.update_initial_storage(
@@ -865,8 +860,6 @@ class MintNft:
             sp.set_type(batch, t_mint_nft_batch)
         self.onlyAdministrator()
         with sp.for_("action", batch) as action:
-            if self.has_royalties:
-                self.validateRoyalties(action.royalties)
             token_id = sp.compute(self.data.last_token_id)
             metadata = sp.record(token_id=token_id, token_info=action.metadata)
             self.data.token_metadata[token_id] = metadata
@@ -894,8 +887,6 @@ class MintFungible:
         with sp.for_("action", batch) as action:
             with action.token.match_cases() as arg:
                 with arg.match("new") as new:
-                    if self.has_royalties:
-                        self.validateRoyalties(new.royalties)
                     token_id = sp.compute(self.data.last_token_id)
                     self.data.token_metadata[token_id] = sp.record(
                         token_id=token_id, token_info=new.metadata
@@ -1081,33 +1072,11 @@ class Royalties:
     
     I admit, not very elegant, but I want to save that bigmap."""
 
-    MIN_ROYALTIES = sp.nat(0)
-    MAX_ROYALTIES = sp.nat(250)
-    MAX_CONTRIBUTORS = sp.nat(3)
-
     def __init__(self):
         if self.ledger_type == "SingleAsset":
             raise Exception("Royalties not supported on SingleAsset")
         if self.has_royalties != True:
             raise Exception("Royalties not enabled on base")
-
-    def validateRoyalties(self, royalties):
-        """Inline function to validate royalties."""
-        royalties = sp.set_type_expr(royalties, t_royalties)
-        # Make sure absolute royalties and splits are in valid range.
-        sp.verify((royalties.royalties >= Royalties.MIN_ROYALTIES) &
-            (royalties.royalties <= Royalties.MAX_ROYALTIES), message="FA2_ROYALTIES_INVALID")
-        sp.verify(sp.len(royalties.contributors) <= Royalties.MAX_CONTRIBUTORS, message="FA2_ROYALTIES_INVALID")
-        
-        # If royalties > 0, validate individual splits and that they add up to 1000
-        with sp.if_(royalties.royalties > 0):
-            total_relative = sp.local("total_relative", sp.nat(0))
-            with sp.for_("contribution", royalties.contributors) as contribution:
-                total_relative.value += contribution.relative_royalties
-            sp.verify(total_relative.value == 1000, message="FA2_ROYALTIES_INVALID")
-        # If royalties == 0, make sure contributors are empty
-        with sp.else_():
-            sp.verify(sp.len(royalties.contributors) == 0, message="FA2_ROYALTIES_INVALID")
 
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, token_id):
@@ -1124,3 +1093,57 @@ class OnchainviewCountTokens:
     def count_tokens(self):
         """Returns the number of tokens in the FA2 contract."""
         sp.result(self.data.last_token_id)
+
+
+#########
+# Utils #
+#########
+
+# Getting royalties
+def get_token_royalties(fa2, token_id):
+    return sp.view("get_token_royalties", fa2,
+        sp.set_type_expr(token_id, sp.TNat),
+        t = t_royalties).open_some()
+
+# Get owner
+def fa2_nft_get_owner(fa2, token_id):
+    return sp.view("get_owner", fa2,
+        sp.set_type_expr(
+            token_id,
+            sp.TNat),
+        t = sp.TAddress).open_some()
+
+# Validating royalties
+def validate_royalties(royalties, max_royalties, max_contributors):
+    """Inline function to validate royalties."""
+    sp.set_type(royalties, t_royalties)
+    sp.set_type(max_royalties, sp.TNat)
+    sp.set_type(max_contributors, sp.TNat)
+    
+    # Add splits to make sure shares don't exceed the maximum.
+    total_absolute = sp.local("total_absolute", sp.nat(0))
+    with sp.for_("contribution", royalties) as contribution:
+        total_absolute.value += contribution.share
+
+    # Make sure absolute royalties and splits are in valid range.
+    sp.verify((total_absolute.value <= max_royalties)
+        & (sp.len(royalties) <= max_contributors), message="FA2_INV_ROYALTIES")
+
+# Minting with royalties
+def fa2_nft_royalties_mint(batch, contract):
+    sp.set_type(batch, t_mint_nft_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
+    c = sp.contract(
+        t_mint_nft_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_fungible_royalties_mint(batch, contract):
+    sp.set_type(batch, t_mint_fungible_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
+    c = sp.contract(
+        t_mint_fungible_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)

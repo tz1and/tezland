@@ -1259,3 +1259,33 @@ class OnchainviewCountTokens:
     def count_tokens(self):
         """Returns the number of tokens in the FA2 contract."""
         sp.result(self.data.last_token_id)
+
+
+#########
+# Utils #
+#########
+
+# Getting royalties
+def get_token_royalties(fa2, token_id):
+    return sp.view("get_token_royalties", fa2,
+        sp.set_type_expr(token_id, sp.TNat),
+        t = t_royalties).open_some()
+
+# Minting with royalties
+def fa2_nft_royalties_mint(batch, contract):
+    sp.set_type(batch, t_mint_nft_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
+    c = sp.contract(
+        t_mint_nft_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
+
+def fa2_fungible_royalties_mint(batch, contract):
+    sp.set_type(batch, t_mint_fungible_royalties_batch)
+    sp.set_type(contract, sp.TAddress)
+    c = sp.contract(
+        t_mint_fungible_royalties_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)

@@ -237,6 +237,9 @@ def test_transfers(test_name, fa2_contract):
         sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=0)) == ICO)
         if c1.ledger_type != "SingleAsset":
             sc.verify(c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO)
+        if c1.ledger_type == "NFT":
+            sc.verify(c1.get_owner(sp.nat(0)) == alice.address)
+            sc.verify(c1.get_owner(sp.nat(1)) == alice.address)
 
         # Check that the balance is interpreted as zero when the owner doesn't hold any.
         # TZIP-12: If the token owner does not hold any tokens of type token_id,
@@ -331,6 +334,9 @@ def test_transfers(test_name, fa2_contract):
                 c1.get_balance(sp.record(owner=alice.address, token_id=1)) == ICO - TX
             )
             sc.verify(c1.get_balance(sp.record(owner=bob.address, token_id=1)) == TX)
+        if c1.ledger_type == "NFT":
+            sc.verify(c1.get_owner(sp.nat(0)) == bob.address)
+            sc.verify(c1.get_owner(sp.nat(1)) == bob.address)
 
         # Check without using get_balance because the ledger interface
         # differs between NFT and fungible.
@@ -1573,7 +1579,7 @@ def test_pause(nft_contract, fungible_contract, single_asset_contract):
             )
 
 def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract):
-    """Test the `Royalties` mixin.
+    """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
     """
     test_name = "FA2_adhoc_operators"
 
@@ -1702,7 +1708,7 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
             sc.verify(sp.len(contract.data.adhoc_operators) == 0)
 
 def test_royalties(nft_contract, fungible_contract):
-    """Test the `AdhocOwnerOrOperatorTransfer` policy decorator and `update_adhoc_operators`.
+    """Test the `Royalties` mixin.
     """
     test_name = "FA2_royalties"
 
@@ -1723,24 +1729,15 @@ def test_royalties(nft_contract, fungible_contract):
 
         # Define some valid royalties
         valid_royalties = [
-            sp.record(
-                royalties=sp.nat(250),
-                contributors=[
-                    sp.record(address=alice.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                ]
-            ),
-            sp.record(
-                royalties=sp.nat(0),
-                contributors=[]
-            ),
-            sp.record(
-                royalties=sp.nat(150),
-                contributors=[
-                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
-                    sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
-                    sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
-                ]
-            )
+            [
+                sp.record(address=alice.address, share=sp.nat(250))
+            ],
+            [],
+            [
+                sp.record(address=admin.address, share=sp.nat(90)),
+                sp.record(address=bob.address, share=sp.nat(30)),
+                sp.record(address=alice.address, share=sp.nat(30))
+            ]
         ]
 
         sc.h3("Mint - valid")
@@ -1780,43 +1777,3 @@ def test_royalties(nft_contract, fungible_contract):
             sc.verify_equal(
                 royalties, c2.get_token_royalties(abs(c2.data.last_token_id - 1))
             )
-
-        # Define some invalid royalties
-        invalid_royalties = [
-            sp.record(
-                royalties=sp.nat(251),
-                contributors=[
-                    sp.record(address=alice.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                ]
-            ),
-            sp.record(
-                royalties=sp.nat(0),
-                contributors=[
-                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(1000))
-                ]
-            ),
-            sp.record(
-                royalties=sp.nat(150),
-                contributors=[
-                    sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(500)),
-                    sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
-                    sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
-                ]
-            )
-        ]
-
-        for royalties in invalid_royalties:
-            c1.mint([sp.record(
-                metadata=tok0_md,
-                to_=alice.address,
-                royalties=royalties
-            )]).run(sender=admin, valid=False, exception="FA2_ROYALTIES_INVALID")
-
-            c2.mint([
-                sp.record(
-                    token=sp.variant("new", sp.record(
-                        metadata=tok0_md,
-                        royalties=royalties)),
-                    to_=alice.address, amount=1000
-                )
-            ]).run(sender=admin, valid=False, exception="FA2_ROYALTIES_INVALID")
