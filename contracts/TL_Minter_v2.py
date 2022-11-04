@@ -6,6 +6,7 @@ upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py"
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 
 
@@ -76,6 +77,12 @@ class TL_Minter(
                 offchain_views.append(attr)
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
+
+    #
+    # Some constants
+    #
+    MAX_ROYALTIES = sp.nat(250)
+    MAX_CONTRIBUTORS = sp.nat(3)
 
     #
     # Some inline helpers
@@ -161,24 +168,25 @@ class TL_Minter(
     # Public entry points
     #
     @sp.entry_point(lazify = True)
-    def mint_public(self, params):
-        """Minting items in a public collection"""
+    def mint_public_v1(self, params):
+        """Minting items in the v1 public collection"""
         sp.set_type(params, sp.TRecord(
             collection = sp.TAddress,
             to_ = sp.TAddress,
             amount = sp.TNat,
             royalties = sp.TNat,
-            contributors = FA2.t_contributor_list,
+            contributors = FA2_legacy.t_contributor_list,
             metadata = sp.TBytes
         ).layout(("collection", ("to_", ("amount", ("royalties", ("contributors", "metadata")))))))
 
         self.onlyUnpaused()
         self.onlyPublicCollection(params.collection)
         
-        sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
-            message = "PARAM_ERROR")
+        sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        utils.fa2_fungible_royalties_mint(
+        # NOTE: legacy FA2 royalties are validated in the legacy FA2 contract
+
+        FA2_legacy.fa2_fungible_royalties_mint(
             [sp.record(
                 to_=params.to_,
                 amount=params.amount,
@@ -186,12 +194,37 @@ class TL_Minter(
                     metadata={ '' : params.metadata },
                     royalties=sp.record(
                         royalties=params.royalties,
-                        contributors=params.contributors)
-                    )
-                )
+                        contributors=params.contributors)))
             )],
-            params.collection
-        )
+            params.collection)
+
+    @sp.entry_point(lazify = True)
+    def mint_public(self, params):
+        """Minting items in a public collection"""
+        sp.set_type(params, sp.TRecord(
+            collection = sp.TAddress,
+            to_ = sp.TAddress,
+            amount = sp.TNat,
+            royalties = FA2.t_royalties,
+            metadata = sp.TBytes
+        ).layout(("collection", ("to_", ("amount", ("royalties", "metadata"))))))
+
+        self.onlyUnpaused()
+        self.onlyPublicCollection(params.collection)
+        
+        sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
+
+        FA2.validate_royalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+
+        FA2.fa2_fungible_royalties_mint(
+            [sp.record(
+                to_=params.to_,
+                amount=params.amount,
+                token=sp.variant("new", sp.record(
+                    metadata={ '' : params.metadata },
+                    royalties=params.royalties))
+            )],
+            params.collection)
 
     #
     # Private entry points
@@ -216,28 +249,23 @@ class TL_Minter(
             collection = sp.TAddress,
             to_ = sp.TAddress,
             amount = sp.TNat,
-            royalties = sp.TNat,
-            contributors = FA2.t_contributor_list,
+            royalties = FA2.t_royalties,
             metadata = sp.TBytes
-        ).layout(("collection", ("to_", ("amount", ("royalties", ("contributors", "metadata")))))))
+        ).layout(("collection", ("to_", ("amount", ("royalties", "metadata"))))))
 
         self.onlyUnpaused()
         self.onlyOwnerOrCollaboratorPrivate(params.collection, sp.sender)
 
-        sp.verify((params.amount > 0) & (params.amount <= 10000) & ((params.royalties >= 0) & (params.royalties <= 250)),
-            message = "PARAM_ERROR")
+        sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        utils.fa2_fungible_royalties_mint(
+        FA2.validate_royalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+
+        FA2.fa2_fungible_royalties_mint(
             [sp.record(
                 to_=params.to_,
                 amount=params.amount,
                 token=sp.variant("new", sp.record(
                     metadata={ '' : params.metadata },
-                    royalties=sp.record(
-                        royalties=params.royalties,
-                        contributors=params.contributors)
-                    )
-                )
+                    royalties=params.royalties))
             )],
-            params.collection
-        )
+            params.collection)
