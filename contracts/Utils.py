@@ -24,13 +24,6 @@ def send_if_value(to, amount):
     with sp.if_(amount > sp.tez(0)):
         sp.send(to, amount)
 
-def tenToThePowerOf(e):
-    sp.set_type(e, sp.TNat)
-    r = sp.local("r", 10)
-    with sp.for_("c", sp.range(1, e)):
-        r.value *= 10
-    return r.value
-
 @sp.inline_result
 def openSomeOrDefault(e: sp.TOption, default):
     with e.match_cases() as arg:
@@ -97,20 +90,6 @@ def validate_ipfs_uri(metadata_uri):
         & (sp.len(metadata_uri) >= sp.nat(53)), "INVALID_METADATA")
 
 #
-# tz1and fa2 extension royalties
-def tz1and_items_get_royalties(fa2, token_id):
-    return sp.view("get_token_royalties", fa2,
-        sp.set_type_expr(token_id, sp.TNat),
-        t = FA2_legacy.t_royalties).open_some()
-
-#
-# tz1and fa2 extension royalties v2
-def tz1and_items_get_royalties_v2(fa2, token_id):
-    return sp.view("get_token_royalties", fa2,
-        sp.set_type_expr(token_id, sp.TNat),
-        t = FA2.t_royalties_v2).open_some()
-
-#
 # FA2 views
 def fa2_get_balance(fa2, token_id, owner):
     return sp.view("get_balance", fa2,
@@ -121,15 +100,6 @@ def fa2_get_balance(fa2, token_id, owner):
                 token_id = sp.TNat
             ).layout(("owner", "token_id"))),
         t = sp.TNat).open_some()
-
-#
-# FA2 views
-def fa2_nft_get_owner(fa2, token_id):
-    return sp.view("get_owner", fa2,
-        sp.set_type_expr(
-            token_id,
-            sp.TNat),
-        t = sp.TAddress).open_some()
 
 # Not used, World now has it's own operators set.
 #def fa2_is_operator(self, fa2, token_id, owner, operator):
@@ -167,29 +137,11 @@ def fa2_nft_mint(batch, contract):
         entry_point='mint').open_some()
     sp.transfer(batch, sp.mutez(0), c)
 
-def fa2_nft_royalties_mint(batch, contract):
-    sp.set_type(batch, FA2.t_mint_nft_royalties_batch)
-    sp.set_type(contract, sp.TAddress)
-    c = sp.contract(
-        FA2.t_mint_nft_royalties_batch,
-        contract,
-        entry_point='mint').open_some()
-    sp.transfer(batch, sp.mutez(0), c)
-
 def fa2_fungible_mint(batch, contract):
     sp.set_type(batch, FA2.t_mint_fungible_batch)
     sp.set_type(contract, sp.TAddress)
     c = sp.contract(
         FA2.t_mint_fungible_batch,
-        contract,
-        entry_point='mint').open_some()
-    sp.transfer(batch, sp.mutez(0), c)
-
-def fa2_fungible_royalties_mint(batch, contract):
-    sp.set_type(batch, FA2.t_mint_fungible_royalties_batch)
-    sp.set_type(contract, sp.TAddress)
-    c = sp.contract(
-        FA2.t_mint_fungible_royalties_batch,
         contract,
         entry_point='mint').open_some()
     sp.transfer(batch, sp.mutez(0), c)
