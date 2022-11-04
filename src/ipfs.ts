@@ -39,7 +39,7 @@ export interface ContractMetadata {
 }
 
 export async function upload_metadata(metadata: any, localIpfs: boolean): Promise<string> {
-    const result = await uploadToIpfs(metadata, true, localIpfs);
+    const result = await uploadToIpfs(metadata, true, localIpfs, true);
 
     console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
 
@@ -66,7 +66,7 @@ function createContractMetadata(metadata: ContractMetadata): any {
 }
 
 export async function upload_contract_metadata(metadata: ContractMetadata, localIpfs: boolean): Promise<string> {
-    const result = await uploadToIpfs(createContractMetadata(metadata), true, localIpfs);
+    const result = await uploadToIpfs(createContractMetadata(metadata), true, localIpfs, true);
 
     console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
 
