@@ -13,7 +13,6 @@ allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlace
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -25,7 +24,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
 # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
 #       at least in terms of what "type" of royalties.
-# TODO: figure out ext-type items. could in theory be a separate map on the issuer level?
+# TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
 # TODO: gas optimisations!
 # TODO: FA2 origination is too large! try and optimise
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
@@ -45,6 +44,12 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
+# TODO: solution for the legacy collection mint issues:
+#       - legacy public collection will be handled by V1 minter.
+#       - maybe just don't allow minting in legacy collection anymore.
+#       - add a mint_v1 entrypoint to minter v2
+# TODO: validate royalties in minter to save origination fees.
+# TODO: migrate: don't set operators, transfer tokens directly to world v2.
 
 
 # maybe?
@@ -525,7 +530,7 @@ class TL_World(
 
         # NOTE: no need to check if place contract is allowed in this world.
 
-        place_owner = sp.local("place_owner", utils.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+        place_owner = sp.local("place_owner", FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
 
         # If permittee is the owner, he has full permission.
         with sp.if_(place_owner.value == permittee):
@@ -587,7 +592,7 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
-            merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)),
+            merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
             send_to_place = sp.TBool,
             extension = extensionArgType
         ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension"))))))
@@ -792,24 +797,21 @@ class TL_World(
         """Inline function for sending royalties, fees, etc."""
         sp.set_type(mutez_per_token, sp.TMutez)
         sp.set_type(issuer_or_place_owner, sp.TAddress)
-        sp.set_type(item_royalty_info, FA2.t_royalties_v2)
+        sp.set_type(item_royalty_info, registry_contract.t_royalties_interop)
 
         # Collect amounts to send in a map.
         sendMap = utils.TokenSendMap()
 
-        # Calculate total quantity for royalties calc
-        total_quantity = sp.local("total_quantity", utils.tenToThePowerOf(item_royalty_info.decimals))
-
-        # Loop over all the shares and record.
+        # Loop over all the shares and record how much to send.
         total_royalties = sp.local("total_royalties", sp.mutez(0))
         with sp.for_("share", item_royalty_info.shares) as share:
             # Calculate amount to be paid from absolute share.
-            share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, total_quantity.value))
+            share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, item_royalty_info.total))
             sendMap.add(share.address, share_mutez)
             total_royalties.value += share_mutez
 
         # Our fees are in permille.
-        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, 1000))
+        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
         sendMap.add(self.data.fees_to, fees_amount)
 
         # Send rest of the value to seller.
@@ -826,7 +828,7 @@ class TL_World(
         sp.set_type(issuer, sp.TOption(sp.TAddress))
 
         # the item owner is either the issuer (when set), or the place owner.
-        return utils.openSomeOrDefault(issuer, utils.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+        return utils.openSomeOrDefault(issuer, FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
 
 
     @sp.entry_point(lazify = True)
@@ -836,7 +838,7 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
-            merkle_proof_royalties = sp.TOption(merkle_tree.royalties.MerkleProofType),
+            merkle_proof_royalties = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
             extension = extensionArgType
         ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", ("merkle_proof_royalties", "extension")))))))
 

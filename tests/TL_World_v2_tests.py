@@ -14,6 +14,10 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: test chunks
 # TODO: test place keys?
 # TODO: test registry and collections.
+# TODO: token amounts calculation: add fa level to map
+# TODO: test placing items with collection merkle proof.
+# TODO: test getting items with royalties merkle proof.
+# TODO: test place owned items.
 
 
 # utility contract to get token balances
@@ -191,21 +195,21 @@ def test():
 
     # mint some item tokens for testing
     scenario.h3("minting items")
-    minter.mint_public(collection = items_tokens.address,
+    minter.mint_public_v1(collection = items_tokens.address,
         to_ = bob.address,
         amount = 4,
         royalties = 250,
         contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
-    minter.mint_public(collection = items_tokens.address,
+    minter.mint_public_v1(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
         royalties = 250,
         contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
-    minter.mint_public(collection = items_tokens.address,
+    minter.mint_public_v1(collection = items_tokens.address,
         to_ = admin.address,
         amount = 1000,
         royalties = 250,
@@ -311,7 +315,7 @@ def test():
         valid: bool = True,
         message: str = None,
         send_to_place: sp.TBool = False,
-        merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, merkle_tree.collections.MerkleProofType)) = sp.none):
+        merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.merkle_tree_collections.MerkleProofType)) = sp.none):
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums.get(chunk_key.chunk_id, sp.bytes("0x00")))
@@ -723,8 +727,7 @@ def test():
         to_=alice.address,
         amount=50,
         metadata=sp.utils.bytes_of_string("ipfs://Qtesttesttest"),
-        royalties=250,
-        contributors=[ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ]
+        royalties=[ sp.record(address=alice.address, share=sp.nat(250)) ]
     ).run(sender = admin)
 
     dyn_collection_token.call("update_operators", [
@@ -753,37 +756,43 @@ def test():
     ##            royalties_kind = sp.variant("none", sp.unit))))])
 
     # test place_item
-    scenario.h3("Test placing/removing/getting registered non-tz1and FA2s")
+    scenario.h3("Test placing/removing/getting registered tz1and collection FA2s")
 
     # TODO:
-    """
     scenario.h4("place")
     place_items(place_alice_chunk_0, {dyn_collection_token.address: [
-        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position)),
-        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position))
+        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position, send_to = sp.none)),
+        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position, send_to = sp.none))
     ]}, sender=alice)
 
-    # NOTE: make sure other type tokens can only be placed one at a time and aren't swappable, for now.
+    # If a token is registered, you can place as many as you want and also swap them.
     place_items(place_alice_chunk_0, {dyn_collection_token.address: [
-        sp.variant("item", sp.record(token_id = 0, token_amount=2, mutez_per_token=sp.tez(0), item_data = position)),
-    ]}, sender=alice, valid=False, message="PARAM_ERROR")
+        sp.variant("item", sp.record(token_id = 0, token_amount=2, mutez_per_token=sp.tez(0), item_data = position, send_to = sp.none)),
+    ]}, sender=alice, valid=True)
 
     place_items(place_alice_chunk_0, {dyn_collection_token.address: [
-        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(1), item_data = position)),
-    ]}, sender=alice, valid=False, message="PARAM_ERROR")
+        sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(1), item_data = position, send_to = sp.none)),
+    ]}, sender=alice, valid=True)
 
     place_items(place_alice_chunk_0, {dyn_collection_token.address: [
-        sp.variant("item", sp.record(token_id = 0, token_amount=22, mutez_per_token=sp.tez(1), item_data = position)),
-    ]}, sender=alice, valid=False, message="PARAM_ERROR")
+        sp.variant("item", sp.record(token_id = 0, token_amount=22, mutez_per_token=sp.tez(1), item_data = position, send_to = sp.none)),
+    ]}, sender=alice, valid=True)
 
     scenario.h4("get")
-    item_counter = world.data.chunks.get(place_alice_chunk_0).next_id
-    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
-    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 2), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    item_counter = scenario.compute(world.data.chunks.get(place_alice_chunk_0).next_id)
+    # TODO: fix token amounts calc and then do this
+    #get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1))
+    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 4), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 5), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
     scenario.h4("remove")
-    remove_items(place_alice_chunk_0, {sp.some(alice.address): {dyn_collection_token.address: [sp.as_nat(item_counter - 1), sp.as_nat(item_counter - 2)]}}, sender=alice)
-    """
+    remove_items(place_alice_chunk_0, {sp.some(alice.address): {dyn_collection_token.address: [
+        sp.as_nat(item_counter - 1),
+        sp.as_nat(item_counter - 2),
+        sp.as_nat(item_counter - 3),
+        sp.as_nat(item_counter - 4),
+        sp.as_nat(item_counter - 5)
+    ]}}, sender=alice)
 
     #
     # test world permissions
