@@ -35,7 +35,7 @@ class tz1andCollection(
             # It might be good to have, simply for security reasons...
             # Then again, if the FA2 is borked, pausing is destructive to value as well.
             # But one could migrate to another FA2 before all value is lost. So maybe worth it...
-            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=True,
+            policy=FA2.OwnerOrOperatorAdhocTransfer(), has_royalties=True,
             allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
@@ -145,7 +145,7 @@ class TL_TokenFactory(
             last_token_id = 0,
             ledger = sp.big_map(),
             operators = sp.big_map(),
-            paused = False,
+            #paused = False,
             proposed_administrator = sp.none,
             token_extra = sp.big_map(),
             token_metadata = sp.big_map()
@@ -157,6 +157,4 @@ class TL_TokenFactory(
             self.data.token_registry, 
             entry_point = "manage_private_collections").open_some()
 
-        # TODO: currently creates tokens with version 1.
-        # MAKE SURE THIS IS CORRECT!!!!
         sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender, royalties_version = 2)])], sp.mutez(0), manage_private_collections_handle)
