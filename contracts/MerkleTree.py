@@ -3,8 +3,6 @@
 
 import smartpy as sp
 
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-
 
 class MerkleTree:
     MerkleProofType = sp.TRecord(proof=sp.TList(sp.TBytes), leaf=sp.TBytes).layout(("proof", "leaf"))
@@ -34,14 +32,3 @@ class MerkleTree:
     def unpack_leaf(self, leaf):
         sp.set_type(leaf, self.MerkleProofType.leaf)
         return sp.unpack(leaf, self.LeafDataType).open_some("INVALID_LEAF")
-
-# Leaf types
-t_royalties_merkle_leaf = sp.TRecord(
-    fa2 = sp.TAddress,
-    token_id = sp.TNat,
-    token_royalties = FA2.t_royalties_v2
-).layout(("fa2", ("token_id", "token_royalties")))
-
-# Tree classes
-royalties = MerkleTree(t_royalties_merkle_leaf)
-collections = MerkleTree(sp.TAddress)
