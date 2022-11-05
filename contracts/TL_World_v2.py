@@ -34,10 +34,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: test owner = "not actual owner" when issuer is none for get_item.
 # TODO: test owner = "not actual owner" when issuer is none for remove_items.
 # TODO: so many empty FAILWITHs. Optimise...
-# TODO: use open_some(unit) where it makes sense (views?)
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
-# TODO: optional send_to address on swaps. to allow customising where tez are sent to.
+# TODO: optional send_to address on swaps. to allow customising where tez are sent to. HALF-DONE
 # TODO: re-distributing places. added get_owner view
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
 #       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
@@ -48,8 +47,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       - legacy public collection will be handled by V1 minter.
 #       - maybe just don't allow minting in legacy collection anymore.
 #       - add a mint_v1 entrypoint to minter v2
-# TODO: validate royalties in minter to save origination fees.
-# TODO: migrate: don't set operators, transfer tokens directly to world v2.
 # TODO: make sure royalties version is set correctly everywhere.
 
 

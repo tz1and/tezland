@@ -6,9 +6,6 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-# TODO: instead of pulling tokens in v2 migrate, we could also transfer the from v1 to v2.
-#       I suppose it's a little risky, but if done carefully, it should save some fees.
-
 class TL_World_v1_1(world_contract.TL_World):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, world_v2_contract, world_v2_place_contract,
         metadata, name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
