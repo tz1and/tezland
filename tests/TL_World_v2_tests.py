@@ -171,7 +171,7 @@ def test():
     # create all kinds of contracts for testing
     #
     scenario.h1("Create test env")
-    scenario.h2("items")
+    scenario.h2("Items v1")
     items_tokens = tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
@@ -180,7 +180,7 @@ def test():
     items_utils = FA2_utils()
     scenario += items_utils
 
-    scenario.h2("places")
+    scenario.h2("Places v2")
     places_tokens = tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
@@ -192,7 +192,7 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_registry
 
-    scenario.h2("minter")
+    scenario.h2("Minter v2")
     minter = minter_contract.TL_Minter(admin.address, token_registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
