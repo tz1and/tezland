@@ -14,7 +14,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: test chunks
 # TODO: test place keys?
 # TODO: test registry and collections.
-# TODO: token amounts calculation: add fa level to map
+# TODO: token amounts calculation: add owner level to map?
 # TODO: test placing items with collection merkle proof.
 # TODO: test getting items with royalties merkle proof.
 # TODO: test place owned items.
@@ -24,6 +24,13 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 class FA2_utils(sp.Contract):
     def __init__(self):
         self.init(last_sum = 0)
+
+    t_token_balance_map = sp.TMap(
+        sp.TRecord(
+            fa2=sp.TAddress,
+            token_id=sp.TNat
+        ).layout(("fa2", "token_id")),
+        sp.TNat)
 
     @sp.onchain_view(pure=True)
     def count_items(self, params):
@@ -39,16 +46,14 @@ class FA2_utils(sp.Contract):
     @sp.onchain_view(pure=True)
     def token_amounts(self, params):
         sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))
-        # TODO: this is a bit fucked? key being token id?
-        token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+
+        token_amts = sp.local("token_amts", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("fa2", params.keys()) as fa2_key:
             item_list = params[fa2_key]
             with sp.for_("curr", item_list) as curr:
                 with curr.match("item") as item:
-                    with sp.if_(token_amts.value.contains(item.token_id)):
-                        token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                    with sp.else_():
-                        token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2_key)
+                    key = sp.record(fa2=fa2_key, token_id=item.token_id)
+                    token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
         
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
@@ -61,39 +66,37 @@ class FA2_utils(sp.Contract):
         sp.set_type(params.remove_map, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))))
 
         world_data = sp.compute(self.world_get_place_data(params.world, params.place_key, params.chunk_ids))
-        # TODO: this is a bit fucked? key being token id?
-        token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+
+        token_amts = sp.local("token_amts", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("issuer", params.remove_map.keys()) as issuer:
             with sp.for_("fa2", params.remove_map[issuer].keys()) as fa2:
                 with sp.for_("chunk", world_data.chunks.values()) as chunk:
                     fa2_store = chunk.stored_items[issuer][fa2]
                     with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
                         with fa2_store[item_id].match("item") as item:
-                            with sp.if_(token_amts.value.contains(item.token_id)):
-                                token_amts.value[item.token_id].amount = token_amts.value[item.token_id].amount + item.token_amount
-                            with sp.else_():
-                                token_amts.value[item.token_id] = sp.record(amount = item.token_amount, fa2 = fa2)
+                            key = sp.record(fa2=fa2, token_id=item.token_id)
+                            token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
 
         #sp.trace(token_amts.value)
         sp.result(token_amts.value)
 
     @sp.onchain_view(pure=True)
     def get_balances(self, params):
-        sp.set_type(params.tokens, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+        sp.set_type(params.tokens, self.t_token_balance_map)
         sp.set_type(params.owner, sp.TAddress)
 
-        balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
+        balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
+            balances.value[curr] = utils.fa2_get_balance(curr.fa2, curr.token_id, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)
 
     @sp.onchain_view(pure=True)
     def cmp_balances(self, params):
-        sp.set_type(params.bal_a, sp.TMap(sp.TNat, sp.TNat))
-        sp.set_type(params.bal_b, sp.TMap(sp.TNat, sp.TNat))
-        sp.set_type(params.amts, sp.TMap(sp.TNat, sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
+        sp.set_type(params.bal_a, self.t_token_balance_map)
+        sp.set_type(params.bal_b, self.t_token_balance_map)
+        sp.set_type(params.amts, self.t_token_balance_map)
 
         #sp.trace("cmp_balances")
         #sp.trace(params.bal_a)
@@ -103,7 +106,7 @@ class FA2_utils(sp.Contract):
         sp.verify((sp.len(params.bal_a) == sp.len(params.bal_b)) & (sp.len(params.bal_b) == sp.len(params.amts)))
 
         with sp.for_("curr", params.bal_a.keys()) as curr:
-            sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr].amount)
+            sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr])
         
         sp.result(True)
 
@@ -358,7 +361,7 @@ def test():
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
-            tokens_amounts = {scenario.compute(world.data.chunks[chunk_key].stored_items[sp.some(issuer)].get(fa2).get(item_id).open_variant("item").token_id) : sp.record(amount=1, fa2=items_tokens.address)}
+            tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].stored_items[sp.some(issuer)].get(fa2).get(item_id).open_variant("item").token_id)) : sp.nat(1)}
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
@@ -740,20 +743,12 @@ def test():
 
     # test unpermitted place_item
     # TODO: other type item tests are a bit broken because all kinds of reasons...
-    scenario.h3("Test placing unregistered non-tz1and FA2s")
+    scenario.h3("Test placing/removing/getting unregistered non-tz1and FA2s")
     place_items(place_alice_chunk_0, {other_token.address: [
         sp.variant("item", sp.record(token_id = 0, token_amount=1, mutez_per_token=sp.tez(0), item_data = position, send_to = sp.none))
     ]}, sender=alice, valid=False, message="TOKEN_NOT_REGISTERED")
 
-    scenario.h3("register token: swap_allowed=False")
-    #token_registry.register_fa2([dyn_collection_token.address]).run(sender=admin)
-    # TODO: royalty info in registry? see old fa2 permitted:
-    ##add_permitted = sp.list([sp.variant("add_permitted",
-    ##    sp.record(
-    ##        fa2 = dyn_collection_token.address,
-    ##        props = sp.record(
-    ##            swap_allowed = False,
-    ##            royalties_kind = sp.variant("none", sp.unit))))])
+    # TODO: test with registry merkle root.
 
     # test place_item
     scenario.h3("Test placing/removing/getting registered tz1and collection FA2s")
@@ -781,7 +776,7 @@ def test():
     scenario.h4("get")
     item_counter = scenario.compute(world.data.chunks.get(place_alice_chunk_0).next_id)
     # TODO: fix token amounts calc and then do this
-    #get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1))
+    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1))
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 4), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 5), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 

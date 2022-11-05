@@ -50,6 +50,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       - add a mint_v1 entrypoint to minter v2
 # TODO: validate royalties in minter to save origination fees.
 # TODO: migrate: don't set operators, transfer tokens directly to world v2.
+# TODO: make sure royalties version is set correctly everywhere.
 
 
 # maybe?
