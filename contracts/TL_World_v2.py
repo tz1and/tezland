@@ -640,15 +640,13 @@ class TL_World(
         with sp.for_("fa2_item", params.place_item_map.items()) as fa2_item:
             sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-            item_list = fa2_item.value
-
             # Get or create item storage.
             item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2_item.key)
 
             transferMap.add_fa2(fa2_item.key)
 
             # For each item in the list.
-            with sp.for_("curr", item_list) as curr:
+            with sp.for_("curr", fa2_item.value) as curr:
                 with curr.match_cases() as arg:
                     with arg.match("item") as item:
                         self.validateItemData(item.item_data)
@@ -762,14 +760,12 @@ class TL_World(
             item_owner = utils.openSomeOrDefault(issuer_item.key, owner)
 
             with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                item_list = fa2_item.value
-
                 # Get item store - must exist.
                 item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
 
                 transferMap.add_fa2(fa2_item.key)
                 
-                with sp.for_("curr", item_list) as curr:
+                with sp.for_("curr", fa2_item.value) as curr:
                     # Nothing to do here with ext items. Just remove them.
                     with item_store[curr].match("item") as the_item:
                         # Transfer items back to issuer/owner
