@@ -65,6 +65,9 @@ class FA2TokenTransferMap:
             with sp.if_(sp.len(transfer_item.value) > 0):
                 fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.values())
 
+    def trace(self):
+        sp.trace(self.internal_map.value)
+
 
 #
 # Class for single fa2 token transfers.
@@ -91,6 +94,10 @@ class FA2TokenTransferMapSingle:
         with sp.if_(sp.len(self.internal_map.value) > 0):
             fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.values())
 
+    def trace(self):
+        sp.trace(self.internal_map.value)
+        sp.trace(self.internal_fa2)
+
 
 #
 # Class for native token transfers.
@@ -106,6 +113,9 @@ class TokenSendMap:
     def transfer(self):
         with sp.for_("send", self.internal_map.value.items()) as send:
             send_if_value(send.key, send.value)
+
+    def trace(self):
+        sp.trace(self.internal_map.value)
 
 #
 # Validate IPFS Uri
