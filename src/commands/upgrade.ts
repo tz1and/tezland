@@ -29,14 +29,21 @@ export default class Upgrade extends PostUpgrade {
         // Compile contract with metadata set.
         const code_map = smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
 
-        for (const ep_name of entrypoints) {
-            await this.run_op_task(`Updating entrypoint ${kleur.yellow(ep_name)}...`, async () => {
-                return contract.methodsObject.update_ep({
-                    ep_name: {[ep_name]: null},
-                    new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
-                }).send();
-            });
-        }
+        await this.run_op_task(`Updating entrypoints [${kleur.yellow(entrypoints.join(', '))}]...`, async () => {
+            let upgrade_batch = this.tezos!.wallet.batch();
+            for (const ep_name of entrypoints) {
+                upgrade_batch.with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...contract.methodsObject.update_ep({
+                            ep_name: {[ep_name]: null},
+                            new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
+                        }).toTransferParams()
+                    }
+                ]);
+            }
+            return upgrade_batch.send();
+        });
 
         let metdata_url;
         if (upload_new_metadata) {
@@ -305,7 +312,9 @@ export default class Upgrade extends PostUpgrade {
         //
 
         //
-        // TODO: actually run migration.
+        // TODO: migration:
+        // - actually run migration.
+        // - remove migration ep with upgrade.
         //
 
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
