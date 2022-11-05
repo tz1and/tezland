@@ -912,7 +912,10 @@ class TL_World(
         """An entrypoint to recieve/send migrations.
         
         Initially set up to recieve migrations but can
-        be upgraded to send migrations."""
+        be upgraded to send migrations.
+        
+        NOTE: migration() assumes tokens have been recieved already.
+        This is dangerous, but saves gas and it's clearly an admin-only action."""
         sp.set_type(params, migrationType)
 
         # Only allow recieving migrations from a certain contract,
@@ -944,10 +947,6 @@ class TL_World(
             # Get or create the current chunk.
             this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
 
-            # Our token transfer map.
-            # Since all transfers come from migration_contract, we can have single map.
-            transferMap = utils.FA2TokenTransferMap()
-
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
                 registry_info = registry_contract.getTokenRegistryInfo(
@@ -958,15 +957,11 @@ class TL_World(
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-                    transferMap.add_fa2(fa2_item.key)
-
-                    item_list = fa2_item.value
-
                     # Get or create item storage.
                     item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                     # For each item in the list.
-                    with sp.for_("curr", item_list) as curr:
+                    with sp.for_("curr", fa2_item.value) as curr:
                         # if we added more items than the chunk limit, switch chunks and reset add count to 0
                         with sp.if_(add_item_count.value >= place_limits.chunk_item_limit):
                             # Remove itemstore if empty. Can happen in some cases,
@@ -987,10 +982,6 @@ class TL_World(
                             with arg.match("item") as item:
                                 self.validateItemData(item.item_data)
 
-                                # transfer item to this contract
-                                # do multi-transfer by building up a list of transfers
-                                transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
-
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
 
@@ -1002,9 +993,6 @@ class TL_World(
 
                         # Add to item add counter
                         add_item_count.value += sp.nat(1)
-
-            # Transfer if list has items.
-            transferMap.transfer_tokens(sp.sender)
 
             # Don't increment chunk interaction counter, as chunks must be new.
 

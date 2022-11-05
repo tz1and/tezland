@@ -34,7 +34,7 @@ def openSomeOrDefault(e: sp.TOption, default):
 
 
 #
-# Class for fa2 token transfers.
+# Class for multi fa2 token transfers.
 class FA2TokenTransferMap:
     def __init__(self):
         self.internal_map = sp.local("transferMap", sp.map(tkey = sp.TAddress, tvalue = sp.TMap(sp.TNat, FA2.t_transfer_tx)))
@@ -64,6 +64,32 @@ class FA2TokenTransferMap:
         with sp.for_("transfer_item", self.internal_map.value.items()) as transfer_item:
             with sp.if_(sp.len(transfer_item.value) > 0):
                 fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.values())
+
+
+#
+# Class for single fa2 token transfers.
+class FA2TokenTransferMapSingle:
+    def __init__(self, fa2):
+        self.internal_map = sp.local("transferMap", sp.map(tkey = sp.TNat, tvalue = FA2.t_transfer_tx))
+        self.internal_fa2 = sp.set_type_expr(fa2, sp.TAddress)
+
+    def add_token(self, to_, token_id, token_amount):
+        sp.set_type(to_, sp.TAddress)
+        sp.set_type(token_id, sp.TNat)
+        sp.set_type(token_amount, sp.TNat)
+
+        # TODO: maybe do this instead:
+        # send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
+        with sp.if_(self.internal_map.value.contains(token_id)):
+            self.internal_map.value[token_id].amount += token_amount
+        with sp.else_():
+            self.internal_map.value[token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
+
+    def transfer_tokens(self, from_):
+        sp.set_type(from_, sp.TAddress)
+
+        with sp.if_(sp.len(self.internal_map.value) > 0):
+            fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.values())
 
 
 #

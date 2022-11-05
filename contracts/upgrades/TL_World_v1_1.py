@@ -3,6 +3,7 @@ import smartpy as sp
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 # TODO: instead of pulling tokens in v2 migrate, we could also transfer the from v1 to v2.
@@ -75,8 +76,12 @@ class TL_World_v1_1(world_contract.TL_World):
         with this_place_opt.match("Some") as this_place:
             # Only migrate place has items or the props have been changed.
             with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, worldv2_contract.defaultPlaceProps)):
+                # The record of items to migrate to v2.
                 migration_map = sp.local("migration_map", {}, worldv2_contract.migrationItemMapType)
-                token_id_set = sp.local("token_id_set", sp.set([]), sp.TSet(sp.TNat))
+
+                # Our token transfer map.
+                # Since it's all the same token, we can have a single map.
+                transferMap = utils.FA2TokenTransferMapSingle(self.data.items_contract)
 
                 # Fill migration map with items from storage
                 with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
@@ -89,8 +94,9 @@ class TL_World_v1_1(world_contract.TL_World):
                     with sp.for_("item_variant", item_store.values()) as item_variant:
                         with item_variant.match_cases() as arg:
                             with arg.match("item") as item:
-                                # Add to token_id_set for adhoc operators.
-                                token_id_set.value.add(item.token_id)
+                                # Add to transfer map.
+                                transferMap.add_token(self.migrate_to_contract, item.token_id, item.item_amount)
+
                                 # Add item to migration list.
                                 current_list.push(sp.variant("item", sp.record(
                                     token_amount = item.item_amount,
@@ -103,9 +109,8 @@ class TL_World_v1_1(world_contract.TL_World):
                             with arg.match("ext") as ext:
                                 current_list.push(sp.variant("ext", ext))
 
-                # Update adhoc operators.
-                with sp.if_(sp.len(token_id_set.value) > 0):
-                    self.update_adhoc_operators(self.data.items_contract, token_id_set.value)
+                # Transfer FA2 tokens
+                transferMap.transfer_tokens(sp.self_address)
 
                 # Send migration to world v2.
                 # NOTE: still have to send migration even if map is empty, for the props.

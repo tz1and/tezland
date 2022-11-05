@@ -60,7 +60,7 @@ class FA2_utils(sp.Contract):
         sp.result(token_amts.value)
 
     @sp.onchain_view(pure=True)
-    def token_amounts_in_storage(self, params):
+    def remove_token_amounts_in_storage(self, params):
         sp.set_type(params.place_key, places_contract.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
@@ -76,6 +76,27 @@ class FA2_utils(sp.Contract):
                     with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
                         with fa2_store[item_id].match("item") as item:
                             key = sp.record(fa2=fa2, token_id=item.token_id, owner=issuer)
+                            token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
+
+        #sp.trace(token_amts.value)
+        sp.result(token_amts.value)
+
+    @sp.onchain_view(pure=True)
+    def all_token_amounts_in_storage(self, params):
+        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
+        sp.set_type(params.world, sp.TAddress)
+
+        world_data = sp.compute(self.world_get_place_data(params.world, params.place_key, params.chunk_ids))
+
+        token_amts = sp.local("token_amts", sp.set_type_expr({}, self.t_token_balance_map))
+        
+        with sp.for_("chunk_item", world_data.chunks.items()) as chunk_item:
+            with sp.for_("issuer_item", chunk_item.value.stored_items.items()) as issuer_item:
+                with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                    with sp.for_("item_item", fa2_item.value.items()) as item_item:
+                        with item_item.value.match("item") as item:
+                            key = sp.record(fa2=fa2_item.key, token_id=item.token_id, owner=issuer_item.key)
                             token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
 
         #sp.trace(token_amts.value)
@@ -409,7 +430,8 @@ def test():
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
-            tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, place_key = chunk_key.place_key, chunk_ids = sp.set([chunk_key.chunk_id]), remove_map = remove_map)))
+            tokens_amounts = scenario.compute(items_utils.remove_token_amounts_in_storage(
+                sp.record(world = world.address, place_key = chunk_key.place_key, chunk_ids = sp.set([chunk_key.chunk_id]), remove_map = remove_map)))
             balances_sender_before = scenario.compute(items_utils.get_balances(tokens_amounts))
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
         
@@ -1255,8 +1277,18 @@ def test():
     scenario.verify(world.data.chunks[place_carol_chunk_1].stored_items.contains(sp.some(alice.address)))
     scenario.verify(world.data.chunks[place_carol_chunk_1].stored_items.contains(sp.some(admin.address)))
 
-    scenario.verify(items_tokens.get_balance(sp.record(owner = world.address, token_id = item_admin)) == 8)
-    scenario.verify(items_tokens.get_balance(sp.record(owner = admin.address, token_id = item_admin)) == 992)
+    scenario.h3("tokens in storage after migration")
+    # NOTE: Migration ep doesn't actually transfer tokens. It's expected the other side does it.
+    token_amounts = scenario.compute(items_utils.all_token_amounts_in_storage(
+        sp.record(world = world.address, place_key = place_carol_chunk_0.place_key, chunk_ids = sp.set([place_carol_chunk_0.chunk_id, place_carol_chunk_1.chunk_id]))))
+    scenario.show(token_amounts)
+
+    scenario.verify(sp.len(token_amounts) == 4)
+    scenario.verify(token_amounts[sp.record(fa2 = items_tokens.address, token_id = item_admin, owner = sp.some(admin.address))] == 1)
+    scenario.verify(token_amounts[sp.record(fa2 = items_tokens.address, token_id = item_admin, owner = sp.some(bob.address))] == 2)
+    scenario.verify(token_amounts[sp.record(fa2 = items_tokens.address, token_id = item_admin, owner = sp.some(alice.address))] == 3)
+    scenario.verify(token_amounts[sp.record(fa2 = items_tokens.address, token_id = item_admin, owner = sp.some(carol.address))] == 2)
+
 
     #
     # the end.
