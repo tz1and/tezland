@@ -51,12 +51,15 @@ class FA2TokenTransferMap:
         sp.set_type(token_id, sp.TNat)
         sp.set_type(token_amount, sp.TNat)
 
-        # TODO: maybe do this instead:
-        # send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
-        with sp.if_(self.internal_map.value[fa2].contains(token_id)):
-            self.internal_map.value[fa2][token_id].amount += token_amount
-        with sp.else_():
-            self.internal_map.value[fa2][token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
+        fa2_map_opt = self.internal_map.value.get_opt(fa2)
+        with fa2_map_opt.match_cases() as arg:
+            with arg.match("Some") as fa2_map_some:
+                new_entry = sp.compute(fa2_map_some.get(token_id, default_value=sp.record(amount=0, to_=to_, token_id=token_id)))
+                new_entry.amount += token_amount
+                self.internal_map.value[fa2][token_id] = new_entry
+
+            with arg.match("None"):
+                sp.failwith(sp.unit)
 
     def transfer_tokens(self, from_):
         sp.set_type(from_, sp.TAddress)
@@ -81,12 +84,9 @@ class FA2TokenTransferMapSingle:
         sp.set_type(token_id, sp.TNat)
         sp.set_type(token_amount, sp.TNat)
 
-        # TODO: maybe do this instead:
-        # send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
-        with sp.if_(self.internal_map.value.contains(token_id)):
-            self.internal_map.value[token_id].amount += token_amount
-        with sp.else_():
-            self.internal_map.value[token_id] = sp.record(amount=token_amount, to_=to_, token_id=token_id)
+        new_entry = sp.compute(self.internal_map.value.get(token_id, default_value=sp.record(amount=0, to_=to_, token_id=token_id)))
+        new_entry.amount += token_amount
+        self.internal_map.value[token_id] = new_entry
 
     def transfer_tokens(self, from_):
         sp.set_type(from_, sp.TAddress)
