@@ -235,21 +235,21 @@ def test():
         to_ = bob.address,
         amount = 14,
         royalties = 250,
-        contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
+        contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     minter.mint_public_v1(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
         royalties = 250,
-        contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
+        contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
     minter.mint_public_v1(collection = items_tokens.address,
         to_ = admin.address,
         amount = 1000,
         royalties = 250,
-        contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
+        contributors = [ sp.record(address=carol.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
     item_bob = sp.nat(0)
@@ -764,7 +764,7 @@ def test():
         to_=alice.address,
         amount=50,
         metadata=sp.utils.bytes_of_string("ipfs://Qtesttesttest"),
-        royalties=[ sp.record(address=alice.address, share=sp.nat(250)) ]
+        royalties=[ sp.record(address=carol.address, share=sp.nat(250)) ]
     ).run(sender = admin)
 
     dyn_collection_token.call("update_operators", [
