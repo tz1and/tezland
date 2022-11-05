@@ -14,10 +14,10 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: test chunks
 # TODO: test place keys?
 # TODO: test registry and collections.
-# TODO: token amounts calculation: add owner level to map?
 # TODO: test placing items with collection merkle proof.
 # TODO: test getting items with royalties merkle proof.
 # TODO: test place owned items.
+# TODO: token amounts calc probably still wrong in some cases (place owned items).
 
 
 # utility contract to get token balances
@@ -28,8 +28,9 @@ class FA2_utils(sp.Contract):
     t_token_balance_map = sp.TMap(
         sp.TRecord(
             fa2=sp.TAddress,
-            token_id=sp.TNat
-        ).layout(("fa2", "token_id")),
+            token_id=sp.TNat,
+            owner=sp.TOption(sp.TAddress)
+        ).layout(("fa2", ("token_id", "owner"))),
         sp.TNat)
 
     @sp.onchain_view(pure=True)
@@ -45,14 +46,14 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def token_amounts(self, params):
-        sp.set_type(params, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))
+        sp.set_type(params.token_map, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))
+        sp.set_type(params.issuer, sp.TAddress)
 
         token_amts = sp.local("token_amts", sp.set_type_expr({}, self.t_token_balance_map))
-        with sp.for_("fa2", params.keys()) as fa2_key:
-            item_list = params[fa2_key]
-            with sp.for_("curr", item_list) as curr:
+        with sp.for_("fa2", params.token_map.items()) as fa2_item:
+            with sp.for_("curr", fa2_item.value) as curr:
                 with curr.match("item") as item:
-                    key = sp.record(fa2=fa2_key, token_id=item.token_id)
+                    key = sp.record(fa2=fa2_item.key, token_id=item.token_id, owner=sp.some(params.issuer))
                     token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
         
         #sp.trace(token_amts.value)
@@ -74,7 +75,7 @@ class FA2_utils(sp.Contract):
                     fa2_store = chunk.stored_items[issuer][fa2]
                     with sp.for_("item_id", params.remove_map[issuer][fa2]) as item_id:
                         with fa2_store[item_id].match("item") as item:
-                            key = sp.record(fa2=fa2, token_id=item.token_id)
+                            key = sp.record(fa2=fa2, token_id=item.token_id, owner=issuer)
                             token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.token_amount
 
         #sp.trace(token_amts.value)
@@ -82,6 +83,17 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def get_balances(self, params):
+        sp.set_type(params, self.t_token_balance_map)
+
+        balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
+        with sp.for_("curr", params.keys()) as curr:
+            balances.value[curr] = utils.fa2_get_balance(curr.fa2, curr.token_id, curr.owner.open_some())
+        
+        #sp.trace(balances.value)
+        sp.result(balances.value)
+
+    @sp.onchain_view(pure=True)
+    def get_balances_other(self, params):
         sp.set_type(params.tokens, self.t_token_balance_map)
         sp.set_type(params.owner, sp.TAddress)
 
@@ -99,14 +111,14 @@ class FA2_utils(sp.Contract):
         sp.set_type(params.amts, self.t_token_balance_map)
 
         #sp.trace("cmp_balances")
+        #sp.trace(params.amts)
         #sp.trace(params.bal_a)
         #sp.trace(params.bal_b)
-        #sp.trace(params.amts)
 
         sp.verify((sp.len(params.bal_a) == sp.len(params.bal_b)) & (sp.len(params.bal_b) == sp.len(params.amts)))
 
         with sp.for_("curr", params.bal_a.keys()) as curr:
-            sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr])
+            sp.verify(params.bal_a[curr] == params.bal_b[curr] + params.amts[curr]) #, sp.record(bal_a = params.bal_a, bal_b = params.bal_b, amts = params.amts))
         
         sp.result(True)
 
@@ -200,7 +212,7 @@ def test():
     scenario.h3("minting items")
     minter.mint_public_v1(collection = items_tokens.address,
         to_ = bob.address,
-        amount = 4,
+        amount = 14,
         royalties = 250,
         contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
@@ -322,9 +334,9 @@ def test():
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums.get(chunk_key.chunk_id, sp.bytes("0x00")))
-            tokens_amounts = scenario.compute(items_utils.token_amounts(token_arr))
-            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            tokens_amounts = scenario.compute(items_utils.token_amounts(sp.record(token_map = token_arr, issuer = sender.address)))
+            balances_sender_before = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
     
         prev_next_id = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).next_id)
         world.place_items(
@@ -341,8 +353,8 @@ def test():
             # check counter
             scenario.verify(prev_next_id + scenario.compute(items_utils.count_items(token_arr)) == world.data.chunks[chunk_key].next_id)
             # check tokens were transferred
-            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            balances_sender_after = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_after = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_before, bal_b = balances_sender_after, amts = tokens_amounts)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_after, bal_b = balances_world_before, amts = tokens_amounts)))
 
@@ -361,9 +373,9 @@ def test():
 
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
-            tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].stored_items[sp.some(issuer)].get(fa2).get(item_id).open_variant("item").token_id)) : sp.nat(1)}
-            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].stored_items[sp.some(issuer)].get(fa2).get(item_id).open_variant("item").token_id), owner = sp.some(sender.address)) : sp.nat(1)}
+            balances_sender_before = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
     
         prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
         world.get_item(
@@ -381,8 +393,8 @@ def test():
             # check counter
             scenario.verify(prev_interaction_counter + 1 == world.data.chunks[chunk_key].interaction_counter)
             # check tokens were transferred
-            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            balances_sender_after = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_after = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
 
@@ -398,8 +410,8 @@ def test():
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seq_nums[chunk_key.chunk_id])
             tokens_amounts = scenario.compute(items_utils.token_amounts_in_storage(sp.record(world = world.address, place_key = chunk_key.place_key, chunk_ids = sp.set([chunk_key.chunk_id]), remove_map = remove_map)))
-            balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            balances_sender_before = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
         
         prev_interaction_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).interaction_counter)
         world.remove_items(
@@ -415,8 +427,8 @@ def test():
             scenario.verify(prev_interaction_counter + 1 == world.data.chunks[chunk_key].interaction_counter)
             # check tokens were transferred
             # TODO: breaks when removing tokens from multiple issuers. needs to be map of issuer to map of whatever
-            balances_sender_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
-            balances_world_after = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
+            balances_sender_after = scenario.compute(items_utils.get_balances(tokens_amounts))
+            balances_world_after = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_sender_after, bal_b = balances_sender_before, amts = tokens_amounts)))
             scenario.verify(items_utils.cmp_balances(sp.record(bal_a = balances_world_before, bal_b = balances_world_after, amts = tokens_amounts)))
 
@@ -775,7 +787,6 @@ def test():
 
     scenario.h4("get")
     item_counter = scenario.compute(world.data.chunks.get(place_alice_chunk_0).next_id)
-    # TODO: fix token amounts calc and then do this
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1))
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 4), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 5), alice.address, dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
@@ -794,6 +805,18 @@ def test():
     #
     scenario.h2("World permissions")
 
+    # bob place multiple items for testing removals
+    place_items(place_bob_chunk_0, {items_tokens.address: [
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, send_to = sp.none)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, send_to = sp.none)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, send_to = sp.none))
+    ]}, bob)
+
+    # Remember the item ids
+    remove_bobs_item1 = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 1))
+    remove_bobs_item2 = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 2))
+    remove_bobs_item3 = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 3))
+
     scenario.h3("Change place without perms")
     # alice tries to place an item in bobs place but isn't an op
     place_items(place_bob_chunk_0, {items_tokens.address: [
@@ -804,6 +827,11 @@ def test():
 
     # alice tries to set place props in bobs place but isn't an op
     world.update_place_props(place_key=place_bob, prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
+
+    # alice tries to remove an item but has no permission
+    remove_items(place_bob_chunk_0, {
+        sp.some(bob.address): {items_tokens.address: [remove_bobs_item1]}
+    }, sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.h3("Permissions")
 
@@ -824,10 +852,6 @@ def test():
     # alice can now place/remove items in bobs place, set props and set item data
     scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionFull)
 
-    # get bobs last item to make sure alice can remove
-    bobs_last_item = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 1))
-    scenario.verify(~sp.is_failing(world.data.chunks[place_bob_chunk_0].stored_items[sp.some(bob.address)][items_tokens.address][bobs_last_item]))
-
     place_items(place_bob_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position, send_to = sp.none))
     ]}, sender=alice, valid=True)
@@ -844,10 +868,11 @@ def test():
 
     world.update_place_props(place_key=place_bob, prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
-    # remove place item and one of bobs
-    remove_items(place_bob_chunk_0, {sp.some(alice.address): {items_tokens.address: [last_item]}}, sender=alice, valid=True)
-    # TODO: checking breaks for other owners...
-    #remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bobs_last_item]}}, sender=alice, valid=True)
+    # remove placed item and one of bobs
+    remove_items(place_bob_chunk_0, {
+        sp.some(alice.address): {items_tokens.address: [last_item]},
+        sp.some(bob.address): {items_tokens.address: [remove_bobs_item1]}
+    }, sender=alice, valid=True)
 
     #
     #
@@ -885,7 +910,7 @@ def test():
     # can remove own items
     remove_items(place_bob_chunk_0, {sp.some(alice.address): {items_tokens.address: [last_item]}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bobs_last_item]}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [remove_bobs_item2]}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     #
     #
@@ -918,16 +943,17 @@ def test():
 
     # can modify all items
     world.set_item_data(chunk_key = place_bob_chunk_0, extension = sp.none, update_map = {sp.some(bob.address): {items_tokens.address: [
-        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+        sp.record(item_id = remove_bobs_item2, item_data = new_item_data)
     ]}} ).run(sender=alice, valid=True)
 
     # can't set props
     world.update_place_props(place_key=place_bob, extension = sp.none, prop_updates=valid_place_props).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
-    # can remove own items
-    remove_items(place_bob_chunk_0, {sp.some(alice.address): {items_tokens.address: [last_item]}}, sender=alice, valid=True)
-    # TODO: checking breaks for other owners...
-    #remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bobs_last_item]}}, sender=alice, valid=True)
+    # can remove own items and bobs items
+    remove_items(place_bob_chunk_0, {
+        sp.some(alice.address): {items_tokens.address: [last_item]},
+        sp.some(bob.address): {items_tokens.address: [remove_bobs_item2]}
+    }, sender=alice, valid=True)
 
     #
     #
@@ -953,9 +979,9 @@ def test():
 
     last_item = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 1))
 
-    # can modify all items
+    # can't modify all items
     world.set_item_data(chunk_key = place_bob_chunk_0, extension = sp.none, update_map = {sp.some(bob.address): {items_tokens.address: [
-        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+        sp.record(item_id = remove_bobs_item3, item_data = new_item_data)
     ]}} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can't set props
@@ -964,7 +990,7 @@ def test():
     # can remove own items. no need to test that again...
     #remove_items(place_bob_chunk_0, {sp.some(alice.address): {items_tokens.address: [last_item]}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bobs_last_item]}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [remove_bobs_item3]}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     #
     #
@@ -991,14 +1017,15 @@ def test():
 
     # can't modify all items
     world.set_item_data(chunk_key = place_bob_chunk_0, extension = sp.none, update_map = {sp.some(bob.address): {items_tokens.address: [
-        sp.record(item_id = bobs_last_item, item_data = new_item_data)
+        sp.record(item_id = remove_bobs_item3, item_data = new_item_data)
     ]}} ).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     world.update_place_props(place_key=place_bob, prop_updates=valid_place_props, extension = sp.none).run(sender=alice, valid=True)
 
+    # Can of course remove own items
     remove_items(place_bob_chunk_0, {sp.some(alice.address): {items_tokens.address: [last_item]}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bobs_last_item]}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [remove_bobs_item3]}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.h4("Invalid add permission")
     # incorrect perm parameter
