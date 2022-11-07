@@ -916,8 +916,8 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
 
     - WithdrawMutez
     - ChangeMetadata
-    - OnchainviewTokenMetadata
-    - OnchainviewBalanceOf
+    - OffchainviewTokenMetadata
+    - OffchainviewBalanceOf
     - MintNft
     - MintFungible
     - BurnNft
@@ -1251,7 +1251,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         )
 
     def test_balance_of(sc, nft, fungible, single_asset):
-        """Test of `OnchainviewBalanceOf`
+        """Test of `OffchainviewBalanceOf`
 
         - `get_balance_of` doesn't deduplicate nor reorder on nft.
         - `get_balance_of` doesn't deduplicate nor reorder on fungible.
@@ -1392,7 +1392,7 @@ def test_optional_features(nft_contract, fungible_contract, single_asset_contrac
         )
 
     def test_offchain_token_metadata(sc, nft, fungible, single_asset):
-        """Test `OnchainviewTokenMetadata`.
+        """Test `OffchainviewTokenMetadata`.
 
         Tests:
 

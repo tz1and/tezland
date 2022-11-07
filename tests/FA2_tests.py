@@ -24,8 +24,8 @@ if "templates" not in __name__:
         FA2.WithdrawMutez,
         FA2.MintNft,
         FA2.BurnNft,
-        FA2.OnchainviewBalanceOf,
-        FA2.OnchainviewTokenMetadata,
+        FA2.OffchainviewBalanceOf,
+        FA2.OffchainviewTokenMetadata,
         FA2.OnchainviewCountTokens,
         FA2.Fa2Nft,
     ):
@@ -43,8 +43,8 @@ if "templates" not in __name__:
         FA2.WithdrawMutez,
         FA2.MintFungible,
         FA2.BurnFungible,
-        FA2.OnchainviewBalanceOf,
-        FA2.OnchainviewTokenMetadata,
+        FA2.OffchainviewBalanceOf,
+        FA2.OffchainviewTokenMetadata,
         FA2.OnchainviewCountTokens,
         FA2.Fa2Fungible,
     ):
@@ -62,8 +62,8 @@ if "templates" not in __name__:
         FA2.WithdrawMutez,
         FA2.MintSingleAsset,
         FA2.BurnSingleAsset,
-        FA2.OnchainviewBalanceOf,
-        FA2.OnchainviewTokenMetadata,
+        FA2.OffchainviewBalanceOf,
+        FA2.OffchainviewTokenMetadata,
         FA2.OnchainviewCountTokens,
         FA2.Fa2SingleAsset,
     ):

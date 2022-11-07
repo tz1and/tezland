@@ -481,7 +481,7 @@ class Common(sp.Contract):
 
     # Onchain views
 
-    @sp.onchain_view(pure=True)
+    @sp.offchain_view(pure=True)
     def all_tokens(self):
         """OffchainView: Return the list of all the token IDs known to the contract."""
         sp.result(sp.range(0, self.data.last_token_id))
@@ -575,8 +575,9 @@ class Fa2Nft(Common):
         return (ledger, token_extra_dict, token_metadata_dict)
 
     def balance_(self, owner, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return sp.eif(self.data.ledger[token_id] == owner, sp.nat(1), sp.nat(0))
+        return sp.eif(
+            self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED") == owner,
+            sp.nat(1), sp.nat(0))
 
     def supply_(self, token_id):
         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
@@ -596,8 +597,9 @@ class Fa2Nft(Common):
         owner for Nft type ledgers.
         
         Return the owner for the given `token_id`."""
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        sp.result(sp.set_type_expr(self.data.ledger[token_id], sp.TAddress))
+        sp.result(sp.set_type_expr(
+            self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED"),
+            sp.TAddress))
 
 
 # TODO: test allow_mint_existing=False
@@ -677,11 +679,10 @@ class Fa2Fungible(Common):
         return self.data.ledger.get((owner, token_id), sp.nat(0))
 
     def supply_(self, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-        return self.data.token_extra.get(token_id, self.token_extra_default).supply
+        return self.data.token_extra.get(token_id, message = "FA2_TOKEN_UNDEFINED").supply
 
     def transfer_tx_(self, from_, tx):
-        from_ = (from_, tx.token_id)
+        from_ = sp.compute((from_, tx.token_id))
         from_balance = sp.compute(sp.as_nat(
             self.data.ledger.get(from_, 0) - tx.amount,
             message="FA2_INSUFFICIENT_BALANCE",
@@ -692,7 +693,7 @@ class Fa2Fungible(Common):
             self.data.ledger[from_] = from_balance
 
         # Do the transfer
-        to_ = (tx.to_, tx.token_id)
+        to_ = sp.compute((tx.to_, tx.token_id))
         self.data.ledger[to_] = self.data.ledger.get(to_, 0) + tx.amount
 
 
@@ -807,29 +808,29 @@ class WithdrawMutez:
         sp.send(destination, amount)
 
 
-class OnchainviewTokenMetadata:
+class OffchainviewTokenMetadata:
     """(Mixin) If present indexers use it to retrieve the token's metadata.
 
     Warning: If someone can change the contract's metadata he can change how
     indexers see every token metadata.
     """
 
-    @sp.onchain_view()
+    @sp.offchain_view(pure=True)
     def token_metadata(self, token_id):
         """Returns the token-metadata URI for the given token."""
         sp.set_type(token_id, sp.TNat)
         sp.result(self.data.token_metadata[token_id])
 
 
-class OnchainviewBalanceOf:
-    """(Mixin) Non-standard onchain view equivalent to `balance_of`.
+class OffchainviewBalanceOf:
+    """(Mixin) Non-standard offchain view equivalent to `balance_of`.
 
     Before onchain views were introduced in Michelson, the standard way
     of getting value from a contract was through a callback. Now that
     views are here we can create a view for the old style one.
     """
 
-    @sp.onchain_view()
+    @sp.offchain_view(pure=True)
     def get_balance_of(self, requests):
         """Onchain view equivalent to the `balance_of` entrypoint."""
         sp.set_type(requests, sp.TList(t_balance_of_request))
@@ -906,7 +907,7 @@ class MintFungible:
                     if self.allow_mint_existing:
                         sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
                         self.data.token_extra[token_id].supply += action.amount
-                        from_ = (action.to_, token_id)
+                        from_ = sp.compute((action.to_, token_id))
                         self.data.ledger[from_] = (
                             self.data.ledger.get(from_, sp.nat(0)) + action.amount
                         )
@@ -997,7 +998,7 @@ class BurnFungible:
             self.policy.check_tx_transfer_permissions(
                 self, action.from_, action.from_, action.token_id
             )
-            from_ = (action.from_, action.token_id)
+            from_ = sp.compute((action.from_, action.token_id))
             # Burn from.
             from_balance = sp.compute(sp.as_nat(
                 self.data.ledger.get(from_, sp.nat(0)) - action.amount,
