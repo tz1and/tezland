@@ -146,29 +146,42 @@ placeMapType = sp.TBigMap(placeKeyType, placeStorageType)
 placeMapLiteral = sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
 
 
-class Place_store_map:
-    def make(self):
+class PlaceStorage:
+    @staticmethod
+    def make():
         return placeMapLiteral
 
-    def get(self, map, key):
+    def __init__(self, map: placeMapType, key: placeKeyType, create: bool = False) -> None:
         sp.set_type(map, placeMapType)
         sp.set_type(key, placeKeyType)
-        return sp.compute(map.get(key))
+        self.data_map = map
+        self.this_place_key = key
+        if create is True:
+            self.this_place = sp.local("this_place", self._get_or_default())
+        else:
+            self.this_place = sp.local("this_place", self._get())
 
-    #def get_or_create(self, map, key):
-    #    sp.set_type(map, placeMapType)
-    #    sp.set_type(key, placeKeyType)
-    #    return sp.compute(utils.openSomeOrDefault(map.get_opt(key), placeStorageDefault))
+    def _get(self):
+        return self.data_map.get(self.this_place_key)
 
-    #def update(self, map, key, new):
-    #    map[key] = new
+    def _get_or_default(self):
+        return self.data_map.get(self.this_place_key, placeStorageDefault)
 
-    def get_or_create(self, map, key):
-        sp.set_type(map, placeMapType)
-        sp.set_type(key, placeKeyType)
-        with sp.if_(~map.contains(key)):
-            map[key] = placeStorageDefault
-        return map[key]
+    def persist(self):
+        self.data_map[self.this_place_key] = self.this_place.value
+
+    def load(self, new_key: placeKeyType, create: bool = False):
+        self.this_place_key = new_key
+        if create is True:
+            self.this_place.value = self._get_or_default()
+        else:
+            self.this_place.value = self._get()
+
+    # TODO: persist_or_remove
+
+    @property
+    def value(self):
+        return self.this_place.value
 
 #
 # Chunk storage
@@ -207,13 +220,13 @@ class ChunkStorage:
     def make():
         return chunkMapLiteral
 
-    def __init__(self, map, key, create = False) -> None:
+    def __init__(self, map: chunkMapType, key: chunkPlaceKeyType, create: bool = False) -> None:
         sp.set_type(map, chunkMapType)
         sp.set_type(key, chunkPlaceKeyType)
         self.data_map = map
         self.this_chunk_key = key
         if create is True:
-            self.this_chunk = sp.local("this_chunk", self._get_or_create())
+            self.this_chunk = sp.local("this_chunk", self._get_or_default())
         else:
             self.this_chunk = sp.local("this_chunk", self._get())
         pass
@@ -221,22 +234,22 @@ class ChunkStorage:
     def _get(self):
         return self.data_map.get(self.this_chunk_key)
 
-    def _get_or_create(self):
-        return utils.openSomeOrDefault(self.data_map.get_opt(self.this_chunk_key), chunkStorageDefault)
+    def _get_or_default(self):
+        return self.data_map.get(self.this_chunk_key, chunkStorageDefault)
 
-    def persist(self, place = None):
+    def persist(self, place: PlaceStorage = None):
         if place is not None:
-            place.chunks.add(self.this_chunk_key.chunk_id)
+            place.value.chunks.add(self.this_chunk_key.chunk_id)
         self.data_map[self.this_chunk_key] = self.this_chunk.value
 
-    def load(self, new_key, create = False):
+    def load(self, new_key: chunkPlaceKeyType, create: bool = False):
         self.this_chunk_key = new_key
         if create is True:
-            self.this_chunk.value = self._get_or_create()
+            self.this_chunk.value = self._get_or_default()
         else:
             self.this_chunk.value = self._get()
 
-    # TODO: persist, persist_or_remove
+    # TODO: persist_or_remove
 
     @property
     def value(self):
@@ -435,7 +448,6 @@ class TL_World(
         self.error_message = Error_message()
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
-        self.place_store_map = Place_store_map()
         self.item_store_map = Item_store_map()
 
         self.init_storage(
@@ -443,7 +455,7 @@ class TL_World(
             migration_contract = sp.none,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
-            places = self.place_store_map.make(),
+            places = PlaceStorage.make(),
             chunks = ChunkStorage.make()
         )
 
@@ -587,25 +599,28 @@ class TL_World(
         sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
 
         # Get or create the place.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
+        this_place = PlaceStorage(self.data.places, params.place_key, True)
 
         with sp.for_("item", params.prop_updates) as item:
             with item.match_cases() as arg:
                 with arg.match("add_props") as add_props:
                     with sp.for_("prop", add_props.items()) as prop:
-                        this_place.place_props[prop.key] = prop.value
+                        this_place.value.place_props[prop.key] = prop.value
 
                 with arg.match("del_props") as del_props:
                     with sp.for_("prop", del_props) as prop:
-                        del this_place.place_props[prop]
+                        del this_place.value.place_props[prop]
 
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
-        sp.verify(sp.len(this_place.place_props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
+        sp.verify(sp.len(this_place.value.place_props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
             message = self.error_message.data_length())
 
         # Increment place interaction counter.
-        this_place.interaction_counter += 1
+        this_place.value.interaction_counter += 1
+
+        # Persist place.
+        this_place.persist()
 
 
     def validateItemData(self, item_data):
@@ -636,7 +651,7 @@ class TL_World(
         # TODO: special permission for sending items to place? Might be good.
 
         # Get or create the place and chunk.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.chunk_key.place_key)
+        this_place = PlaceStorage(self.data.places, params.chunk_key.place_key, True)
         this_chunk = ChunkStorage(self.data.chunks, params.chunk_key, True)
 
         # Count items in place item storage.
@@ -705,8 +720,9 @@ class TL_World(
         # Transfer the tokens.
         transferMap.transfer_tokens(sp.sender)
 
-        # Persist chunk
+        # Persist chunk and place.
         this_chunk.persist(this_place)
+        this_place.persist()
 
 
     @sp.entry_point(lazify = True)
@@ -962,13 +978,13 @@ class TL_World(
         # Caller doesn't need permissions, is admin.
 
         # Get or create the place.
-        this_place = self.place_store_map.get_or_create(self.data.places, params.place_key)
+        this_place = PlaceStorage(self.data.places, params.place_key, True)
         # Make sure the place is empty.
-        sp.verify(sp.len(this_place.chunks) == 0, message = "MIGRATION_PLACE_NOT_EMPTY")
+        sp.verify(sp.len(this_place.value.chunks) == 0, message = "MIGRATION_PLACE_NOT_EMPTY")
 
         # Set the props on the place to migrate
-        this_place.place_props = params.migrate_place_props
-        this_place.interaction_counter += sp.nat(1)
+        this_place.value.place_props = params.migrate_place_props
+        this_place.value.interaction_counter += sp.nat(1)
 
         # If the migration map isn't empty
         with sp.if_(sp.len(params.migrate_item_map) > 0):
@@ -1032,8 +1048,9 @@ class TL_World(
 
             # Don't increment chunk interaction counter, as chunks must be new.
 
-            # Persist chunk
+            # Persist chunk and place
             this_chunk.persist(this_place)
+            this_place.persist()
 
 
     #
@@ -1062,9 +1079,9 @@ class TL_World(
 
         with sp.set_result_type(seqNumResultType):
             # Collect chunk sequence numbers.
-            this_place = self.data.places.get(place_key, placeStorageDefault)
+            this_place = PlaceStorage(self.data.places, place_key, True)
             chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, sp.TMap(sp.TNat, sp.TBytes))
-            with sp.for_("chunk_id", this_place.chunks.elements()) as chunk_id:
+            with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
                 this_chunk = self.data.chunks.get(sp.record(place_key = place_key, chunk_id = chunk_id), chunkStorageDefault)
                 chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
                     this_chunk.interaction_counter,
@@ -1072,7 +1089,7 @@ class TL_World(
 
             # Return the result.
             sp.result(sp.record(
-                place_seq_num = sp.sha3(sp.pack(this_place.interaction_counter)),
+                place_seq_num = sp.sha3(sp.pack(this_place.value.interaction_counter)),
                 chunk_seq_nums = chunk_sequence_numbers_map.value))
 
 
