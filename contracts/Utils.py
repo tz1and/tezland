@@ -3,18 +3,47 @@ import smartpy as sp
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
-#
-# Lazy set of permitted FA2 tokens for 'other' type.
-class Address_set:
-    def make(self, fa2_map={}):
-        return sp.big_map(l=fa2_map, tkey=sp.TAddress, tvalue=sp.TUnit)
-    def add(self, set, fa2):
-        set[fa2] = sp.unit
-    def remove(self, set, fa2):
-        del set[fa2]
-    def contains(self, set, fa2):
-        return set.contains(fa2)
 
+#
+# Generic lazy map for convenience.
+class GenericMap:
+    def __init__(self, key_type, value_type, default_value=None, get_error=None) -> None:
+        self.key_type = key_type
+        self.value_type = value_type
+        self.default_value = default_value
+        self.get_error = get_error
+
+    def make(self, defaults={}):
+        return sp.big_map(l=defaults, tkey=self.key_type, tvalue=self.value_type)
+
+    def add(self, map, key, value = None):
+        if value is None:
+            if self.default_value is not None:
+                map[key] = self.default_value
+            else:
+                sp.failwith("NO_DEFAULT_VALUE")
+        else:
+            map[key] = value
+
+    def remove(self, map, key):
+        del map[key]
+
+    def contains(self, map, key):
+        return map.contains(key)
+
+    def get(self, map, key):
+        return map.get(key, message=self.get_error)
+
+
+#
+# Lazy set of addresses.
+class AddressSet(GenericMap):
+    def __init__(self):
+        super().__init__(sp.TAddress, sp.TUnit, sp.unit)
+
+
+#
+# Utility functions
 def isPowerOfTwoMinusOne(x):
     """Returns true if x is power of 2 - 1"""
     return ((x + 1) & x) == sp.nat(0)

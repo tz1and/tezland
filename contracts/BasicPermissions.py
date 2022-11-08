@@ -10,7 +10,7 @@ class BasicPermissions(admin_mixin.Administrable):
     Requires the `Administrable` mixin.
     """
     def __init__(self, administrator, default_permitted_accounts = {}):
-        self.address_set = utils.Address_set()
+        self.address_set = utils.AddressSet()
         self.update_initial_storage(
             permitted_accounts = self.address_set.make(default_permitted_accounts) # accounts permitted
         )

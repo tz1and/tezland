@@ -6,7 +6,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 class Whitelist(admin_mixin.Administrable):
     def __init__(self, administrator):
-        self.address_set = utils.Address_set()
+        self.address_set = utils.AddressSet()
         self.update_initial_storage(
             whitelist_enabled = True, # enabled by default
             whitelist = self.address_set.make(), # administrator doesn't need to be whitelisted

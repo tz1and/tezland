@@ -3,28 +3,54 @@ import smartpy as sp
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2_v2.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
 # TODO: document reasoning for not limiting bids on secondary disable
 # TODO: document (or fix!) issue with admin transfer and whitelist!
+# TODO: per-fa2-per-user whitelist
+# TODO: load whitelist settings from permitted FA2
+# TODO: etc...
 
 # Optional extension argument type.
 # Map val can contain about anything and be
 # unpacked with sp.unpack.
 extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 
+t_auction_key = sp.TRecord(
+    fa2 = sp.TAddress,
+    token_id = sp.TNat,
+    owner = sp.TAddress
+).layout(("fa2", ("token_id", "owner")))
+
+t_auction = sp.TRecord(
+    owner=sp.TAddress,
+    token_id=sp.TNat,
+    start_price=sp.TMutez,
+    end_price=sp.TMutez,
+    start_time=sp.TTimestamp,
+    end_time=sp.TTimestamp,
+    fa2=sp.TAddress
+).layout(("owner", ("token_id", ("start_price",
+    ("end_price", ("start_time", ("end_time", "fa2")))))))
+
+#
+# Lazy map of auctions.
+class AuctionMap(utils.GenericMap):
+    def __init__(self) -> None:
+        super().__init__(t_auction_key, t_auction, default_value=None, get_error="AUCTION_NOT_FOUND")
+
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
 class TL_Dutch(
+    contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     whitelist_mixin.Whitelist,
     fees_mixin.Fees,
-    mod_mixin.Moderation,
     upgradeable_mixin.Upgradeable,
     permitted_fa2.PermittedFA2,
     sp.Contract):
@@ -32,39 +58,36 @@ class TL_Dutch(
     
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
-    AUCTION_TYPE = sp.TRecord(
-        owner=sp.TAddress,
-        token_id=sp.TNat,
-        start_price=sp.TMutez,
-        end_price=sp.TMutez,
-        start_time=sp.TTimestamp,
-        end_time=sp.TTimestamp,
-        fa2=sp.TAddress
-    ).layout(("owner", ("token_id", ("start_price",
-        ("end_price", ("start_time", ("end_time", "fa2")))))))
 
-    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, places_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
+
+        self.auction_map = AuctionMap()
         
         self.init_storage(
-            items_contract = items_contract,
             metadata = metadata, # TODO: use ContractMetadata mixin for v2...
             secondary_enabled = sp.bool(False), # If the secondary market is enabled.
-            auction_id = sp.nat(0), # the auction id counter.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
-            auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
+            auctions = self.auction_map.make()
         )
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
+
+        self.available_settings = [
+            ("granularity", sp.TNat, None),
+            ("secondary_enabled", sp.TBool, None)
+        ]
+
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
+        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
         whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
-        fees_mixin.Fees.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self, administrator = administrator)
+        fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
 
         default_permitted = { places_contract : sp.record(
-            swap_allowed = True,
-            royalties_kind = sp.variant("none", sp.unit) )}
+            whitelist_enabled = True,
+            whitelist_admin = administrator )}
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):
@@ -94,6 +117,25 @@ class TL_Dutch(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
+
+    @sp.entry_point(lazify = True)
+    def update_settings(self, params):
+        """Allows the administrator to update various settings.
+        
+        Parameters are metaprogrammed with self.available_settings"""
+        sp.set_type(params, sp.TList(sp.TVariant(
+            **{setting[0]: setting[1] for setting in self.available_settings})))
+
+        self.onlyAdministrator()
+
+        with sp.for_("update", params) as update:
+            with update.match_cases() as arg:
+                for setting in self.available_settings:
+                    with arg.match(setting[0]) as value:
+                        if setting[2] != None:
+                            setting[2](value)
+                        setattr(self.data, setting[0], value)
+
     #
     # Inlineable helpers
     #
@@ -101,24 +143,6 @@ class TL_Dutch(
         """Fails if secondary is disabled and sender is not admin"""
         with sp.if_(~ self.data.secondary_enabled):
             self.onlyAdministrator()
-
-    #
-    # Manager-only entry points
-    #
-    @sp.entry_point
-    def set_granularity(self, granularity):
-        """Set granularity in seconds."""
-        sp.set_type(granularity, sp.TNat)
-        self.onlyAdministrator()
-        self.data.granularity = granularity
-
-
-    @sp.entry_point
-    def set_secondary_enabled(self, enabled):
-        """Set secondary market enabled."""
-        sp.set_type(enabled, sp.TBool)
-        self.onlyAdministrator()
-        self.data.secondary_enabled = enabled
 
     #
     # Public entry points
@@ -153,24 +177,26 @@ class TL_Dutch(
             (abs(params.end_time - params.start_time) > self.data.granularity) &
             (params.start_price >= params.end_price), message = "INVALID_PARAM")
 
-        # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
+        auction_key = sp.compute(sp.record(
+            fa2 = params.fa2,
+            token_id = params.token_id,
+            owner = sp.sender))
+
+        sp.verify(~self.auction_map.contains(self.data.auctions, auction_key), message = "AUCTION_EXISTS")
+
+        # TODO: make sure auction contract is operator of token
         sp.verify(utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
 
         # Create auction
-        self.data.auctions[self.data.auction_id] = sp.record(
-            owner=sp.sender,
-            token_id=params.token_id,
-            start_price=params.start_price,
-            end_price=params.end_price,
-            start_time=params.start_time,
-            end_time=params.end_time,
-            fa2=params.fa2
-        )
-
-        self.data.auction_id += 1
-
-        # Transfer token (place)
-        utils.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
+        self.auction_map.add(self.data.auctions, auction_key,
+            sp.record(
+                owner=sp.sender,
+                token_id=params.token_id,
+                start_price=params.start_price,
+                end_price=params.end_price,
+                start_time=params.start_time,
+                end_time=params.end_time,
+                fa2=params.fa2))
 
 
     @sp.entry_point(lazify = True)
@@ -181,21 +207,44 @@ class TL_Dutch(
         Token is transferred back to auction owner.
         """
         sp.set_type(params, sp.TRecord(
-            auction_id = sp.TNat,
+            auction_key = t_auction_key,
             extension = extensionArgType
-        ).layout(("auction_id", "extension")))
+        ).layout(("auction_key", "extension")))
 
         self.onlyUnpaused()
         # no need to call self.onlyAdminIfWhitelistEnabled() 
 
-        the_auction = self.data.auctions[params.auction_id]
+        the_auction = self.auction_map.get(self.data.auctions, params.auction_key)
 
         sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
-        # transfer token back to auction owner.
-        utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
+        self.auction_map.remove(self.data.auctions, params.auction_key)
 
-        del self.data.auctions[params.auction_id]
+
+    def sendOverpayValueAndFeesInline(self, amount_sent, ask_price, owner):
+        """Inline function for sending royalties, fees, etc."""
+        sp.set_type(amount_sent, sp.TMutez)
+        sp.set_type(ask_price, sp.TMutez)
+        sp.set_type(owner, sp.TAddress)
+
+        # Collect amounts to send in a map.
+        sendMap = utils.TokenSendMap()
+
+        # Send back overpay, if there was any.
+        overpay = amount_sent - ask_price
+        sendMap.add(sp.sender, overpay)
+
+        with sp.if_(ask_price != sp.mutez(0)):
+            # Our fees are in permille.
+            fees_amount = sp.compute(sp.split_tokens(ask_price, self.data.fees, sp.nat(1000)))
+            sendMap.add(self.data.fees_to, fees_amount)
+
+            # Send rest of the value to seller.
+            left_amount = ask_price - fees_amount
+            sendMap.add(owner, left_amount)
+
+        # Transfer.
+        sendMap.transfer()
 
 
     @sp.entry_point(lazify = True)
@@ -206,13 +255,13 @@ class TL_Dutch(
         Overpay is transferred back to sender.
         """
         sp.set_type(params, sp.TRecord(
-            auction_id = sp.TNat,
+            auction_key = t_auction_key,
             extension = extensionArgType
-        ).layout(("auction_id", "extension")))
+        ).layout(("auction_key", "extension")))
 
         self.onlyUnpaused()
 
-        the_auction = sp.local("the_auction", self.data.auctions[params.auction_id])
+        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, params.auction_key))
 
         # If auction owner is admin, sender needs to be whitelisted, if whitelist is enabled.
         with sp.if_(the_auction.value.owner == self.data.administrator):
@@ -229,59 +278,25 @@ class TL_Dutch(
         # check if correct value was sent. probably best to send back overpay instead of cancel.
         sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
 
-        # Collect amounts to send in a map.
-        send_map = sp.local("send_map", sp.map(tkey=sp.TAddress, tvalue=sp.TMutez))
-        def addToSendMap(address, amount):
-            send_map.value[address] = send_map.value.get(address, sp.mutez(0)) + amount
+        # Send fees, etc, if any.
+        self.sendOverpayValueAndFeesInline(sp.amount, ask_price, the_auction.value.owner)
 
-        # Send back overpay, if there was any.
-        overpay = sp.amount - ask_price
-        addToSendMap(sp.sender, overpay)
-
-        with sp.if_(ask_price != sp.tez(0)):
-            token_royalty_info = sp.compute(self.getRoyaltiesForPermittedFA2(the_auction.value.token_id, the_auction.value.fa2))
-
-            # Calculate fees.
-            fee = sp.compute(sp.utils.mutez_to_nat(ask_price) * (token_royalty_info.royalties + self.data.fees) / sp.nat(1000))
-            royalties = sp.compute(token_royalty_info.royalties * fee / (token_royalty_info.royalties + self.data.fees))
-
-            # If there are any royalties to be paid.
-            with sp.if_(royalties > sp.nat(0)):
-                # Pay each contributor his relative share.
-                with sp.for_("contributor", token_royalty_info.contributors) as contributor:
-                    # Calculate amount to be paid from relative share.
-                    absolute_amount = sp.compute(sp.utils.nat_to_mutez(royalties * contributor.relative_royalties / 1000))
-                    addToSendMap(contributor.address, absolute_amount)
-
-            # TODO: don't localise nat_to_mutez, is probably a cast and free.
-            # Send management fees.
-            send_mgr_fees = sp.compute(sp.utils.nat_to_mutez(abs(fee - royalties)))
-            addToSendMap(self.data.fees_to, send_mgr_fees)
-
-            # Send rest of the value to seller.
-            send_seller = sp.compute(ask_price - sp.utils.nat_to_mutez(fee))
-            addToSendMap(the_auction.value.owner, send_seller)
-
-        # Transfer.
-        with sp.for_("send", send_map.value.items()) as send:
-            utils.send_if_value(send.key, send.value)
-
-        # Transfer item to buyer.
-        utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
+        # Transfer item from owner to buyer.
+        utils.fa2_transfer(the_auction.value.fa2, the_auction.value.owner, sp.sender, the_auction.value.token_id, 1)
 
         # If it was a whitelist required auction, remove from whitelist.
         with sp.if_(the_auction.value.owner == self.data.administrator):
             self.removeFromWhitelist(sp.sender)
 
-        del self.data.auctions[params.auction_id]
+        self.auction_map.remove(self.data.auctions, params.auction_key)
 
 
     def getAuctionPriceInline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
-        sp.set_type(the_auction, TL_Dutch.AUCTION_TYPE)
+        sp.set_type(the_auction, t_auction)
         
         # Local var for the result.
-        result = sp.local("result", sp.tez(0))
+        result = sp.local("result", sp.mutez(0))
         # return start price if it hasn't started
         with sp.if_(sp.now <= the_auction.start_time):
             result.value = the_auction.start_price
@@ -311,16 +326,16 @@ class TL_Dutch(
     # NOTE: does it make sense to even have get_auction?
     # without being able to get the indices...
     @sp.onchain_view(pure=True)
-    def get_auction(self, auction_id):
+    def get_auction(self, auction_key):
         """Returns information about an auction."""
-        sp.set_type(auction_id, sp.TNat)
-        sp.result(self.data.auctions[auction_id])
+        sp.set_type(auction_key, t_auction_key)
+        sp.result(self.auction_map.get(self.data.auctions, auction_key))
 
     @sp.onchain_view(pure=True)
-    def get_auction_price(self, auction_id):
+    def get_auction_price(self, auction_key):
         """Returns the current price of an auction."""
-        sp.set_type(auction_id, sp.TNat)
-        the_auction = sp.local("the_auction", self.data.auctions[auction_id])
+        sp.set_type(auction_key, t_auction_key)
+        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, auction_key))
         sp.result(self.getAuctionPriceInline(the_auction.value))
 
     @sp.onchain_view(pure=True)
