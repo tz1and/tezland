@@ -452,3 +452,95 @@ mint some:                      storage: 0.163500, gas: 0.002490
 update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
 
 create_token:                   storage: 1.578000, gas: 0.001324
+
+
+World v2 some load/persist opt
+-------------------------------------
+update_operators:               storage: 0.016750, gas: 0.000560
+create place 0 (item):          storage: 0.081500, gas: 0.001733
+create place 1 (item):          storage: 0.071500, gas: 0.001756
+update_place_props:             storage: 0.000000, gas: 0.000924
+
+place_items (1):                storage: 0.009750, gas: 0.001804
+place_items (10):               storage: 0.102500, gas: 0.002181
+
+set_item_data (1):              storage: 0.000000, gas: 0.001048
+set_item_data (10):             storage: 0.000000, gas: 0.001265
+
+remove_items (1):               storage: 0.000000, gas: 0.001395
+remove_items (10):              storage: 0.000000, gas: 0.001403
+
+set_permissions:                storage: 0.000000, gas: 0.000609
+get_item:                       storage: 0.000000, gas: 0.001894
+
+
+update_operators:               storage: 0.016750, gas: 0.000559
+manage_whitelist:               storage: 0.000000, gas: 0.000725
+
+create_auction:                 storage: 0.036500, gas: 0.001233
+bid:                            storage: 0.000000, gas: 0.001045
+
+create_auction:                 storage: 0.000000, gas: 0.001233
+cancel:                         storage: 0.000000, gas: 0.000976
+
+
+update_operators (100):         storage: 1.675000, gas: 0.011918
+
+transfer:                       storage: 0.016750, gas: 0.000675
+update_adhoc_operators:         storage: 0.009250, gas: 0.000500
+update_adhoc_operators (100):   storage: 0.915750, gas: 0.005108
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000705
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000508
+transfer (reset):               storage: 0.000000, gas: 0.000705
+
+mint some:                      storage: 0.163500, gas: 0.002494
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
+
+create_token:                   storage: 1.185750, gas: 0.001279
+
+
+World v2 all load/persist opt
+--------------------------------------
+update_operators:               storage: 0.016750, gas: 0.000560
+create place 0 (item):          storage: 0.081500, gas: 0.001733
+create place 1 (item):          storage: 0.071500, gas: 0.001756
+update_place_props:             storage: 0.000000, gas: 0.000924
+
+place_items (1):                storage: 0.009750, gas: 0.001804
+place_items (10):               storage: 0.102500, gas: 0.002181
+
+set_item_data (1):              storage: 0.000000, gas: 0.001048
+set_item_data (10):             storage: 0.000000, gas: 0.001265
+
+remove_items (1):               storage: 0.000000, gas: 0.001395
+remove_items (10):              storage: 0.000000, gas: 0.001403
+
+set_permissions:                storage: 0.000000, gas: 0.000609
+get_item:                       storage: 0.000000, gas: 0.001893
+
+
+update_operators:               storage: 0.016750, gas: 0.000560
+manage_whitelist:               storage: 0.000000, gas: 0.000725
+
+create_auction:                 storage: 0.036500, gas: 0.001233
+bid:                            storage: 0.000000, gas: 0.001045
+
+create_auction:                 storage: 0.000000, gas: 0.001233
+cancel:                         storage: 0.000000, gas: 0.000976
+
+
+update_operators (100):         storage: 1.675000, gas: 0.011918
+
+transfer:                       storage: 0.016750, gas: 0.000675
+update_adhoc_operators:         storage: 0.009250, gas: 0.000500
+update_adhoc_operators (100):   storage: 0.915750, gas: 0.005108
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000705
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000508
+transfer (reset):               storage: 0.000000, gas: 0.000706
+
+mint some:                      storage: 0.163500, gas: 0.002496
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+
+create_token:                   storage: 1.187000, gas: 0.001280
