@@ -248,6 +248,13 @@ class ChunkStorage:
         else:
             self.this_chunk.value = self._get()
 
+    def count_items(self):
+        chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
+        with sp.for_("issuer_map", self.this_chunk.value.stored_items.values()) as issuer_map:
+            with sp.for_("token_map", issuer_map.values()) as token_map:
+                chunk_item_count.value += sp.len(token_map)
+        return chunk_item_count.value
+
     # TODO: persist_or_remove
 
     @property
@@ -679,10 +686,7 @@ class TL_World(
         this_chunk = ChunkStorage(self.data.chunks, params.chunk_key, True)
 
         # Count items in place item storage.
-        chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
-        with sp.for_("issuer_map", this_chunk.value.stored_items.values()) as issuer_map:
-            with sp.for_("token_map", issuer_map.values()) as token_map:
-                chunk_item_count.value += sp.len(token_map)
+        chunk_item_count = this_chunk.count_items()
 
         # Count items to be added.
         add_item_count = sp.local("add_item_count", sp.nat(0))
@@ -690,7 +694,7 @@ class TL_World(
             add_item_count.value += sp.len(item_list)
 
         # Make sure chunk item limit is not exceeded.
-        sp.verify(chunk_item_count.value + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
+        sp.verify(chunk_item_count + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
         # Our token transfer map.
         transferMap = utils.FA2TokenTransferMap()
