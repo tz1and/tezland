@@ -12,6 +12,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: figure out if entrypoints should be lazy!!!!
 # TODO: figure out if we *need* FA2.PauseTransfer()
+# It might be good to have, simply for security reasons...
+# Then again, if the FA2 is borked, pausing is destructive to value as well.
+# But one could migrate to another FA2 before all value is lost. So maybe worth it...
 
 #
 # The template FA2 contract.
@@ -31,10 +34,6 @@ class tz1andCollection(
         FA2.Fa2Fungible.__init__(
             self, metadata=metadata,
             name="tz1and Collection", description="tz1and Item Collection.",
-            # TODO: figure out if we *need* FA2.PauseTransfer()
-            # It might be good to have, simply for security reasons...
-            # Then again, if the FA2 is borked, pausing is destructive to value as well.
-            # But one could migrate to another FA2 before all value is lost. So maybe worth it...
             policy=FA2.OwnerOrOperatorAdhocTransfer(), has_royalties=True,
             allow_mint_existing=False
         )
