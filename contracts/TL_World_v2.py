@@ -153,7 +153,15 @@ class Place_store_map:
     def get(self, map, key):
         sp.set_type(map, placeMapType)
         sp.set_type(key, placeKeyType)
-        return map.get(key)
+        return sp.compute(map.get(key))
+
+    #def get_or_create(self, map, key):
+    #    sp.set_type(map, placeMapType)
+    #    sp.set_type(key, placeKeyType)
+    #    return sp.compute(utils.openSomeOrDefault(map.get_opt(key), placeStorageDefault))
+
+    #def update(self, map, key, new):
+    #    map[key] = new
 
     def get_or_create(self, map, key):
         sp.set_type(map, placeMapType)
@@ -194,25 +202,46 @@ chunkMapType = sp.TBigMap(chunkPlaceKeyType, chunkStorageType)
 chunkMapLiteral = sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
 
 
-class Chunk_store_map:
-    def make(self):
+class ChunkStorage:
+    @staticmethod
+    def make():
         return chunkMapLiteral
 
-    def get(self, map, key):
+    def __init__(self, map, key, create = False) -> None:
         sp.set_type(map, chunkMapType)
         sp.set_type(key, chunkPlaceKeyType)
-        return map.get(key)
+        self.data_map = map
+        self.this_chunk_key = key
+        if create is True:
+            self.this_chunk = sp.local("this_chunk", self._get_or_create())
+        else:
+            self.this_chunk = sp.local("this_chunk", self._get())
+        pass
 
-    def get_or_create(self, map, key, place):
-        sp.set_type(map, chunkMapType)
-        sp.set_type(key, chunkPlaceKeyType)
-        sp.set_type(place, placeStorageType)
-        with sp.if_(~map.contains(key)):
-            map[key] = chunkStorageDefault
-            place.chunks.add(key.chunk_id)
-        return map[key]
+    def _get(self):
+        return self.data_map.get(self.this_chunk_key)
 
-    # TODO: remove_if_empty
+    def _get_or_create(self):
+        return utils.openSomeOrDefault(self.data_map.get_opt(self.this_chunk_key), chunkStorageDefault)
+
+    def persist(self, place = None):
+        if place is not None:
+            place.chunks.add(self.this_chunk_key.chunk_id)
+        self.data_map[self.this_chunk_key] = self.this_chunk.value
+
+    def load(self, new_key, create = False):
+        self.this_chunk_key = new_key
+        if create is True:
+            self.this_chunk.value = self._get_or_create()
+        else:
+            self.this_chunk.value = self._get()
+
+    # TODO: persist, persist_or_remove
+
+    @property
+    def value(self):
+        return self.this_chunk.value
+
 
 #
 # Item storage
@@ -407,7 +436,6 @@ class TL_World(
         self.permission_map = Permission_map()
         self.permission_param = Permission_param()
         self.place_store_map = Place_store_map()
-        self.chunk_store_map = Chunk_store_map()
         self.item_store_map = Item_store_map()
 
         self.init_storage(
@@ -416,7 +444,7 @@ class TL_World(
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = self.place_store_map.make(),
-            chunks = self.chunk_store_map.make()
+            chunks = ChunkStorage.make()
         )
 
         self.available_settings = [
@@ -609,11 +637,11 @@ class TL_World(
 
         # Get or create the place and chunk.
         this_place = self.place_store_map.get_or_create(self.data.places, params.chunk_key.place_key)
-        this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, params.chunk_key, this_place)
+        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key, True)
 
         # Count items in place item storage.
         chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
-        with sp.for_("issuer_map", this_chunk.stored_items.values()) as issuer_map:
+        with sp.for_("issuer_map", this_chunk.value.stored_items.values()) as issuer_map:
             with sp.for_("token_map", issuer_map.values()) as token_map:
                 chunk_item_count.value += sp.len(token_map)
 
@@ -641,7 +669,7 @@ class TL_World(
             sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
             # Get or create item storage.
-            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, issuer, fa2_item.key)
+            item_store = self.item_store_map.get_or_create(this_chunk.value.stored_items, issuer, fa2_item.key)
 
             transferMap.add_fa2(fa2_item.key)
 
@@ -667,15 +695,18 @@ class TL_World(
                         self.validateItemData(ext_data)
 
                 # Add item to storage.
-                item_store[this_chunk.next_id] = curr
+                item_store[this_chunk.value.next_id] = curr
 
                 # Increment next_id.
-                this_chunk.next_id += 1
+                this_chunk.value.next_id += 1
+
+        # Don't increment chunk interaction counter, as next_id changes.
 
         # Transfer the tokens.
         transferMap.transfer_tokens(sp.sender)
 
-        # Don't increment chunk interaction counter, as next_id changes.
+        # Persist chunk
+        this_chunk.persist(this_place)
 
 
     @sp.entry_point(lazify = True)
@@ -692,7 +723,7 @@ class TL_World(
         self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the chunk - must exist.
-        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
+        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
         permissions = sp.snd(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
@@ -709,7 +740,7 @@ class TL_World(
                 update_list = fa2_item.value
 
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
+                item_store = self.item_store_map.get(this_chunk.value.stored_items, issuer_item.key, fa2_item.key)
 
                 with sp.for_("update", update_list) as update:
                     self.validateItemData(update.item_data)
@@ -724,7 +755,10 @@ class TL_World(
                             item_store[update.item_id] = sp.variant("ext", update.item_data)
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.interaction_counter += 1
+        this_chunk.value.interaction_counter += 1
+
+        # Persist chunk
+        this_chunk.persist()
 
 
     @sp.entry_point(lazify = True)
@@ -741,7 +775,7 @@ class TL_World(
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
         # Get the chunk - must exist.
-        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
+        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
         owner, permissions = sp.match_pair(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
@@ -761,7 +795,7 @@ class TL_World(
 
             with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                 # Get item store - must exist.
-                item_store = self.item_store_map.get(this_chunk.stored_items, issuer_item.key, fa2_item.key)
+                item_store = self.item_store_map.get(this_chunk.value.stored_items, issuer_item.key, fa2_item.key)
 
                 transferMap.add_fa2(fa2_item.key)
                 
@@ -778,13 +812,16 @@ class TL_World(
                     del item_store[curr]
 
                 # Remove the item store if empty.
-                self.item_store_map.remove_if_empty(this_chunk.stored_items, issuer_item.key, fa2_item.key)
+                self.item_store_map.remove_if_empty(this_chunk.value.stored_items, issuer_item.key, fa2_item.key)
 
         # Transfer tokens.
         transferMap.transfer_tokens(sp.self_address)
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.interaction_counter += 1
+        this_chunk.value.interaction_counter += 1
+
+        # Persist chunk
+        this_chunk.persist()
 
 
     def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info):
@@ -846,10 +883,10 @@ class TL_World(
         item_owner = self.issuerOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer)
 
         # Get the chunk - must exist.
-        this_chunk = self.chunk_store_map.get(self.data.chunks, params.chunk_key)
+        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
 
         # Get item store - must exist.
-        item_store = self.item_store_map.get(this_chunk.stored_items, params.issuer, params.fa2)
+        item_store = self.item_store_map.get(this_chunk.value.stored_items, params.issuer, params.fa2)
 
         # Swap based on item type.
         with item_store[params.item_id].match_cases() as arg:
@@ -890,10 +927,13 @@ class TL_World(
                 sp.failwith(self.error_message.wrong_item_type())
         
         # Remove the item store if empty.
-        self.item_store_map.remove_if_empty(this_chunk.stored_items, params.issuer, params.fa2)
+        self.item_store_map.remove_if_empty(this_chunk.value.stored_items, params.issuer, params.fa2)
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.interaction_counter += 1
+        this_chunk.value.interaction_counter += 1
+
+        # Persist chunk
+        this_chunk.persist()
 
 
     #
@@ -935,10 +975,10 @@ class TL_World(
             # Keep a running count of items, so we can switch chunks.
             add_item_count = sp.local("add_item_count", sp.nat(0))
             # The current chunk we're working on.
-            current_chunk = sp.local("current_chunk", sp.nat(0))
+            chunk_key = sp.local("chunk_key", sp.record(place_key = params.place_key, chunk_id = sp.nat(0)))
 
             # Get or create the current chunk.
-            this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
+            this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
@@ -951,7 +991,7 @@ class TL_World(
                     sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
                     # Get or create item storage.
-                    item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
+                    item_store = self.item_store_map.get_or_create(this_chunk.value.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                     # For each item in the list.
                     with sp.for_("curr", fa2_item.value) as curr:
@@ -960,16 +1000,19 @@ class TL_World(
                             # Remove itemstore if empty. Can happen in some cases,
                             # because the item store is created at the beginning of a token loop.
                             # Alternatively we could call item_store_map.get_or_create() inside the loop.
-                            self.item_store_map.remove_if_empty(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
+                            self.item_store_map.remove_if_empty(this_chunk.value.stored_items, sp.some(issuer_item.key), fa2_item.key)
+
+                            # Persist chunk
+                            this_chunk.persist(this_place)
 
                             # Reset counters and increment current chunk.
                             add_item_count.value = sp.nat(0)
-                            current_chunk.value += sp.nat(1)
-                            sp.verify(current_chunk.value < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+                            chunk_key.value = sp.record(place_key = params.place_key, chunk_id = chunk_key.value.chunk_id + sp.nat(1))
+                            sp.verify(chunk_key.value.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
 
                             # update chunk and item storage
-                            this_chunk = self.chunk_store_map.get_or_create(self.data.chunks, sp.record(place_key = params.place_key, chunk_id = current_chunk.value), this_place)
-                            item_store = self.item_store_map.get_or_create(this_chunk.stored_items, sp.some(issuer_item.key), fa2_item.key)
+                            this_chunk.load(chunk_key.value, True)
+                            item_store = self.item_store_map.get_or_create(this_chunk.value.stored_items, sp.some(issuer_item.key), fa2_item.key)
 
                         with curr.match_cases() as arg:
                             with arg.match("item") as item:
@@ -979,15 +1022,18 @@ class TL_World(
                                 self.validateItemData(ext_data)
 
                         # Add item to storage.
-                        item_store[this_chunk.next_id] = curr
+                        item_store[this_chunk.value.next_id] = curr
 
                         # Increment next_id.
-                        this_chunk.next_id += sp.nat(1)
+                        this_chunk.value.next_id += sp.nat(1)
 
                         # Add to item add counter
                         add_item_count.value += sp.nat(1)
 
             # Don't increment chunk interaction counter, as chunks must be new.
+
+            # Persist chunk
+            this_chunk.persist(this_place)
 
 
     #
