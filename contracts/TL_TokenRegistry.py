@@ -144,7 +144,7 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
         fa2, t = t_get_royalties_type_result).open_some())
 
     with sp.if_(royalties_type.value.royalties_version == 0):
-        merkle_proof_open = merkle_proof_royalties.open_some("NO_MERKLE_PROOF")
+        merkle_proof_open = sp.compute(merkle_proof_royalties.open_some("NO_MERKLE_PROOF"))
         # for which royalties are requested.
         # Verify that the computed merkle root from proof matches the actual merkle root
         sp.verify(merkle_tree_royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, royalties_type.value.merkle_root),
