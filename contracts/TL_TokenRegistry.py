@@ -170,7 +170,7 @@ def getTokenRoyalties(token_registry_contract, fa2, token_id, merkle_proof_royal
             with sp.if_(royalties_type.value.royalties_version == 2):
                 sp.result(sp.record(total = 1000, shares = FA2.get_token_royalties(fa2, token_id)))
             with sp.else_():
-                sp.failwith("Royalties type not implemented")
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
 
 
 #
