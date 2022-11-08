@@ -106,19 +106,15 @@ extensibleVariantItemType = sp.TVariant(
 
 #
 # Item storage
-# TODO: rename all these to make more sense...
-# chunkStore = issuerStore?
-# itemStore = tokenStore?
-# itemStoreMap = itemStore?
 # map from item id to item
-itemStoreMapType = sp.TMap(sp.TNat, extensibleVariantItemType)
-itemStoreMapLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantItemType)
+tokenStoreType = sp.TMap(sp.TNat, extensibleVariantItemType)
+tokenStoreLiteral = sp.map(tkey=sp.TNat, tvalue=extensibleVariantItemType)
 # map from token address to item
-itemStoreType = sp.TMap(sp.TAddress, itemStoreMapType)
-itemStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=itemStoreMapType)
+issuerStoreType = sp.TMap(sp.TAddress, tokenStoreType)
+issuerStoreLiteral = sp.map(tkey=sp.TAddress, tvalue=tokenStoreType)
 # map from issuer to item store
-chunkStoreType = sp.TMap(sp.TOption(sp.TAddress), itemStoreType)
-chunkStoreLiteral = sp.map(tkey=sp.TOption(sp.TAddress), tvalue=itemStoreType)
+chunkStoreType = sp.TMap(sp.TOption(sp.TAddress), issuerStoreType)
+chunkStoreLiteral = sp.map(tkey=sp.TOption(sp.TAddress), tvalue=issuerStoreType)
 
 #
 # Place prop storage
@@ -176,8 +172,6 @@ class PlaceStorage:
             self.this_place.value = self._get_or_default()
         else:
             self.this_place.value = self._get()
-
-    # TODO: persist_or_remove
 
     @property
     def value(self):
@@ -241,6 +235,16 @@ class ChunkStorage:
             place.value.chunks.add(self.this_chunk_key.chunk_id)
         self.data_map[self.this_chunk_key] = self.this_chunk.value
 
+    #def persist_or_remove(self, place: PlaceStorage = None):
+    #    with sp.if_(sp.len(self.this_chunk.value.stored_items) == 0):
+    #        if place is not None:
+    #            place.value.chunks.remove(self.this_chunk_key.chunk_id)
+    #        del self.data_map[self.this_chunk_key]
+    #    with sp.else_():
+    #        if place is not None:
+    #            place.value.chunks.add(self.this_chunk_key.chunk_id)
+    #        self.data_map[self.this_chunk_key] = self.this_chunk.value
+
     def load(self, new_key: chunkPlaceKeyType, create: bool = False):
         self.this_chunk_key = new_key
         if create is True:
@@ -270,7 +274,7 @@ class ChunkStorage:
 class ItemStorage:
     @staticmethod
     def make():
-        return itemStoreLiteral
+        return issuerStoreLiteral
 
     def __init__(self, chunk_storage: ChunkStorage, issuer: sp.TOption(sp.TAddress), fa2: sp.TAddress, create: bool = False) -> None:
         sp.set_type(issuer, sp.TOption(sp.TAddress))
@@ -289,27 +293,17 @@ class ItemStorage:
         return self.chunk_storage.value.stored_items.get(self.issuer)
 
     def _get_or_default_issuer(self):
-        return self.chunk_storage.value.stored_items.get(self.issuer, itemStoreLiteral)
+        return self.chunk_storage.value.stored_items.get(self.issuer, issuerStoreLiteral)
 
     def _get_fa2(self):
         return self.this_issuer_store.value.get(self.fa2)
 
     def _get_or_default_fa2(self):
-        return self.this_issuer_store.value.get(self.fa2, itemStoreMapLiteral)
+        return self.this_issuer_store.value.get(self.fa2, tokenStoreLiteral)
 
     def persist(self):
         self.this_issuer_store.value[self.fa2] = self.this_fa2_store.value
         self.chunk_storage.value.stored_items[self.issuer] = self.this_issuer_store.value
-
-    def load(self, new_issuer: sp.TOption(sp.TAddress), new_fa2: sp.TAddress, create: bool = False):
-        self.issuer = new_issuer
-        self.fa2 = new_fa2
-        if create is True:
-            self.this_issuer_store.value = self._get_or_default_issuer()
-            self.this_fa2_store.value = self._get_or_default_fa2()
-        else:
-            self.this_issuer_store.value = self._get_issuer()
-            self.this_fa2_store.value = self._get_fa2()
 
     def persist_or_remove(self):
         with sp.if_(sp.len(self.this_fa2_store.value) == 0):
@@ -321,6 +315,16 @@ class ItemStorage:
             del self.chunk_storage.value.stored_items[self.issuer]
         with sp.else_():
             self.chunk_storage.value.stored_items[self.issuer] = self.this_issuer_store.value
+
+    def load(self, new_issuer: sp.TOption(sp.TAddress), new_fa2: sp.TAddress, create: bool = False):
+        self.issuer = new_issuer
+        self.fa2 = new_fa2
+        if create is True:
+            self.this_issuer_store.value = self._get_or_default_issuer()
+            self.this_fa2_store.value = self._get_or_default_fa2()
+        else:
+            self.this_issuer_store.value = self._get_issuer()
+            self.this_fa2_store.value = self._get_fa2()
 
     @property
     def value(self):
