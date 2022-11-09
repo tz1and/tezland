@@ -30,7 +30,7 @@ class FA2WhitelistMap(utils.GenericMap):
         super().__init__(t_whitelist_key, sp.TUnit, default_value=sp.unit, get_error="NOT_WHITELISTED")
 
 #
-# Parameters for the manage_permitted_fa2 ep.
+# Parameters for permitted fa2 management ep.
 class PermittedFA2Params:
     @classmethod
     def get_add_type(cls):
@@ -107,13 +107,16 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
     # Admin only entrypoints
     #
     @sp.entry_point(lazify=True)
-    def manage_permitted_fa2(self, params):
-        """Call to add/remove fa2 contract from
-        token contracts permitted for 'other' type items."""
+    def manage_whitelist(self, params):
+        """Manage the permitted contracts and whitelist."""
         sp.set_type(params, sp.TList(sp.TVariant(
+            # for managing permitted fa2s
             add_permitted = PermittedFA2Params.get_add_type(),
-            remove_permitted = PermittedFA2Params.get_remove_type()
-        ).layout(("add_permitted", "remove_permitted"))))
+            remove_permitted = PermittedFA2Params.get_remove_type(),
+            # for managing the whitelist
+            whitelist_add=sp.TList(t_whitelist_key),
+            whitelist_remove=sp.TList(t_whitelist_key)
+        ).layout(("add_permitted", ("remove_permitted", ("whitelist_add", "whitelist_remove"))))))
 
         self.onlyAdministrator()
         
@@ -121,24 +124,14 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
             with update.match_cases() as arg:
                 with arg.match("add_permitted") as upd:
                     self.permitted_fa2_map.add(self.data.permitted_fa2, upd.fa2, upd.props)
+
                 with arg.match("remove_permitted") as upd:
                     self.permitted_fa2_map.remove(self.data.permitted_fa2, upd)
 
-    @sp.entry_point(lazify=True)
-    def manage_whitelist(self, updates):
-        """Manage the whitelist."""
-        sp.set_type(updates, sp.TList(sp.TVariant(
-            whitelist_add=sp.TList(t_whitelist_key),
-            whitelist_remove=sp.TList(t_whitelist_key)
-        ).layout(("whitelist_add", "whitelist_remove"))))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", updates) as update:
-            with update.match_cases() as arg:
                 with arg.match("whitelist_add") as upd:
                     with sp.for_("key", upd) as key:
                         self.whitelist_map.add(self.data.whitelist, key)
+
                 with arg.match("whitelist_remove") as upd:
                     with sp.for_("key", upd) as key:
                         self.whitelist_map.remove(self.data.whitelist, key)

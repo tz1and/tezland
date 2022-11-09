@@ -117,14 +117,14 @@ def test():
     scenario.verify(dutch.data.secondary_enabled == True)
 
     # some useful expressions for permitted fa2
-    add_permitted_wl_enabled = sp.list([sp.variant("add_permitted",
+    add_permitted_fa2_wl_enabled = sp.list([sp.variant("add_permitted",
         sp.record(
             fa2 = places_tokens.address,
             props = sp.record(
                 whitelist_enabled = True,
                 whitelist_admin = admin.address)))])
 
-    add_permitted_wl_disabled = sp.list([sp.variant("add_permitted",
+    add_permitted_fa2_wl_disabled = sp.list([sp.variant("add_permitted",
         sp.record(
             fa2 = places_tokens.address,
             props = sp.record(
@@ -132,7 +132,7 @@ def test():
                 whitelist_admin = admin.address)))])
 
     # permit fa2 and disable whitelist for it
-    dutch.manage_permitted_fa2(add_permitted_wl_disabled).run(sender = admin)
+    dutch.manage_whitelist(add_permitted_fa2_wl_disabled).run(sender = admin)
     scenario.verify(dutch.data.permitted_fa2.get(places_tokens.address).whitelist_enabled == False)
 
     # set operators
@@ -568,7 +568,7 @@ def test():
     #
 
     # enabled whitelist.
-    dutch.manage_permitted_fa2(add_permitted_wl_enabled).run(sender = admin)
+    dutch.manage_whitelist(add_permitted_fa2_wl_enabled).run(sender = admin)
     scenario.verify(dutch.data.permitted_fa2.get(places_tokens.address).whitelist_enabled == True)
 
     # enable secondary.
@@ -629,13 +629,13 @@ def test():
     scenario.verify(~dutch.data.whitelist.contains(sp.record(fa2=places_tokens.address, user=alice.address)))
 
     # disable whitelist.
-    dutch.manage_permitted_fa2(add_permitted_wl_disabled).run(sender = admin)
+    dutch.manage_whitelist(add_permitted_fa2_wl_disabled).run(sender = admin)
     scenario.verify(dutch.data.permitted_fa2.get(places_tokens.address).whitelist_enabled == False)
 
     #
-    # manage_permitted_fa2
+    # manage_whitelist
     #
-    scenario.h3("manage_permitted_fa2")
+    scenario.h3("manage_whitelist")
 
     dutch.create(
         auction_key = sp.record(
@@ -655,7 +655,7 @@ def test():
             props = sp.record(
                 whitelist_enabled = False,
                 whitelist_admin = admin.address)))])
-    dutch.manage_permitted_fa2(add_other_permitted).run(sender = admin)
+    dutch.manage_whitelist(add_other_permitted).run(sender = admin)
 
     dutch.create(
         auction_key = sp.record(

@@ -54,43 +54,41 @@ def test():
     scenario += other_token
 
     #
-    # test permitted managing
-    scenario.h3("manage_permitted_fa2")
+    # test permitted/wl management
+    scenario.h3("manage_whitelist")
     permitted_props = sp.record(
         whitelist_enabled = True,
         whitelist_admin = admin.address)
-    add_permitted = sp.list([sp.variant("add_permitted",
+    add_permitted_fa2 = sp.list([sp.variant("add_permitted",
         sp.record(
             fa2 = other_token.address,
             props = permitted_props))])
 
-    remove_permitted = sp.list([sp.variant("remove_permitted", other_token.address)])
+    remove_permitted_fa2 = sp.list([sp.variant("remove_permitted", other_token.address)])
 
     # no permission
-    permitted.manage_permitted_fa2(add_permitted).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    permitted.manage_whitelist(add_permitted_fa2).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == False)
 
-    # add
-    permitted.manage_permitted_fa2(add_permitted).run(sender = admin)
+    # add fa2
+    permitted.manage_whitelist(add_permitted_fa2).run(sender = admin)
     scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == True)
     scenario.verify(permitted.data.permitted_fa2[other_token.address].whitelist_enabled == True)
     scenario.verify(permitted.data.permitted_fa2[other_token.address].whitelist_admin == admin.address)
 
-    # remove
-    permitted.manage_permitted_fa2(remove_permitted).run(sender = admin)
+    # remove fa2
+    permitted.manage_whitelist(remove_permitted_fa2).run(sender = admin)
     scenario.verify(permitted.data.permitted_fa2.contains(other_token.address) == False)
     scenario.verify(sp.is_failing(permitted.data.permitted_fa2[other_token.address]))
 
-    #
-    # test permitted managing
-    scenario.h3("manage_whitelist")
-    # TODO
+    # TODO: whitelist_add
+    # TODO: whitelist_remove
 
     #
     # test view
     scenario.h3("get_fa2_permitted view")
     scenario.verify(sp.is_failing(permitted.get_fa2_permitted(other_token.address)))
-    permitted.manage_permitted_fa2(add_permitted).run(sender = admin)
+    permitted.manage_whitelist(add_permitted_fa2).run(sender = admin)
     scenario.verify(permitted.get_fa2_permitted(other_token.address) == sp.record(whitelist_enabled = True, whitelist_admin = admin.address))
 
     # TODO: is_whitelisted
@@ -99,7 +97,7 @@ def test():
     # test utility functions
     scenario.h3("testGetPermittedFA2Props")
     permitted.testGetPermittedFA2Props(fa2 = other_token.address, expected = permitted_props).run(sender = admin)
-    permitted.manage_permitted_fa2(remove_permitted).run(sender = admin)
+    permitted.manage_whitelist(remove_permitted_fa2).run(sender = admin)
     permitted.testGetPermittedFA2Props(fa2 = other_token.address, expected = permitted_props).run(sender = admin, valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     whitelist_keys = [sp.record(fa2=other_token.address, user=bob.address), sp.record(fa2=other_token.address, user=carol.address)]
@@ -110,29 +108,40 @@ def test():
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=bob.address, expected=False).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=carol.address, expected=False).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=alice.address, expected=False).run(sender=admin)
+
     permitted.manage_whitelist(whitelist_add).run(sender=admin)
+
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=bob.address, expected=True).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=carol.address, expected=True).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=alice.address, expected=False).run(sender=admin)
+
     permitted.manage_whitelist(whitelist_remove).run(sender=admin)
+
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=bob.address, expected=False).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=carol.address, expected=False).run(sender=admin)
     permitted.testIsWhitelistedForFA2(fa2=other_token.address, user=alice.address, expected=False).run(sender=admin)
 
     scenario.h3("testOnlyWhitelistedForFA2")
-    permitted.manage_permitted_fa2(add_permitted).run(sender = admin)
+    permitted.manage_whitelist(add_permitted_fa2).run(sender = admin)
+
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=bob.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=carol.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=alice.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
+
     permitted.manage_whitelist(whitelist_add).run(sender=admin)
+
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=bob.address).run(sender=admin)
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=carol.address).run(sender=admin)
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=alice.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
+
     permitted.manage_whitelist(whitelist_remove).run(sender=admin)
+
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=bob.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=carol.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=alice.address).run(sender=admin, valid=False, exception="ONLY_WHITELISTED")
-    permitted.manage_permitted_fa2(remove_permitted).run(sender = admin)
+
+    permitted.manage_whitelist(remove_permitted_fa2).run(sender = admin)
+
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=bob.address).run(sender=admin, valid=False, exception="TOKEN_NOT_PERMITTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=carol.address).run(sender=admin, valid=False, exception="TOKEN_NOT_PERMITTED")
     permitted.testOnlyWhitelistedForFA2(fa2=other_token.address, user=alice.address).run(sender=admin, valid=False, exception="TOKEN_NOT_PERMITTED")

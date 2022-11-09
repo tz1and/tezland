@@ -63,7 +63,6 @@ class TL_Dutch(
         self.auction_map = AuctionMap()
         
         self.init_storage(
-            metadata = metadata, # TODO: use ContractMetadata mixin for v2...
             secondary_enabled = sp.bool(False), # If the secondary market is enabled.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             auctions = self.auction_map.make()
