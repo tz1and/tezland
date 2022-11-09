@@ -18,6 +18,19 @@ class PermittedFA2Map(utils.GenericMap):
     def __init__(self) -> None:
         super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED")
 
+#
+# Lazy map of whitelist entries.
+t_whitelist_key = sp.TRecord(
+    fa2 = sp.TAddress,
+    user = sp.TAddress
+).layout(("fa2", "user"))
+
+class FA2WhitelistMap(utils.GenericMap):
+    def __init__(self) -> None:
+        super().__init__(t_whitelist_key, sp.TUnit, default_value=sp.unit, get_error="NOT_WHITELISTED")
+
+#
+# Parameters for the manage_permitted_fa2 ep.
 class PermittedFA2Params:
     @classmethod
     def get_add_type(cls):
@@ -49,19 +62,14 @@ class PermittedFA2Params:
 class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
     def __init__(self, administrator, default_permitted = {}):
         self.permitted_fa2_map = PermittedFA2Map()
+        self.whitelist_map = FA2WhitelistMap()
 
         self.update_initial_storage(
             permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
+            whitelist = self.whitelist_map.make()
         )
 
         admin_mixin.Administrable.__init__(self, administrator = administrator)
-
-
-    def onlyPermittedFA2(self, fa2):
-        """Fails if not permitted"""
-        sp.set_type(fa2, sp.TAddress)
-        sp.verify(self.permitted_fa2_map.contains(self.data.permitted_fa2, fa2),
-            message = "TOKEN_NOT_PERMITTED")
 
 
     def getPermittedFA2Props(self, fa2):
@@ -69,9 +77,37 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
         sp.set_type(fa2, sp.TAddress)
         return sp.compute(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2))
 
+    def isWhitelistedForFA2(self, fa2, user):
+        """If an address is whitelisted."""
+        sp.set_type(fa2, sp.TAddress)
+        sp.set_type(user, sp.TAddress)
+        return self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user))
 
-    @sp.entry_point
-    def set_fa2_permitted(self, params):
+    def onlyWhitelistedForFA2(self, fa2, user):
+        """Fails if whitelist enabled address is not whitelisted.
+        and returns fa2 props."""
+        sp.set_type(fa2, sp.TAddress)
+        sp.set_type(user, sp.TAddress)
+        fa2_props = sp.compute(self.getPermittedFA2Props(fa2))
+        with sp.if_(fa2_props.whitelist_enabled):
+            sp.verify(self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user)), message="ONLY_WHITELISTED")
+        return fa2_props
+
+    def removeFromFA2Whitelist(self, fa2, user):
+        """Removes an address from the whitelist."""
+        sp.set_type(fa2, sp.TAddress)
+        sp.set_type(user, sp.TAddress)
+        # NOTE: probably ok to skip the check and always remove from whitelist.
+        #fa2_props = self.getPermittedFA2Props(fa2)
+        #with sp.if_(fa2_props.whitelist_enabled):
+        self.whitelist_map.remove(self.data.whitelist, sp.record(fa2=fa2, user=user))
+
+
+    #
+    # Admin only entrypoints
+    #
+    @sp.entry_point(lazify=True)
+    def manage_permitted_fa2(self, params):
         """Call to add/remove fa2 contract from
         token contracts permitted for 'other' type items."""
         sp.set_type(params, sp.TList(sp.TVariant(
@@ -88,17 +124,37 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
                 with arg.match("remove_permitted") as upd:
                     self.permitted_fa2_map.remove(self.data.permitted_fa2, upd)
 
+    @sp.entry_point(lazify=True)
+    def manage_whitelist(self, updates):
+        """Manage the whitelist."""
+        sp.set_type(updates, sp.TList(sp.TVariant(
+            whitelist_add=sp.TList(t_whitelist_key),
+            whitelist_remove=sp.TList(t_whitelist_key)
+        ).layout(("whitelist_add", "whitelist_remove"))))
 
-    @sp.onchain_view(pure=True)
-    def is_fa2_permitted(self, fa2):
-        """Returns True if an fa2 is permitted."""
-        sp.set_type(fa2, sp.TAddress)
-        sp.result(self.permitted_fa2_map.contains(self.data.permitted_fa2, fa2))
+        self.onlyAdministrator()
+
+        with sp.for_("update", updates) as update:
+            with update.match_cases() as arg:
+                with arg.match("whitelist_add") as upd:
+                    with sp.for_("key", upd) as key:
+                        self.whitelist_map.add(self.data.whitelist, key)
+                with arg.match("whitelist_remove") as upd:
+                    with sp.for_("key", upd) as key:
+                        self.whitelist_map.remove(self.data.whitelist, key)
 
 
+    #
+    # Views
+    #
     @sp.onchain_view(pure=True)
     def get_fa2_permitted(self, fa2):
         """Returns permitted fa2 props."""
         sp.set_type(fa2, sp.TAddress)
         sp.result(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2))
 
+    @sp.onchain_view(pure=True)
+    def is_whitelisted(self, key):
+        """Returns true if an address is whitelisted."""
+        sp.set_type(key, t_whitelist_key)
+        sp.result(self.whitelist_map.contains(self.data.whitelist, key))

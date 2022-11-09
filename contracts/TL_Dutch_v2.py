@@ -1,9 +1,8 @@
 import smartpy as sp
 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2_v2.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWhitelist.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
@@ -14,6 +13,7 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: per-fa2-per-user whitelist
 # TODO: load whitelist settings from permitted FA2
 # TODO: etc...
+# TODO: Make sure auction contract is operator of token
 
 # Optional extension argument type.
 # Map val can contain about anything and be
@@ -26,16 +26,14 @@ t_auction_key = sp.TRecord(
     owner = sp.TAddress
 ).layout(("fa2", ("token_id", "owner")))
 
+# TODO: can probably get rid of fa2, token_id and owner,
+# since they are implicit in the key :)
 t_auction = sp.TRecord(
-    owner=sp.TAddress,
-    token_id=sp.TNat,
     start_price=sp.TMutez,
     end_price=sp.TMutez,
     start_time=sp.TTimestamp,
-    end_time=sp.TTimestamp,
-    fa2=sp.TAddress
-).layout(("owner", ("token_id", ("start_price",
-    ("end_price", ("start_time", ("end_time", "fa2")))))))
+    end_time=sp.TTimestamp
+).layout(("start_price", ("end_price", ("start_time", "end_time"))))
 
 #
 # Lazy map of auctions.
@@ -49,10 +47,9 @@ class AuctionMap(utils.GenericMap):
 class TL_Dutch(
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
-    whitelist_mixin.Whitelist,
     fees_mixin.Fees,
     upgradeable_mixin.Upgradeable,
-    permitted_fa2.PermittedFA2,
+    permitted_fa2.FA2PermissionsAndWhitelist,
     sp.Contract):
     """A simple dutch auction.
     
@@ -79,13 +76,12 @@ class TL_Dutch(
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
         pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
-        whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
         fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
 
         default_permitted = { places_contract : sp.record(
             whitelist_enabled = True,
             whitelist_admin = administrator )}
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
+        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self, administrator = administrator, default_permitted = default_permitted)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
 
         self.generate_contract_metadata()
@@ -139,10 +135,10 @@ class TL_Dutch(
     #
     # Inlineable helpers
     #
-    def onlyAdminIfSecondaryDisabled(self):
-        """Fails if secondary is disabled and sender is not admin"""
-        with sp.if_(~ self.data.secondary_enabled):
-            self.onlyAdministrator()
+    def onlyWhitelistAdminIfSecondaryDisabled(self, fa2_props):
+        """Fails if secondary is disabled and sender is not whitelist admin"""
+        with sp.if_(~self.data.secondary_enabled):
+            sp.verify(sp.sender == fa2_props.whitelist_admin, "ONLY_WHITELIST_ADMIN")
 
     #
     # Public entry points
@@ -157,46 +153,37 @@ class TL_Dutch(
         end_time must be > than start_time
         """
         sp.set_type(params, sp.TRecord(
-            token_id = sp.TNat,
-            start_price = sp.TMutez,
-            end_price = sp.TMutez,
-            start_time = sp.TTimestamp,
-            end_time = sp.TTimestamp,
-            fa2 = sp.TAddress,
+            auction_key = t_auction_key,
+            auction = t_auction,
             extension = extensionArgType
-        ).layout(("token_id", ("start_price", ("end_price",
-            ("start_time", ("end_time", ("fa2", "extension"))))))))
+        ).layout(("auction_key", ("auction", "extension"))))
 
         self.onlyUnpaused()
-        self.onlyAdminIfSecondaryDisabled()
 
-        # verify inputs
-        self.onlyPermittedFA2(params.fa2)
-        sp.verify((params.start_time >= sp.now) &
-            (params.start_time < params.end_time) &
-            (abs(params.end_time - params.start_time) > self.data.granularity) &
-            (params.start_price >= params.end_price), message = "INVALID_PARAM")
+        # Fails if FA2 not permitted.
+        fa2_props = sp.compute(self.getPermittedFA2Props(params.auction_key.fa2))
 
-        auction_key = sp.compute(sp.record(
-            fa2 = params.fa2,
-            token_id = params.token_id,
-            owner = sp.sender))
+        self.onlyWhitelistAdminIfSecondaryDisabled(fa2_props)
 
-        sp.verify(~self.auction_map.contains(self.data.auctions, auction_key), message = "AUCTION_EXISTS")
+        # Auction owner in auction_key must be sender.
+        sp.verify(params.auction_key.owner == sp.sender, "NOT_OWNER")
 
-        # TODO: make sure auction contract is operator of token
-        sp.verify(utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
+        # Check auction params,
+        sp.verify((params.auction.start_time >= sp.now) &
+            (params.auction.start_time < params.auction.end_time) &
+            (abs(params.auction.end_time - params.auction.start_time) > self.data.granularity) &
+            (params.auction.start_price >= params.auction.end_price), message = "INVALID_PARAM")
+
+        # Auction can not exist already.
+        sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), message = "AUCTION_EXISTS")
+
+        # Make sure token is owned by owner.
+        sp.verify(utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, message = "NOT_OWNER")
+
+        # TODO: Make sure auction contract is operator of token
 
         # Create auction
-        self.auction_map.add(self.data.auctions, auction_key,
-            sp.record(
-                owner=sp.sender,
-                token_id=params.token_id,
-                start_price=params.start_price,
-                end_price=params.end_price,
-                start_time=params.start_time,
-                end_time=params.end_time,
-                fa2=params.fa2))
+        self.auction_map.add(self.data.auctions, params.auction_key, params.auction)
 
 
     @sp.entry_point(lazify = True)
@@ -212,11 +199,11 @@ class TL_Dutch(
         ).layout(("auction_key", "extension")))
 
         self.onlyUnpaused()
-        # no need to call self.onlyAdminIfWhitelistEnabled() 
+        # no need to call self.onlyAdminIfWhitelistEnabled()
 
-        the_auction = self.auction_map.get(self.data.auctions, params.auction_key)
+        sp.verify(self.auction_map.contains(self.data.auctions, params.auction_key), message = "INVALID_AUCTION")
 
-        sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
+        sp.verify(params.auction_key.owner == sp.sender, message = "NOT_OWNER")
 
         self.auction_map.remove(self.data.auctions, params.auction_key)
 
@@ -263,9 +250,8 @@ class TL_Dutch(
 
         the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, params.auction_key))
 
-        # If auction owner is admin, sender needs to be whitelisted, if whitelist is enabled.
-        with sp.if_(the_auction.value.owner == self.data.administrator):
-            self.onlyWhitelisted()
+        # If whitelist is enabled for this token, sender must be whitelisted.
+        fa2_props = self.onlyWhitelistedForFA2(params.auction_key.fa2, sp.sender)
 
         # check auction has started
         sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
@@ -279,18 +265,20 @@ class TL_Dutch(
         sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
 
         # Send fees, etc, if any.
-        self.sendOverpayValueAndFeesInline(sp.amount, ask_price, the_auction.value.owner)
+        self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
         # Transfer item from owner to buyer.
-        utils.fa2_transfer(the_auction.value.fa2, the_auction.value.owner, sp.sender, the_auction.value.token_id, 1)
+        utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.sender, params.auction_key.token_id, 1)
 
         # If it was a whitelist required auction, remove from whitelist.
-        with sp.if_(the_auction.value.owner == self.data.administrator):
-            self.removeFromWhitelist(sp.sender)
+        with sp.if_(params.auction_key.owner == fa2_props.whitelist_admin):
+            self.removeFromFA2Whitelist(params.auction_key.fa2, sp.sender)
 
+        # Delete auction.
         self.auction_map.remove(self.data.auctions, params.auction_key)
 
 
+    # TODO: private lambda to shrink view?
     def getAuctionPriceInline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
         sp.set_type(the_auction, t_auction)
