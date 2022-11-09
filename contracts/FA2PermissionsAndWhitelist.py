@@ -46,7 +46,7 @@ class PermittedFA2Params:
 # I think this is desired. But make sure to give a good error message.
 
 
-class PermittedFA2(admin_mixin.Administrable):
+class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
     def __init__(self, administrator, default_permitted = {}):
         self.permitted_fa2_map = PermittedFA2Map()
 

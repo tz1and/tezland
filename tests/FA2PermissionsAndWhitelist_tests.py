@@ -1,12 +1,12 @@
 import smartpy as sp
 
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2_v2.py")
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWhitelist.py")
 
 
-class PermittedFA2Test(permitted_fa2.PermittedFA2, sp.Contract):
+class FA2PermissionsAndWhitelistTest(permitted_fa2.FA2PermissionsAndWhitelist, sp.Contract):
     def __init__(self, administrator):
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
+        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self, administrator = administrator)
 
     # test helpers
     @sp.entry_point
@@ -18,7 +18,7 @@ class PermittedFA2Test(permitted_fa2.PermittedFA2, sp.Contract):
         self.getPermittedFA2Props(fa2)
 
 
-@sp.add_test(name = "PermittedFA2_v2_tests", profile = True)
+@sp.add_test(name = "FA2PermissionsAndWhitelist_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
@@ -26,18 +26,18 @@ def test():
     carol   = sp.test_account("Carol")
     scenario = sp.test_scenario()
 
-    scenario.h1("PermittedFA2 contract v2")
+    scenario.h1("FA2PermissionsAndWhitelist contract")
     scenario.table_of_contents()
 
     # Let's display the accounts:
     scenario.h2("Accounts")
     scenario.show([admin, alice, bob])
 
-    scenario.h2("Test PermittedFA2")
+    scenario.h2("Test FA2PermissionsAndWhitelist")
 
     scenario.h3("Contract origination")
 
-    permitted = PermittedFA2Test(admin.address)
+    permitted = FA2PermissionsAndWhitelistTest(admin.address)
     scenario += permitted
 
     scenario.h4("some other FA2 token")
