@@ -170,17 +170,12 @@ def fa2_get_balance(fa2, token_id, owner):
             ).layout(("owner", "token_id"))),
         t = sp.TNat).open_some()
 
-# Not used, World now has it's own operators set.
-#def fa2_is_operator(self, fa2, token_id, owner, operator):
-#    return sp.view("is_operator", fa2,
-#        sp.set_type_expr(
-#            sp.record(token_id = token_id, owner = owner, operator = operator),
-#            sp.TRecord(
-#                token_id = sp.TNat,
-#                owner = sp.TAddress,
-#                operator = sp.TAddress
-#            ).layout(("owner", ("operator", "token_id")))),
-#        t = sp.TBool).open_some()
+def fa2_is_operator(fa2, token_id, owner, operator):
+    return sp.view("is_operator", fa2,
+        sp.set_type_expr(
+            sp.record(token_id = token_id, owner = owner, operator = operator),
+            FA2.t_operator_permission),
+        t = sp.TBool).open_some()
 
 #
 # FA2 transfers
