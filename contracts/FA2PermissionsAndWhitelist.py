@@ -4,8 +4,8 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-# TODO: is_fa2_permitted/get_fa2_permitted is probably not needed? maybe for interop...
-# TODO: test getRoyaltiesForPermittedFA2
+# TODO: get_fa2_permitted is probably not needed? maybe for interop...
+
 
 permittedFA2MapValueType = sp.TRecord(
     whitelist_enabled = sp.TBool, # If the token is whitelisted.
