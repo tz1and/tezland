@@ -35,25 +35,6 @@ class TL_World_v1_1(world_contract.TL_World):
             extension = sp.none
         ), sp.mutez(0), migration_handle)
 
-    def update_adhoc_operators(self, token_contract, token_id_set):
-        sp.set_type(token_contract, sp.TAddress)
-        sp.set_type(token_id_set, sp.TSet(sp.TNat))
-
-        # Build operator permissions list.
-        operator_permissions = sp.local("operator_permissions", [], sp.TList(FA2_legacy.t_adhoc_operator_permission))
-        with sp.for_("id", token_id_set.elements()) as id:
-            operator_permissions.value.push(sp.record(
-                operator=self.migrate_to_contract,
-                token_id=id))
-
-        # Call token contract to add operators.
-        token_handle = sp.contract(
-            FA2_legacy.t_adhoc_operator_params,
-            token_contract,
-            entry_point='update_adhoc_operators').open_some()
-        sp.transfer(sp.variant("add_adhoc_operators", operator_permissions.value),
-            sp.mutez(0), token_handle)
-
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
         """This upgraded entrypoint allows the admin to migrate
