@@ -401,7 +401,7 @@ export default class PostUpgrade extends PostDeployBase {
          */
         // set operator
         {
-            const place_op_op = await contracts.get("places_FA2_contract")!.methods.update_operators([{
+            const place_op_op = await contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
                     operator: contracts.get("Dutch_contract")!.address,
@@ -413,23 +413,19 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         {
-            const whitelist_enable_op = await contracts.get("Dutch_contract")!.methodsObject.manage_whitelist([{
-                whitelist_enabled: false
-            }]).send()
-            await whitelist_enable_op.confirmation();
-            console.log("manage_whitelist:\t" + await this.feesToString(whitelist_enable_op));
-            console.log();
-        }
-
-        {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             const create_auction_op = await contracts.get("Dutch_contract")!.methodsObject.create({
-                token_id: 0,
-                start_price: 200000,
-                end_price: 100000,
-                start_time: current_time.toString(),
-                end_time: (current_time + 2000).toString(),
-                fa2: contracts.get("places_FA2_contract")!.address
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                },
+                auction: {
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString()
+                }
             }).send();
             await create_auction_op.confirmation();
             console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
@@ -437,7 +433,13 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         {
-            const bid_op = await contracts.get("Dutch_contract")!.methodsObject.bid({auction_id: 0}).send({amount: 200000, mutez: true});
+            const bid_op = await contracts.get("Dutch_contract")!.methodsObject.bid({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                }
+            }).send({amount: 200000, mutez: true});
             await bid_op.confirmation();
             console.log("bid:\t\t\t" + await this.feesToString(bid_op));
         }
@@ -447,12 +449,17 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             const create_auction1_op = await contracts.get("Dutch_contract")!.methodsObject.create({
-                token_id: 0,
-                start_price: 200000,
-                end_price: 100000,
-                start_time: current_time.toString(),
-                end_time: (current_time + 2000).toString(),
-                fa2: contracts.get("places_FA2_contract")!.address
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                },
+                auction: {
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString()
+                }
             }).send();
             await create_auction1_op.confirmation();
             console.log("create_auction:\t\t" + await this.feesToString(create_auction1_op));
@@ -460,7 +467,13 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         {
-            const cancel_op = await contracts.get("Dutch_contract")!.methodsObject.cancel({auction_id: 1}).send();
+            const cancel_op = await contracts.get("Dutch_contract")!.methodsObject.cancel({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                }
+            }).send();
             await cancel_op.confirmation();
             console.log("cancel:\t\t\t" + await this.feesToString(cancel_op));
         }

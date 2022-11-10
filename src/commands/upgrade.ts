@@ -76,12 +76,17 @@ export default class Upgrade extends PostUpgrade {
         //
         // Pause World v1 and Minter v1 for upgrade.
         //
-        await this.run_op_task("Pausing World v1 and Minter v1...", async () => {
+        await this.run_op_task("Pausing World v1, Dutch v1 and Minter v1...", async () => {
             return this.tezos!.wallet.batch().with([
                 // Pause world v1.
                 {
                     kind: OpKind.TRANSACTION,
                     ...tezlandWorld.methods.set_paused(true).toTransferParams()
+                },
+                // Pause dutch v1.
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...tezlandDutchAuctions.methods.set_paused(true).toTransferParams()
                 },
                 // Pause minter v1.
                 {
@@ -107,9 +112,10 @@ export default class Upgrade extends PostUpgrade {
         }
 
         //
-        // Minter v2 and Interiors.
+        // Minter v2, Dutch v2, Places v2 and Interiors.
         //
         let Minter_v2_contract: ContractAbstraction<Wallet>,
+            Dutch_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
             places_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
@@ -125,6 +131,12 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("TL_Minter_v2");
 
+            // Compile and deploy Minter contract.
+            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+            tezland_batch.addToBatch("TL_Dutch_v2");
+
             await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);
@@ -135,7 +147,7 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("FA2_Places_v2");
 
-            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
+            [Minter_v2_contract, Dutch_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
@@ -164,6 +176,20 @@ export default class Upgrade extends PostUpgrade {
                         {
                             kind: OpKind.TRANSACTION,
                             ...tezlandPlaces.methods.accept_administrator().toTransferParams()
+                        },
+                        // add permitted FA2s in minter v2
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Dutch_v2_contract.methods.manage_whitelist([
+                                {add_permitted: {
+                                    fa2: places_v2_FA2_contract.address,
+                                    props: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
+                                }},
+                                {add_permitted: {
+                                    fa2: interiors_FA2_contract.address,
+                                    props: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
+                                }}
+                            ]).toTransferParams()
                         }
                     ]).send();
                 });
@@ -273,6 +299,8 @@ export default class Upgrade extends PostUpgrade {
             // entrypoints to upgrade
             ["mint_Place"], true);
 
+        // TODO: upgrade dutch v1 to be able to cancel auctions and metadata
+
         // Update metadata on v1 contracts
         await this.run_op_task("Updating metadata on v1 world contract...", async () => {
             assert(world_v1_1_metadata);
@@ -291,6 +319,8 @@ export default class Upgrade extends PostUpgrade {
                 metadata: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(minter_v1_1_metadata) })
             }]).send();
         });
+
+        // TODO: update dutch v1 metadata
 
         //
         // TODO: Run migration and unpause World v2.
@@ -337,7 +367,7 @@ export default class Upgrade extends PostUpgrade {
             dao_FA2_contract: tezlandDAO,
             Minter_contract: Minter_v2_contract,
             World_contract: World_v2_contract,
-            Dutch_contract: tezlandDutchAuctions,
+            Dutch_contract: Dutch_v2_contract,
             Factory_contract: Factory_contract,
             Registry_contract: Registry_contract
         })));
