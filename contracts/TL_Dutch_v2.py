@@ -56,7 +56,7 @@ class TL_Dutch(
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
 
-    def __init__(self, administrator, places_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
@@ -76,11 +76,7 @@ class TL_Dutch(
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
         pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
         fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
-
-        default_permitted = { places_contract : sp.record(
-            whitelist_enabled = True,
-            whitelist_admin = administrator )}
-        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self, administrator = administrator, default_permitted = default_permitted)
+        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
 
         self.generate_contract_metadata()

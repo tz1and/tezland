@@ -108,7 +108,7 @@ def test():
 
     # create places contract
     scenario.h3("Originate dutch contract")
-    dutch = dutch_contract.TL_Dutch(admin.address, places_tokens.address,
+    dutch = dutch_contract.TL_Dutch(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 
