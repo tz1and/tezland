@@ -51,9 +51,9 @@ class IPFSUpload {
         // TODO: figure out if I need to pin roots.
         const joiner = new TreewalkCarJoiner([car]);
         for await (const local_upload of local_client.dag.import(joiner.car(), { pinRoots: false })) {
-            assert(local_upload.root.cid.toString() == token.ipnft)
-            console.dir(local_upload, {depth: 100});
-            console.dir(token, {depth: 100});
+            // NOTE: this won't run unless pinning is enabled.
+            console.log("uploaded and pinned");
+            assert(local_upload.root.cid.toString() == token.ipnft);
         }
         console.log(`upload to local ipfs took ${(performance.now() - start_time).toFixed(2)} ms`);
     }
