@@ -401,32 +401,37 @@ export default class PostUpgrade extends PostDeployBase {
          */
         // set operator
         {
-            const place_op_op = await contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
-                add_operator: {
-                    owner: this.accountAddress,
-                    operator: contracts.get("Dutch_contract")!.address,
-                    token_id: 0
-                }
-            }]).send()
-            await place_op_op.confirmation();
-            console.log("update_operators:\t" + await this.feesToString(place_op_op));
-        }
-
-        {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
-            const create_auction_op = await contracts.get("Dutch_contract")!.methodsObject.create({
-                auction_key: {
-                    fa2: contracts.get("places_v2_FA2_contract")!.address,
-                    token_id: 0,
-                    owner: this.accountAddress
+            const create_auction_op = await this.tezos!.wallet.batch().with([
+                // add operator
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
+                        add_operator: {
+                            owner: this.accountAddress,
+                            operator: contracts.get("Dutch_contract")!.address,
+                            token_id: 0
+                        }
+                    }]).toTransferParams()
                 },
-                auction: {
-                    start_price: 200000,
-                    end_price: 100000,
-                    start_time: current_time.toString(),
-                    end_time: (current_time + 2000).toString()
+                // create auction
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...contracts.get("Dutch_contract")!.methodsObject.create({
+                        auction_key: {
+                            fa2: contracts.get("places_v2_FA2_contract")!.address,
+                            token_id: 0,
+                            owner: this.accountAddress
+                        },
+                        auction: {
+                            start_price: 200000,
+                            end_price: 100000,
+                            start_time: current_time.toString(),
+                            end_time: (current_time + 2000).toString()
+                        }
+                    }).toTransferParams()
                 }
-            }).send();
+            ]).send();
             await create_auction_op.confirmation();
             console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
             await sleep(config.sandbox.blockTime * 1000);
@@ -448,21 +453,38 @@ export default class PostUpgrade extends PostDeployBase {
 
         {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
-            const create_auction1_op = await contracts.get("Dutch_contract")!.methodsObject.create({
-                auction_key: {
-                    fa2: contracts.get("places_v2_FA2_contract")!.address,
-                    token_id: 0,
-                    owner: this.accountAddress
+            const create_auction_op = await this.tezos!.wallet.batch().with([
+                // add operator
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
+                        add_operator: {
+                            owner: this.accountAddress,
+                            operator: contracts.get("Dutch_contract")!.address,
+                            token_id: 0
+                        }
+                    }]).toTransferParams()
                 },
-                auction: {
-                    start_price: 200000,
-                    end_price: 100000,
-                    start_time: current_time.toString(),
-                    end_time: (current_time + 2000).toString()
+                // create auction
+                {
+                    kind: OpKind.TRANSACTION,
+                    ...contracts.get("Dutch_contract")!.methodsObject.create({
+                        auction_key: {
+                            fa2: contracts.get("places_v2_FA2_contract")!.address,
+                            token_id: 0,
+                            owner: this.accountAddress
+                        },
+                        auction: {
+                            start_price: 200000,
+                            end_price: 100000,
+                            start_time: current_time.toString(),
+                            end_time: (current_time + 2000).toString()
+                        }
+                    }).toTransferParams()
                 }
-            }).send();
-            await create_auction1_op.confirmation();
-            console.log("create_auction:\t\t" + await this.feesToString(create_auction1_op));
+            ]).send();
+            await create_auction_op.confirmation();
+            console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
             await sleep(config.sandbox.blockTime * 1000);
         }
 
