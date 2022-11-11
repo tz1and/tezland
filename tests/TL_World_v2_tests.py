@@ -149,7 +149,7 @@ class FA2_utils(sp.Contract):
     def world_get_place_data(self, world, place_key, chunk_ids):
         return sp.view("get_place_data", world,
             sp.set_type_expr(
-                sp.record(place_key = place_key, chunk_ids = chunk_ids),
+                sp.record(place_key = place_key, chunk_ids = sp.some(chunk_ids)),
                 places_contract.placeDataParam),
             t = places_contract.placeDataResultType).open_some()
 
@@ -645,14 +645,14 @@ def test():
     scenario.h2("Place views")
 
     scenario.h3("Stored items")
-    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.set([0])))
+    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.none))
     scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
     scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
     scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
     scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
     scenario.show(place_data)
 
-    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.set([0, 1])))
+    place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.some(sp.set([0, 1]))))
     scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
     scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
     scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
@@ -661,7 +661,9 @@ def test():
     scenario.show(place_data)
 
     empty_place_key = sp.record(place_contract = places_tokens.address, lot_id = sp.nat(5))
-    place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.set([0])))
+    place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.none))
+    scenario.verify(sp.len(place_data.chunks) == 0)
+    place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.some(sp.set([0]))))
     scenario.verify(sp.len(place_data.chunks[0].stored_items) == 0)
     scenario.show(place_data)
 

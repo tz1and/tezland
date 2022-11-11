@@ -17,7 +17,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # Now:
-# TODO: get_place_data should take list of chunks to query. should return data in same view as get_place_data? maybe with selectable chunks?
 # TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
 # TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
 #       + properly define the royalties type for the merkle proof stuff. probably the same as explicit royalties!
@@ -36,21 +35,13 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: so many empty FAILWITHs. Optimise...
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
-# TODO: optional value_to/send_to address on the place. can be used to split/for other contracts managing places, etc.
-# TODO: optional value_to/send_to address on swaps. to allow customising where tez are sent to. HALF-DONE
-#       + Regarding splitting on primary sales - it was suggested before. It's maybe tricky to tell what is a primary?
-#         I could maybe add a flag to split the entire value according to the royalties. Or allow specifying a
-#         "value to" address (that could be a splitting contract) when placing an item. Or....
 # TODO: re-distributing places. added get_owner view
+# TODO: optional value_to/send_to address on the place. can be used to split/for other contracts managing places, etc.
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
 #       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
 #       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
-# TODO: solution for the legacy collection mint issues:
-#       - legacy public collection will be handled by V1 minter.
-#       - maybe just don't allow minting in legacy collection anymore.
-#       - add a mint_v1 entrypoint to minter v2
 # TODO: make sure royalties version is set correctly everywhere.
 # TODO: need a moderation contract v1 and v2! storage changed... ALSO: check all other changed mixins for changes in storage.
 
@@ -202,7 +193,7 @@ chunkPlaceKeyType = sp.TRecord(
 
 placeDataParam = sp.TRecord(
     place_key = placeKeyType,
-    chunk_ids = sp.TSet(sp.TNat)
+    chunk_ids = sp.TOption(sp.TSet(sp.TNat))
 ).layout(("place_key", "chunk_ids"))
 
 placeDataResultType = sp.TRecord(
@@ -1129,8 +1120,8 @@ class TL_World(
                 place = self.data.places.get(params.place_key, placeStorageDefault),
                 chunks = {}))
 
-            with sp.for_("chunk_id", params.chunk_ids.elements()) as chunk_id:
-                res.value.chunks[chunk_id ] = self.data.chunks.get(sp.record(
+            with sp.for_("chunk_id", utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
+                res.value.chunks[chunk_id] = self.data.chunks.get(sp.record(
                     place_key = params.place_key,
                     chunk_id = chunk_id
                 ), chunkStorageDefault)
