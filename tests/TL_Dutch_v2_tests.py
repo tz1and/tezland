@@ -87,6 +87,10 @@ def test():
         sp.record(
             to_ = admin.address,
             metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        ),
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
         )
     ]).run(sender = admin)
 
@@ -94,6 +98,7 @@ def test():
     place_alice = sp.nat(1)
     place_carol = sp.nat(2)
     place_admin = sp.nat(3)
+    place_bob_no_operator = sp.nat(4)
 
     # Test dutch auchtion
 
@@ -242,7 +247,17 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         extension = sp.none).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
-    # TODO: not operator
+    dutch.create(
+        auction_key = sp.record(
+            token_id = place_bob_no_operator,
+            fa2 = places_tokens.address,
+            owner = bob.address),
+        auction = sp.record(
+            start_price = sp.tez(100),
+            end_price = sp.tez(20),
+            start_time = sp.timestamp(0),
+            end_time = sp.timestamp(0).add_minutes(80)),
+        extension = sp.none).run(sender = bob, valid = False, exception = "NOT_OPERATOR")
 
     # token not permitted
     dutch.create(
