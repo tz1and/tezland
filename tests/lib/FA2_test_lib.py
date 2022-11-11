@@ -816,6 +816,7 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
 
         # The contract is updated as expected.
         sc.verify(c1.data.operators.contains(operator_bob))
+        sc.verify(c1.is_operator(operator_bob))
 
         # Operator can transfer allowed tokens on behalf of owner.
         sc.h2("Bob can transfer Alice's token id 0")
@@ -851,7 +852,9 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
 
         # The contract is updated as expected.
         sc.verify(~c1.data.operators.contains(operator_bob))
+        sc.verify(~c1.is_operator(operator_bob))
         sc.verify(c1.data.operators.contains(operator_charlie))
+        sc.verify(c1.is_operator(operator_charlie))
 
         # A removed operator lose its rights.
         sc.h2("Bob cannot transfer Alice's token 0 anymore")
@@ -892,6 +895,7 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
             ]
         ).run(sender=alice)
         sc.verify(~c1.data.operators.contains(operator_bob))
+        sc.verify(~c1.is_operator(operator_bob))
 
         # Add after remove works
         sc.h2("Remove then Add do add the operator")
@@ -902,6 +906,25 @@ def test_owner_or_operator_transfer(test_name, fa2_contract):
             ]
         ).run(sender=alice)
         sc.verify(c1.data.operators.contains(operator_bob))
+        sc.verify(c1.is_operator(operator_bob))
+
+        # Can't remove others operator permissions
+        sc.h2("Can't remove others operator permissions")
+        c1.update_operators(
+            [
+                sp.variant("remove_operator", operator_bob)
+            ]
+        ).run(sender=charlie, valid=False, exception="FA2_NOT_OWNER_OR_OPERATOR")
+
+        # Operator can remove their own operator permissions
+        sc.h2("Remove own operator permissions")
+        c1.update_operators(
+            [
+                sp.variant("remove_operator", operator_bob)
+            ]
+        ).run(sender=bob)
+        sc.verify(~c1.data.operators.contains(operator_bob))
+        sc.verify(~c1.is_operator(operator_bob))
 
 
 ################################################################################
@@ -1635,20 +1658,20 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
 
             # Check storage contains operators
             sc.verify(
-                contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)) == True
+                contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=bob.address, token_id=0))
             )
 
             sc.verify(
-                contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)) == True
+                contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=admin.address, token_id=0))
             )
 
             # Check storage doesn't containt operators in next block
             sc.verify(
-                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)), level=1) == False
+                ~sc.compute(contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=bob.address, token_id=0)), level=1)
             )
 
             sc.verify(
-                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)), level=1) == False
+                ~sc.compute(contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=admin.address, token_id=0)), level=1)
             )
 
             sc.verify(sp.len(contract.data.adhoc_operators) == 2)
@@ -1673,15 +1696,15 @@ def test_adhoc_operators(nft_contract, fungible_contract, single_asset_contract)
 
             # Check storage contains operators
             sc.verify(
-                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=bob.address, token_id=0)), level=2) == True
+                sc.compute(contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=bob.address, token_id=0)), level=2)
             )
 
             sc.verify(
-                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=alice.address, token_id=0)), level=2) == True
+                sc.compute(contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=alice.address, token_id=0)), level=2)
             )
 
             sc.verify(
-                sc.compute(contract.is_operator(sp.record(owner=alice.address, operator=admin.address, token_id=0)), level=2) == True
+                sc.compute(contract.data.adhoc_operators.contains(contract.make_adhoc_operator_key(owner=alice.address, operator=admin.address, token_id=0)), level=2)
             )
 
             sc.verify(sp.len(contract.data.adhoc_operators) == 3)

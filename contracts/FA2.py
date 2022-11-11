@@ -149,7 +149,10 @@ class NoTransfer:
     def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
         pass
 
-    def check_operator_update_permissions(self, contract, operator_permission):
+    def check_operator_add_permissions(self, contract, operator_permission):
+        pass
+
+    def check_operator_delete_permissions(self, contract, operator_permission):
         pass
 
     def is_operator(self, contract, operator_permission):
@@ -168,7 +171,10 @@ class OwnerTransfer:
     def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
         sp.verify(sp.sender == from_, "FA2_NOT_OWNER")
 
-    def check_operator_update_permissions(self, contract, operator_permission):
+    def check_operator_add_permissions(self, contract, operator_permission):
+        pass
+
+    def check_operator_delete_permissions(self, contract, operator_permission):
         pass
 
     def is_operator(self, contract, operator_permission):
@@ -180,6 +186,9 @@ class OwnerOrOperatorTransfer:
 
     Operators allowed.
     """
+
+    # Controls whether operators can delete their own operator permissions.
+    allow_operator_delete_own = True
 
     def init_policy(self, contract):
         self.name = "owner-or-operator-transfer"
@@ -198,8 +207,14 @@ class OwnerOrOperatorTransfer:
             message="FA2_NOT_OPERATOR",
         )
 
-    def check_operator_update_permissions(self, contract, operator_permission):
+    def check_operator_add_permissions(self, contract, operator_permission):
         sp.verify(operator_permission.owner == sp.sender, "FA2_NOT_OWNER")
+
+    def check_operator_delete_permissions(self, contract, operator_permission):
+        if self.allow_operator_delete_own:
+            sp.verify((operator_permission.owner == sp.sender) | (operator_permission.operator == sp.sender), "FA2_NOT_OWNER_OR_OPERATOR")
+        else:
+            sp.verify(operator_permission.owner == sp.sender, "FA2_NOT_OWNER")
 
     def is_operator(self, contract, operator_permission):
         return contract.data.operators.contains(operator_permission)
@@ -215,10 +230,17 @@ class OwnerOrOperatorAdhocTransfer:
     They are supposed to apply only to the current operation group.
     They are only valid in the current block level.
 
+    By default, adhoc operators aren't checked in the is_operator view.
+
     For long-lasting operators, use standard operators.
 
     You've seen it here first :)
     """
+
+    # Controls whether adhoc operators are checked in the is_operator view.
+    check_adhoc_in_operator_view = False
+    # Controls whether operators can delete their own operator permissions.
+    allow_operator_delete_own = True
 
     def init_policy(self, contract):
         self.name = "owner-or-operator-transfer"
@@ -296,12 +318,21 @@ class OwnerOrOperatorAdhocTransfer:
             message="FA2_NOT_OPERATOR",
         )
 
-    def check_operator_update_permissions(self, contract, operator_permission):
+    def check_operator_add_permissions(self, contract, operator_permission):
         sp.verify(operator_permission.owner == sp.sender, "FA2_NOT_OWNER")
 
+    def check_operator_delete_permissions(self, contract, operator_permission):
+        if self.allow_operator_delete_own:
+            sp.verify((operator_permission.owner == sp.sender) | (operator_permission.operator == sp.sender), "FA2_NOT_OWNER_OR_OPERATOR")
+        else:
+            sp.verify(operator_permission.owner == sp.sender, "FA2_NOT_OWNER")
+
     def is_operator(self, contract, operator_permission):
-        adhoc_key = contract.make_adhoc_operator_key(operator_permission.owner, operator_permission.operator, operator_permission.token_id)
-        return contract.data.adhoc_operators.contains(adhoc_key) | contract.data.operators.contains(operator_permission)
+        if self.check_adhoc_in_operator_view:
+            adhoc_key = contract.make_adhoc_operator_key(operator_permission.owner, operator_permission.operator, operator_permission.token_id)
+            return contract.data.adhoc_operators.contains(adhoc_key) | contract.data.operators.contains(operator_permission)
+        else:
+            return contract.data.operators.contains(operator_permission)
 
 
 class PauseTransfer:
@@ -338,12 +369,19 @@ class PauseTransfer:
         sp.verify(~contract.data.paused, message=sp.pair("FA2_TX_DENIED", "FA2_PAUSED"))
         self.policy.check_tx_transfer_permissions(contract, from_, to_, token_id)
 
-    def check_operator_update_permissions(self, contract, operator_param):
+    def check_operator_add_permissions(self, contract, operator_param):
         sp.verify(
             ~contract.data.paused,
             message=sp.pair("FA2_OPERATORS_UNSUPPORTED", "FA2_PAUSED"),
         )
-        self.policy.check_operator_update_permissions(contract, operator_param)
+        self.policy.check_operator_add_permissions(contract, operator_param)
+
+    def check_operator_delete_permissions(self, contract, operator_param):
+        sp.verify(
+            ~contract.data.paused,
+            message=sp.pair("FA2_OPERATORS_UNSUPPORTED", "FA2_PAUSED"),
+        )
+        self.policy.check_operator_delete_permissions(contract, operator_param)
 
     def is_operator(self, contract, operator_param):
         return self.policy.is_operator(contract, operator_param)
@@ -438,10 +476,10 @@ class Common(sp.Contract):
             with sp.for_("action", batch) as action:
                 with action.match_cases() as arg:
                     with arg.match("add_operator") as operator:
-                        self.policy.check_operator_update_permissions(self, operator)
+                        self.policy.check_operator_add_permissions(self, operator)
                         self.data.operators[operator] = sp.unit
                     with arg.match("remove_operator") as operator:
-                        self.policy.check_operator_update_permissions(self, operator)
+                        self.policy.check_operator_delete_permissions(self, operator)
                         del self.data.operators[operator]
         else:
             sp.failwith("FA2_OPERATORS_UNSUPPORTED")
