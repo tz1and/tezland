@@ -893,14 +893,14 @@ class TL_World(
         # Collect amounts to send in a map.
         sendMap = utils.TokenSendMap()
 
+        # First, we take our fees are in permille.
+        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
+        sendMap.add(self.data.fees_to, fees_amount)
+
+        value_to_split = sp.compute(mutez_per_token - fees_amount)
+
         # If a primary sale, split entire value (minus fees) according to royalties.
         with sp.if_(primary):
-            # Our fees are in permille.
-            fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
-            sendMap.add(self.data.fees_to, fees_amount)
-
-            value_to_split = sp.compute(mutez_per_token - fees_amount)
-
             # Loop over all the shares to find the total shares.
             total_shares = sp.local("total_shares", sp.nat(0))
             with sp.for_("share", item_royalty_info.shares) as share:
@@ -918,16 +918,12 @@ class TL_World(
             total_royalties = sp.local("total_royalties", sp.mutez(0))
             with sp.for_("share", item_royalty_info.shares) as share:
                 # Calculate amount to be paid from absolute share.
-                share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, item_royalty_info.total))
+                share_mutez = sp.compute(sp.split_tokens(value_to_split, share.share, item_royalty_info.total))
                 sendMap.add(share.address, share_mutez)
                 total_royalties.value += share_mutez
 
-            # Our fees are in permille.
-            fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
-            sendMap.add(self.data.fees_to, fees_amount)
-
             # Send rest of the value to seller.
-            left_amount = mutez_per_token - fees_amount - total_royalties.value
+            left_amount = value_to_split - total_royalties.value
             sendMap.add(issuer_or_place_owner, left_amount)
 
         # Transfer.
