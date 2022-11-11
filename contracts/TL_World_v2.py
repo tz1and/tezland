@@ -36,7 +36,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: so many empty FAILWITHs. Optimise...
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
-# TODO: optional send_to address on swaps. to allow customising where tez are sent to. HALF-DONE
+# TODO: optional value_to/send_to address on the place. can be used to split/for other contracts managing places, etc.
+# TODO: optional value_to/send_to address on swaps. to allow customising where tez are sent to. HALF-DONE
+#       + Regarding splitting on primary sales - it was suggested before. It's maybe tricky to tell what is a primary?
+#         I could maybe add a flag to split the entire value according to the royalties. Or allow specifying a
+#         "value to" address (that could be a splitting contract) when placing an item. Or....
 # TODO: re-distributing places. added get_owner view
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
 #       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
@@ -48,6 +52,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       - maybe just don't allow minting in legacy collection anymore.
 #       - add a mint_v1 entrypoint to minter v2
 # TODO: make sure royalties version is set correctly everywhere.
+# TODO: need a moderation contract v1 and v2! storage changed... ALSO: check all other changed mixins for changes in storage.
 
 
 # maybe?
@@ -94,8 +99,8 @@ itemRecordType = sp.TRecord(
     token_amount=sp.TNat, # number of fa2 tokens to store.
     mutez_per_token=sp.TMutez, # 0 if not for sale.
     item_data=sp.TBytes, # transforms, etc
-    send_to=sp.TOption(sp.TAddress), # where to send the tez
-).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "send_to")))))
+    primary=sp.TBool, # split the entire value according to royalties.
+).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "primary")))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
@@ -153,14 +158,14 @@ class PlaceStorage:
         self.data_map = map
         self.this_place_key = key
         if create is True:
-            self.this_place = sp.local("this_place", self._get_or_default())
+            self.this_place = sp.local("this_place", self.__get_or_default())
         else:
-            self.this_place = sp.local("this_place", self._get())
+            self.this_place = sp.local("this_place", self.__get())
 
-    def _get(self):
+    def __get(self):
         return self.data_map.get(self.this_place_key)
 
-    def _get_or_default(self):
+    def __get_or_default(self):
         return self.data_map.get(self.this_place_key, placeStorageDefault)
 
     def persist(self):
@@ -169,9 +174,9 @@ class PlaceStorage:
     def load(self, new_key: placeKeyType, create: bool = False):
         self.this_place_key = new_key
         if create is True:
-            self.this_place.value = self._get_or_default()
+            self.this_place.value = self.__get_or_default()
         else:
-            self.this_place.value = self._get()
+            self.this_place.value = self.__get()
 
     @property
     def value(self):
@@ -220,14 +225,14 @@ class ChunkStorage:
         self.data_map = map
         self.this_chunk_key = key
         if create is True:
-            self.this_chunk = sp.local("this_chunk", self._get_or_default())
+            self.this_chunk = sp.local("this_chunk", self.__get_or_default())
         else:
-            self.this_chunk = sp.local("this_chunk", self._get())
+            self.this_chunk = sp.local("this_chunk", self.__get())
 
-    def _get(self):
+    def __get(self):
         return self.data_map.get(self.this_chunk_key)
 
-    def _get_or_default(self):
+    def __get_or_default(self):
         return self.data_map.get(self.this_chunk_key, chunkStorageDefault)
 
     def persist(self, place: PlaceStorage = None):
@@ -248,9 +253,9 @@ class ChunkStorage:
     def load(self, new_key: chunkPlaceKeyType, create: bool = False):
         self.this_chunk_key = new_key
         if create is True:
-            self.this_chunk.value = self._get_or_default()
+            self.this_chunk.value = self.__get_or_default()
         else:
-            self.this_chunk.value = self._get()
+            self.this_chunk.value = self.__get()
 
     def count_items(self):
         chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
@@ -283,22 +288,22 @@ class ItemStorage:
         self.issuer = issuer
         self.fa2 = fa2
         if create is True:
-            self.this_issuer_store = sp.local("this_issuer_store", self._get_or_default_issuer())
-            self.this_fa2_store = sp.local("this_fa2_store", self._get_or_default_fa2())
+            self.this_issuer_store = sp.local("this_issuer_store", self.__get_or_default_issuer())
+            self.this_fa2_store = sp.local("this_fa2_store", self.__get_or_default_fa2())
         else:
-            self.this_issuer_store = sp.local("this_issuer_store", self._get_issuer())
-            self.this_fa2_store = sp.local("this_fa2_store", self._get_fa2())
+            self.this_issuer_store = sp.local("this_issuer_store", self.__get_issuer())
+            self.this_fa2_store = sp.local("this_fa2_store", self.__get_fa2())
 
-    def _get_issuer(self):
+    def __get_issuer(self):
         return self.chunk_storage.value.stored_items.get(self.issuer)
 
-    def _get_or_default_issuer(self):
+    def __get_or_default_issuer(self):
         return self.chunk_storage.value.stored_items.get(self.issuer, issuerStoreLiteral)
 
-    def _get_fa2(self):
+    def __get_fa2(self):
         return self.this_issuer_store.value.get(self.fa2)
 
-    def _get_or_default_fa2(self):
+    def __get_or_default_fa2(self):
         return self.this_issuer_store.value.get(self.fa2, tokenStoreLiteral)
 
     def persist(self):
@@ -320,11 +325,11 @@ class ItemStorage:
         self.issuer = new_issuer
         self.fa2 = new_fa2
         if create is True:
-            self.this_issuer_store.value = self._get_or_default_issuer()
-            self.this_fa2_store.value = self._get_or_default_fa2()
+            self.this_issuer_store.value = self.__get_or_default_issuer()
+            self.this_fa2_store.value = self.__get_or_default_fa2()
         else:
-            self.this_issuer_store.value = self._get_issuer()
-            self.this_fa2_store.value = self._get_fa2()
+            self.this_issuer_store.value = self.__get_issuer()
+            self.this_fa2_store.value = self.__get_fa2()
 
     @property
     def value(self):
@@ -878,30 +883,52 @@ class TL_World(
         this_chunk.persist()
 
 
-    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info):
+    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info, primary):
         """Inline function for sending royalties, fees, etc."""
         sp.set_type(mutez_per_token, sp.TMutez)
         sp.set_type(issuer_or_place_owner, sp.TAddress)
         sp.set_type(item_royalty_info, registry_contract.t_royalties_interop)
+        sp.set_type(primary, sp.TBool)
 
         # Collect amounts to send in a map.
         sendMap = utils.TokenSendMap()
 
-        # Loop over all the shares and record how much to send.
-        total_royalties = sp.local("total_royalties", sp.mutez(0))
-        with sp.for_("share", item_royalty_info.shares) as share:
-            # Calculate amount to be paid from absolute share.
-            share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, item_royalty_info.total))
-            sendMap.add(share.address, share_mutez)
-            total_royalties.value += share_mutez
+        # If a primary sale, split entire value (minus fees) according to royalties.
+        with sp.if_(primary):
+            # Our fees are in permille.
+            fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
+            sendMap.add(self.data.fees_to, fees_amount)
 
-        # Our fees are in permille.
-        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
-        sendMap.add(self.data.fees_to, fees_amount)
+            value_to_split = sp.compute(mutez_per_token - fees_amount)
 
-        # Send rest of the value to seller.
-        left_amount = mutez_per_token - fees_amount - total_royalties.value
-        sendMap.add(issuer_or_place_owner, left_amount)
+            # Loop over all the shares to find the total shares.
+            total_shares = sp.local("total_shares", sp.nat(0))
+            with sp.for_("share", item_royalty_info.shares) as share:
+                total_shares.value += share.share
+
+            # Loop over all the shares and send value.
+            with sp.for_("share", item_royalty_info.shares) as share:
+                # Calculate amount to be paid from absolute share.
+                share_mutez = sp.compute(sp.split_tokens(value_to_split, share.share, total_shares.value))
+                sendMap.add(share.address, share_mutez)
+
+        # Else, send royalties according to total and send value to issuer or place owner.
+        with sp.else_():
+            # Loop over all the shares and record how much to send.
+            total_royalties = sp.local("total_royalties", sp.mutez(0))
+            with sp.for_("share", item_royalty_info.shares) as share:
+                # Calculate amount to be paid from absolute share.
+                share_mutez = sp.compute(sp.split_tokens(mutez_per_token, share.share, item_royalty_info.total))
+                sendMap.add(share.address, share_mutez)
+                total_royalties.value += share_mutez
+
+            # Our fees are in permille.
+            fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
+            sendMap.add(self.data.fees_to, fees_amount)
+
+            # Send rest of the value to seller.
+            left_amount = mutez_per_token - fees_amount - total_royalties.value
+            sendMap.add(issuer_or_place_owner, left_amount)
 
         # Transfer.
         sendMap.transfer()
@@ -964,7 +991,7 @@ class TL_World(
                         params.merkle_proof_royalties)
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info)
+                    self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
                 
                 # Transfer item to buyer.
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)

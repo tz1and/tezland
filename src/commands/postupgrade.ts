@@ -221,7 +221,7 @@ export default class PostUpgrade extends PostDeployBase {
         let list_one_item;
         {
             list_one_item = new MichelsonMap<string, object[]>();
-            list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }]);
+            list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff", primary: false } }]);
             const setup_storage = await contracts.get("World_contract")!.methodsObject.place_items({
                 chunk_key: placeKey0Chunk0, place_item_map: list_one_item
             }).send();
@@ -283,16 +283,16 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
             list_ten_items.set (contracts.get("items_FA2_contract")!.address, [
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
             ]);
             const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
                 chunk_key: placeKey0Chunk0, place_item_map: list_ten_items
@@ -675,7 +675,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         const item_list = [];
         for (let i = 0; i < per_batch; ++i)
-            item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } });
+            item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } });
 
         const item_map: MichelsonMap<string, object[]> = new MichelsonMap();
         item_map.set(contracts.get("items_FA2_contract")!.address, item_list)
