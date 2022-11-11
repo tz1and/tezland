@@ -544,3 +544,46 @@ mint some:                      storage: 0.163500, gas: 0.002496
 update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
 
 create_token:                   storage: 1.187000, gas: 0.001280
+
+
+World v2 primary, smallish things
+----------------------------------------
+update_operators:               storage: 0.016750, gas: 0.000561
+create place 0 (item):          storage: 0.081500, gas: 0.001734
+create place 1 (item):          storage: 0.071500, gas: 0.001757
+update_place_props:             storage: 0.000000, gas: 0.000926
+
+place_items (1):                storage: 0.009750, gas: 0.001804
+place_items (10):               storage: 0.102500, gas: 0.002181
+
+set_item_data (1):              storage: 0.000000, gas: 0.001049
+set_item_data (10):             storage: 0.000000, gas: 0.001267
+
+remove_items (1):               storage: 0.000000, gas: 0.001396
+remove_items (10):              storage: 0.000000, gas: 0.001404
+
+set_permissions:                storage: 0.000000, gas: 0.000610
+get_item:                       storage: 0.000000, gas: 0.001902
+
+
+create_auction:                 storage: 0.039250, gas: 0.001761
+bid:                            storage: 0.000000, gas: 0.001338
+
+create_auction:                 storage: 0.000000, gas: 0.001761
+cancel:                         storage: 0.000000, gas: 0.000620
+
+
+update_operators (100):         storage: 1.675000, gas: 0.011919
+
+transfer:                       storage: 0.016750, gas: 0.000676
+update_adhoc_operators:         storage: 0.009250, gas: 0.000501
+update_adhoc_operators (100):   storage: 0.915750, gas: 0.005109
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000706
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000509
+transfer (reset):               storage: 0.000000, gas: 0.000706
+
+mint some:                      storage: 0.170000, gas: 0.002522
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+
+create_token:                   storage: 1.181750, gas: 0.001292
