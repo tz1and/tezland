@@ -23,8 +23,6 @@ t_auction_key = sp.TRecord(
     owner = sp.TAddress
 ).layout(("fa2", ("token_id", "owner")))
 
-# TODO: can probably get rid of fa2, token_id and owner,
-# since they are implicit in the key :)
 t_auction = sp.TRecord(
     start_price=sp.TMutez,
     end_price=sp.TMutez,
