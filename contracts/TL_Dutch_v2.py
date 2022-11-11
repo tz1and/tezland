@@ -6,14 +6,11 @@ permitted_fa2 = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWh
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
-# TODO: test royalties for item token
+
 # TODO: document reasoning for not limiting bids on secondary disable
-# TODO: document (or fix!) issue with admin transfer and whitelist!
-# TODO: per-fa2-per-user whitelist
-# TODO: load whitelist settings from permitted FA2
-# TODO: etc...
-# TODO: Make sure auction contract is operator of token
+
 
 # Optional extension argument type.
 # Map val can contain about anything and be
@@ -167,17 +164,18 @@ class TL_Dutch(
         sp.verify((params.auction.start_time >= sp.now) &
             (params.auction.start_time < params.auction.end_time) &
             (abs(params.auction.end_time - params.auction.start_time) > self.data.granularity) &
-            (params.auction.start_price >= params.auction.end_price), message = "INVALID_PARAM")
+            (params.auction.start_price >= params.auction.end_price), "INVALID_PARAM")
 
         # Auction can not exist already.
-        sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), message = "AUCTION_EXISTS")
+        sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
-        sp.verify(utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, message = "NOT_OWNER")
+        sp.verify(utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
 
-        # TODO: Make sure auction contract is operator of token
+        # Make sure auction contract is operator of token.
+        sp.verify(utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
 
-        # Create auction
+        # Create auction.
         self.auction_map.add(self.data.auctions, params.auction_key, params.auction)
 
 
@@ -196,9 +194,9 @@ class TL_Dutch(
         self.onlyUnpaused()
         # no need to call self.onlyAdminIfWhitelistEnabled()
 
-        sp.verify(self.auction_map.contains(self.data.auctions, params.auction_key), message = "INVALID_AUCTION")
+        sp.verify(self.auction_map.contains(self.data.auctions, params.auction_key), "INVALID_AUCTION")
 
-        sp.verify(params.auction_key.owner == sp.sender, message = "NOT_OWNER")
+        sp.verify(params.auction_key.owner == sp.sender, "NOT_OWNER")
 
         self.auction_map.remove(self.data.auctions, params.auction_key)
 
@@ -227,6 +225,26 @@ class TL_Dutch(
 
         # Transfer.
         sendMap.transfer()
+
+
+    def remove_operator(self, token_contract, token_id, owner):
+        sp.set_type(token_contract, sp.TAddress)
+        sp.set_type(token_id, sp.TNat)
+        sp.set_type(owner, sp.TAddress)
+
+        # Build operator permissions list.
+        operator_remove = sp.set_type_expr(sp.record(
+            owner=owner,
+            operator=sp.self_address,
+            token_id=token_id), FA2.t_operator_permission)
+
+        # Call token contract to add operators.
+        token_handle = sp.contract(
+            FA2.t_update_operators_params,
+            token_contract,
+            entry_point='update_operators').open_some()
+        sp.transfer([sp.variant("remove_operator", operator_remove)],
+            sp.mutez(0), token_handle)
 
 
     @sp.entry_point(lazify = True)
@@ -264,6 +282,9 @@ class TL_Dutch(
 
         # Transfer item from owner to buyer.
         utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.sender, params.auction_key.token_id, 1)
+
+        # After transfer, remove own operator rights for token.
+        self.remove_operator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)
 
         # If it was a whitelist required auction, remove from whitelist.
         with sp.if_(params.auction_key.owner == fa2_props.whitelist_admin):

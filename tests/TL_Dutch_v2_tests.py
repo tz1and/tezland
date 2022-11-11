@@ -25,11 +25,6 @@ def test():
     scenario.h2("Create test env")
 
     scenario.h3("Tokens")
-    items_tokens_legacy = tokens.tz1andItems(
-        metadata = sp.utils.metadata_of_url("https://example.com"),
-        admin = admin.address)
-    scenario += items_tokens_legacy
-
     items_tokens = tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
@@ -60,19 +55,17 @@ def test():
     scenario.h3("registry permissions for factory, etc")
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
     token_registry.manage_public_collections([sp.variant("add_collections", [
-        sp.record(contract = items_tokens_legacy.address, royalties_version = 1),
         sp.record(contract = items_tokens.address, royalties_version = 2),
     ])]).run(sender = admin)
 
-    items_tokens_legacy.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens_legacy.address]).run(sender = admin)
+    items_tokens.transfer_administrator(minter.address).run(sender = admin)
+    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
 
     # mint some item tokens for testing
-    minter.mint_public_v1(collection = items_tokens_legacy.address,
+    minter.mint_public(collection = items_tokens.address,
         to_ = bob.address,
         amount = 4,
-        royalties = 250,
-        contributors = [ sp.record(address=bob.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
+        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     item_bob = sp.nat(0)
@@ -137,7 +130,7 @@ def test():
 
     # set operators
     scenario.h3("Add operators")
-    items_tokens_legacy.update_operators([
+    items_tokens.update_operators([
         sp.variant("add_operator", sp.record(
             owner = bob.address,
             operator = dutch.address,
@@ -255,7 +248,7 @@ def test():
     dutch.create(
         auction_key = sp.record(
             token_id = place_bob,
-            fa2 = items_tokens_legacy.address,
+            fa2 = items_tokens.address,
             owner = bob.address),
         auction = sp.record(
             start_price = sp.tez(100),
@@ -393,6 +386,14 @@ def test():
 
     # create an auction with end price 0.
     # duration must be > granularity
+    places_tokens.update_operators([
+        sp.variant("add_operator", sp.record(
+            owner = alice.address,
+            operator = dutch.address,
+            token_id = place_alice
+        ))
+    ]).run(sender = alice)
+
     dutch.create(
         auction_key = sp.record(
             token_id = place_alice,
@@ -640,7 +641,7 @@ def test():
     dutch.create(
         auction_key = sp.record(
             token_id = item_bob,
-            fa2 = items_tokens_legacy.address,
+            fa2 = items_tokens.address,
             owner = bob.address),
         auction = sp.record(
             start_price = sp.tez(100),
@@ -651,7 +652,7 @@ def test():
 
     add_other_permitted = sp.list([sp.variant("add_permitted",
         sp.record(
-            fa2 = items_tokens_legacy.address,
+            fa2 = items_tokens.address,
             props = sp.record(
                 whitelist_enabled = False,
                 whitelist_admin = admin.address)))])
@@ -660,7 +661,7 @@ def test():
     dutch.create(
         auction_key = sp.record(
             token_id = item_bob,
-            fa2 = items_tokens_legacy.address,
+            fa2 = items_tokens.address,
             owner = bob.address),
         auction = sp.record(
             start_price = sp.tez(100),
@@ -669,7 +670,7 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         extension = sp.none).run(sender = bob, now = sp.timestamp(0))
 
-    current_auction_key = sp.record(fa2 = items_tokens_legacy.address, token_id = item_bob, owner = bob.address)
+    current_auction_key = sp.record(fa2 = items_tokens.address, token_id = item_bob, owner = bob.address)
 
     dutch.bid(auction_key = current_auction_key, extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
 
