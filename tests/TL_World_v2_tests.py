@@ -482,7 +482,7 @@ def test():
     #
     scenario.h2("Placing items")
 
-    # place some items not owned
+    scenario.h3("items not owned")
     place_items(place_bob_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, bob, valid = False, message='FA2_NOT_OPERATOR')
@@ -490,7 +490,7 @@ def test():
         sp.variant("item", sp.record(token_amount = 500, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, bob, valid = False, message='FA2_INSUFFICIENT_BALANCE')
 
-    # place some items in a lot not owned (without setting owner)
+    scenario.h3("items in a lot not owned (without setting owner)")
     place_items(place_alice_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, bob, valid=False, message="NO_PERMISSION")
@@ -498,23 +498,28 @@ def test():
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, alice, valid=False, message="NO_PERMISSION")
 
-    # place some items and make sure tokens are tranferred. TODO: remove
+    scenario.h3("placing some items") # TODO: remove
     place_items(place_bob_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, bob)
+    bob_placed_item0 = last_placed_item_id(place_bob_chunk_0)
 
     # place some more items
     place_items(place_bob_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 2, token_id = item_bob, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, bob)
+    bob_placed_item1 = last_placed_item_id(place_bob_chunk_0)
+
     place_items(place_bob_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_bob, mutez_per_token = sp.tez(0), item_data = position, primary = False))
     ]}, bob)
-    scenario.verify(~sp.is_failing(world.data.chunks[place_bob_chunk_0].stored_items[sp.some(bob.address)][items_tokens.address][0].open_variant('item')))
+    bob_placed_item2 = last_placed_item_id(place_bob_chunk_0)
+    scenario.verify(~sp.is_failing(world.data.chunks[place_bob_chunk_0].stored_items[sp.some(bob.address)][items_tokens.address][bob_placed_item2].open_variant('item')))
 
     place_items(place_alice_chunk_0, {items_tokens.address: [
         sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False))
     ]}, alice)
+    alice_placed_item0 = last_placed_item_id(place_alice_chunk_0)
 
     scenario.h3("With primary = True")
     place_items(place_alice_chunk_0, {items_tokens.address: [
@@ -523,26 +528,41 @@ def test():
     alice_placed_primary = last_placed_item_id(place_alice_chunk_0)
     scenario.verify(~sp.is_failing(world.data.chunks[place_alice_chunk_0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_primary].open_variant('item')))
 
+    scenario.h3("multiple items")
+    place_items(place_alice_chunk_0, {items_tokens.address: [
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False)),
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False))
+    ]}, alice)
+    alice_placed_item1 = last_placed_item_id(place_alice_chunk_0, 3)
+    alice_placed_item2 = last_placed_item_id(place_alice_chunk_0, 2)
+    alice_placed_item3 = last_placed_item_id(place_alice_chunk_0, 1)
+
+    scenario.h3("invalid data")
+    place_items(place_alice_chunk_0, {items_tokens.address: [
+        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'), primary = False))
+    ]}, sender=alice, valid=False, message="DATA_LEN")
+
     #
     # get (buy) items.
     #
     scenario.h2("Gettting items")
 
-    # test valid
-    get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender = alice, amount = sp.tez(1))
+    scenario.h3("valid")
+    get_item(place_bob_chunk_0, bob_placed_item1, bob.address, items_tokens.address, sender = alice, amount = sp.tez(1))
 
-    # test wrong amount
-    get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(15), valid=False, message="WRONG_AMOUNT")
-    get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender=alice, amount=sp.mutez(1500), valid=False, message="WRONG_AMOUNT")
+    scenario.h3("wrong amount")
+    get_item(place_bob_chunk_0, bob_placed_item1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(15), valid=False, message="WRONG_AMOUNT")
+    get_item(place_bob_chunk_0, bob_placed_item1, bob.address, items_tokens.address, sender=alice, amount=sp.mutez(1500), valid=False, message="WRONG_AMOUNT")
 
-    # Correct amount
-    get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1))
+    scenario.h3("correct amount")
+    get_item(place_bob_chunk_0, bob_placed_item1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1))
 
-    # test not for sale
-    get_item(place_bob_chunk_0, 2, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
+    scenario.h3("not for sale")
+    get_item(place_bob_chunk_0, bob_placed_item2, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
-    # test getting some more items
-    get_item(place_bob_chunk_0, 1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1), valid=False) # missing item in map
+    scenario.h3("not in storage")
+    get_item(place_bob_chunk_0, bob_placed_item1, bob.address, items_tokens.address, sender=alice, amount=sp.tez(1), valid=False) # missing item in map
 
     scenario.h3("With primary = True")
     get_item(place_alice_chunk_0, alice_placed_primary, alice.address, items_tokens.address, sender=bob, amount=sp.tez(1), now=sp.now.add_days(80))
@@ -556,26 +576,14 @@ def test():
     #
     scenario.h2("Removing items")
     
-    # remove items in a lot not owned
-    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [0]}}, sender=alice, valid=False)
-    remove_items(place_alice_chunk_0, {sp.some(alice.address): {items_tokens.address: [0]}}, sender=bob, valid=False)
+    scenario.h3("in a lot not owned")
+    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bob_placed_item0]}}, sender=alice, valid=False)
+    remove_items(place_alice_chunk_0, {sp.some(alice.address): {items_tokens.address: [alice_placed_item0]}}, sender=bob, valid=False)
 
-    # remove items and make sure tokens are transferred. TODO: remove this
-    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [0]}}, sender=bob)
+    scenario.h3("valid and make sure tokens are transferred") # TODO: remove this
+    remove_items(place_bob_chunk_0, {sp.some(bob.address): {items_tokens.address: [bob_placed_item0]}}, sender=bob)
     
-    remove_items(place_alice_chunk_0, {sp.some(alice.address): {items_tokens.address: [0]}}, sender=alice)
-
-    #place multiple items
-    place_items(place_alice_chunk_0, {items_tokens.address: [
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False)),
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = position, primary = False))
-    ]}, alice)
-
-    #place items with invalid data
-    place_items(place_alice_chunk_0, {items_tokens.address: [
-        sp.variant("item", sp.record(token_amount = 1, token_id = item_alice, mutez_per_token = sp.tez(1), item_data = sp.bytes('0xFFFFFFFF'), primary = False))
-    ]}, sender=alice, valid=False, message="DATA_LEN")
+    remove_items(place_alice_chunk_0, {sp.some(alice.address): {items_tokens.address: [alice_placed_item0]}}, sender=alice)
 
     #
     # test ext items
@@ -647,16 +655,16 @@ def test():
     scenario.h3("Stored items")
     place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.none))
     scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item1].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item2].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item3].open_variant("item").token_amount == 1)
     scenario.show(place_data)
 
     place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.some(sp.set([0, 1]))))
     scenario.verify(place_data.place.place_props.get(sp.bytes("0x00")) == sp.bytes('0x82b881'))
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][2].open_variant("item").token_amount == 1)
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][3].open_variant("item").token_amount == 1)
-    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][4].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item1].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item2].open_variant("item").token_amount == 1)
+    scenario.verify(place_data.chunks[0].stored_items[sp.some(alice.address)][items_tokens.address][alice_placed_item3].open_variant("item").token_amount == 1)
     scenario.verify(sp.len(place_data.chunks[1].stored_items) == 0)
     scenario.show(place_data)
 
