@@ -160,8 +160,9 @@ class TL_Dutch(
 
         # Check auction params,
         sp.verify((params.auction.start_time >= sp.now) &
-            (params.auction.start_time < params.auction.end_time) &
-            (abs(params.auction.end_time - params.auction.start_time) > self.data.granularity) &
+            # NOTE: is assumed by next check. sp.as_nat trows if negative.
+            # (params.auction.start_time < params.auction.end_time) &
+            (sp.as_nat(params.auction.end_time - params.auction.start_time, "INVALID_PARAM") > self.data.granularity) &
             (params.auction.start_price >= params.auction.end_price), "INVALID_PARAM")
 
         # Auction can not exist already.
@@ -307,9 +308,13 @@ class TL_Dutch(
             with sp.if_(sp.now >= the_auction.end_time):
                 result.value = the_auction.end_price
             with sp.else_():
-                # alright, this works well enough. make 100% sure the math checks out (overflow, abs, etc)
-                # probably by validating the input in create. to make sure intervals can't be negative.
+                # alright, this works well enough. make 100% sure the math
+                # checks out (overflow, abs, etc) probably by validating
+                # the input in create. to make sure intervals can't be negative.
+                # NOTE: can use abs here, because end time is checked to be
+                # larger than start_time on auction creation.
                 duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
+                # NOTE: can use abs here because we check sp.now > start time.
                 time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
                 # NOTE: this can lead to a division by 0. auction duration must be > granularity.
                 mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration

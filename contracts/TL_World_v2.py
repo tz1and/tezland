@@ -28,7 +28,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: FA2 origination is too large! try and optimise
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
-# TODO: investigate use of inline_result. and bound blocks in general.
 # TODO: test owner = none when sender not place owner (for all eps where it matters)
 # TODO: test owner = "not actual owner" when issuer is none for get_item.
 # TODO: test owner = "not actual owner" when issuer is none for remove_items.
@@ -68,14 +67,14 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 # Some notes:
-# - Place minting assumes consecutive ids, so place names will not match token_ids. Exteriors and interiors will count separately. I can live with that.
-# - use abs instead sp.as_nat. as_nat can throw, abs doesn't.
+# - use abs instead sp.as_nat if unchecked. as_nat will throw on negative numbers, abs won't - but make smaller code.
 # - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 # - Item data is stored in half floats, usually, there are two formats as of now
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
 #   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
 #   NOTE: could store an animation index and all kinds of other stuff in item_data
 # - Regarding place item storage efficiency: you can easily have up to 2000-3000 items per map before gas becomes *expensive*.
+# - use of inline_result. and bound blocks in general. can help with gas.
 
 # Optional extension argument type.
 # Map val can contain about anything and be
@@ -985,6 +984,7 @@ class TL_World(
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.token_amount > 1):
+                    # NOTE: fine to use abs here, token amout is checked to be > 1.
                     the_item.value.token_amount = abs(the_item.value.token_amount - 1)
                     item_store.value[params.item_id] = sp.variant("item", the_item.value)
                 with sp.else_():
