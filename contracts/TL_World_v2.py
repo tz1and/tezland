@@ -126,9 +126,9 @@ placeStorageDefault = sp.record(
     value_to = sp.none)
 
 placeKeyType = sp.TRecord(
-    place_contract = sp.TAddress, # TODO: rename? shorten?
-    lot_id = sp.TNat
-).layout(("place_contract", "lot_id"))
+    fa2 = sp.TAddress, # TODO: rename? shorten?
+    id = sp.TNat
+).layout(("fa2", "id"))
 
 placeMapType = sp.TBigMap(placeKeyType, placeStorageType)
 placeMapLiteral = sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
@@ -572,7 +572,7 @@ class TL_World(
             with update.match_cases() as arg:
                 with arg.match("add_permission") as upd:
                     # can only add permissions for allowed places
-                    self.onlyAllowedPlaceTokens(upd.place_key.place_contract)
+                    self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
                     sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = self.error_message.parameter_error())
@@ -584,7 +584,7 @@ class TL_World(
                         upd.perm)
                 with arg.match("remove_permission") as upd:
                     # NOTE: don't need to check if place key is valid
-                    #self.onlyAllowedPlaceTokens(upd.place_key.place_contract)
+                    #self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
                     # Remove permission
@@ -603,7 +603,7 @@ class TL_World(
 
         # NOTE: no need to check if place contract is allowed in this world.
 
-        place_owner = sp.local("place_owner", FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+        place_owner = sp.local("place_owner", FA2.fa2_nft_get_owner(place_key.fa2, place_key.id))
 
         # If permittee is the owner, he has full permission.
         with sp.if_(place_owner.value == permittee):
@@ -623,7 +623,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.place_key.place_contract)
+        self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have Full permissions.
         permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
@@ -675,7 +675,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # Place token must be allowed
-        place_limits = self.getAllowedPlaceTokenLimits(params.chunk_key.place_key.place_contract)
+        place_limits = self.getAllowedPlaceTokenLimits(params.chunk_key.place_key.fa2)
 
         sp.verify(params.chunk_key.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
 
@@ -770,7 +770,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
+        self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
 
         # Get the chunk - must exist.
         this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
@@ -825,7 +825,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
-        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
+        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
 
         # Get the chunk - must exist.
         this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
@@ -936,7 +936,7 @@ class TL_World(
             with arg.match("None", "issuer_none"):
                 with value_to.match_cases() as arg:
                     with arg.match("None", "value_to_none"):
-                        sp.result(FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+                        sp.result(FA2.fa2_nft_get_owner(place_key.fa2, place_key.id))
                     with arg.match("Some") as open:
                         sp.result(open)
 
@@ -958,7 +958,7 @@ class TL_World(
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
-        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
+        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
 
         # Get place and chunk - must exist.
         this_place = PlaceStorage(self.data.places, params.chunk_key.place_key)
@@ -1041,7 +1041,7 @@ class TL_World(
             (sp.source == self.data.administrator))
 
         # Place token must be allowed
-        place_limits = self.getAllowedPlaceTokenLimits(params.place_key.place_contract)
+        place_limits = self.getAllowedPlaceTokenLimits(params.place_key.fa2)
 
         # Caller doesn't need permissions, is admin.
 

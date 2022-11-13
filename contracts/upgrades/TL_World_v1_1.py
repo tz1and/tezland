@@ -29,7 +29,7 @@ class TL_World_v1_1(world_contract.TL_World):
             migration_to_contract,
             entry_point='migration').open_some()
         sp.transfer(sp.record(
-            place_key = sp.record(place_contract = self.new_place_tokens_contract, lot_id = lot_id),
+            place_key = sp.record(fa2 = self.new_place_tokens_contract, id = lot_id),
             item_map = migration_map,
             props = place_props,
             extension = sp.none

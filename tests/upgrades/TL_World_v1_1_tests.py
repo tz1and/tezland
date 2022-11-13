@@ -250,7 +250,7 @@ def test():
 
     # - contains items from multiple issuers
     scenario.h3("Place that contains items from multiple issuers")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_multiple_issuers)
+    place_key = sp.record(fa2=places_tokens.address, id=place_bob_multiple_issuers)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
     chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
@@ -324,7 +324,7 @@ def test():
 
     # - contain multiple types of items
     scenario.h3("Place that contains multiple types of items")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_alice_multiple_tokens)
+    place_key = sp.record(fa2=places_tokens.address, id=place_alice_multiple_tokens)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
     chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
@@ -366,7 +366,7 @@ def test():
 
     # - contain items and ext items
     scenario.h3("Place that contains items and ext items")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_mixed_items)
+    place_key = sp.record(fa2=places_tokens.address, id=place_bob_mixed_items)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
     chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
@@ -404,7 +404,7 @@ def test():
 
     # - contain only ext items
     scenario.h3("Place that only contains ext items")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_bob_only_ext)
+    place_key = sp.record(fa2=places_tokens.address, id=place_bob_only_ext)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
     chunk_key_1 = sp.record(place_key=place_key, chunk_id=sp.nat(1))
     chunk_key_2 = sp.record(place_key=place_key, chunk_id=sp.nat(2))
@@ -433,7 +433,7 @@ def test():
 
     # - used to contain items but props weren't changed
     scenario.h3("Place that used to contain items but default props")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_alice_emptied)
+    place_key = sp.record(fa2=places_tokens.address, id=place_alice_emptied)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
 
     world.place_items(
@@ -466,7 +466,7 @@ def test():
 
     # - just have props set
     scenario.h3("Place with only props set")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_carol_only_props)
+    place_key = sp.record(fa2=places_tokens.address, id=place_carol_only_props)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
 
     world.set_place_props(
@@ -488,14 +488,14 @@ def test():
     scenario.verify(sp.len(world_v2.data.places.get(place_key).chunks) == 0)
     scenario.verify(~world_v2.data.chunks.contains(chunk_key_0))
     # props are what they used to be
-    scenario.verify_equal(world_v2.data.places.get(place_key).place_props, prev_props)
+    scenario.verify_equal(world_v2.data.places.get(place_key).props, prev_props)
     # place deleted in world v1
     scenario.verify(~world.data.places.contains(place_carol_only_props))
 
 
     # - never were initialised.
     scenario.h3("Place never initialised")
-    place_key = sp.record(place_contract=places_tokens.address, lot_id=place_carol_uninit)
+    place_key = sp.record(fa2=places_tokens.address, id=place_carol_uninit)
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
 
     world.set_item_data(

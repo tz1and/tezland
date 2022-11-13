@@ -283,22 +283,22 @@ def test():
     places_tokens.mint(place_mint_params).run(sender = admin)
 
     place_bob = sp.record(
-        place_contract = places_tokens.address,
-        lot_id = sp.nat(0))
+        fa2 = places_tokens.address,
+        id = sp.nat(0))
     place_bob_chunk_0 = sp.record(
         place_key = place_bob,
         chunk_id = sp.nat(0))
 
     place_alice = sp.record(
-        place_contract = places_tokens.address,
-        lot_id = sp.nat(1))
+        fa2 = places_tokens.address,
+        id = sp.nat(1))
     place_alice_chunk_0 = sp.record(
         place_key = place_alice,
         chunk_id = sp.nat(0))
 
     place_carol = sp.record(
-        place_contract = places_tokens.address,
-        lot_id = sp.nat(2))
+        fa2 = places_tokens.address,
+        id = sp.nat(2))
     place_carol_chunk_0 = sp.record(
         place_key = place_carol,
         chunk_id = sp.nat(0))
@@ -682,7 +682,7 @@ def test():
     scenario.verify(sp.len(place_data.chunks[1].stored_items) == 0)
     scenario.show(place_data)
 
-    empty_place_key = sp.record(place_contract = places_tokens.address, lot_id = sp.nat(5))
+    empty_place_key = sp.record(fa2 = places_tokens.address, id = sp.nat(5))
     place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.none))
     scenario.verify(sp.len(place_data.chunks) == 0)
     place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.some(sp.set([0]))))
@@ -1136,7 +1136,7 @@ def test():
     places_tokens.transfer([
         sp.record(
             from_=bob.address,
-            txs=[sp.record(to_=carol.address, amount=1, token_id=place_bob.lot_id)],
+            txs=[sp.record(to_=carol.address, amount=1, token_id=place_bob.id)],
         )
     ]).run(sender=bob)
 

@@ -255,7 +255,7 @@ class TL_Dutch(
 
         # Build update props param list.
         set_props_args = sp.set_type_expr(sp.record(
-            place_key = sp.record(place_contract = token_contract, lot_id = token_id),
+            place_key = sp.record(fa2 = token_contract, id = token_id),
             prop_updates = [sp.variant("value_to", sp.none)],
             extension = sp.none), world_contract.setPlacePropsType)
 
