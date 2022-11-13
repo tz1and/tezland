@@ -113,15 +113,15 @@ placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
-    interaction_counter=sp.TNat, # for seq number generation
-    place_props=placePropsType, # place properties
+    counter=sp.TNat, # interaction counter for seq number generation
+    props=placePropsType, # place properties
     chunks=sp.TSet(sp.TNat), # set of active/existing chunks
     value_to=sp.TOption(sp.TAddress) # value for place owned items is sent to, if set
-).layout(("interaction_counter", ("place_props", ("chunks", "value_to"))))
+).layout(("counter", ("props", ("chunks", "value_to"))))
 
 placeStorageDefault = sp.record(
-    interaction_counter = sp.nat(0),
-    place_props = defaultPlaceProps,
+    counter = sp.nat(0),
+    props = defaultPlaceProps,
     chunks = sp.set([]),
     value_to = sp.none)
 
@@ -173,13 +173,13 @@ class PlaceStorage:
 # Chunk storage
 chunkStorageType = sp.TRecord(
     next_id = sp.TNat, # per chunk item ids
-    interaction_counter=sp.TNat,
+    counter=sp.TNat, # interaction counter for seq number generation
     stored_items=chunkStoreType
-).layout(("next_id", ("interaction_counter", "stored_items")))
+).layout(("next_id", ("counter", "stored_items")))
 
 chunkStorageDefault = sp.record(
     next_id = sp.nat(0),
-    interaction_counter=sp.nat(0),
+    counter=sp.nat(0),
     stored_items=chunkStoreLiteral)
 
 chunkPlaceKeyType = sp.TRecord(
@@ -345,10 +345,10 @@ migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extens
 migrationType = sp.TRecord(
     place_key = placeKeyType,
     # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
-    migrate_item_map = migrationItemMapType,
-    migrate_place_props = placePropsType,
+    item_map = migrationItemMapType,
+    props = placePropsType,
     extension = extensionArgType
-).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension"))))
+).layout(("place_key", ("item_map", ("props", "extension"))))
 
 # Types for place, get, update, remove entry points.
 setPlacePropsType = sp.TRecord(
@@ -636,22 +636,22 @@ class TL_World(
             with item.match_cases() as arg:
                 with arg.match("add_props") as add_props:
                     with sp.for_("prop", add_props.items()) as prop:
-                        this_place.value.place_props[prop.key] = prop.value
+                        this_place.value.props[prop.key] = prop.value
 
                 with arg.match("del_props") as del_props:
                     with sp.for_("prop", del_props) as prop:
-                        del this_place.value.place_props[prop]
+                        del this_place.value.props[prop]
 
                 with arg.match("value_to") as value_to:
                     this_place.value.value_to = value_to
 
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
-        sp.verify(sp.len(this_place.value.place_props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
+        sp.verify(sp.len(this_place.value.props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
             message = self.error_message.data_length())
 
         # Increment place interaction counter.
-        this_place.value.interaction_counter += 1
+        this_place.value.counter += 1
 
         # Persist place.
         this_place.persist()
@@ -808,7 +808,7 @@ class TL_World(
                 item_store.persist()
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.value.interaction_counter += 1
+        this_chunk.value.counter += 1
 
         # Persist chunk
         this_chunk.persist()
@@ -871,7 +871,7 @@ class TL_World(
         transferMap.transfer_tokens(sp.self_address)
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.value.interaction_counter += 1
+        this_chunk.value.counter += 1
 
         # Persist chunk
         this_chunk.persist()
@@ -1014,7 +1014,7 @@ class TL_World(
         item_store.persist_or_remove()
 
         # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.value.interaction_counter += 1
+        this_chunk.value.counter += 1
 
         # Persist chunk
         this_chunk.persist()
@@ -1051,11 +1051,11 @@ class TL_World(
         sp.verify(sp.len(this_place.value.chunks) == 0, message = "MIGRATION_PLACE_NOT_EMPTY")
 
         # Set the props on the place to migrate
-        this_place.value.place_props = params.migrate_place_props
-        this_place.value.interaction_counter += sp.nat(1)
+        this_place.value.props = params.props
+        this_place.value.counter += sp.nat(1)
 
         # If the migration map isn't empty
-        with sp.if_(sp.len(params.migrate_item_map) > 0):
+        with sp.if_(sp.len(params.item_map) > 0):
             # Keep a running count of items, so we can switch chunks.
             add_item_count = sp.local("add_item_count", sp.nat(0))
             # The current chunk we're working on.
@@ -1065,7 +1065,7 @@ class TL_World(
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
 
             # For each fa2 in the map.
-            with sp.for_("issuer_item", params.migrate_item_map.items()) as issuer_item:
+            with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
                 registry_info = registry_contract.getTokenRegistryInfo(
                     self.data.token_registry,
                     issuer_item.value.keys(),
@@ -1156,12 +1156,12 @@ class TL_World(
             with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
                 this_chunk = self.data.chunks.get(sp.record(place_key = place_key, chunk_id = chunk_id), chunkStorageDefault)
                 chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
-                    this_chunk.interaction_counter,
+                    this_chunk.counter,
                     this_chunk.next_id)))
 
             # Return the result.
             sp.result(sp.record(
-                place_seq_num = sp.sha3(sp.pack(this_place.value.interaction_counter)),
+                place_seq_num = sp.sha3(sp.pack(this_place.value.counter)),
                 chunk_seq_nums = chunk_sequence_numbers_map.value))
 
 
