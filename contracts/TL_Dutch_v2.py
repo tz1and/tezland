@@ -13,7 +13,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: document reasoning for not limiting bids on secondary disable
 
 
-# Optional extension argument type.
+# Optional ext argument type.
 # Map val can contain about anything and be
 # unpacked with sp.unpack.
 extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
@@ -148,8 +148,8 @@ class TL_Dutch(
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
             auction = t_auction,
-            extension = extensionArgType
-        ).layout(("auction_key", ("auction", "extension"))))
+            ext = extensionArgType
+        ).layout(("auction_key", ("auction", "ext"))))
 
         self.onlyUnpaused()
 
@@ -190,8 +190,8 @@ class TL_Dutch(
         """
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
-            extension = extensionArgType
-        ).layout(("auction_key", "extension")))
+            ext = extensionArgType
+        ).layout(("auction_key", "ext")))
 
         self.onlyUnpaused()
         # no need to call self.onlyAdminIfWhitelistEnabled()
@@ -256,8 +256,8 @@ class TL_Dutch(
         # Build update props param list.
         set_props_args = sp.set_type_expr(sp.record(
             place_key = sp.record(fa2 = token_contract, id = token_id),
-            prop_updates = [sp.variant("value_to", sp.none)],
-            extension = sp.none), world_contract.setPlacePropsType)
+            updates = [sp.variant("value_to", sp.none)],
+            ext = sp.none), world_contract.setPlacePropsType)
 
         # Call token contract to add operators.
         world_handle = sp.contract(
@@ -276,8 +276,8 @@ class TL_Dutch(
         """
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
-            extension = extensionArgType
-        ).layout(("auction_key", "extension")))
+            ext = extensionArgType
+        ).layout(("auction_key", "ext")))
 
         self.onlyUnpaused()
 

@@ -32,7 +32,7 @@ class TL_World_v1_1(world_contract.TL_World):
             place_key = sp.record(fa2 = self.new_place_tokens_contract, id = lot_id),
             item_map = migration_map,
             props = place_props,
-            extension = sp.none
+            ext = sp.none
         ), sp.mutez(0), migration_handle)
 
     @sp.entry_point(lazify = True)

@@ -71,7 +71,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #   per map before gas becomes *expensive*.
 # - use of inline_result. and bound blocks in general. can help with gas.
 
-# Optional extension argument type.
+# Optional ext argument type.
 # Map val can contain about anything and be
 # unpacked with sp.unpack.
 extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
@@ -174,13 +174,13 @@ class PlaceStorage:
 chunkStorageType = sp.TRecord(
     next_id = sp.TNat, # per chunk item ids
     counter=sp.TNat, # interaction counter for seq number generation
-    stored_items=chunkStoreType
-).layout(("next_id", ("counter", "stored_items")))
+    storage=chunkStoreType
+).layout(("next_id", ("counter", "storage")))
 
 chunkStorageDefault = sp.record(
     next_id = sp.nat(0),
     counter=sp.nat(0),
-    stored_items=chunkStoreLiteral)
+    storage=chunkStoreLiteral)
 
 chunkPlaceKeyType = sp.TRecord(
     place_key = placeKeyType,
@@ -228,7 +228,7 @@ class ChunkStorage:
         self.data_map[self.this_chunk_key] = self.this_chunk.value
 
     #def persist_or_remove(self, place: PlaceStorage = None):
-    #    with sp.if_(sp.len(self.this_chunk.value.stored_items) == 0):
+    #    with sp.if_(sp.len(self.this_chunk.value.storage) == 0):
     #        if place is not None:
     #            place.value.chunks.remove(self.this_chunk_key.chunk_id)
     #        del self.data_map[self.this_chunk_key]
@@ -246,7 +246,7 @@ class ChunkStorage:
 
     def count_items(self):
         chunk_item_count = sp.local("chunk_item_count", sp.nat(0))
-        with sp.for_("issuer_map", self.this_chunk.value.stored_items.values()) as issuer_map:
+        with sp.for_("issuer_map", self.this_chunk.value.storage.values()) as issuer_map:
             with sp.for_("token_map", issuer_map.values()) as token_map:
                 chunk_item_count.value += sp.len(token_map)
         return chunk_item_count.value
@@ -282,10 +282,10 @@ class ItemStorage:
             self.this_fa2_store = sp.local("this_fa2_store", self.__get_fa2())
 
     def __get_issuer(self):
-        return self.chunk_storage.value.stored_items.get(self.issuer)
+        return self.chunk_storage.value.storage.get(self.issuer)
 
     def __get_or_default_issuer(self):
-        return self.chunk_storage.value.stored_items.get(self.issuer, issuerStoreLiteral)
+        return self.chunk_storage.value.storage.get(self.issuer, issuerStoreLiteral)
 
     def __get_fa2(self):
         return self.this_issuer_store.value.get(self.fa2)
@@ -295,7 +295,7 @@ class ItemStorage:
 
     def persist(self):
         self.this_issuer_store.value[self.fa2] = self.this_fa2_store.value
-        self.chunk_storage.value.stored_items[self.issuer] = self.this_issuer_store.value
+        self.chunk_storage.value.storage[self.issuer] = self.this_issuer_store.value
 
     def persist_or_remove(self):
         with sp.if_(sp.len(self.this_fa2_store.value) == 0):
@@ -304,9 +304,9 @@ class ItemStorage:
             self.this_issuer_store.value[self.fa2] = self.this_fa2_store.value
 
         with sp.if_(sp.len(self.this_issuer_store.value) == 0):
-            del self.chunk_storage.value.stored_items[self.issuer]
+            del self.chunk_storage.value.storage[self.issuer]
         with sp.else_():
-            self.chunk_storage.value.stored_items[self.issuer] = self.this_issuer_store.value
+            self.chunk_storage.value.storage[self.issuer] = self.this_issuer_store.value
 
     def load(self, new_issuer: sp.TOption(sp.TAddress), new_fa2: sp.TAddress, create: bool = False):
         self.issuer = new_issuer
@@ -335,9 +335,9 @@ updateItemListType = sp.TRecord(
 ).layout(("item_id", "item_data"))
 
 seqNumResultType = sp.TRecord(
-    place_seq_num = sp.TBytes,
-    chunk_seq_nums = sp.TMap(sp.TNat, sp.TBytes)
-).layout(("place_seq_num", "chunk_seq_nums"))
+    place_seq = sp.TBytes,
+    chunk_seqs = sp.TMap(sp.TNat, sp.TBytes)
+).layout(("place_seq", "chunk_seqs"))
 
 # Types for the migration ep.
 migrationItemMapType = sp.TMap(sp.TAddress, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))
@@ -347,15 +347,15 @@ migrationType = sp.TRecord(
     # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
     item_map = migrationItemMapType,
     props = placePropsType,
-    extension = extensionArgType
-).layout(("place_key", ("item_map", ("props", "extension"))))
+    ext = extensionArgType
+).layout(("place_key", ("item_map", ("props", "ext"))))
 
 # Types for place, get, update, remove entry points.
 setPlacePropsType = sp.TRecord(
     place_key = placeKeyType,
-    prop_updates = sp.TList(setPlacePropsVariantType),
-    extension = extensionArgType
-).layout(("place_key", ("prop_updates", "extension")))
+    updates = sp.TList(setPlacePropsVariantType),
+    ext = extensionArgType
+).layout(("place_key", ("updates", "ext")))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -632,7 +632,7 @@ class TL_World(
         # Get or create the place.
         this_place = PlaceStorage(self.data.places, params.place_key, True)
 
-        with sp.for_("item", params.prop_updates) as item:
+        with sp.for_("item", params.updates) as item:
             with item.match_cases() as arg:
                 with arg.match("add_props") as add_props:
                     with sp.for_("prop", add_props.items()) as prop:
@@ -669,8 +669,8 @@ class TL_World(
             place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
             merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
             send_to_place = sp.TBool,
-            extension = extensionArgType
-        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "extension"))))))
+            ext = extensionArgType
+        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "ext"))))))
 
         self.onlyUnpaused()
 
@@ -764,8 +764,8 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             update_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
-            extension = extensionArgType
-        ).layout(("chunk_key", ("update_map", "extension"))))
+            ext = extensionArgType
+        ).layout(("chunk_key", ("update_map", "ext"))))
 
         self.onlyUnpaused()
 
@@ -819,8 +819,8 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
             remove_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
-            extension = extensionArgType
-        ).layout(("chunk_key", ("remove_map", "extension"))))
+            ext = extensionArgType
+        ).layout(("chunk_key", ("remove_map", "ext"))))
 
         self.onlyUnpaused()
 
@@ -951,9 +951,9 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
-            merkle_proof_royalties = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
-            extension = extensionArgType
-        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", ("merkle_proof_royalties", "extension")))))))
+            merkle_proof = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
+            ext = extensionArgType
+        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", ("merkle_proof", "ext")))))))
 
         self.onlyUnpaused()
 
@@ -990,7 +990,7 @@ class TL_World(
                     item_royalty_info = registry_contract.getTokenRoyalties(
                         self.data.token_registry,
                         params.fa2, the_item.value.token_id,
-                        params.merkle_proof_royalties)
+                        params.merkle_proof)
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1161,8 +1161,8 @@ class TL_World(
 
             # Return the result.
             sp.result(sp.record(
-                place_seq_num = sp.sha3(sp.pack(this_place.value.counter)),
-                chunk_seq_nums = chunk_sequence_numbers_map.value))
+                place_seq = sp.sha3(sp.pack(this_place.value.counter)),
+                chunk_seqs = chunk_sequence_numbers_map.value))
 
 
     @sp.onchain_view(pure=True)
