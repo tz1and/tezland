@@ -39,9 +39,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
 # TODO: make sure royalties version is set correctly everywhere.
-# TODO: need a moderation contract v1 and v2! storage changed... ALSO: check all other changed mixins for changes in storage.
 # TODO: test set_props value_to
-# TODO: rename parameters? shorten to save storage?
 # TODO: test value_to place setting.
 
 

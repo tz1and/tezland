@@ -43,7 +43,9 @@ class TL_Dutch(
     ).layout(("owner", ("token_id", ("start_price",
         ("end_price", ("start_time", ("end_time", "fa2")))))))
 
-    def __init__(self, administrator, items_contract, places_contract, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, items_contract, places_contract, metadata,
+        name="tz1and Dutch Auctions", description="tz1and Places and Items Dutch auctions", version="1.0.0", exception_optimization_level="default-line"):
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         
@@ -65,15 +67,16 @@ class TL_Dutch(
             royalties_kind = sp.variant("none", sp.unit) )}
         permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
-        self.generate_contract_metadata()
 
-    def generate_contract_metadata(self):
+        self.generate_contract_metadata(name, description, version)
+
+    def generate_contract_metadata(self, name, description, version):
         """Generate a metadata json file with all the contract's offchain views
         and standard TZIP-12 and TZIP-016 key/values."""
         metadata_base = {
-            "name": 'tz1and Dutch Auctions',
-            "description": 'tz1and Places and Items Dutch auctions',
-            "version": "1.0.0",
+            "name": name,
+            "description": description,
+            "version": version,
             "interfaces": ["TZIP-012", "TZIP-016"],
             "authors": [
                 "852Kerfunkle <https://github.com/852Kerfunkle>"

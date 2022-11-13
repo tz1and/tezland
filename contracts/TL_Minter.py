@@ -32,6 +32,7 @@ class TL_Minter(
         mod_mixin.Moderation.__init__(self, administrator = administrator)
         fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+
         self.generate_contract_metadata(name, description, version)
 
     def generate_contract_metadata(self, name, description, version):
