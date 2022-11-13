@@ -42,30 +42,30 @@ def test():
     scenario += interiors_tokens
 
     scenario.h3("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h3("Minter v2")
-    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+    minter = minter_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h3("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h2("World v2")
-    world = world_contract.TL_World(admin.address, token_registry.address, False, items_tokens.address,
+    world = world_contract.TL_World(admin.address, registry.address, False, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
     scenario.h3("registry permissions for factory, etc")
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [
+    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_public_collections([sp.variant("add", [
         sp.record(contract = items_tokens.address, royalties_version = 2),
     ])]).run(sender = admin)
 

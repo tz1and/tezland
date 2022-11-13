@@ -19,29 +19,29 @@ def test():
     scenario.h1("Accounts")
     scenario.show([admin, alice, bob])
 
-    # create token_registry contract
+    # create registry contract
     scenario.h1("Create test env")
 
     scenario.h2("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h2("Minter")
-    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+    minter = minter_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     # create token_factory contract
     scenario.h1("Test TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     # registry permissions
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     # test update_minter
     scenario.h2("update_settings")
@@ -60,19 +60,19 @@ def test():
     token_factory.update_settings([sp.variant("minter", minter.address)]).run(sender=admin)
     scenario.verify(token_factory.data.minter == minter.address)
 
-    # token_registry
-    scenario.verify(token_factory.data.token_registry == token_registry.address)
+    # registry
+    scenario.verify(token_factory.data.registry == registry.address)
 
-    token_factory.update_settings([sp.variant("token_registry", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_factory.update_settings([sp.variant("token_registry", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    token_factory.update_settings([sp.variant("registry", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
     
     # TODO: test failiure of implicit accounts?
     #token_factory.update_token_registry(bob.address).run(sender=admin, valid=False, exception="ONLY_ADMIN")
 
-    token_factory.update_settings([sp.variant("token_registry", alice.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.token_registry == alice.address)
-    token_factory.update_settings([sp.variant("token_registry", token_registry.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.token_registry == token_registry.address)
+    token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.registry == alice.address)
+    token_factory.update_settings([sp.variant("registry", registry.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.registry == registry.address)
 
     # test create_token
     scenario.h2("create_token")
@@ -83,11 +83,11 @@ def test():
 
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
-    scenario.verify_equal(token_registry.is_registered([dyn_collection_token.address]).result_map, {dyn_collection_token.address: True})
-    scenario.verify_equal(token_registry.is_private_collection([dyn_collection_token.address]), {dyn_collection_token.address: True})
-    scenario.verify_equal(token_registry.is_public_collection([dyn_collection_token.address]), {dyn_collection_token.address: False})
-    scenario.verify(token_registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)
-    scenario.verify(token_registry.data.private_collections.contains(dyn_collection_token.address))
+    scenario.verify_equal(registry.is_registered([dyn_collection_token.address]).result_map, {dyn_collection_token.address: True})
+    scenario.verify_equal(registry.is_private_collection([dyn_collection_token.address]), {dyn_collection_token.address: True})
+    scenario.verify_equal(registry.is_public_collection([dyn_collection_token.address]), {dyn_collection_token.address: False})
+    scenario.verify(registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)
+    scenario.verify(registry.data.private_collections.contains(dyn_collection_token.address))
 
     token_factory.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin, valid=False, exception="ONLY_UNPAUSED")

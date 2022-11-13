@@ -48,24 +48,24 @@ class TL_TokenFactory(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         administrator = sp.set_type_expr(administrator, sp.TAddress)
-        token_registry = sp.set_type_expr(token_registry, sp.TAddress)
+        registry = sp.set_type_expr(registry, sp.TAddress)
         minter = sp.set_type_expr(minter, sp.TAddress)
 
         # NOTE: TODO: args don't matter here since we set storage on origination.
         self.collection_contract = tz1andCollection(metadata, administrator)
         
         self.init_storage(
-            token_registry = token_registry,
+            registry = registry,
             minter = minter
         )
 
         self.available_settings = [
-            ("token_registry", sp.TAddress, None),
+            ("registry", sp.TAddress, None),
             ("minter", sp.TAddress, None)
         ]
 
@@ -153,7 +153,7 @@ class TL_TokenFactory(
         # Add private collection in token registry
         manage_private_collections_handle = sp.contract(
             token_registry_contract.t_manage_private_collections,
-            self.data.token_registry, 
+            self.data.registry, 
             entry_point = "manage_private_collections").open_some()
 
-        sp.transfer([sp.variant("add_collections", [sp.record(contract = originated_token, owner = sp.sender, royalties_version = 2)])], sp.mutez(0), manage_private_collections_handle)
+        sp.transfer([sp.variant("add", [sp.record(contract = originated_token, owner = sp.sender, royalties_version = 2)])], sp.mutez(0), manage_private_collections_handle)

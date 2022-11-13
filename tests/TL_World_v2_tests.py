@@ -191,24 +191,24 @@ def test():
     scenario += places_tokens
 
     scenario.h2("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h2("Minter v2")
-    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+    minter = minter_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h2("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("registry permissions for factory")
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     scenario.h2("dao")
     dao_token = tokens.tz1andDAO(
@@ -231,7 +231,7 @@ def test():
     scenario.h3("transfer/register/mint items tokens in minter")
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
@@ -315,7 +315,7 @@ def test():
     # create World contract
     #
     scenario.h2("Originate World contract")
-    world = places_contract.TL_World(admin.address, token_registry.address, False, items_tokens.address,
+    world = places_contract.TL_World(admin.address, registry.address, False, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
@@ -713,19 +713,19 @@ def test():
     world.update_settings([sp.variant("max_permission", 127)]).run(sender = admin)
     scenario.verify(world.data.max_permission == 127)
 
-    scenario.h3("update token_registry")
-    scenario.verify(world.data.token_registry == token_registry.address)
-    world.update_settings([sp.variant("token_registry", admin.address)]).run(sender = bob, valid = False)
-    world.update_settings([sp.variant("token_registry", admin.address)]).run(sender = admin)
-    scenario.verify(world.data.token_registry == admin.address)
-    world.update_settings([sp.variant("token_registry", token_registry.address)]).run(sender = admin)
+    scenario.h3("update registry")
+    scenario.verify(world.data.registry == registry.address)
+    world.update_settings([sp.variant("registry", admin.address)]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("registry", admin.address)]).run(sender = admin)
+    scenario.verify(world.data.registry == admin.address)
+    world.update_settings([sp.variant("registry", registry.address)]).run(sender = admin)
 
-    scenario.h3("update migration_contract")
-    scenario.verify(world.data.migration_contract == sp.none)
-    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = bob, valid = False)
-    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = admin)
-    scenario.verify(world.data.migration_contract == sp.some(admin.address))
-    world.update_settings([sp.variant("migration_contract", sp.none)]).run(sender = admin)
+    scenario.h3("update migration_from")
+    scenario.verify(world.data.migration_from == sp.none)
+    world.update_settings([sp.variant("migration_from", sp.some(admin.address))]).run(sender = bob, valid = False)
+    world.update_settings([sp.variant("migration_from", sp.some(admin.address))]).run(sender = admin)
+    scenario.verify(world.data.migration_from == sp.some(admin.address))
+    world.update_settings([sp.variant("migration_from", sp.none)]).run(sender = admin)
 
     scenario.h3("update moderation_contract")
     scenario.verify(world.data.moderation_contract == sp.none)
@@ -1240,7 +1240,7 @@ def test():
     scenario.h2("migration")
 
     # Set migration contract to be admin address.
-    world.update_settings([sp.variant("migration_contract", sp.some(admin.address))]).run(sender = admin)
+    world.update_settings([sp.variant("migration_from", sp.some(admin.address))]).run(sender = admin)
     world.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 2, chunk_item_limit = 4)))])).run(sender = admin)
 
     # Invalid migration - place not not empty.

@@ -80,11 +80,11 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 # Item types
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
-    token_id=sp.TNat, # the fa2 token id
-    token_amount=sp.TNat, # number of fa2 tokens to store.
-    mutez_per_token=sp.TMutez, # 0 if not for sale.
-    item_data=sp.TBytes, # transforms, etc
-    primary=sp.TBool, # split the entire value according to royalties.
+    token_id = sp.TNat, # the fa2 token id
+    token_amount = sp.TNat, # number of fa2 tokens to store.
+    mutez_per_token = sp.TMutez, # 0 if not for sale.
+    item_data = sp.TBytes, # transforms, etc
+    primary = sp.TBool, # split the entire value according to royalties.
 ).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "primary")))))
 
 # NOTE: reccords in variants are immutable?
@@ -113,10 +113,10 @@ placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
-    counter=sp.TNat, # interaction counter for seq number generation
-    props=placePropsType, # place properties
-    chunks=sp.TSet(sp.TNat), # set of active/existing chunks
-    value_to=sp.TOption(sp.TAddress) # value for place owned items is sent to, if set
+    counter = sp.TNat, # interaction counter for seq number generation
+    props = placePropsType, # place properties
+    chunks = sp.TSet(sp.TNat), # set of active/existing chunks
+    value_to = sp.TOption(sp.TAddress) # value for place owned items is sent to, if set
 ).layout(("counter", ("props", ("chunks", "value_to"))))
 
 placeStorageDefault = sp.record(
@@ -173,14 +173,14 @@ class PlaceStorage:
 # Chunk storage
 chunkStorageType = sp.TRecord(
     next_id = sp.TNat, # per chunk item ids
-    counter=sp.TNat, # interaction counter for seq number generation
-    storage=chunkStoreType
+    counter = sp.TNat, # interaction counter for seq number generation
+    storage = chunkStoreType
 ).layout(("next_id", ("counter", "storage")))
 
 chunkStorageDefault = sp.record(
     next_id = sp.nat(0),
-    counter=sp.nat(0),
-    storage=chunkStoreLiteral)
+    counter = sp.nat(0),
+    storage = chunkStoreLiteral)
 
 chunkPlaceKeyType = sp.TRecord(
     place_key = placeKeyType,
@@ -330,8 +330,8 @@ setPlacePropsVariantType = sp.TVariant(
 ).layout(("add_props", ("del_props", "value_to")))
 
 updateItemListType = sp.TRecord(
-    item_id=sp.TNat,
-    item_data=sp.TBytes
+    item_id = sp.TNat,
+    item_data = sp.TBytes
 ).layout(("item_id", "item_data"))
 
 seqNumResultType = sp.TRecord(
@@ -465,7 +465,7 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, paused, items_tokens, metadata,
+    def __init__(self, administrator, registry, paused, items_tokens, metadata,
         name, description, exception_optimization_level="default-line"):
 
         # Needed for migration ep but not really needed otherwise.
@@ -480,14 +480,14 @@ class TL_World(
         # Makes much smaller code but removes annots from eps.
         #self.add_flag("simplify-via-michel")
 
-        token_registry = sp.set_type_expr(token_registry, sp.TAddress)
-        
+        registry = sp.set_type_expr(registry, sp.TAddress)
+
         self.error_message = Error_message()
         self.permission_map = Permission_map()
 
         self.init_storage(
-            token_registry = token_registry,
-            migration_contract = sp.none,
+            registry = registry,
+            migration_from = sp.none,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = PlaceStorage.make(),
@@ -495,8 +495,8 @@ class TL_World(
         )
 
         self.available_settings = [
-            ("token_registry", sp.TAddress, None),
-            ("migration_contract", sp.TOption(sp.TAddress), None),
+            ("registry", sp.TAddress, None),
+            ("migration_from", sp.TOption(sp.TAddress), None),
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
@@ -703,7 +703,7 @@ class TL_World(
         transferMap = utils.FA2TokenTransferMap()
 
         registry_info = registry_contract.getTokenRegistryInfo(
-            self.data.token_registry,
+            self.data.registry,
             params.place_item_map.keys(),
             params.merkle_proofs)
 
@@ -988,7 +988,7 @@ class TL_World(
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
                     item_royalty_info = registry_contract.getTokenRoyalties(
-                        self.data.token_registry,
+                        self.data.registry,
                         params.fa2, the_item.value.token_id,
                         params.merkle_proof)
 
@@ -1037,7 +1037,7 @@ class TL_World(
 
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
-        sp.verify((sp.some(sp.sender) == self.data.migration_contract) &
+        sp.verify((sp.some(sp.sender) == self.data.migration_from) &
             (sp.source == self.data.administrator))
 
         # Place token must be allowed
@@ -1067,7 +1067,7 @@ class TL_World(
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
                 registry_info = registry_contract.getTokenRegistryInfo(
-                    self.data.token_registry,
+                    self.data.registry,
                     issuer_item.value.keys(),
                     check_merkle_proofs=False)
 

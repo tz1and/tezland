@@ -46,21 +46,21 @@ collaboratorsMapType = sp.TBigMap(collaboratorsKeyType, sp.TUnit)
 collaboratorsMapLiteral = sp.big_map(tkey = collaboratorsKeyType, tvalue = sp.TUnit)
 
 t_manage_public_collections = sp.TList(sp.TVariant(
-    add_collections = sp.TList(sp.TRecord(
+    add = sp.TList(sp.TRecord(
         contract = sp.TAddress,
         royalties_version = sp.TNat
     ).layout(("contract", "royalties_version"))),
-    remove_collections = sp.TList(sp.TAddress)
-).layout(("add_collections", "remove_collections")))
+    remove = sp.TList(sp.TAddress)
+).layout(("add", "remove")))
 
 t_manage_private_collections = sp.TList(sp.TVariant(
-    add_collections = sp.TList(sp.TRecord(
+    add = sp.TList(sp.TRecord(
         contract = sp.TAddress,
         owner = sp.TAddress,
         royalties_version = sp.TNat
     ).layout(("contract", ("owner", "royalties_version")))),
-    remove_collections = sp.TList(sp.TAddress)
-).layout(("add_collections", "remove_collections")))
+    remove = sp.TList(sp.TAddress)
+).layout(("add", "remove")))
 
 t_manage_collaborators = sp.TList(sp.TVariant(
     add_collaborators = sp.TRecord(
@@ -282,14 +282,14 @@ class TL_TokenRegistry(
 
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
-                with arg.match("add_collections") as add_collections:
-                    with sp.for_("address", add_collections) as collection:
+                with arg.match("add") as add:
+                    with sp.for_("address", add) as collection:
                         # public collections cant be private
                         sp.verify(self.data.private_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
                         self.data.public_collections[collection.contract] = collection.royalties_version
 
-                with arg.match("remove_collections") as remove_collections:
-                    with sp.for_("address", remove_collections) as address:
+                with arg.match("remove") as remove:
+                    with sp.for_("address", remove) as address:
                         del self.data.public_collections[address]
 
     @sp.entry_point(lazify = True)
@@ -302,8 +302,8 @@ class TL_TokenRegistry(
 
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
-                with arg.match("add_collections") as add_collections:
-                    with sp.for_("collection", add_collections) as collection:
+                with arg.match("add") as add:
+                    with sp.for_("collection", add) as collection:
                         # private collections cant be public
                         sp.verify(self.data.public_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
                         self.data.private_collections[collection.contract] = sp.record(
@@ -311,8 +311,8 @@ class TL_TokenRegistry(
                             proposed_owner = sp.none,
                             royalties_version = collection.royalties_version)
 
-                with arg.match("remove_collections") as remove_collections:
-                    with sp.for_("address", remove_collections) as address:
+                with arg.match("remove") as remove:
+                    with sp.for_("address", remove) as address:
                         del self.data.private_collections[address]
 
     #

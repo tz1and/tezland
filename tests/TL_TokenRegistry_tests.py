@@ -28,15 +28,15 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
-    # create token_registry contract
+    # create registry contract
     scenario.h1("Test TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+    minter = minter_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -53,28 +53,28 @@ def test():
     # test adding public collections
     scenario.h3("manage_public_collection")
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
     # add permission for alice
-    token_registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice)
-    scenario.verify(token_registry.data.public_collections.contains(items_tokens.address))
+    registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = alice)
+    scenario.verify(registry.data.public_collections.contains(items_tokens.address))
 
     # public collection can't be private
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
 
-    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.verify(~token_registry.data.public_collections.contains(items_tokens.address))
+    registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(~registry.data.public_collections.contains(items_tokens.address))
 
     # only unpaused
-    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
+    registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
 
     # test private collections
     scenario.h2("Private Collections")
@@ -82,81 +82,81 @@ def test():
     # test adding private collections
     scenario.h3("manage_private_collections")
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
     # add permission for alice
-    token_registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice)
-    scenario.verify(token_registry.data.private_collections.contains(items_tokens.address))
+    registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = alice)
+    scenario.verify(registry.data.private_collections.contains(items_tokens.address))
 
     # private collection can't be public
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin, valid = False, exception = "PUBLIC_PRIVATE")
 
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.verify(~token_registry.data.private_collections.contains(items_tokens.address))
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    scenario.verify(~registry.data.private_collections.contains(items_tokens.address))
 
     # only unpaused
-    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
+    registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    token_registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
 
     scenario.h3("manage_collaborators")
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
 
     manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
-    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
-    scenario.verify(~token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
-    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
-    scenario.verify(token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
+    scenario.verify(registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
 
-    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
-    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
-    scenario.verify(~token_registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
+    registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
+    scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
 
-    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
+    registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
+    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
+    registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
     scenario.h3("transfer_private_ownership")
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
 
-    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = alice, valid = False, exception = "ONLY_OWNER")
-    scenario.verify(token_registry.data.private_collections[items_tokens.address].owner == bob.address)
-    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = bob)
-    scenario.verify(token_registry.data.private_collections[items_tokens.address].proposed_owner == sp.some(alice.address))
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice)
-    scenario.verify(token_registry.data.private_collections[items_tokens.address].owner == alice.address)
-    scenario.verify(token_registry.data.private_collections[items_tokens.address].proposed_owner == sp.none)
+    registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = admin, valid = False, exception = "ONLY_OWNER")
+    registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    scenario.verify(registry.data.private_collections[items_tokens.address].owner == bob.address)
+    registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = alice.address)).run(sender = bob)
+    scenario.verify(registry.data.private_collections[items_tokens.address].proposed_owner == sp.some(alice.address))
+    registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.accept_private_ownership(items_tokens.address).run(sender = alice)
+    scenario.verify(registry.data.private_collections[items_tokens.address].owner == alice.address)
+    scenario.verify(registry.data.private_collections[items_tokens.address].proposed_owner == sp.none)
 
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.accept_private_ownership(items_tokens.address).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.accept_private_ownership(items_tokens.address).run(sender = alice, valid = False, exception = "NOT_PROPOSED_OWNER")
 
-    token_registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    token_registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = bob.address)).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "ONLY_UNPAUSED")
-    token_registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
+    registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
+    registry.transfer_private_ownership(sp.record(collection = items_tokens.address, new_owner = bob.address)).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
+    registry.accept_private_ownership(items_tokens.address).run(sender = admin, valid = False, exception = "ONLY_UNPAUSED")
+    registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
     # test get_item_royalties view
     #scenario.h2("get_item_royalties")
     #scenario.p("It's a view")
-    #view_res = token_registry.get_item_royalties(sp.nat(0))
+    #view_res = registry.get_item_royalties(sp.nat(0))
     #scenario.verify(view_res.royalties == 250)
     #scenario.verify(view_res.creator == bob.address)
 
@@ -165,19 +165,19 @@ def test():
 
     is_reg_param = [items_tokens.address]
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
-    scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.verify_equal(token_registry.is_private_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
+    scenario.verify_equal(registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})
+    scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    scenario.verify_equal(registry.is_private_collection([items_tokens.address]), {items_tokens.address: False})
+    scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin)
-    scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: True})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
-    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
-    scenario.verify_equal(token_registry.is_public_collection([items_tokens.address]), {items_tokens.address: False})
-    scenario.verify_equal(token_registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
+    scenario.verify_equal(registry.is_public_collection([items_tokens.address]), {items_tokens.address: True})
+    scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
+    registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    scenario.verify_equal(registry.is_public_collection([items_tokens.address]), {items_tokens.address: False})
+    scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
     # TODO: test is_private_owner etc views
     # TODO: test non-native tokens with merkle proof.

@@ -33,16 +33,16 @@ class TL_Minter(
     fa2_admin.FA2_Administration,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, token_registry, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         self.init_storage(
-            token_registry = token_registry
+            registry = registry
         )
 
         self.available_settings = [
-            ("token_registry", sp.TAddress, None)
+            ("registry", sp.TAddress, None)
         ]
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
@@ -89,7 +89,7 @@ class TL_Minter(
     #
     def onlyOwnerPrivate(self, collection, address):
         # call registry view to check owner.
-        sp.verify(sp.view("is_private_owner", self.data.token_registry,
+        sp.verify(sp.view("is_private_owner", self.data.registry,
             sp.set_type_expr(sp.record(
                 collection = collection,
                 address = address
@@ -98,7 +98,7 @@ class TL_Minter(
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
         # call registry view to check owner or collaborator.
-        sp.verify(sp.view("is_private_owner_or_collab", self.data.token_registry,
+        sp.verify(sp.view("is_private_owner_or_collab", self.data.registry,
             sp.set_type_expr(sp.record(
                 collection = collection,
                 address = address
@@ -107,7 +107,7 @@ class TL_Minter(
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
-        sp.verify(sp.view("is_public_collection", self.data.token_registry,
+        sp.verify(sp.view("is_public_collection", self.data.registry,
             sp.set_type_expr([collection], sp.TList(sp.TAddress)),
             t = sp.TMap(sp.TAddress, sp.TBool)).open_some().get(collection, default_value=False), "INVALID_COLLECTION")
 

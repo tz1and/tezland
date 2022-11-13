@@ -145,24 +145,24 @@ def test():
     scenario.h2("Originate contracts")
 
     scenario.h3("TokenRegistry")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h3("Minter v2")
-    minter_v2 = minter_v2_contract.TL_Minter(admin.address, token_registry.address,
+    minter_v2 = minter_v2_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter_v2
 
     scenario.h3("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, token_registry.address, minter_v2.address,
+    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter_v2.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("World v2")
-    world_v2 = places_contract.TL_World(admin.address, token_registry.address, True, items_tokens.address,
+    world_v2 = places_contract.TL_World(admin.address, registry.address, True, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world_v2
 
@@ -181,16 +181,16 @@ def test():
     world.update_item_limit(9).run(sender=admin)
 
     scenario.h4("registry permissions for factory")
-    token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
 
     scenario.h4("add public collection")
-    token_registry.manage_public_collections([sp.variant("add_collections", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
 
     scenario.h4("add allowed place token")
     world_v2.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 6, chunk_item_limit = 2)))])).run(sender = admin)
 
     scenario.h4("set migration contract")
-    world_v2.update_settings([sp.variant("migration_contract", sp.some(world.address))]).run(sender = admin)
+    world_v2.update_settings([sp.variant("migration_from", sp.some(world.address))]).run(sender = admin)
 
     scenario.h4("set up operators")
     def set_operators(owner, item_ids):

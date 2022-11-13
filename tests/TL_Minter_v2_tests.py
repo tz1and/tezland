@@ -33,15 +33,15 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
-    # create token_registry contract
+    # create registry contract
     scenario.h1("Test Minter")
-    token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
         metadata = sp.utils.metadata_of_url("https://example.com"))
-    scenario += token_registry
+    scenario += registry
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, token_registry.address,
+    minter = minter_contract.TL_Minter(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -61,7 +61,7 @@ def test():
 
     manage_public_v1_params = sp.record(contract = items_tokens_legacy.address, royalties_version = 1)
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_v1_params])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [manage_public_v1_params])]).run(sender = admin)
 
     minter.mint_public_v1(collection = minter.address,
         to_ = bob.address,
@@ -94,7 +94,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens_legacy.address])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("remove", [items_tokens_legacy.address])]).run(sender = admin)
 
 
     #
@@ -107,7 +107,7 @@ def test():
 
     manage_public_params = sp.record(contract = items_tokens.address, royalties_version = 2)
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [manage_public_params])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
 
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
@@ -136,7 +136,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    token_registry.manage_public_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
 
     #
@@ -149,7 +149,7 @@ def test():
 
     manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address, royalties_version = 2)
     manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
 
     minter.mint_private(collection = minter.address,
         to_ = bob.address,
@@ -164,13 +164,13 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     # add alice as collaborator
-    token_registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
+    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
         royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
-    token_registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
+    registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
 
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
@@ -187,11 +187,11 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
     scenario.h3("update_private_metadata")
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [manage_private_params])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
 
     invalid_metadata_uri = sp.utils.bytes_of_string("ipf://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8")
     valid_metadata_uri = sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
@@ -208,7 +208,7 @@ def test():
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    token_registry.manage_private_collections([sp.variant("remove_collections", [items_tokens.address])]).run(sender = admin)
+    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
 
     #
@@ -238,10 +238,10 @@ def test():
     scenario.h2("clear_adhoc_operators_fa2")
 
     items_tokens.update_adhoc_operators(sp.variant("add_adhoc_operators", sp.set([
-        sp.record(operator=token_registry.address, token_id=0),
-        sp.record(operator=token_registry.address, token_id=1),
-        sp.record(operator=token_registry.address, token_id=2),
-        sp.record(operator=token_registry.address, token_id=3),
+        sp.record(operator=registry.address, token_id=0),
+        sp.record(operator=registry.address, token_id=1),
+        sp.record(operator=registry.address, token_id=2),
+        sp.record(operator=registry.address, token_id=3),
     ]))).run(sender = alice)
 
     scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 4)
@@ -267,11 +267,11 @@ def test():
     items_tokens_private.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens_private.address]).run(sender = admin)
 
-    token_registry.manage_public_collections([sp.variant("add_collections", [
+    registry.manage_public_collections([sp.variant("add", [
         sp.record(contract = items_tokens.address, royalties_version = 2)
     ])]).run(sender = admin)
 
-    token_registry.manage_private_collections([sp.variant("add_collections", [
+    registry.manage_private_collections([sp.variant("add", [
         sp.record(contract = items_tokens_private.address, owner = bob.address, royalties_version = 2)
     ])]).run(sender = admin)
 
