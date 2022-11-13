@@ -209,9 +209,9 @@ export default class PostUpgrade extends PostDeployBase {
             console.log("update_operators:\t" + await this.feesToString(op_op));
         }
 
-        const placeKey0 = { place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: 0 };
+        const placeKey0 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 };
         const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
-        const placeKey1 = { place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: 1 };
+        const placeKey1 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 };
         const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
 
         /**
@@ -254,7 +254,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // create place
         {
-            const creat_op = await World_contract.methodsObject.update_place_props({ place_key: placeKey0, prop_updates: "ffffff" }).send();
+            const creat_op = await World_contract.methodsObject.update_place_props({ place_key: placeKey0, updates: "ffffff" }).send();
             await creat_op.confirmation();
             console.log("create place (props):\t" + await feesToString(creat_op));
         }*/
@@ -263,7 +263,7 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const props_map = new MichelsonMap<string, string>();
             props_map.set('00', '000000');
-            const place_props_op = await contracts.get("World_contract")!.methodsObject.update_place_props({ place_key: placeKey0, prop_updates: [{add_props: props_map}] }).send();
+            const place_props_op = await contracts.get("World_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
             await place_props_op.confirmation();
             console.log("update_place_props:\t" + await this.feesToString(place_props_op));
         }
@@ -373,7 +373,7 @@ export default class PostUpgrade extends PostDeployBase {
         // set_permissions
         {
             const perm_op = await contracts.get("World_contract")!.methods.set_permissions([{
-                add_permission: {
+                add: {
                     place_key: placeKey0,
                     owner: this.accountAddress,
                     permittee: contracts.get("Dutch_contract")!.address,
@@ -683,7 +683,7 @@ export default class PostUpgrade extends PostDeployBase {
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
             const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
-                place_key: {place_contract: contracts.get("places_v2_FA2_contract")!.address, lot_id: token_id }, place_item_map: item_map
+                place_key: {fa2: contracts.get("places_v2_FA2_contract")!.address, id: token_id }, place_item_map: item_map
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items:\t" + await this.feesToString(place_ten_items_op));

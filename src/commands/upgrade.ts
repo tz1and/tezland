@@ -115,7 +115,6 @@ export default class Upgrade extends PostUpgrade {
         // Minter v2, Dutch v2, Places v2 and Interiors.
         //
         let Minter_v2_contract: ContractAbstraction<Wallet>,
-            Dutch_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
             places_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
@@ -127,15 +126,9 @@ export default class Upgrade extends PostUpgrade {
             // Compile and deploy Minter contract.
             await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter", [
                 `administrator = sp.address("${this.accountAddress}")`,
-                `token_registry = sp.address("${Registry_contract.address}")`
+                `registry = sp.address("${Registry_contract.address}")`
             ]);
             tezland_batch.addToBatch("TL_Minter_v2");
-
-            // Compile and deploy Minter contract.
-            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch", [
-                `administrator = sp.address("${this.accountAddress}")`
-            ]);
-            tezland_batch.addToBatch("TL_Dutch_v2");
 
             await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
                 `admin = sp.address("${this.accountAddress}")`
@@ -147,7 +140,7 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("FA2_Places_v2");
 
-            [Minter_v2_contract, Dutch_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
+            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
@@ -170,14 +163,101 @@ export default class Upgrade extends PostUpgrade {
                         // add items as public collection to minter v2
                         {
                             kind: OpKind.TRANSACTION,
-                            ...Registry_contract.methods.manage_public_collections([{add_collections: [{ contract: tezlandItems.address, royalties_version: 1}]}]).toTransferParams()
+                            ...Registry_contract.methods.manage_public_collections([{add: [{ contract: tezlandItems.address, royalties_version: 1}]}]).toTransferParams()
                         },
                         // accept places admin from wallet
                         {
                             kind: OpKind.TRANSACTION,
                             ...tezlandPlaces.methods.accept_administrator().toTransferParams()
+                        }
+                    ]).send();
+                });
+            }
+        }
+
+        //
+        // World v2 (Marketplaces)
+        //
+        let World_v2_contract: ContractAbstraction<Wallet>;
+        {
+            const worldV2WasDeployed = this.getDeployment("TL_World_v2");
+
+            // Compile and deploy Places contract.
+            // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
+            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `registry = sp.address("${Registry_contract.address}")`,
+                `paused = sp.bool(True)`,
+                `items_tokens = sp.address("${tezlandItems.address}")`,
+                `name = "tz1and World"`,
+                `description = "tz1and Virtual World v2"`
+            ]);
+
+            World_v2_contract = await this.deploy_contract("TL_World_v2");
+
+            if (!worldV2WasDeployed) {
+                await this.run_op_task("Set allowed place tokens on world...", async () => {
+                    return World_v2_contract.methodsObject.set_allowed_place_token([
+                        {
+                            add: {
+                                fa2: places_v2_FA2_contract.address,
+                                place_limits: {
+                                    chunk_limit: 2,
+                                    chunk_item_limit: 64
+                                }
+                            }
                         },
-                        // add permitted FA2s in minter v2
+                        {
+                            add: {
+                                fa2: interiors_FA2_contract.address,
+                                place_limits: {
+                                    chunk_limit: 4,
+                                    chunk_item_limit: 64
+                                }
+                            }
+                        }
+                    ]).send();
+                });
+            }
+        }
+
+        //
+        // Token Factory and Dutch v2
+        //
+        // TODO: could probably deploy with world v2.
+        let Factory_contract: ContractAbstraction<Wallet>,
+            Dutch_v2_contract: ContractAbstraction<Wallet>;
+        {
+            const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
+
+            // prepare minter/interiors batch
+            const tezland_batch = new DeployContractBatch(this);
+
+            // Compile and deploy fa2 factory contract.
+            await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `registry = sp.address("${Registry_contract.address}")`,
+                `minter = sp.address("${Minter_v2_contract.address}")`
+            ]);
+            tezland_batch.addToBatch("TL_TokenFactory");
+
+            // Compile and deploy Minter contract.
+            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch", [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `world_contract = sp.address("${World_v2_contract.address}")`
+            ]);
+            tezland_batch.addToBatch("TL_Dutch_v2");
+
+            [Factory_contract, Dutch_v2_contract] = await tezland_batch.deployBatch();
+
+            if (!factoryWasDeployed) {
+                await this.run_op_task("Giving registry permissions to factory contract...", async () => {
+                    return this.tezos!.wallet.batch().with([
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Registry_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
+                        },
+                        // add permitted FA2s in dutch v2
                         {
                             kind: OpKind.TRANSACTION,
                             ...Dutch_v2_contract.methods.manage_whitelist([
@@ -196,80 +276,7 @@ export default class Upgrade extends PostUpgrade {
             }
         }
 
-        //
-        // Token Factory
-        //
-        // TODO: could probably deploy with world v2.
-        let Factory_contract: ContractAbstraction<Wallet>;
-        {
-            const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
-
-            // Compile and deploy fa2 factory contract.
-            await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `token_registry = sp.address("${Registry_contract.address}")`,
-                `minter = sp.address("${Minter_v2_contract.address}")`
-            ]);
-
-            Factory_contract = await this.deploy_contract("TL_TokenFactory");
-
-            if (!factoryWasDeployed) {
-                await this.run_op_task("Giving registry permissions to factory contract...", async () => {
-                    return this.tezos!.wallet.batch().with([
-                        {
-                            kind: OpKind.TRANSACTION,
-                            ...Registry_contract.methods.manage_permissions([{add_permissions: [Factory_contract.address]}]).toTransferParams()
-                        }
-                    ]).send();
-                });
-            }
-        }
-
-        //
-        // World v2 (Marketplaces)
-        //
-        let World_v2_contract: ContractAbstraction<Wallet>;
-        {
-            const worldV2WasDeployed = this.getDeployment("TL_World_v2");
-
-            // Compile and deploy Places contract.
-            // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
-            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `token_registry = sp.address("${Registry_contract.address}")`,
-                `paused = sp.bool(True)`,
-                `items_tokens = sp.address("${tezlandItems.address}")`,
-                `name = "tz1and World"`,
-                `description = "tz1and Virtual World v2"`
-            ]);
-
-            World_v2_contract = await this.deploy_contract("TL_World_v2");
-
-            if (!worldV2WasDeployed) {
-                await this.run_op_task("Set allowed place tokens on world...", async () => {
-                    return World_v2_contract.methodsObject.set_allowed_place_token([
-                        {
-                            add_allowed_place_token: {
-                                fa2: places_v2_FA2_contract.address,
-                                place_limits: {
-                                    chunk_limit: 2,
-                                    chunk_item_limit: 64
-                                }
-                            }
-                        },
-                        {
-                            add_allowed_place_token: {
-                                fa2: interiors_FA2_contract.address,
-                                place_limits: {
-                                    chunk_limit: 4,
-                                    chunk_item_limit: 64
-                                }
-                            }
-                        }
-                    ]).send();
-                });
-            }
-        }
+        // TODO: move dutch v2 orig here
 
         //
         // Upgrade v1 contracts.
@@ -326,7 +333,7 @@ export default class Upgrade extends PostUpgrade {
         // TODO: Run migration and unpause World v2.
         //
         await this.run_op_task("Set migration contract on World v2...", async () => {
-            return World_v2_contract.methods.update_settings([{migration_contract: tezlandWorld.address}]).send()
+            return World_v2_contract.methods.update_settings([{migration_from: tezlandWorld.address}]).send()
         });
 
         //
@@ -348,7 +355,7 @@ export default class Upgrade extends PostUpgrade {
         //
 
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
-            return World_v2_contract.methods.update_settings([{migration_contract: null}, {paused: false}]).send()
+            return World_v2_contract.methods.update_settings([{migration_from: null}, {paused: false}]).send()
         });
 
         //
