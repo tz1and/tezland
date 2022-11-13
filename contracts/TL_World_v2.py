@@ -562,15 +562,15 @@ class TL_World(
     @sp.entry_point
     def set_permissions(self, params):
         sp.set_type(params, sp.TList(sp.TVariant(
-            add_permission = PermissionParams.get_add_type(),
-            remove_permission = PermissionParams.get_remove_type()
-        ).layout(("add_permission", "remove_permission"))))
+            add = PermissionParams.get_add_type(),
+            remove = PermissionParams.get_remove_type()
+        ).layout(("add", "remove"))))
 
         #self.onlyUnpaused() # Probably fine to run when paused.
 
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("add_permission") as upd:
+                with arg.match("add") as upd:
                     # can only add permissions for allowed places
                     self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
@@ -582,7 +582,7 @@ class TL_World(
                         upd.permittee,
                         upd.place_key,
                         upd.perm)
-                with arg.match("remove_permission") as upd:
+                with arg.match("remove") as upd:
                     # NOTE: don't need to check if place key is valid
                     #self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner

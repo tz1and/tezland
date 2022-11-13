@@ -907,7 +907,7 @@ def test():
     scenario.h4("Full permissions")
     # bob gives alice permission to his place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -946,7 +946,7 @@ def test():
     scenario.h4("PlaceItems permissions")
     # bob gives alice place item permission to his place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -989,7 +989,7 @@ def test():
 
     # bob gives alice place item permission to his place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1027,7 +1027,7 @@ def test():
     scenario.h4("Props permissions")
     # bob gives alice place item permission to his place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1064,7 +1064,7 @@ def test():
     scenario.h4("Mixed permissions")
     # bob gives alice place item permission to his place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1096,7 +1096,7 @@ def test():
     scenario.h4("Invalid add permission")
     # incorrect perm parameter
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1106,7 +1106,7 @@ def test():
 
     # giving no permissions is invalid. use remove
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1116,7 +1116,7 @@ def test():
 
     # bob gives himself permissions to alices place
     world.set_permissions([
-        sp.variant("add_permission", PermissionParams.make_add(
+        sp.variant("add", PermissionParams.make_add(
             owner = alice.address,
             permittee = bob.address,
             place_key = place_alice,
@@ -1164,7 +1164,7 @@ def test():
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
     world.set_permissions([
-        sp.variant("remove_permission", PermissionParams.make_remove(
+        sp.variant("remove", PermissionParams.make_remove(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1174,7 +1174,7 @@ def test():
     scenario.h3("Valid remove permission")
     # bob removes alice's permissions to his (now not owned) place
     world.set_permissions([
-        sp.variant("remove_permission", PermissionParams.make_remove(
+        sp.variant("remove", PermissionParams.make_remove(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
@@ -1220,7 +1220,7 @@ def test():
 
     # update permissions is still allowed
     world.set_permissions([
-        sp.variant("remove_permission", PermissionParams.make_remove(
+        sp.variant("remove", PermissionParams.make_remove(
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
