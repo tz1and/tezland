@@ -4,6 +4,7 @@ dutch_contract = sp.io.import_script_from_url("file:contracts/upgrades/TL_Dutch_
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
+
 @sp.add_test(name = "TL_Dutch_v1_1_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -155,3 +156,17 @@ def test():
 
     balance_alice_after = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
     scenario.verify(balance_alice_after == (balance_alice_before + 1))
+
+
+    scenario.h3("Update metadata (bid)")
+
+    # no access
+    dutch.bid(auction_id = 0, extension = sp.some({"metadata_uri": sp.utils.bytes_of_string("https://newexample.com")})).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+
+    # wrong format
+    dutch.bid(auction_id = 0, extension = sp.none).run(sender = admin, valid = False, exception = "NO_EXT_PARAMS")
+    dutch.bid(auction_id = 0, extension = sp.some({"metadata_bla": sp.utils.bytes_of_string("https://newexample.com")})).run(sender = admin, valid = False, exception = "NO_METADATA_URI")
+
+    # valid
+    dutch.bid(auction_id = 0, extension = sp.some({"metadata_uri": sp.utils.bytes_of_string("https://newexample.com")})).run(sender = admin)
+    scenario.verify(dutch.data.metadata.get("") == sp.utils.bytes_of_string("https://newexample.com"))

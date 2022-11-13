@@ -306,6 +306,17 @@ export default class Upgrade extends PostUpgrade {
             // entrypoints to upgrade
             ["mint_Place"], true);
 
+        const dutch_v1_1_metadata = await this.upgrade_entrypoint(tezlandDutchAuctions,
+            "TL_Dutch_deprecate", "upgrades/TL_Dutch_v1_1", "TL_Dutch_v1_1",
+            // contract params
+            [
+                `administrator = sp.address("${this.accountAddress}")`,
+                `items_contract = sp.address("${tezlandItems.address}")`,
+                `places_contract = sp.address("${tezlandPlaces.address}")`
+            ],
+            // entrypoints to upgrade
+            ["cancel", "bid"], true);
+
         // TODO: upgrade dutch v1 to be able to cancel auctions and metadata
 
         // Update metadata on v1 contracts
@@ -316,6 +327,14 @@ export default class Upgrade extends PostUpgrade {
                 item_id: 0,
                 issuer: this.accountAddress,
                 extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(world_v1_1_metadata) })
+            }).send();
+        });
+
+        await this.run_op_task("Updating metadata on v1 dutch contract...", async () => {
+            assert(dutch_v1_1_metadata);
+            return tezlandDutchAuctions.methodsObject.bid({
+                auction_id: 0,
+                extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(dutch_v1_1_metadata) })
             }).send();
         });
 
@@ -338,13 +357,10 @@ export default class Upgrade extends PostUpgrade {
 
         //
         // TODO: re-distribute updated place NFTs:
-        // - pause auctions contract
-        // - upgrade auctions to allow admin to cancel
-        // - cancel all auctions
-        // - pause transfers
-        // - originate new places contract
+        // - cancel all v1 auctions
+        // - pause place v1 transfers
+        // - originate new places contract (make sure v1 ownership isn't on any contract)
         // - re-mint all places and send to owners (unless still owned by a contract)
-        // - deploy new auctions contract
         // - ....
         //
 

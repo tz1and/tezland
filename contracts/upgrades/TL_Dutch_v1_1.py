@@ -35,3 +35,20 @@ class TL_Dutch_v1_1(dutch_contract.TL_Dutch):
         utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
         del self.data.auctions[params.auction_id]
+
+
+    @sp.entry_point(lazify = True)
+    def bid(self, params):
+        """Upgraded ep - repurposed to update metadata."""
+        sp.set_type(params, sp.TRecord(
+            auction_id = sp.TNat,
+            extension = dutch_contract.extensionArgType
+        ).layout(("auction_id", "extension")))
+
+        self.onlyAdministrator()
+
+        # Get ext map.
+        ext_map = params.extension.open_some(message = "NO_EXT_PARAMS")
+
+        # Make sure metadata_uri exists and update contract metadata.
+        self.data.metadata[""] = ext_map.get("metadata_uri", message = "NO_METADATA_URI")
