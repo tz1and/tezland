@@ -587,3 +587,46 @@ mint some:                      storage: 0.170000, gas: 0.002522
 update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
 
 create_token:                   storage: 1.181750, gas: 0.001292
+
+
+World v2 type name changes
+---------------------------------------
+update_operators:               storage: 0.016750, gas: 0.000560
+create place 0 (item):          storage: 0.082250, gas: 0.001734
+create place 1 (item):          storage: 0.072250, gas: 0.001757
+update_place_props:             storage: 0.000000, gas: 0.000927
+
+place_items (1):                storage: 0.009750, gas: 0.001804
+place_items (10):               storage: 0.102500, gas: 0.002181
+
+set_item_data (1):              storage: 0.000000, gas: 0.001049
+set_item_data (10):             storage: 0.000000, gas: 0.001266
+
+remove_items (1):               storage: 0.000000, gas: 0.001395
+remove_items (10):              storage: 0.000000, gas: 0.001404
+
+set_permissions:                storage: 0.000000, gas: 0.000610
+get_item:                       storage: 0.000000, gas: 0.001952
+
+
+create_auction:                 storage: 0.039250, gas: 0.001758
+bid:                            storage: 0.000000, gas: 0.002231
+
+create_auction:                 storage: 0.000000, gas: 0.001758
+cancel:                         storage: 0.000000, gas: 0.000619
+
+
+update_operators (100):         storage: 1.675000, gas: 0.011918
+
+transfer:                       storage: 0.016750, gas: 0.000675
+update_adhoc_operators:         storage: 0.009250, gas: 0.000500
+update_adhoc_operators (100):   storage: 0.915750, gas: 0.005108
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000705
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000508
+transfer (reset):               storage: 0.000000, gas: 0.000705
+
+mint some:                      storage: 0.170000, gas: 0.002518
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
+
+create_token:                   storage: 1.181750, gas: 0.001290
