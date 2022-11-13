@@ -54,22 +54,22 @@ def test():
     # test set allowed
     scenario.h3("set_allowed_place_token")
     test_place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64)
-    add_allowed = sp.list([sp.variant("add_allowed_place_token", sp.record(fa2 = other_token.address, place_limits = test_place_limits))])
-    remove_allowed = sp.list([sp.variant("remove_allowed_place_token", other_token.address)])
+    add_allowed = sp.list([sp.variant("add", sp.record(fa2 = other_token.address, place_limits = test_place_limits))])
+    remove_allowed = sp.list([sp.variant("remove", other_token.address)])
 
     # no permission
     allowedPlaceTokens.set_allowed_place_token(add_allowed).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    scenario.verify(allowedPlaceTokens.data.allowed_place_tokens.contains(other_token.address) == False)
+    scenario.verify(allowedPlaceTokens.data.place_tokens.contains(other_token.address) == False)
 
     # add
     allowedPlaceTokens.set_allowed_place_token(add_allowed).run(sender = admin)
-    scenario.verify(allowedPlaceTokens.data.allowed_place_tokens.contains(other_token.address) == True)
-    scenario.verify(allowedPlaceTokens.data.allowed_place_tokens[other_token.address] == test_place_limits)
+    scenario.verify(allowedPlaceTokens.data.place_tokens.contains(other_token.address) == True)
+    scenario.verify(allowedPlaceTokens.data.place_tokens[other_token.address] == test_place_limits)
 
     # remove
     allowedPlaceTokens.set_allowed_place_token(remove_allowed).run(sender = admin)
-    scenario.verify(allowedPlaceTokens.data.allowed_place_tokens.contains(other_token.address) == False)
-    scenario.verify(sp.is_failing(allowedPlaceTokens.data.allowed_place_tokens[other_token.address]))
+    scenario.verify(allowedPlaceTokens.data.place_tokens.contains(other_token.address) == False)
+    scenario.verify(sp.is_failing(allowedPlaceTokens.data.place_tokens[other_token.address]))
 
     # test views
     scenario.h3("is_allowed_place_token view")

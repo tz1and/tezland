@@ -56,7 +56,7 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
         self.allowed_place_tokens_map = Allowed_place_token_map()
         self.allowed_place_tokens_param = Allowed_place_token_param()
         self.update_initial_storage(
-            allowed_place_tokens = self.allowed_place_tokens_map.make(default_allowed),
+            place_tokens = self.allowed_place_tokens_map.make(default_allowed),
         )
         admin_mixin.Administrable.__init__(self, administrator = administrator)
 
@@ -64,20 +64,20 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
     def onlyAllowedPlaceTokens(self, fa2):
         """Fails if not allowed"""
         sp.set_type(fa2, sp.TAddress)
-        sp.verify(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2),
+        sp.verify(self.allowed_place_tokens_map.is_allowed(self.data.place_tokens, fa2),
             message = "PLACE_TOKEN_NOT_ALLOWED")
 
 
     def isAllowedPlaceToken(self, fa2):
         """Returns if place token is allowed"""
         sp.set_type(fa2, sp.TAddress)
-        return sp.compute(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2))
+        return sp.compute(self.allowed_place_tokens_map.is_allowed(self.data.place_tokens, fa2))
 
 
     def getAllowedPlaceTokenLimits(self, fa2):
         """Returns allowed place limits or fails"""
         sp.set_type(fa2, sp.TAddress)
-        return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.allowed_place_tokens, fa2))
+        return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.place_tokens, fa2))
 
 
     @sp.entry_point
@@ -85,29 +85,29 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
         """Call to add/remove place token contracts from
         token contracts allowed in the world."""
         sp.set_type(params, sp.TList(sp.TVariant(
-            add_allowed_place_token = self.allowed_place_tokens_param.get_add_type(),
-            remove_allowed_place_token = self.allowed_place_tokens_param.get_remove_type()
-        ).layout(("add_allowed_place_token", "remove_allowed_place_token"))))
+            add = self.allowed_place_tokens_param.get_add_type(),
+            remove = self.allowed_place_tokens_param.get_remove_type()
+        ).layout(("add", "remove"))))
 
         self.onlyAdministrator()
         
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("add_allowed_place_token") as upd:
-                    self.allowed_place_tokens_map.add(self.data.allowed_place_tokens, upd.fa2, upd.place_limits)
-                with arg.match("remove_allowed_place_token") as upd:
-                    self.allowed_place_tokens_map.remove(self.data.allowed_place_tokens, upd)
+                with arg.match("add") as upd:
+                    self.allowed_place_tokens_map.add(self.data.place_tokens, upd.fa2, upd.place_limits)
+                with arg.match("remove") as upd:
+                    self.allowed_place_tokens_map.remove(self.data.place_tokens, upd)
 
 
     @sp.onchain_view(pure=True)
     def is_allowed_place_token(self, fa2):
         """Returns True if an fa2 place token is allowed."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.allowed_place_tokens_map.is_allowed(self.data.allowed_place_tokens, fa2))
+        sp.result(self.allowed_place_tokens_map.is_allowed(self.data.place_tokens, fa2))
 
     @sp.onchain_view(pure=True)
     def get_allowed_place_token_limits(self, fa2):
         """Returns allowed place token limits."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.allowed_place_tokens_map.get_limits(self.data.allowed_place_tokens, fa2))
+        sp.result(self.allowed_place_tokens_map.get_limits(self.data.place_tokens, fa2))
 
