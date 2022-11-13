@@ -28,12 +28,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: FA2 origination is too large! try and optimise
 # TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
-# TODO: test owner = none when sender not place owner (for all eps where it matters)
-# TODO: test owner = "not actual owner" when issuer is none for get_item.
-# TODO: test owner = "not actual owner" when issuer is none for remove_items.
-# TODO: so many empty FAILWITHs. Optimise...
+# TODO: so many empty FAILWITHs. Optimise... What still can be.
 # TODO: special permission for sending items to place? Might be good.
-# TODO: add tests issuerOrPlaceOwnerInline. to make sure they work correctly in all combinations.
+# TODO: add tests issuerOrValueToOrPlaceOwnerInline, etc. to make sure they work correctly in all combinations.
 # TODO: re-distributing places. added get_owner view
 # TODO: optional value_to/send_to address on the place. can be used to split/for other contracts managing places, etc.
 # TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
@@ -43,6 +40,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #       Can also have a global optional "send to" address in the place that can be set by the auction contract.
 # TODO: make sure royalties version is set correctly everywhere.
 # TODO: need a moderation contract v1 and v2! storage changed... ALSO: check all other changed mixins for changes in storage.
+# TODO: test set_props value_to
+# TODO: rename parameters? shorten to save storage?
+# TODO: test value_to place setting.
 
 
 # maybe?
@@ -53,17 +53,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template
 #       + Add a pause function and an expiration date for the drop.
 #       + https://github.com/teia-community/teia-smart-contracts/blob/main/python/contracts/daoTokenDrop.py
-# TODO: Does the places token even need to be administrated/minted by minter?
-# TODO: generalised minter: map of token contracts with props: admin_only, allow_mint_multiple
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits
 # TODO: investgate using a "metadata map" for item data.
 # TODO: check if packing/unpacking michelson maps works well for script variables
-#
-#
-# V2
-# TODO: place_items issuer override for "gifting" items by way of putting them in their place (if they have permission).
 
 
 # Some notes:
@@ -73,7 +67,8 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
 #   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
 #   NOTE: could store an animation index and all kinds of other stuff in item_data
-# - Regarding place item storage efficiency: you can easily have up to 2000-3000 items per map before gas becomes *expensive*.
+# - Regarding chunk item storage efficiency: you can easily have up to 2000-3000 items (depending on issuer and token keys)
+#   per map before gas becomes *expensive*.
 # - use of inline_result. and bound blocks in general. can help with gas.
 
 # Optional extension argument type.
@@ -118,18 +113,20 @@ placePropsType = sp.TMap(sp.TBytes, sp.TBytes)
 defaultPlaceProps = sp.map({sp.bytes("0x00"): sp.bytes('0x82b881')}, tkey=sp.TBytes, tvalue=sp.TBytes)
 
 placeStorageType = sp.TRecord(
-    interaction_counter=sp.TNat,
-    place_props=placePropsType,
-    chunks=sp.TSet(sp.TNat)
-).layout(("interaction_counter", ("place_props", "chunks")))
+    interaction_counter=sp.TNat, # for seq number generation
+    place_props=placePropsType, # place properties
+    chunks=sp.TSet(sp.TNat), # set of active/existing chunks
+    value_to=sp.TOption(sp.TAddress) # value for place owned items is sent to, if set
+).layout(("interaction_counter", ("place_props", ("chunks", "value_to"))))
 
 placeStorageDefault = sp.record(
     interaction_counter = sp.nat(0),
     place_props = defaultPlaceProps,
-    chunks = sp.set([]))
+    chunks = sp.set([]),
+    value_to = sp.none)
 
 placeKeyType = sp.TRecord(
-    place_contract = sp.TAddress,
+    place_contract = sp.TAddress, # TODO: rename? shorten?
     lot_id = sp.TNat
 ).layout(("place_contract", "lot_id"))
 
@@ -328,8 +325,9 @@ class ItemStorage:
 
 setPlacePropsVariantType = sp.TVariant(
     add_props = placePropsType,
-    del_props = sp.TList(sp.TBytes)
-).layout(("add_props", "del_props"))
+    del_props = sp.TList(sp.TBytes),
+    value_to = sp.TOption(sp.TAddress)
+).layout(("add_props", ("del_props", "value_to")))
 
 updateItemListType = sp.TRecord(
     item_id=sp.TNat,
@@ -351,6 +349,13 @@ migrationType = sp.TRecord(
     migrate_place_props = placePropsType,
     extension = extensionArgType
 ).layout(("place_key", ("migrate_item_map", ("migrate_place_props", "extension"))))
+
+# Types for place, get, update, remove entry points.
+setPlacePropsType = sp.TRecord(
+    place_key = placeKeyType,
+    prop_updates = sp.TList(setPlacePropsVariantType),
+    extension = extensionArgType
+).layout(("place_key", ("prop_updates", "extension")))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -467,7 +472,7 @@ class TL_World(
         self.items_tokens = sp.set_type_expr(items_tokens, sp.TAddress)
 
         self.add_flag("exceptions", exception_optimization_level)
-        self.add_flag("erase-comments")
+        #self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.
         #self.add_flag("lazy-entry-points")
         # No noticeable effect on gas.
@@ -613,11 +618,7 @@ class TL_World(
 
     @sp.entry_point(lazify = True)
     def update_place_props(self, params):
-        sp.set_type(params, sp.TRecord(
-            place_key = placeKeyType,
-            prop_updates = sp.TList(setPlacePropsVariantType),
-            extension = extensionArgType
-        ).layout(("place_key", ("prop_updates", "extension"))))
+        sp.set_type(params, setPlacePropsType)
 
         self.onlyUnpaused()
 
@@ -640,6 +641,9 @@ class TL_World(
                 with arg.match("del_props") as del_props:
                     with sp.for_("prop", del_props) as prop:
                         del this_place.value.place_props[prop]
+
+                with arg.match("value_to") as value_to:
+                    this_place.value.value_to = value_to
 
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
@@ -887,7 +891,7 @@ class TL_World(
         fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
         sendMap.add(self.data.fees_to, fees_amount)
 
-        value_to_split = sp.compute(mutez_per_token - fees_amount)
+        value_after_fees = sp.compute(mutez_per_token - fees_amount)
 
         # If a primary sale, split entire value (minus fees) according to royalties.
         with sp.if_(primary):
@@ -899,7 +903,7 @@ class TL_World(
             # Loop over all the shares and send value.
             with sp.for_("share", item_royalty_info.shares) as share:
                 # Calculate amount to be paid from absolute share.
-                share_mutez = sp.compute(sp.split_tokens(value_to_split, share.share, total_shares.value))
+                share_mutez = sp.compute(sp.split_tokens(value_after_fees, share.share, total_shares.value))
                 sendMap.add(share.address, share_mutez)
 
         # Else, send royalties according to total and send value to issuer or place owner.
@@ -908,25 +912,36 @@ class TL_World(
             total_royalties = sp.local("total_royalties", sp.mutez(0))
             with sp.for_("share", item_royalty_info.shares) as share:
                 # Calculate amount to be paid from absolute share.
-                share_mutez = sp.compute(sp.split_tokens(value_to_split, share.share, item_royalty_info.total))
+                share_mutez = sp.compute(sp.split_tokens(value_after_fees, share.share, item_royalty_info.total))
                 sendMap.add(share.address, share_mutez)
                 total_royalties.value += share_mutez
 
             # Send rest of the value to seller.
-            left_amount = value_to_split - total_royalties.value
+            left_amount = value_after_fees - total_royalties.value
             sendMap.add(issuer_or_place_owner, left_amount)
 
         # Transfer.
         sendMap.transfer()
 
 
-    def issuerOrPlaceOwnerInline(self, place_key, issuer):
-        """Inline function for getting the owner of an item (either issuer or place owner)."""
+    @sp.inline_result
+    def issuerOrValueToOrPlaceOwnerInline(self, place_key, issuer, value_to):
+        """Inline function for getting where to send the value of an item to
+        (either issuer, value_to or place owner)."""
         sp.set_type(place_key, placeKeyType)
         sp.set_type(issuer, sp.TOption(sp.TAddress))
+        sp.set_type(value_to, sp.TOption(sp.TAddress))
 
-        # the item owner is either the issuer (when set), or the place owner.
-        return utils.openSomeOrDefault(issuer, FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+        with issuer.match_cases() as arg:
+            with arg.match("None", "issuer_none"):
+                with value_to.match_cases() as arg:
+                    with arg.match("None", "value_to_none"):
+                        sp.result(FA2.fa2_nft_get_owner(place_key.place_contract, place_key.lot_id))
+                    with arg.match("Some") as open:
+                        sp.result(open)
+
+            with arg.match("Some") as open:
+                sp.result(open)
 
 
     @sp.entry_point(lazify = True)
@@ -945,12 +960,13 @@ class TL_World(
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.place_contract)
 
-        # If the issuer is none, the owner is the place owner.
-        # That makes sure the tez are sent to the rightful owner (i.e., the place owner if issuer is none).
-        item_owner = self.issuerOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer)
-
-        # Get the chunk - must exist.
+        # Get place and chunk - must exist.
+        this_place = PlaceStorage(self.data.places, params.chunk_key.place_key)
         this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
+
+        # If the issuer is none, the value_to or owner is the item owner.
+        # Used for sending the value to the correct address.
+        item_owner = self.issuerOrValueToOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer, this_place.value.value_to)
 
         # Get item store - must exist.
         item_store = ItemStorage(this_chunk, params.issuer, params.fa2)

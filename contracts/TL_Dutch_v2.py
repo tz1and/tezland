@@ -5,6 +5,7 @@ fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWhitelist.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
@@ -51,7 +52,7 @@ class TL_Dutch(
     The price keeps dropping until end_time is reached. First valid bid gets the token.
     """
 
-    def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, world_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
@@ -60,12 +61,14 @@ class TL_Dutch(
         self.init_storage(
             secondary_enabled = sp.bool(False), # If the secondary market is enabled.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
+            world_contract = sp.set_type_expr(world_contract, sp.TAddress), # The world contract. Needed for some things.
             auctions = self.auction_map.make()
         )
 
         self.available_settings = [
             ("granularity", sp.TNat, None),
-            ("secondary_enabled", sp.TBool, None)
+            ("secondary_enabled", sp.TBool, None),
+            ("world_contract", sp.TAddress, None)
         ]
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
@@ -246,6 +249,24 @@ class TL_Dutch(
             sp.mutez(0), token_handle)
 
 
+    def reset_value_to_in_world(self, token_contract, token_id):
+        sp.set_type(token_contract, sp.TAddress)
+        sp.set_type(token_id, sp.TNat)
+
+        # Build update props param list.
+        set_props_args = sp.set_type_expr(sp.record(
+            place_key = sp.record(place_contract = token_contract, lot_id = token_id),
+            prop_updates = [sp.variant("value_to", sp.none)],
+            extension = sp.none), world_contract.setPlacePropsType)
+
+        # Call token contract to add operators.
+        world_handle = sp.contract(
+            world_contract.setPlacePropsType,
+            self.data.world_contract,
+            entry_point='update_place_props').open_some()
+        sp.transfer(set_props_args, sp.mutez(0), world_handle)
+
+
     @sp.entry_point(lazify = True)
     def bid(self, params):
         """Bid on an auction.
@@ -279,8 +300,14 @@ class TL_Dutch(
         # Send fees, etc, if any.
         self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
-        # Transfer item from owner to buyer.
-        utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.sender, params.auction_key.token_id, 1)
+        # Transfer place from owner to this contract.
+        utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
+
+        # Reset the value_to property in world.
+        self.reset_value_to_in_world(params.auction_key.fa2, params.auction_key.token_id)
+
+        # Transfer place from this contract to buyer.
+        utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
 
         # After transfer, remove own operator rights for token.
         self.remove_operator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)

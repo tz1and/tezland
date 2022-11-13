@@ -4,6 +4,7 @@ dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch_v2.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
+world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
 @sp.add_test(name = "TL_Dutch_v2_tests", profile = True)
@@ -35,6 +36,11 @@ def test():
         admin = admin.address)
     scenario += places_tokens
 
+    interiors_tokens = tokens.tz1andInteriors(
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += interiors_tokens
+
     scenario.h3("TokenRegistry")
     token_registry = token_registry_contract.TL_TokenRegistry(admin.address,
         sp.bytes("0x00"), sp.bytes("0x00"),
@@ -52,6 +58,11 @@ def test():
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
+    scenario.h2("World v2")
+    world = world_contract.TL_World(admin.address, token_registry.address, False, items_tokens.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
+    scenario += world
+
     scenario.h3("registry permissions for factory, etc")
     token_registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
     token_registry.manage_public_collections([sp.variant("add_collections", [
@@ -61,14 +72,19 @@ def test():
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
 
-    # mint some item tokens for testing
-    minter.mint_public(collection = items_tokens.address,
-        to_ = bob.address,
-        amount = 4,
-        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
+    world.set_allowed_place_token(sp.list([
+        sp.variant("add_allowed_place_token", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64))),
+        sp.variant("add_allowed_place_token", sp.record(fa2 = interiors_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64))),
+    ])).run(sender = admin)
 
-    item_bob = sp.nat(0)
+    # mint some item tokens for testing
+    #minter.mint_public(collection = items_tokens.address,
+    #    to_ = bob.address,
+    #    amount = 4,
+    #    royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
+    #    metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
+
+    #item_bob = sp.nat(0)
 
     # mint some place tokens for testing
     places_tokens.mint([
@@ -100,13 +116,23 @@ def test():
     place_admin = sp.nat(3)
     place_bob_no_operator = sp.nat(4)
 
+    # mint some interiors for testing
+    interiors_tokens.mint([
+        sp.record(
+            to_ = bob.address,
+            metadata = {'': sp.utils.bytes_of_string("test_metadata")}
+        )
+    ]).run(sender = admin)
+
+    interior_bob   = sp.nat(0)
+
     # Test dutch auchtion
 
     scenario.h2("Test Dutch")
 
     # create places contract
     scenario.h3("Originate dutch contract")
-    dutch = dutch_contract.TL_Dutch(admin.address,
+    dutch = dutch_contract.TL_Dutch(admin.address, world.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 
@@ -135,11 +161,19 @@ def test():
 
     # set operators
     scenario.h3("Add operators")
-    items_tokens.update_operators([
+    #items_tokens.update_operators([
+    #    sp.variant("add_operator", sp.record(
+    #        owner = bob.address,
+    #        operator = dutch.address,
+    #        token_id = item_bob
+    #    ))
+    #]).run(sender = bob)
+
+    interiors_tokens.update_operators([
         sp.variant("add_operator", sp.record(
             owner = bob.address,
             operator = dutch.address,
-            token_id = item_bob
+            token_id = interior_bob
         ))
     ]).run(sender = bob)
 
@@ -166,6 +200,14 @@ def test():
             token_id = place_carol
         ))
     ]).run(sender = carol)
+
+    places_tokens.update_operators([
+        sp.variant("add_operator", sp.record(
+            owner = admin.address,
+            operator = dutch.address,
+            token_id = place_admin
+        ))
+    ]).run(sender = admin)
 
     #
     # create
@@ -571,14 +613,6 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         extension = sp.none).run(sender = alice, valid = False, exception = "ONLY_WHITELIST_ADMIN")
 
-    places_tokens.update_operators([
-        sp.variant("add_operator", sp.record(
-            owner = admin.address,
-            operator = dutch.address,
-            token_id = place_admin
-        ))
-    ]).run(sender = admin)
-
     #
     # test secondary enabled & whitelist enabled
     #
@@ -655,8 +689,8 @@ def test():
 
     dutch.create(
         auction_key = sp.record(
-            token_id = item_bob,
-            fa2 = items_tokens.address,
+            token_id = interior_bob,
+            fa2 = interiors_tokens.address,
             owner = bob.address),
         auction = sp.record(
             start_price = sp.tez(100),
@@ -667,7 +701,7 @@ def test():
 
     add_other_permitted = sp.list([sp.variant("add_permitted",
         sp.record(
-            fa2 = items_tokens.address,
+            fa2 = interiors_tokens.address,
             props = sp.record(
                 whitelist_enabled = False,
                 whitelist_admin = admin.address)))])
@@ -675,8 +709,8 @@ def test():
 
     dutch.create(
         auction_key = sp.record(
-            token_id = item_bob,
-            fa2 = items_tokens.address,
+            token_id = interior_bob,
+            fa2 = interiors_tokens.address,
             owner = bob.address),
         auction = sp.record(
             start_price = sp.tez(100),
@@ -685,7 +719,7 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         extension = sp.none).run(sender = bob, now = sp.timestamp(0))
 
-    current_auction_key = sp.record(fa2 = items_tokens.address, token_id = item_bob, owner = bob.address)
+    current_auction_key = sp.record(fa2 = interiors_tokens.address, token_id = interior_bob, owner = bob.address)
 
     dutch.bid(auction_key = current_auction_key, extension = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80))
 
