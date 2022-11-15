@@ -1,10 +1,10 @@
 import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
-import { char2Bytes } from '@taquito/utils'
+import { char2Bytes, bytes2Char } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
 import { DeployContractBatch } from './DeployBase';
-import { ContractAbstraction, MichelsonMap, OpKind, Wallet } from '@taquito/taquito';
+import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract } from '@taquito/taquito';
 import fs from 'fs';
 import PostUpgrade from './postupgrade';
 import config from '../user.config';
@@ -346,38 +346,18 @@ export default class Upgrade extends PostUpgrade {
             }]).send();
         });
 
-        // TODO: update dutch v1 metadata
+        // Cancel v1 auctions
+        await this.cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions, tezlandPlaces);
 
-        //
-        // TODO: Run migration and unpause World v2.
-        //
-        await this.run_op_task("Set migration contract on World v2...", async () => {
-            return World_v2_contract.methods.update_settings([{migration_from: tezlandWorld.address}]).send()
-        });
+        // Re-mint and re-distribute place tokens.
+        await this.reDistributePlaces(places_v2_FA2_contract, tezlandPlaces);
 
-        //
-        // TODO: re-distribute updated place NFTs:
-        // - cancel all v1 auctions
-        // - pause place v1 transfers
-        // - originate new places contract (make sure v1 ownership isn't on any contract)
-        // - re-mint all places and send to owners (unless still owned by a contract)
-        // - ....
-        //
-
-        //
-        // TODO: migration:
-        // - actually run migration.
-        // - remove migration ep with upgrade.
-        //
-
-        await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
-            return World_v2_contract.methods.update_settings([{migration_from: null}, {paused: false}]).send()
-        });
+        // Run world migration.
+        await this.migrateWorld(World_v2_contract, tezlandWorld, places_v2_FA2_contract);
 
         //
         // Post deploy
         //
-        // TODO: run world migration
         // TODO: post upgrade step, gas tests, etc
         // If this is a sandbox deploy, run the post deploy tasks.
         const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
@@ -394,5 +374,107 @@ export default class Upgrade extends PostUpgrade {
             Factory_contract: Factory_contract,
             Registry_contract: Registry_contract
         })));
+    }
+
+    protected async cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions: WalletContract, tezlandPlaces: WalletContract) {
+        await this.run_op_task("Cancel V1 auctions", () => {
+            const batch = this.tezos!.wallet.batch();
+
+            // TODO: get list of auctions from indexer.
+            const auction_id_list = [0, 1];
+
+            for (const id of auction_id_list) {
+                batch.with([{
+                    kind: OpKind.TRANSACTION,
+                    ...tezlandDutchAuctions.methodsObject.cancel({auction_id: id}).toTransferParams()
+                }])
+            }
+
+            // finally, pause place transfers.
+            batch.with([{
+                kind: OpKind.TRANSACTION,
+                ...tezlandPlaces.methods.set_pause(true).toTransferParams()
+            }]) 
+
+            return batch.send();
+        });
+
+        // TODO: set auctions cancelled in deploy reg
+    }
+
+    protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
+        const num_tokens = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+
+        const v1storage = (await tezlandPlacesV1.storage()) as any;
+
+        // get metadata map.
+        const metadata_map = new Map<number, string>();
+        for (let i = 0; i < num_tokens; ++i) {
+            const entry = await v1storage.token_metadata.get(i);
+            metadata_map.set(i, bytes2Char(entry.token_info.get("")!));
+        }
+
+        // Get owner map.
+        const owner_map = new Map<number, string>();
+        for (let i = 0; i < num_tokens; ++i) {
+            const address = await v1storage.ledger.get(i);
+            owner_map.set(i, address);
+        }
+
+        // Make sure no places are owned by contracts.
+        owner_map.forEach((v, k) => {
+            if(v.startsWith("KT")) throw new Error(`Erro: Place #${k} is owned by contract.`);
+        });
+
+        // re-mint and -distribute places in v2.
+
+        // TODO: do in batches of 100 or so. record last id in reg.
+
+        const mint_batch: any[] = [];
+        for (let i = 0; i < num_tokens; ++i) {
+            const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
+            metadata.set('', char2Bytes(metadata_map.get(i)!));
+            mint_batch.push({
+                to_: owner_map.get(i)!,
+                metadata: metadata
+            });
+        }
+
+        await this.run_op_task("Re-mint places", () => {
+            return tezlandPlacesV2.methodsObject.mint(mint_batch).send();
+        });
+
+        // TODO: set places re-distributed in deploy reg.
+    }
+
+    protected async migrateWorld(tezlandWorldV2: WalletContract, tezlandWorldV1: WalletContract, tezlandPlacesV2: WalletContract) {
+        await this.run_op_task("Set migration contract on World v2...", async () => {
+            return tezlandWorldV2.methods.update_settings([{migration_from: tezlandWorldV1.address}]).send()
+        });
+
+        const num_tokens = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+
+        // TODO: do in batches of 100 or so. record last id in reg.
+
+        const batch = this.tezos!.wallet.batch();
+        for (let i = 0; i < num_tokens; ++i) {
+            batch.with([{
+                kind: OpKind.TRANSACTION,
+                ...tezlandWorldV1.methodsObject.set_item_data({
+                    lot_id: i,
+                    update_map: new MichelsonMap()
+                }).toTransferParams()
+            }])
+        }
+
+        await this.run_op_task("Migrate world", () => {
+            return batch.send();
+        });
+
+        await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
+            return tezlandWorldV2.methods.update_settings([{migration_from: null}, {paused: false}]).send()
+        });
+
+        // TODO: set world migrated in deploy reg.
     }
 }

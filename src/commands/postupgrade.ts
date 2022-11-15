@@ -142,7 +142,8 @@ export default class PostUpgrade extends PostDeployBase {
     }
 
     protected async deployDevWorld(contracts: PostDeployContracts) {
-        assert(this.tezos);
+        console.log("no need to deploy dev world.")
+        /*assert(this.tezos);
 
         console.log(kleur.bgGreen("Deploying dev world"));
 
@@ -172,7 +173,7 @@ export default class PostUpgrade extends PostDeployBase {
         // send batch.
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
-        console.log(`>> Done. Transaction hash: ${mint_batch_op.opHash}\n`);
+        console.log(`>> Done. Transaction hash: ${mint_batch_op.opHash}\n`);*/
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {
