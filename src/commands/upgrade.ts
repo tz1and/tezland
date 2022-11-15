@@ -11,11 +11,6 @@ import config from '../user.config';
 import { DeployMode } from '../config/config';
 
 
-// TODO: need to move the deploy code here and make it update from v1.
-// TODO: v2 gas tests, etc... from deploy_v2
-// TODO: actually update metadata on World and Minter v1
-
-
 export default class Upgrade extends PostUpgrade {
     constructor(options: any) {
         super(options);
