@@ -264,7 +264,7 @@ export default class DeployBase {
         const operation = await f();
         await operation.confirmation();
         console.log(kleur.green(">> Done."), `Transaction hash: ${operation.opHash}\n`);
-        if (print_fees) this.feesToString(operation);
+        if (print_fees) console.log(`${task_name}: ${this.feesToString(operation)}`);
     }
 
     private async confirmDeploy() {
