@@ -1,9 +1,7 @@
 import kleur from "kleur";
-import { ContractAbstraction, TransactionWalletOperation, Wallet } from "@taquito/taquito";
-import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
+import { ContractAbstraction, OpKind, Wallet } from "@taquito/taquito";
 import { DeployMode } from "../config/config";
 import DeployBase from "./DeployBase";
-import config from "../user.config";
 
 
 export type PostDeployContracts = Map<string, ContractAbstraction<Wallet>>;
@@ -52,20 +50,30 @@ export default class PostDeployBase extends DeployBase {
         throw new Error("Method not implemented.");
     }
 
-    protected async feesToString(op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
-        const receipt = await op.receipt();
-        //console.log("totalFee", receipt.totalFee.toNumber());
-        //console.log("totalGas", receipt.totalGas.toNumber());
-        //console.log("totalStorage", receipt.totalStorage.toNumber());
-        //console.log("totalAllocationBurn", receipt.totalAllocationBurn.toNumber());
-        //console.log("totalOriginationBurn", receipt.totalOriginationBurn.toNumber());
-        //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
-        //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
-        // TODO: figure out how to actually calculate burn.
-        const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 250 / 1000000;
-        const totalFee = receipt.totalFee.toNumber() / 1000000;
-        //const totalGas = receipt.totalGas.toNumber() / 1000000;
-        //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
-        return `storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)}`;
+    // Utils
+    protected async fa2_set_operators(contracts: PostDeployContracts, operators: Map<string, Map<string, number[]>>) {
+        return this.run_op_task("Setting operators", () => {
+            let batch = this.tezos!.wallet.batch();
+
+            for (const [token_contract, token_map] of operators) {
+                let contract = contracts.get(token_contract)!;
+                for (const [to_contract, token_ids] of token_map) {
+                    for (const token_id of token_ids) {
+                        batch.with([{
+                            kind: OpKind.TRANSACTION,
+                            ...contract.methods.update_operators([{
+                                add_operator: {
+                                    owner: this.accountAddress,
+                                    operator: contracts.get(to_contract)!.address,
+                                    token_id: token_id
+                                }
+                            }]).toTransferParams()
+                        }])
+                    }
+                }
+            }
+
+            return batch.send()
+        });
     }
 }

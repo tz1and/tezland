@@ -101,27 +101,88 @@ export default class PostDeploy extends PostDeployBase {
         console.log(kleur.bgGreen("Deploying dev world"));
 
         // prepare batch
-        const mint_batch = this.tezos.wallet.batch();
+        await this.run_op_task("Mint items", async () => {
+            const mint_batch = this.tezos!.wallet.batch();
 
-        await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!);
-        await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!);
 
-        // don't mint places for now. use generate map.
-        const places = [];
-        places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
-        this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
+            const places = [];
+            places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+            places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+            places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+            places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
+            this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
 
-        // send batch.
-        const mint_batch_op = await mint_batch.send();
-        await mint_batch_op.confirmation();
+            return mint_batch.send();
+        });
 
-        console.log("Successfully minted items");
-        console.log(`>> Transaction hash: ${mint_batch_op.opHash}\n`);
+        // set operators
+        await this.fa2_set_operators(contracts, new Map(Object.entries({
+            items_FA2_contract: new Map(Object.entries({
+                World_contract: [0, 1, 2, 3]
+            })),
+            places_FA2_contract: new Map(Object.entries({
+                Dutch_contract: [1, 3]
+            }))
+        })));
+
+        await this.run_op_task("Place 10 items", () => {
+            const list_ten_items = [
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+            ];
+            return contracts.get("World_contract")!.methodsObject.place_items({
+                lot_id: 0, item_list: list_ten_items
+            }).send();
+        });
+
+        await this.run_op_task("Place 5 items", () => {
+            const list_five_items = [
+                { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+            ];
+            return contracts.get("World_contract")!.methodsObject.place_items({
+                lot_id: 2, item_list: list_five_items
+            }).send();
+        });
+
+        await this.run_op_task("Create auction 1", () => {
+            let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
+            return contracts.get("Dutch_contract")!.methodsObject.create({
+                token_id: 1,
+                start_price: 200000,
+                end_price: 100000,
+                start_time: current_time.toString(),
+                end_time: (current_time + 2000).toString(),
+                fa2: contracts.get("places_FA2_contract")!.address
+            }).send();
+        });
+
+        await this.run_op_task("Create auction 3", () => {
+            let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
+            return contracts.get("Dutch_contract")!.methodsObject.create({
+                token_id: 3,
+                start_price: 200000,
+                end_price: 100000,
+                start_time: current_time.toString(),
+                end_time: (current_time + 2000).toString(),
+                fa2: contracts.get("places_FA2_contract")!.address
+            }).send();
+        });
 
         // TODO: place a few items.
     }
