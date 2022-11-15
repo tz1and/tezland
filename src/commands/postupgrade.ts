@@ -14,9 +14,9 @@ export default class PostUpgrade extends PostDeployBase {
         console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
         console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
         console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
-        console.log("REACT_APP_WORLD_CONTRACT=" + contracts.get("World_contract")!.address);
-        console.log("REACT_APP_MINTER_CONTRACT=" + contracts.get("Minter_contract")!.address);
-        console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_contract")!.address);
+        console.log("REACT_APP_WORLD_CONTRACT=" + contracts.get("World_v2_contract")!.address);
+        console.log("REACT_APP_MINTER_CONTRACT=" + contracts.get("Minter_v2_contract")!.address);
+        console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_v2_contract")!.address);
         console.log("REACT_APP_FACTORY_CONTRACT=" + contracts.get("Factory_contract")!.address);
         console.log("REACT_APP_REGISTRY_CONTRACT=" + contracts.get("Registry_contract")!.address);
         console.log()
@@ -26,12 +26,16 @@ export default class PostUpgrade extends PostDeployBase {
     typename: tezlandItems
 
   tezlandPlaces:
-    address: ${contracts.get("places_v2_FA2_contract")!.address}
+    address: ${contracts.get("places_FA2_contract")!.address}
     typename: tezlandPlaces
+
+  tezlandPlacesV2:
+    address: ${contracts.get("places_v2_FA2_contract")!.address}
+    typename: tezlandPlacesV2
 
   tezlandInteriors:
     address: ${contracts.get("interiors_FA2_contract")!.address}
-    typename: tezlandPlaces
+    typename: tezlandPlacesV2
 
   tezlandDAO:
     address: ${contracts.get("dao_FA2_contract")!.address}
@@ -41,13 +45,25 @@ export default class PostUpgrade extends PostDeployBase {
     address: ${contracts.get("World_contract")!.address}
     typename: tezlandWorld
 
+  tezlandWorldV2:
+    address: ${contracts.get("World_v2_contract")!.address}
+    typename: tezlandWorldV2
+    
   tezlandMinter:
     address: ${contracts.get("Minter_contract")!.address}
     typename: tezlandMinter
 
+  tezlandMinterV2:
+    address: ${contracts.get("Minter_v2_contract")!.address}
+    typename: tezlandMinterV2
+
   tezlandDutchAuctions:
     address: ${contracts.get("Dutch_contract")!.address}
     typename: tezlandDutchAuctions
+
+  tezlandDutchAuctionsV2:
+    address: ${contracts.get("Dutch_v2_contract")!.address}
+    typename: tezlandDutchAuctionsV2
     
   tezlandFactory:
     address: ${contracts.get("Factory_contract")!.address}
@@ -150,10 +166,10 @@ export default class PostUpgrade extends PostDeployBase {
         // prepare batch
         const mint_batch = this.tezos.wallet.batch();
 
-        await this.mintNewItem_v1('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
 
         // don't mint places for now. use generate map.
         const places = [];
@@ -184,7 +200,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         {
             const mint_batch = this.tezos.wallet.batch();
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
             // Mint some places in new place contract
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
@@ -202,7 +218,7 @@ export default class PostUpgrade extends PostDeployBase {
             const op_op = await contracts.get("items_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
-                    operator: contracts.get("World_contract")!.address,
+                    operator: contracts.get("World_v2_contract")!.address,
                     token_id: 0
                 }
             }]).send()
@@ -223,7 +239,7 @@ export default class PostUpgrade extends PostDeployBase {
         {
             list_one_item = new MichelsonMap<string, object[]>();
             list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff", primary: false } }]);
-            const setup_storage = await contracts.get("World_contract")!.methodsObject.place_items({
+            const setup_storage = await contracts.get("World_v2_contract")!.methodsObject.place_items({
                 chunk_key: placeKey0Chunk0, place_item_map: list_one_item
             }).send();
             await setup_storage.confirmation();
@@ -232,7 +248,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         {
-            const setup_storage1 = await contracts.get("World_contract")!.methodsObject.place_items({
+            const setup_storage1 = await contracts.get("World_v2_contract")!.methodsObject.place_items({
                 chunk_key: placeKey1Chunk0, place_item_map: list_one_item
             }).send();
             await setup_storage1.confirmation();
@@ -264,7 +280,7 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const props_map = new MichelsonMap<string, string>();
             props_map.set('00', '000000');
-            const place_props_op = await contracts.get("World_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
+            const place_props_op = await contracts.get("World_v2_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
             await place_props_op.confirmation();
             console.log("update_place_props:\t" + await this.feesToString(place_props_op));
         }
@@ -273,7 +289,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // place one item
         {
-            const place_one_item_op = await contracts.get("World_contract")!.methodsObject.place_items({
+            const place_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
                 chunk_key: placeKey0Chunk0, place_item_map: list_one_item
             }).send();
             await place_one_item_op.confirmation();
@@ -295,7 +311,7 @@ export default class PostUpgrade extends PostDeployBase {
                 { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
                 { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
             ]);
-            const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
+            const place_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
                 chunk_key: placeKey0Chunk0, place_item_map: list_ten_items
             }).send();
             await place_ten_items_op.confirmation();
@@ -310,7 +326,7 @@ export default class PostUpgrade extends PostDeployBase {
             const map_update_one_item_token: MichelsonMap<string, object[]> = new MichelsonMap();
             map_update_one_item_token.set(contracts.get("items_FA2_contract")!.address, [{ item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]);
             map_update_one_item_issuer.set(this.accountAddress!, map_update_one_item_token);
-            const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
+            const set_item_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
                 chunk_key: placeKey0Chunk0, update_map: map_update_one_item_issuer
             }).send();
             await set_item_data_op.confirmation();
@@ -334,7 +350,7 @@ export default class PostUpgrade extends PostDeployBase {
                 { item_id: 10, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
             ]);
             map_update_ten_items_issuer.set(this.accountAddress!, map_update_ten_items_token);
-            const set_ten_items_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
+            const set_ten_items_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
                 chunk_key: placeKey0Chunk0, update_map: map_update_ten_items_issuer
             }).send();
             await set_ten_items_data_op.confirmation();
@@ -349,7 +365,7 @@ export default class PostUpgrade extends PostDeployBase {
             const map_remove_one_item_token: MichelsonMap<string, number[]> = new MichelsonMap();
             map_remove_one_item_token.set(contracts.get("items_FA2_contract")!.address, [0]);
             map_remove_one_item_issuer.set(this.accountAddress!, map_remove_one_item_token);
-            const remove_one_item_op = await contracts.get("World_contract")!.methodsObject.remove_items({
+            const remove_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
                 chunk_key: placeKey0Chunk0, remove_map: map_remove_one_item_issuer
             }).send();
             await remove_one_item_op.confirmation();
@@ -362,7 +378,7 @@ export default class PostUpgrade extends PostDeployBase {
             const map_remove_ten_items_token: MichelsonMap<string, number[]> = new MichelsonMap();
             map_remove_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [1,2,3,4,5,6,7,8,9,10]);
             map_remove_ten_items_issuer.set(this.accountAddress!, map_remove_ten_items_token);
-            const remove_ten_items_op = await contracts.get("World_contract")!.methodsObject.remove_items({
+            const remove_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
                 chunk_key: placeKey0Chunk0, remove_map: map_remove_ten_items_issuer
             }).send();
             await remove_ten_items_op.confirmation();
@@ -373,11 +389,11 @@ export default class PostUpgrade extends PostDeployBase {
 
         // set_permissions
         {
-            const perm_op = await contracts.get("World_contract")!.methods.set_permissions([{
+            const perm_op = await contracts.get("World_v2_contract")!.methods.set_permissions([{
                 add: {
                     place_key: placeKey0,
                     owner: this.accountAddress,
-                    permittee: contracts.get("Dutch_contract")!.address,
+                    permittee: contracts.get("Dutch_v2_contract")!.address,
                     perm: 7
                 }
             }]).send()
@@ -387,7 +403,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         // get item
         {
-            const get_item_op = await contracts.get("World_contract")!.methodsObject.get_item({
+            const get_item_op = await contracts.get("World_v2_contract")!.methodsObject.get_item({
                 chunk_key: placeKey0Chunk0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 11
             }).send({ mutez: true, amount: 1000000 });
             await get_item_op.confirmation();
@@ -410,7 +426,7 @@ export default class PostUpgrade extends PostDeployBase {
                     ...contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
                         add_operator: {
                             owner: this.accountAddress,
-                            operator: contracts.get("Dutch_contract")!.address,
+                            operator: contracts.get("Dutch_v2_contract")!.address,
                             token_id: 0
                         }
                     }]).toTransferParams()
@@ -418,7 +434,7 @@ export default class PostUpgrade extends PostDeployBase {
                 // create auction
                 {
                     kind: OpKind.TRANSACTION,
-                    ...contracts.get("Dutch_contract")!.methodsObject.create({
+                    ...contracts.get("Dutch_v2_contract")!.methodsObject.create({
                         auction_key: {
                             fa2: contracts.get("places_v2_FA2_contract")!.address,
                             token_id: 0,
@@ -439,7 +455,7 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         {
-            const bid_op = await contracts.get("Dutch_contract")!.methodsObject.bid({
+            const bid_op = await contracts.get("Dutch_v2_contract")!.methodsObject.bid({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
@@ -461,7 +477,7 @@ export default class PostUpgrade extends PostDeployBase {
                     ...contracts.get("places_v2_FA2_contract")!.methods.update_operators([{
                         add_operator: {
                             owner: this.accountAddress,
-                            operator: contracts.get("Dutch_contract")!.address,
+                            operator: contracts.get("Dutch_v2_contract")!.address,
                             token_id: 0
                         }
                     }]).toTransferParams()
@@ -469,7 +485,7 @@ export default class PostUpgrade extends PostDeployBase {
                 // create auction
                 {
                     kind: OpKind.TRANSACTION,
-                    ...contracts.get("Dutch_contract")!.methodsObject.create({
+                    ...contracts.get("Dutch_v2_contract")!.methodsObject.create({
                         auction_key: {
                             fa2: contracts.get("places_v2_FA2_contract")!.address,
                             token_id: 0,
@@ -490,7 +506,7 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         {
-            const cancel_op = await contracts.get("Dutch_contract")!.methodsObject.cancel({
+            const cancel_op = await contracts.get("Dutch_v2_contract")!.methodsObject.cancel({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
@@ -514,7 +530,7 @@ export default class PostUpgrade extends PostDeployBase {
                 op_alot.push({
                     add_operator: {
                         owner: this.accountAddress,
-                        operator: contracts.get("Minter_contract")!.address,
+                        operator: contracts.get("Minter_v2_contract")!.address,
                         token_id: n
                     }
                 });
@@ -532,7 +548,7 @@ export default class PostUpgrade extends PostDeployBase {
             const transfer_before_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
-                    to_: contracts.get("Minter_contract")!.address,
+                    to_: contracts.get("Minter_v2_contract")!.address,
                     amount: 1,
                     token_id: 0
                 }]
@@ -545,7 +561,7 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const item_adhoc_op_op = await contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
-                    operator: contracts.get("Minter_contract")!.address,
+                    operator: contracts.get("Minter_v2_contract")!.address,
                     token_id: 0
                 }]
             }).send()
@@ -559,7 +575,7 @@ export default class PostUpgrade extends PostDeployBase {
             const adhoc_ops = [];
             for (const n of [...Array(100).keys()])
                 adhoc_ops.push({
-                    operator: contracts.get("Minter_contract")!.address,
+                    operator: contracts.get("Minter_v2_contract")!.address,
                     token_id: n
                 });
             item_adhoc_max_op = contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
@@ -582,7 +598,7 @@ export default class PostUpgrade extends PostDeployBase {
             const transfer_after_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
-                    to_: contracts.get("Minter_contract")!.address,
+                    to_: contracts.get("Minter_v2_contract")!.address,
                     amount: 1,
                     token_id: 0
                 }]
@@ -595,7 +611,7 @@ export default class PostUpgrade extends PostDeployBase {
         {
             const item_adhoc_after_op = await contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
-                    operator: contracts.get("Minter_contract")!.address,
+                    operator: contracts.get("Minter_v2_contract")!.address,
                     token_id: 0
                 }]
             }).send()
@@ -608,7 +624,7 @@ export default class PostUpgrade extends PostDeployBase {
             const transfer_final_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
-                    to_: contracts.get("Minter_contract")!.address,
+                    to_: contracts.get("Minter_v2_contract")!.address,
                     amount: 1,
                     token_id: 0
                 }]
@@ -622,8 +638,8 @@ export default class PostUpgrade extends PostDeployBase {
         // mint again
         {
             const mint_batch2 = this.tezos.wallet.batch();
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
             const mint_batch2_op = await mint_batch2.send();
             await mint_batch2_op.confirmation();
             console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
@@ -659,7 +675,7 @@ export default class PostUpgrade extends PostDeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
@@ -668,7 +684,7 @@ export default class PostUpgrade extends PostDeployBase {
         const op_op = await contracts.get("items_FA2_contract")!.methods.update_operators([{
             add_operator: {
                 owner: this.accountAddress,
-                operator: contracts.get("World_contract")!.address,
+                operator: contracts.get("World_v2_contract")!.address,
                 token_id: token_id
             }
         }]).send()
@@ -683,21 +699,21 @@ export default class PostUpgrade extends PostDeployBase {
 
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
-            const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
+            const place_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
                 place_key: {fa2: contracts.get("places_v2_FA2_contract")!.address, id: token_id }, place_item_map: item_map
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items:\t" + await this.feesToString(place_ten_items_op));
         }
 
-        /*const place_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
+        /*const place_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
             lot_id: token_id, place_item_map: michelsonmap... [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
         }).send();
         await place_items_op.confirmation();
 
         const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
         map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
-        const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
+        const set_item_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
             lot_id: token_id, update_map: map_update_one_item
         }).send();
         await set_item_data_op.confirmation();
@@ -705,14 +721,14 @@ export default class PostUpgrade extends PostDeployBase {
     }
 
     protected async stressTestSingle(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {
-        const set_item_limit_op = await contracts.get("World_contract")!.methodsObject.update_item_limit(10000).send();
+        const set_item_limit_op = await contracts.get("World_v2_contract")!.methodsObject.update_item_limit(10000).send();
         await set_item_limit_op.confirmation();
 
         this.mintAndPlace(contracts);
     }
 
     protected async stressTestMulti(contracts: PostDeployContracts) {
-        const set_item_limit_op = await contracts.get("World_contract")!.methodsObject.update_item_limit(10000).send();
+        const set_item_limit_op = await contracts.get("World_v2_contract")!.methodsObject.update_item_limit(10000).send();
         await set_item_limit_op.confirmation();
 
         for (let i = 0; i < 1000; ++i) {

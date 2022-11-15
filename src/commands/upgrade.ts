@@ -363,9 +363,12 @@ export default class Upgrade extends PostUpgrade {
             places_v2_FA2_contract: places_v2_FA2_contract,
             interiors_FA2_contract: interiors_FA2_contract,
             dao_FA2_contract: tezlandDAO,
-            Minter_contract: Minter_v2_contract,
-            World_contract: World_v2_contract,
-            Dutch_contract: Dutch_v2_contract,
+            Minter_contract: tezlandMinter,
+            Minter_v2_contract: Minter_v2_contract,
+            World_contract: tezlandWorld,
+            World_v2_contract: World_v2_contract,
+            Dutch_contract: tezlandDutchAuctions,
+            Dutch_v2_contract: Dutch_v2_contract,
             Factory_contract: Factory_contract,
             Registry_contract: Registry_contract
         })));
