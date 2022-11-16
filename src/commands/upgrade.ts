@@ -375,25 +375,31 @@ export default class Upgrade extends PostUpgrade {
     }
 
     protected async cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions: WalletContract, tezlandPlaces: WalletContract) {
-        await this.run_op_task("Cancel V1 auctions", () => {
-            const batch = this.tezos!.wallet.batch();
+        const v1auctionstorage = (await tezlandDutchAuctions.storage()) as any;
 
-            // TODO: get list of auctions from indexer.
-            const auction_id_list = [0, 1];
+        // TODO: maybe get list of auctions from indexer instead?
+        const auction_id = v1auctionstorage.auction_id;
 
-            for (const id of auction_id_list) {
+        const batch = this.tezos!.wallet.batch();
+
+        for (let id = 0; id < auction_id; ++id) {
+            const auction = await v1auctionstorage.auctions.get(id);
+            if (auction) {
+                console.log(`Cancelling auction #${id}.`);
                 batch.with([{
                     kind: OpKind.TRANSACTION,
                     ...tezlandDutchAuctions.methodsObject.cancel({auction_id: id}).toTransferParams()
                 }])
             }
+        }
 
-            // finally, pause place transfers.
-            batch.with([{
-                kind: OpKind.TRANSACTION,
-                ...tezlandPlaces.methods.set_pause(true).toTransferParams()
-            }]) 
+        // finally, pause place transfers.
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...tezlandPlaces.methods.set_pause(true).toTransferParams()
+        }])
 
+        await this.run_op_task("Cancel V1 auctions and pause V1 place transfers", () => {
             return batch.send();
         });
 
@@ -403,25 +409,25 @@ export default class Upgrade extends PostUpgrade {
     protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
         const num_tokens = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
-        const v1storage = (await tezlandPlacesV1.storage()) as any;
+        const v1placestorage = (await tezlandPlacesV1.storage()) as any;
 
         // get metadata map.
         const metadata_map = new Map<number, string>();
         for (let i = 0; i < num_tokens; ++i) {
-            const entry = await v1storage.token_metadata.get(i);
+            const entry = await v1placestorage.token_metadata.get(i);
             metadata_map.set(i, bytes2Char(entry.token_info.get("")!));
         }
 
         // Get owner map.
         const owner_map = new Map<number, string>();
         for (let i = 0; i < num_tokens; ++i) {
-            const address = await v1storage.ledger.get(i);
+            const address = await v1placestorage.ledger.get(i);
             owner_map.set(i, address);
         }
 
         // Make sure no places are owned by contracts.
         owner_map.forEach((v, k) => {
-            if(v.startsWith("KT")) throw new Error(`Erro: Place #${k} is owned by contract.`);
+            if(v.startsWith("KT")) throw new Error(`Error: Place #${k} is owned by contract.`);
         });
 
         // re-mint and -distribute places in v2.
@@ -452,10 +458,19 @@ export default class Upgrade extends PostUpgrade {
 
         const num_tokens = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
+        const v1worldtorage = (await tezlandWorldV1.storage()) as any;
+
         // TODO: do in batches of 100 or so. record last id in reg.
 
         const batch = this.tezos!.wallet.batch();
         for (let i = 0; i < num_tokens; ++i) {
+            // Check if place is empty. If it is, skip migration.
+            const place = await v1worldtorage.places.get(i);
+            if (!place) {
+                console.log(`Place #${i} is empty, skipping.`);
+                continue;
+            }
+
             batch.with([{
                 kind: OpKind.TRANSACTION,
                 ...tezlandWorldV1.methodsObject.set_item_data({

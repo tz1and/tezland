@@ -129,7 +129,7 @@ export default class PostDeploy extends PostDeployBase {
             }))
         })));
 
-        await this.run_op_task("Place 10 items", () => {
+        await this.run_op_task("Place 10 items in Place #0", () => {
             const list_ten_items = [
                 { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
                 { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
@@ -147,7 +147,7 @@ export default class PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        await this.run_op_task("Place 5 items", () => {
+        await this.run_op_task("Place 5 items in Place #2", () => {
             const list_five_items = [
                 { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
                 { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
@@ -160,7 +160,7 @@ export default class PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        await this.run_op_task("Create auction 1", () => {
+        await this.run_op_task("Create auction Place #1", () => {
             let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             return contracts.get("Dutch_contract")!.methodsObject.create({
                 token_id: 1,
@@ -172,7 +172,7 @@ export default class PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        await this.run_op_task("Create auction 3", () => {
+        await this.run_op_task("Create auction Place #3", () => {
             let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             return contracts.get("Dutch_contract")!.methodsObject.create({
                 token_id: 3,
