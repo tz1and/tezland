@@ -23,19 +23,19 @@ export default class PostUpgrade extends PostDeployBase {
         console.log(`contracts:
   tezlandItems:
     address: ${contracts.get("items_FA2_contract")!.address}
-    typename: tezlandItems
+    typename: tezlandFA2Fungible
 
   tezlandPlaces:
     address: ${contracts.get("places_FA2_contract")!.address}
-    typename: tezlandPlaces
+    typename: tezlandFA2NFT
 
   tezlandPlacesV2:
     address: ${contracts.get("places_v2_FA2_contract")!.address}
-    typename: tezlandPlacesV2
+    typename: tezlandFA2NFTV2
 
   tezlandInteriors:
     address: ${contracts.get("interiors_FA2_contract")!.address}
-    typename: tezlandPlacesV2
+    typename: tezlandFA2NFTV2
 
   tezlandDAO:
     address: ${contracts.get("dao_FA2_contract")!.address}
