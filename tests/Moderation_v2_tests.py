@@ -1,6 +1,6 @@
 import smartpy as sp
 
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
+mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation_v2.py")
 
 class ModerationTest(mod_mixin.Moderation, sp.Contract):
     def __init__(self, administrator):

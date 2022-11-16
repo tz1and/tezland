@@ -8,7 +8,7 @@ import smartpy as sp
 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
+mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation_v2.py")
 allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
