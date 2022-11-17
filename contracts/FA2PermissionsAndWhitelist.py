@@ -13,10 +13,10 @@ permittedFA2MapValueType = sp.TRecord(
 ).layout(("whitelist_enabled", "whitelist_admin"))
 
 #
-# Lazy map of permitted FA2 tokens for 'other' type.
+# Map of permitted FA2 tokens for 'other' type.
 class PermittedFA2Map(utils.GenericMap):
     def __init__(self) -> None:
-        super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED")
+        super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED", big_map=False)
 
 #
 # Lazy map of whitelist entries.

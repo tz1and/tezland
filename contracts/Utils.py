@@ -5,16 +5,20 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 #
-# Generic lazy map for convenience.
+# Generic (lazy) map for convenience.
 class GenericMap:
-    def __init__(self, key_type, value_type, default_value=None, get_error=None) -> None:
+    def __init__(self, key_type, value_type, default_value=None, get_error=None, big_map=True) -> None:
         self.key_type = key_type
         self.value_type = value_type
         self.default_value = default_value
         self.get_error = get_error
+        self.big_map = big_map
 
     def make(self, defaults={}):
-        return sp.big_map(l=defaults, tkey=self.key_type, tvalue=self.value_type)
+        if self.big_map:
+            return sp.big_map(l=defaults, tkey=self.key_type, tvalue=self.value_type)
+        else:
+            return sp.map(l=defaults, tkey=self.key_type, tvalue=self.value_type)
 
     def add(self, map, key, value = None):
         if value is None:
