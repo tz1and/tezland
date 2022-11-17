@@ -243,10 +243,11 @@ class TL_TokenRegistry(
         collection_props = self.data.private_collections.get(collection, message = "INVALID_COLLECTION")
         sp.verify((collection_props.owner == sp.sender), "ONLY_OWNER")
 
-    def onlyOwnerOrCollaboratorPrivate(self, collection):
-        # get owner from private collection map and check owner or collaborator
-        collection_props = self.data.private_collections.get(collection, message = "INVALID_COLLECTION")
-        sp.verify((collection_props.owner == sp.sender) | (self.data.collaborators.contains(sp.record(collection = collection, collaborator = sp.sender))), "ONLY_OWNER_OR_COLLABORATOR")
+    def onlyOwnerPrivateGet(self, collection):
+        # get owner from private collection map and check owner
+        collection_props = sp.compute(self.data.private_collections.get(collection, message = "INVALID_COLLECTION"))
+        sp.verify((collection_props.owner == sp.sender), "ONLY_OWNER")
+        return collection_props
 
     #
     # Admin and permitted entry points
@@ -345,9 +346,13 @@ class TL_TokenRegistry(
             new_owner = sp.TAddress))
 
         self.onlyUnpaused()
-        self.onlyOwnerPrivate(params.collection)
+        the_collection = self.onlyOwnerPrivateGet(params.collection)
 
-        self.data.private_collections[params.collection].proposed_owner = sp.some(params.new_owner)
+        # Set proposed owner
+        the_collection.proposed_owner = sp.some(params.new_owner)
+
+        # Update collection
+        self.data.private_collections[params.collection] = the_collection
 
     @sp.entry_point(lazify = True)
     def accept_private_ownership(self, collection):
@@ -356,7 +361,7 @@ class TL_TokenRegistry(
 
         self.onlyUnpaused()
 
-        the_collection = self.data.private_collections[collection]
+        the_collection = sp.compute(self.data.private_collections.get(collection, message = "INVALID_COLLECTION"))
 
         # Check that there is a proposed owner and
         # check that the proposed owner executed the entry point
@@ -367,6 +372,9 @@ class TL_TokenRegistry(
 
         # Reset the proposed owner value
         the_collection.proposed_owner = sp.none
+
+        # Update collection
+        self.data.private_collections[collection] = the_collection
 
     #
     # Views
