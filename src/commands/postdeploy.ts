@@ -96,8 +96,6 @@ export default class PostDeploy extends PostDeployBase {
     }
 
     protected async deployDevWorld(contracts: PostDeployContracts) {
-        assert(this.tezos);
-
         console.log(kleur.bgGreen("Deploying dev world"));
 
         // prepare batch

@@ -158,38 +158,147 @@ export default class PostUpgrade extends PostDeployBase {
     }
 
     protected async deployDevWorld(contracts: PostDeployContracts) {
-        console.log("no need to deploy dev world.")
-        /*assert(this.tezos);
-
         console.log(kleur.bgGreen("Deploying dev world"));
 
-        // prepare batch
-        const mint_batch = this.tezos.wallet.batch();
+        // set operators
+        await this.fa2_set_operators(contracts, new Map(Object.entries({
+            items_FA2_contract: new Map(Object.entries({
+                World_v2_contract: [0, 1, 2, 3]
+            })),
+            places_v2_FA2_contract: new Map(Object.entries({
+                Dutch_v2_contract: [0, 1, 2, 3]
+            }))
+        })));
 
-        await this.mintNewItem_v1('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
-        await this.mintNewItem_v1('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+        await this.run_op_task("Place 10 items in Place #1", () => {
+            const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
+            list_ten_items.set (contracts.get("items_FA2_contract")!.address, [
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+            ]);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 } }, place_item_map: list_ten_items
+            }).send();
+        });
 
-        // don't mint places for now. use generate map.
-        const places = [];
-        places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-        places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
-        this.mintNewPlaces(places, mint_batch, contracts.get("places_v2_FA2_contract")!);
+        await this.run_op_task("Place 5 items in Place #3", () => {
+            const list_five_items: MichelsonMap<string, object[]> = new MichelsonMap();
+            list_five_items.set (contracts.get("items_FA2_contract")!.address, [
+                { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+            ]);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 3 } }, place_item_map: list_five_items
+            }).send();
+        });
 
-        const interior_places = [];
-        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
-        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
-        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
-        interior_places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[100, 0, 100], [100, 0, -100], [-100, 0, -100], [-100, 0, 100]]));
-        this.mintNewInteriorPlaces(interior_places, mint_batch, contracts.get("interiors_FA2_contract")!);
+        await this.run_op_task("Update 3 items in Place #2", () => {
+            const update_three_items = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 1, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                    ]
+                }
+            })
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 2 } }, update_map: update_three_items
+            }).send();
+        });
 
-        // send batch.
-        const mint_batch_op = await mint_batch.send();
-        await mint_batch_op.confirmation();
-        console.log(`>> Done. Transaction hash: ${mint_batch_op.opHash}\n`);*/
+        await this.run_op_task("Update 5 items in Place #0", () => {
+            const update_five_items = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 2, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 5, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 7, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                        { item_id: 8, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                    ]
+                }
+            })
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 } }, update_map: update_five_items
+            }).send();
+        });
+
+        await this.run_op_task("Remove 2 items in Place #1", () => {
+            const remove_two_items = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [ 2, 3 ]
+                }
+            })
+            return contracts.get("World_v2_contract")!.methodsObject.remove_items({
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 } }, remove_map: remove_two_items
+            }).send();
+        });
+
+        await this.run_op_task("Create auction Place #0", () => {
+            let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
+            return contracts.get("Dutch_v2_contract")!.methodsObject.create({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                },
+                auction: {
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString()
+                }
+            }).send();
+        });
+
+        await this.run_op_task("Create auction Place #2", () => {
+            let current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
+            return contracts.get("Dutch_v2_contract")!.methodsObject.create({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 2,
+                    owner: this.accountAddress
+                },
+                auction: {
+                    start_price: 200000,
+                    end_price: 100000,
+                    start_time: current_time.toString(),
+                    end_time: (current_time + 2000).toString()
+                }
+            }).send();
+        });
+
+        await this.run_op_task("Bid on auction Place #0", () => {
+            return contracts.get("Dutch_v2_contract")!.methodsObject.bid({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 0,
+                    owner: this.accountAddress
+                }
+            }).send({amount: 200000, mutez: true});
+        });
+
+        await this.run_op_task("Cancel auction Place #2", () => {
+            return contracts.get("Dutch_v2_contract")!.methodsObject.cancel({
+                auction_key: {
+                    fa2: contracts.get("places_v2_FA2_contract")!.address,
+                    token_id: 2,
+                    owner: this.accountAddress
+                }
+            }).send();
+        });
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {
