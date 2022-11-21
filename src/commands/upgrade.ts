@@ -480,9 +480,11 @@ export default class Upgrade extends PostUpgrade {
             }])
         }
 
-        await this.run_op_task("Migrate world", () => {
-            return batch.send();
-        });
+        // @ts-expect-error
+        if (batch.operations.length > 0)
+            await this.run_op_task("Migrate world", () => {
+                return batch.send();
+            });
 
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
             return tezlandWorldV2.methods.update_settings([{migration_from: null}, {paused: false}]).send()
