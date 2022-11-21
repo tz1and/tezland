@@ -171,35 +171,39 @@ export default class PostUpgrade extends PostDeployBase {
         })));
 
         await this.run_op_task("Place 10 items in Place #1", () => {
-            const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
-            list_ten_items.set (contracts.get("items_FA2_contract")!.address, [
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
-            ]);
+            const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+                ]
+            }));
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 } }, place_item_map: list_ten_items
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 } }, place_item_map: map_ten_items
             }).send();
         });
 
         await this.run_op_task("Place 5 items in Place #3", () => {
-            const list_five_items: MichelsonMap<string, object[]> = new MichelsonMap();
-            list_five_items.set (contracts.get("items_FA2_contract")!.address, [
-                { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
-            ]);
+            const map_five_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_five_items.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+                ]
+            }));
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 3 } }, place_item_map: list_five_items
+                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 3 } }, place_item_map: map_five_items
             }).send();
         });
 
@@ -344,12 +348,16 @@ export default class PostUpgrade extends PostDeployBase {
          * World
          */
         // place one item to make sure storage is set.
-        let list_one_item;
+        let map_one_item;
         {
-            list_one_item = new MichelsonMap<string, object[]>();
-            list_one_item.set(contracts.get("items_FA2_contract")!.address, [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff", primary: false } }]);
+            map_one_item = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_one_item.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+                ]
+            }));
             const setup_storage = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: list_one_item
+                chunk_key: placeKey0Chunk0, place_item_map: map_one_item
             }).send();
             await setup_storage.confirmation();
             console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
@@ -358,7 +366,7 @@ export default class PostUpgrade extends PostDeployBase {
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         {
             const setup_storage1 = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey1Chunk0, place_item_map: list_one_item
+                chunk_key: placeKey1Chunk0, place_item_map: map_one_item
             }).send();
             await setup_storage1.confirmation();
             console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
@@ -399,7 +407,7 @@ export default class PostUpgrade extends PostDeployBase {
         // place one item
         {
             const place_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: list_one_item
+                chunk_key: placeKey0Chunk0, place_item_map: map_one_item
             }).send();
             await place_one_item_op.confirmation();
             console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
@@ -407,21 +415,23 @@ export default class PostUpgrade extends PostDeployBase {
 
         // place ten items
         {
-            const list_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
-            list_ten_items.set (contracts.get("items_FA2_contract")!.address, [
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
-            ]);
+            const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } }
+                ]
+            }));
             const place_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: list_ten_items
+                chunk_key: placeKey0Chunk0, place_item_map: map_ten_items
             }).send();
             await place_ten_items_op.confirmation();
             console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
@@ -431,12 +441,15 @@ export default class PostUpgrade extends PostDeployBase {
 
         // set one items data
         {
-            const map_update_one_item_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
-            const map_update_one_item_token: MichelsonMap<string, object[]> = new MichelsonMap();
-            map_update_one_item_token.set(contracts.get("items_FA2_contract")!.address, [{ item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }]);
-            map_update_one_item_issuer.set(this.accountAddress!, map_update_one_item_token);
+            const map_update_one_item = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 0, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+                    ]
+                }
+            });
             const set_item_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: placeKey0Chunk0, update_map: map_update_one_item_issuer
+                chunk_key: placeKey0Chunk0, update_map: map_update_one_item
             }).send();
             await set_item_data_op.confirmation();
             console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
@@ -444,23 +457,24 @@ export default class PostUpgrade extends PostDeployBase {
 
         // set ten items data
         {
-            const map_update_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, object[]>> = new MichelsonMap();
-            const map_update_ten_items_token: MichelsonMap<string, object[]> = new MichelsonMap();
-            map_update_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [
-                { item_id: 1, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 2, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 4, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 5, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 6, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 7, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 8, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 9, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                { item_id: 10, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
-            ]);
-            map_update_ten_items_issuer.set(this.accountAddress!, map_update_ten_items_token);
+            const map_update_ten_items = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 1, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 2, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 3, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 4, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 5, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 6, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 7, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 8, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 9, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+                        { item_id: 10, item_data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+                    ]
+                }
+            });
             const set_ten_items_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: placeKey0Chunk0, update_map: map_update_ten_items_issuer
+                chunk_key: placeKey0Chunk0, update_map: map_update_ten_items
             }).send();
             await set_ten_items_data_op.confirmation();
             console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
@@ -470,12 +484,13 @@ export default class PostUpgrade extends PostDeployBase {
 
         // remove one item
         {
-            const map_remove_one_item_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
-            const map_remove_one_item_token: MichelsonMap<string, number[]> = new MichelsonMap();
-            map_remove_one_item_token.set(contracts.get("items_FA2_contract")!.address, [0]);
-            map_remove_one_item_issuer.set(this.accountAddress!, map_remove_one_item_token);
+            const map_remove_one_item = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [0]
+                }
+            });
             const remove_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
-                chunk_key: placeKey0Chunk0, remove_map: map_remove_one_item_issuer
+                chunk_key: placeKey0Chunk0, remove_map: map_remove_one_item
             }).send();
             await remove_one_item_op.confirmation();
             console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
@@ -483,12 +498,13 @@ export default class PostUpgrade extends PostDeployBase {
 
         // remove ten items
         {
-            const map_remove_ten_items_issuer: MichelsonMap<string, MichelsonMap<string, number[]>> = new MichelsonMap();
-            const map_remove_ten_items_token: MichelsonMap<string, number[]> = new MichelsonMap();
-            map_remove_ten_items_token.set(contracts.get("items_FA2_contract")!.address, [1,2,3,4,5,6,7,8,9,10]);
-            map_remove_ten_items_issuer.set(this.accountAddress!, map_remove_ten_items_token);
+            const map_remove_ten_items = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [1,2,3,4,5,6,7,8,9,10]
+                }
+            });
             const remove_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
-                chunk_key: placeKey0Chunk0, remove_map: map_remove_ten_items_issuer
+                chunk_key: placeKey0Chunk0, remove_map: map_remove_ten_items
             }).send();
             await remove_ten_items_op.confirmation();
             console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
@@ -803,8 +819,9 @@ export default class PostUpgrade extends PostDeployBase {
         for (let i = 0; i < per_batch; ++i)
             item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff", primary: false } });
 
-        const item_map: MichelsonMap<string, object[]> = new MichelsonMap();
-        item_map.set(contracts.get("items_FA2_contract")!.address, item_list)
+
+        const item_map = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+        item_map.set(false, MichelsonMap.fromLiteral({ [contracts.get("items_FA2_contract")!.address]: item_list } ));
 
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
