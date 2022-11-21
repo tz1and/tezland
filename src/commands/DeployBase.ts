@@ -12,6 +12,7 @@ import assert from 'assert';
 import kleur from 'kleur';
 import prompt from 'prompt';
 import fs from 'fs';
+import util from 'util';
 import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
 
@@ -319,7 +320,7 @@ export default class DeployBase {
             const end_time = performance.now();
             console.log(kleur.green(`Deploy ran in ${((end_time - start_time) / 1000).toFixed(1)}s`));
         } catch (error) {
-            console.error(error);
+            console.error(util.inspect(error, {showHidden: false, depth: null, colors: true}));
         }
     };
 
