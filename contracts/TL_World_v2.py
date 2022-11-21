@@ -41,6 +41,11 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: make sure royalties version is set correctly everywhere.
 # TODO: test set_props value_to
 # TODO: test value_to place setting.
+# TODO: add views option to mixins to allow not including views.
+# TODO: test searching through chunks to find space when placing items. (see migration code). with lots of chunks. if it's worth the gas, maybe consider it.
+# TODO: don't deploy factory in upgrade, this feature comes later.
+# TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
+# TODO: place, update, delete in multiple chunks! (add a chunk id layer to maps)!!!!!!!!!!!
 
 
 # maybe?
@@ -664,11 +669,10 @@ class TL_World(
     def place_items(self, params):
         sp.set_type(params, sp.TRecord(
             chunk_key =  chunkPlaceKeyType,
-            place_item_map = sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)),
+            place_item_map = sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType))),
             merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
-            send_to_place = sp.TBool,
             ext = extensionArgType
-        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", ("send_to_place", "ext"))))))
+        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", "ext")))))
 
         self.onlyUnpaused()
 
@@ -691,8 +695,11 @@ class TL_World(
 
         # Count items to be added.
         add_item_count = sp.local("add_item_count", sp.nat(0))
-        with sp.for_("item_list", params.place_item_map.values()) as item_list:
-            add_item_count.value += sp.len(item_list)
+        fa2_set = sp.local("fa2_set", sp.set(t=sp.TAddress))
+        with sp.for_("fa2_map", params.place_item_map.values()) as fa2_map:
+            with sp.for_("fa2_item", fa2_map.items()) as fa2_item:
+                fa2_set.value.add(fa2_item.key)
+                add_item_count.value += sp.len(fa2_item.value)
 
         # Make sure chunk item limit is not exceeded.
         sp.verify(chunk_item_count + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
@@ -702,50 +709,51 @@ class TL_World(
 
         registry_info = registry_contract.getTokenRegistryInfo(
             self.data.registry,
-            params.place_item_map.keys(),
+            fa2_set.value.elements(),
             params.merkle_proofs)
 
-        # If tokens are sent to place, the issuer should be none, otherwise sender.
-        issuer = sp.compute(sp.eif(params.send_to_place, sp.none, sp.some(sp.sender)))
-
         # For each fa2 in the map.
-        with sp.for_("fa2_item", params.place_item_map.items()) as fa2_item:
-            sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
+        with sp.for_("send_to_place_item", params.place_item_map.items()) as send_to_place_item:
+            # If tokens are sent to place, the issuer should be none, otherwise sender.
+            issuer = sp.compute(sp.eif(send_to_place_item.key, sp.none, sp.some(sp.sender)))
 
-            # Get or create item storage.
-            item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
+            with sp.for_("fa2_item", send_to_place_item.value.items()) as fa2_item:
+                sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-            transferMap.add_fa2(fa2_item.key)
+                # Get or create item storage.
+                item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
 
-            # For each item in the list.
-            with sp.for_("curr", fa2_item.value) as curr:
-                with curr.match_cases() as arg:
-                    with arg.match("item") as item:
-                        self.validateItemData(item.item_data)
+                transferMap.add_fa2(fa2_item.key)
 
-                        # TODO:
-                        # Token registry should be a separate contract
-                        ## Check if FA2 token is permitted and get props.
-                        #fa2_props = self.getPermittedFA2Props(fa2)
-                        #
-                        ## If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
-                        #with sp.if_(~ fa2_props.swap_allowed):
-                        #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
+                # For each item in the list.
+                with sp.for_("curr", fa2_item.value) as curr:
+                    with curr.match_cases() as arg:
+                        with arg.match("item") as item:
+                            self.validateItemData(item.item_data)
 
-                        # Transfer item to this contract.
-                        transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
+                            # TODO:
+                            # Token registry should be a separate contract
+                            ## Check if FA2 token is permitted and get props.
+                            #fa2_props = self.getPermittedFA2Props(fa2)
+                            #
+                            ## If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
+                            #with sp.if_(~ fa2_props.swap_allowed):
+                            #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
-                    with arg.match("ext") as ext_data:
-                        self.validateItemData(ext_data)
+                            # Transfer item to this contract.
+                            transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
 
-                # Add item to storage.
-                item_store.value[this_chunk.value.next_id] = curr
+                        with arg.match("ext") as ext_data:
+                            self.validateItemData(ext_data)
 
-                # Increment next_id.
-                this_chunk.value.next_id += 1
+                    # Add item to storage.
+                    item_store.value[this_chunk.value.next_id] = curr
 
-            # Persist item storage.
-            item_store.persist()
+                    # Increment next_id.
+                    this_chunk.value.next_id += 1
+
+                # Persist item storage.
+                item_store.persist()
 
         # Don't increment chunk interaction counter, as next_id changes.
 
