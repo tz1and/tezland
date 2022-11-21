@@ -129,16 +129,16 @@ export default class PostDeploy extends PostDeployBase {
 
         await this.run_op_task("Place 10 items in Place #0", () => {
             const list_ten_items = [
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 3, token_amount: 10, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 0, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } }
             ];
             return contracts.get("World_contract")!.methodsObject.place_items({
                 lot_id: 0, item_list: list_ten_items
@@ -147,11 +147,11 @@ export default class PostDeploy extends PostDeployBase {
 
         await this.run_op_task("Place 5 items in Place #2", () => {
             const list_five_items = [
-                { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+                { item: { token_id: 0, token_amount: 10, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 2, token_amount: 1, mutez_per_token: 0, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } }
             ];
             return contracts.get("World_contract")!.methodsObject.place_items({
                 lot_id: 2, item_list: list_five_items
@@ -214,7 +214,7 @@ export default class PostDeploy extends PostDeployBase {
          * World
          */
         // place one item to make sure storage is set.
-        const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "ffffffffffffffffffffffffffffff" } }];
+        const list_one_item = [{ item: { token_id: 0, token_amount: 1, mutez_per_token: 1, item_data: "01800040520000baa6c9c2460a4000" } }];
         const setup_storage = await contracts.get("World_contract")!.methodsObject.place_items({
             lot_id: 0, item_list: list_one_item
         }).send();
@@ -261,16 +261,16 @@ export default class PostDeploy extends PostDeployBase {
 
         // place ten items
         const list_ten_items = [
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } },
-            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+            { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } }
         ];
         const place_ten_items_op = await contracts.get("World_contract")!.methodsObject.place_items({
             lot_id: 0, item_list: list_ten_items
@@ -281,7 +281,7 @@ export default class PostDeploy extends PostDeployBase {
 
         // set one items data
         const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
+        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "01800041b1be48a779c9c244023dd5" }]);
         const set_item_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
             lot_id: 0, update_map: map_update_one_item
         }).send();
@@ -291,16 +291,16 @@ export default class PostDeploy extends PostDeployBase {
             // set ten items data
         const map_update_ten_items: MichelsonMap<string, object[]> = new MichelsonMap();
         map_update_ten_items.set(this.accountAddress!, [
-            { item_id: 1, item_data: "000000000000000000000000000000" },
-            { item_id: 2, item_data: "000000000000000000000000000000" },
-            { item_id: 3, item_data: "000000000000000000000000000000" },
-            { item_id: 4, item_data: "000000000000000000000000000000" },
-            { item_id: 5, item_data: "000000000000000000000000000000" },
-            { item_id: 6, item_data: "000000000000000000000000000000" },
-            { item_id: 7, item_data: "000000000000000000000000000000" },
-            { item_id: 8, item_data: "000000000000000000000000000000" },
-            { item_id: 9, item_data: "000000000000000000000000000000" },
-            { item_id: 10, item_data: "000000000000000000000000000000" }
+            { item_id: 1, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 2, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 3, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 4, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 5, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 6, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 7, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 8, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 9, item_data: "01800041b1be48a779c9c244023dd5" },
+            { item_id: 10, item_data: "01800041b1be48a779c9c244023dd5" }
         ]);
         const set_ten_items_data_op = await contracts.get("World_contract")!.methodsObject.set_item_data({
             lot_id: 0, update_map: map_update_ten_items
@@ -539,7 +539,7 @@ export default class PostDeploy extends PostDeployBase {
 
         const item_list = [];
         for (let i = 0; i < per_batch; ++i)
-            item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } });
+            item_list.push({ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } });
 
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
@@ -551,12 +551,12 @@ export default class PostDeploy extends PostDeployBase {
         }
 
         /*const place_items_op = await contracts.World_contract.methodsObject.place_items({
-            lot_id: token_id, item_list: [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "ffffffffffffffffffffffffffffff" } }]
+            lot_id: token_id, item_list: [{ item: { token_id: token_id, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } }]
         }).send();
         await place_items_op.confirmation();
 
         const map_update_one_item: MichelsonMap<string, object[]> = new MichelsonMap();
-        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "000000000000000000000000000000" }]);
+        map_update_one_item.set(this.accountAddress!, [{ item_id: 0, item_data: "01800041b1be48a779c9c244023dd5" }]);
         const set_item_data_op = await contracts.World_contract.methodsObject.set_item_data({
             lot_id: token_id, update_map: map_update_one_item
         }).send();

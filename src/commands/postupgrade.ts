@@ -174,16 +174,16 @@ export default class PostUpgrade extends PostDeployBase {
             const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 2, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 2, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 3, amount: 10, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 1, amount: 1, rate: 0, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 3, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } }
+                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 2, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 2, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 3, amount: 10, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 1, amount: 1, rate: 0, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 3, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
@@ -195,11 +195,11 @@ export default class PostUpgrade extends PostDeployBase {
             const map_five_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_five_items.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 10, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 2, amount: 1, rate: 0, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 3, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } }
+                    { item: { token_id: 0, amount: 10, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 2, amount: 1, rate: 0, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 3, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
@@ -211,9 +211,9 @@ export default class PostUpgrade extends PostDeployBase {
             const update_three_items = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
-                        { item_id: 0, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 1, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 3, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                        { item_id: 0, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 1, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 3, data: "01800041b1be48a779c9c244023dd5"}
                     ]
                 }
             })
@@ -226,11 +226,11 @@ export default class PostUpgrade extends PostDeployBase {
             const update_five_items = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
-                        { item_id: 2, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 3, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 5, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 7, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-                        { item_id: 8, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+                        { item_id: 2, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 3, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 5, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 7, data: "01800041b1be48a779c9c244023dd5"},
+                        { item_id: 8, data: "01800041b1be48a779c9c244023dd5"}
                     ]
                 }
             })
@@ -353,7 +353,7 @@ export default class PostUpgrade extends PostDeployBase {
             map_one_item = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1, data: "ffffffffffffffffffffffffffffff", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: 1, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             const setup_storage = await contracts.get("World_v2_contract")!.methodsObject.place_items({
@@ -418,16 +418,16 @@ export default class PostUpgrade extends PostDeployBase {
             const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             const place_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
@@ -444,7 +444,7 @@ export default class PostUpgrade extends PostDeployBase {
             const map_update_one_item = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
-                        { item_id: 0, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+                        { item_id: 0, data: "01800041b1be48a779c9c244023dd5" }
                     ]
                 }
             });
@@ -460,16 +460,16 @@ export default class PostUpgrade extends PostDeployBase {
             const map_update_ten_items = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
-                        { item_id: 1, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 2, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 3, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 4, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 5, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 6, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 7, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 8, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 9, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-                        { item_id: 10, data: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+                        { item_id: 1, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 2, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 3, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 4, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 5, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 6, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 7, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 8, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 9, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 10, data: "01800041b1be48a779c9c244023dd5" }
                     ]
                 }
             });
@@ -817,7 +817,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         const item_list = [];
         for (let i = 0; i < per_batch; ++i)
-            item_list.push({ item: { token_id: token_id, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff", primary: false } });
+            item_list.push({ item: { token_id: token_id, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } });
 
 
         const item_map = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
@@ -833,7 +833,7 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         /*const place_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-            lot_id: token_id, place_item_map: michelsonmap... [{ item: { token_id: token_id, amount: 1, rate: 1000000, data: "ffffffffffffffffffffffffffffff" } }]
+            lot_id: token_id, place_item_map: michelsonmap... [{ item: { token_id: token_id, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000" } }]
         }).send();
         await place_items_op.confirmation();
 
