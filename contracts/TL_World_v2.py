@@ -69,7 +69,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # - Item data is stored in half floats, usually, there are two formats as of now
 #   + 0: 1 byte format, 3 floats pos = 7 bytes (this is also the minimum item data length)
 #   + 1: 1 byte format, 3 floats for euler angles, 3 floats pos, 1 float scale = 15 bytes
-#   NOTE: could store an animation index and all kinds of other stuff in item_data
+#   NOTE: could store an animation index and all kinds of other stuff in data
 # - Regarding chunk item storage efficiency: you can easily have up to 2000-3000 items (depending on issuer and token keys)
 #   per map before gas becomes *expensive*.
 # - use of inline_result. and bound blocks in general. can help with gas.
@@ -84,11 +84,11 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 # For tz1and Item tokens.
 itemRecordType = sp.TRecord(
     token_id = sp.TNat, # the fa2 token id
-    token_amount = sp.TNat, # number of fa2 tokens to store.
-    mutez_per_token = sp.TMutez, # 0 if not for sale.
-    item_data = sp.TBytes, # transforms, etc
+    amount = sp.TNat, # number of fa2 tokens to store.
+    rate = sp.TMutez, # 0 if not for sale.
+    data = sp.TBytes, # transforms, etc
     primary = sp.TBool, # split the entire value according to royalties.
-).layout(("token_id", ("token_amount", ("mutez_per_token", ("item_data", "primary")))))
+).layout(("token_id", ("amount", ("rate", ("data", "primary")))))
 
 # NOTE: reccords in variants are immutable?
 # See: https://gitlab.com/SmartPy/smartpy/-/issues/32
@@ -334,8 +334,8 @@ setPlacePropsVariantType = sp.TVariant(
 
 updateItemListType = sp.TRecord(
     item_id = sp.TNat,
-    item_data = sp.TBytes
-).layout(("item_id", "item_data"))
+    data = sp.TBytes
+).layout(("item_id", "data"))
 
 seqNumResultType = sp.TRecord(
     place_seq = sp.TBytes,
@@ -660,9 +660,9 @@ class TL_World(
         this_place.persist()
 
 
-    def validateItemData(self, item_data):
+    def validateItemData(self, data):
         """Verify the item data has the right length."""
-        sp.verify(sp.len(item_data) >= itemDataMinLen, message = self.error_message.data_length())
+        sp.verify(sp.len(data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
     @sp.entry_point(lazify = True)
@@ -729,19 +729,19 @@ class TL_World(
                 with sp.for_("curr", fa2_item.value) as curr:
                     with curr.match_cases() as arg:
                         with arg.match("item") as item:
-                            self.validateItemData(item.item_data)
+                            self.validateItemData(item.data)
 
                             # TODO:
                             # Token registry should be a separate contract
                             ## Check if FA2 token is permitted and get props.
                             #fa2_props = self.getPermittedFA2Props(fa2)
                             #
-                            ## If swapping is not allowed, token_amount MUST be 1 and mutez_per_token MUST be 0.
+                            ## If swapping is not allowed, amount MUST be 1 and rate MUST be 0.
                             #with sp.if_(~ fa2_props.swap_allowed):
-                            #    sp.verify((item.token_amount == sp.nat(1)) & (item.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
+                            #    sp.verify((item.amount == sp.nat(1)) & (item.rate == sp.tez(0)), message = self.error_message.parameter_error())
 
                             # Transfer item to this contract.
-                            transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.token_amount)
+                            transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.amount)
 
                         with arg.match("ext") as ext_data:
                             self.validateItemData(ext_data)
@@ -799,16 +799,16 @@ class TL_World(
                 item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
 
                 with sp.for_("update", update_list) as update:
-                    self.validateItemData(update.item_data)
+                    self.validateItemData(update.data)
 
                     with item_store.value[update.item_id].match_cases() as arg:
                         with arg.match("item") as immutable:
                             # sigh - variants are not mutable
                             item_var = sp.compute(immutable)
-                            item_var.item_data = update.item_data
+                            item_var.data = update.data
                             item_store.value[update.item_id] = sp.variant("item", item_var)
                         with arg.match("ext"):
-                            item_store.value[update.item_id] = sp.variant("ext", update.item_data)
+                            item_store.value[update.item_id] = sp.variant("ext", update.data)
 
                 # Persist item storage.
                 item_store.persist()
@@ -865,7 +865,7 @@ class TL_World(
                         transferMap.add_token(
                             fa2_item.key,
                             item_owner,
-                            the_item.token_id, the_item.token_amount)
+                            the_item.token_id, the_item.amount)
 
                     # Delete item from storage.
                     del item_store.value[curr]
@@ -883,9 +883,9 @@ class TL_World(
         this_chunk.persist()
 
 
-    def sendValueRoyaltiesFeesInline(self, mutez_per_token, issuer_or_place_owner, item_royalty_info, primary):
+    def sendValueRoyaltiesFeesInline(self, rate, issuer_or_place_owner, item_royalty_info, primary):
         """Inline function for sending royalties, fees, etc."""
-        sp.set_type(mutez_per_token, sp.TMutez)
+        sp.set_type(rate, sp.TMutez)
         sp.set_type(issuer_or_place_owner, sp.TAddress)
         sp.set_type(item_royalty_info, registry_contract.t_royalties_interop)
         sp.set_type(primary, sp.TBool)
@@ -894,10 +894,10 @@ class TL_World(
         sendMap = utils.TokenSendMap()
 
         # First, we take our fees are in permille.
-        fees_amount = sp.compute(sp.split_tokens(mutez_per_token, self.data.fees, sp.nat(1000)))
+        fees_amount = sp.compute(sp.split_tokens(rate, self.data.fees, sp.nat(1000)))
         sendMap.add(self.data.fees_to, fees_amount)
 
-        value_after_fees = sp.compute(mutez_per_token - fees_amount)
+        value_after_fees = sp.compute(rate - fees_amount)
 
         # If a primary sale, split entire value (minus fees) according to royalties.
         with sp.if_(primary):
@@ -985,8 +985,8 @@ class TL_World(
                 the_item = sp.local("the_item", immutable)
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.value.mutez_per_token > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.value.mutez_per_token == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.value.rate > sp.mutez(0), message = self.error_message.not_for_sale())
+                sp.verify(the_item.value.rate == sp.amount, message = self.error_message.wrong_amount())
 
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
@@ -1005,9 +1005,9 @@ class TL_World(
                 utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
-                with sp.if_(the_item.value.token_amount > 1):
+                with sp.if_(the_item.value.amount > 1):
                     # NOTE: fine to use abs here, token amout is checked to be > 1.
-                    the_item.value.token_amount = abs(the_item.value.token_amount - 1)
+                    the_item.value.amount = abs(the_item.value.amount - 1)
                     item_store.value[params.item_id] = sp.variant("item", the_item.value)
                 with sp.else_():
                     del item_store.value[params.item_id]
@@ -1106,7 +1106,7 @@ class TL_World(
 
                         with curr.match_cases() as arg:
                             with arg.match("item") as item:
-                                self.validateItemData(item.item_data)
+                                self.validateItemData(item.data)
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)

@@ -77,10 +77,10 @@ class TL_World_v1_1(world_contract.TL_World):
 
                                 # Add item to migration list.
                                 current_list.push(sp.variant("item", sp.record(
-                                    token_amount = item.item_amount,
                                     token_id = item.token_id,
-                                    mutez_per_token = item.mutez_per_item,
-                                    item_data = item.item_data,
+                                    amount = item.item_amount,
+                                    rate = item.mutez_per_item,
+                                    data = item.item_data,
                                     primary = False)))
                             with arg.match("other"):
                                 sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
