@@ -17,6 +17,11 @@ import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
 
 
+type FeeResult = {
+    storage: string;
+    fee: string;
+}
+
 export const sleep = (milliseconds: number) => {
     return new Promise(resolve => setTimeout(resolve, milliseconds))
 };
@@ -246,7 +251,7 @@ export default class DeployBase {
         return this.tezos.wallet.at(contract_address);
     };
 
-    protected async feesToString(op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
+    protected async feesToObject(op: TransactionWalletOperation|BatchWalletOperation): Promise<FeeResult> {
         const receipt = await op.receipt();
         //console.log("totalFee", receipt.totalFee.toNumber());
         //console.log("totalGas", receipt.totalGas.toNumber());
@@ -260,15 +265,25 @@ export default class DeployBase {
         const totalFee = receipt.totalFee.toNumber() / 1000000;
         //const totalGas = receipt.totalGas.toNumber() / 1000000;
         //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
-        return `storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)}`;
+        return { storage: paidStorage.toFixed(6), fee: totalFee.toFixed(6) };
     }
 
-    protected async run_op_task(task_name: string, f: () => Promise<TransactionWalletOperation | BatchWalletOperation>, print_fees: boolean = false) {
+    protected async feesToString(op: TransactionWalletOperation|BatchWalletOperation): Promise<string> {
+        const res = await this.feesToObject(op);
+        return `storage: ${res.storage}, gas: ${res.fee}`;
+    }
+
+    protected async run_op_task(
+        task_name: string,
+        f: () => Promise<TransactionWalletOperation | BatchWalletOperation>,
+        print_fees: boolean = false): Promise<TransactionWalletOperation | BatchWalletOperation>
+    {
         console.log(task_name);
         const operation = await f();
         await operation.confirmation();
         console.log(kleur.green(">> Done."), `Transaction hash: ${operation.opHash}\n`);
         if (print_fees) console.log(`${task_name}: ${this.feesToString(operation)}`);
+        return operation;
     }
 
     private async confirmDeploy() {

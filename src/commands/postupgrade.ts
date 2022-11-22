@@ -1,7 +1,8 @@
 import assert from "assert";
 import PostDeployBase, { PostDeployContracts } from "./PostDeployBase";
 import * as ipfs from '../ipfs'
-import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletOperationBatch } from "@taquito/taquito";
+import { ContractAbstraction, ContractMethodObject, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
+import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
 import { char2Bytes } from '@taquito/utils'
 import kleur from "kleur";
 import config from "../user.config";
@@ -171,8 +172,9 @@ export default class PostUpgrade extends PostDeployBase {
         })));
 
         await this.run_op_task("Place 10 items in Place #1", () => {
-            const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
-            map_ten_items.set(false, MichelsonMap.fromLiteral({
+            const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
                     { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
                     { item: { token_id: 2, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
@@ -186,14 +188,16 @@ export default class PostUpgrade extends PostDeployBase {
                     { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
+            map_ten_items.set(0, map_ten_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 } }, place_item_map: map_ten_items
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 }, place_item_map: map_ten_items
             }).send();
         });
 
         await this.run_op_task("Place 5 items in Place #3", () => {
-            const map_five_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
-            map_five_items.set(false, MichelsonMap.fromLiteral({
+            const map_five_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_five_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_five_items_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
                     { item: { token_id: 0, amount: 10, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
                     { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
@@ -202,13 +206,15 @@ export default class PostUpgrade extends PostDeployBase {
                     { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
+            map_five_items.set(0, map_five_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 3 } }, place_item_map: map_five_items
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 3 }, place_item_map: map_five_items
             }).send();
         });
 
         await this.run_op_task("Update 3 items in Place #2", () => {
-            const update_three_items = MichelsonMap.fromLiteral({
+            const update_three_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const update_three_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
                         { item_id: 0, data: "01800041b1be48a779c9c244023dd5"},
@@ -217,13 +223,15 @@ export default class PostUpgrade extends PostDeployBase {
                     ]
                 }
             })
+            update_three_items.set(0, update_three_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 2 } }, update_map: update_three_items
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 2 }, update_map: update_three_items
             }).send();
         });
 
         await this.run_op_task("Update 5 items in Place #0", () => {
-            const update_five_items = MichelsonMap.fromLiteral({
+            const update_five_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const update_five_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
                         { item_id: 2, data: "01800041b1be48a779c9c244023dd5"},
@@ -234,19 +242,22 @@ export default class PostUpgrade extends PostDeployBase {
                     ]
                 }
             })
+            update_five_items.set(0, update_five_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 } }, update_map: update_five_items
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 }, update_map: update_five_items
             }).send();
         });
 
         await this.run_op_task("Remove 2 items in Place #1", () => {
-            const remove_two_items = MichelsonMap.fromLiteral({
+            const remove_two_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const remove_two_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [ 2, 3 ]
                 }
             })
+            remove_two_items.set(0, remove_two_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.remove_items({
-                chunk_key: { chunk_id: 0, place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 } }, remove_map: remove_two_items
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 }, remove_map: remove_two_items
             }).send();
         });
 
@@ -309,6 +320,37 @@ export default class PostUpgrade extends PostDeployBase {
         assert(this.tezos);
         //assert(this.accountAddress);
 
+        /**
+         * Some types and functions for gas tests and resutls
+         */
+        type GasResultRow = {
+            storage: string;
+            fee: string;
+        }
+
+        type GasResultsRows = {
+            [id: string]: GasResultRow;
+        }
+
+        type GasResultsTable = {
+            name: string;
+            rows: GasResultsRows;
+        }
+
+        const gas_results_tables: GasResultsTable[] = [];
+
+        const addGasResultsTable = (table: GasResultsTable): GasResultsTable => {
+            gas_results_tables.push(table);
+            return table;
+        }
+
+        const runTaskAndAddGasResults = async (
+            gas_results: GasResultsTable,
+            task_name: string,
+            f: () => Promise<TransactionWalletOperation | BatchWalletOperation>) => {
+            gas_results.rows[task_name] = await this.feesToObject(await this.run_op_task(task_name, f));
+        }
+
         console.log(kleur.bgGreen("Running gas test suite"));
 
         {
@@ -324,53 +366,51 @@ export default class PostUpgrade extends PostDeployBase {
             await mint_batch_op.confirmation();
         }
 
-        console.log();
+        let gas_results = addGasResultsTable({ name: "FA2", rows: {} });
 
         // set operator
-        {
-            const op_op = await contracts.get("items_FA2_contract")!.methods.update_operators([{
+        await runTaskAndAddGasResults(gas_results, "update_operators", () => {
+            return contracts.get("items_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
                     operator: contracts.get("World_v2_contract")!.address,
                     token_id: 0
                 }
             }]).send()
-            await op_op.confirmation();
-            console.log("update_operators:\t" + await this.feesToString(op_op));
-        }
+        });
 
         const placeKey0 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 };
         const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
         const placeKey1 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 };
         const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
 
+        gas_results = addGasResultsTable({ name: "World", rows: {} });
+
         /**
          * World
          */
         // place one item to make sure storage is set.
-        let map_one_item;
-        {
-            map_one_item = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
-            map_one_item.set(false, MichelsonMap.fromLiteral({
+        let map_one_item: MichelsonMap<number, MichelsonMap<any, unknown>>;
+        await runTaskAndAddGasResults(gas_results, "create place 0 (item)", () => {
+            map_one_item = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
                     { item: { token_id: 0, amount: 1, rate: 1, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
-            const setup_storage = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: map_one_item
+            map_one_item.set(0, map_one_item_issuer);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey0, place_item_map: map_one_item
             }).send();
-            await setup_storage.confirmation();
-            console.log("create place 0 (item):\t" + await this.feesToString(setup_storage));
-        }
+        });
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
-        {
-            const setup_storage1 = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey1Chunk0, place_item_map: map_one_item
+        await runTaskAndAddGasResults(gas_results, "create place 1 (item)", () => {
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey1, place_item_map: map_one_item
             }).send();
-            await setup_storage1.confirmation();
-            console.log("create place 1 (item):\t" + await this.feesToString(setup_storage1));
-        }
+        });
 
         /*{
             const transfer_op = await items_FA2_contract.methodsObject.transfer([{
@@ -394,29 +434,26 @@ export default class PostUpgrade extends PostDeployBase {
         }*/
 
         // place props
-        {
+        await runTaskAndAddGasResults(gas_results, "update_place_props", () => {
             const props_map = new MichelsonMap<string, string>();
             props_map.set('00', '000000');
-            const place_props_op = await contracts.get("World_v2_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
-            await place_props_op.confirmation();
-            console.log("update_place_props:\t" + await this.feesToString(place_props_op));
-        }
+            return contracts.get("World_v2_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
+        });
 
-        console.log();
+        gas_results = addGasResultsTable({ name: "World place_items", rows: {} });
 
         // place one item
-        {
-            const place_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: map_one_item
+        await runTaskAndAddGasResults(gas_results, "place_items (1)", () => {
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey0, place_item_map: map_one_item
             }).send();
-            await place_one_item_op.confirmation();
-            console.log("place_items (1):\t" + await this.feesToString(place_one_item_op));
-        }
+        });
 
         // place ten items
-        {
-            const map_ten_items = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
-            map_ten_items.set(false, MichelsonMap.fromLiteral({
+        await runTaskAndAddGasResults(gas_results, "place_items (10)", () => {
+            const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
                     { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
                     { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
@@ -430,34 +467,75 @@ export default class PostUpgrade extends PostDeployBase {
                     { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
-            const place_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.place_items({
-                chunk_key: placeKey0Chunk0, place_item_map: map_ten_items
+            map_ten_items.set(0, map_ten_items_issuer);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey0, place_item_map: map_ten_items
             }).send();
-            await place_ten_items_op.confirmation();
-            console.log("place_items (10):\t" + await this.feesToString(place_ten_items_op));
-        }
+        });
 
-        console.log();
+        // place one item in multiple chunks
+        await runTaskAndAddGasResults(gas_results, "place_items chunks (2x1)", () => {
+            const map_one_item_multiple_chunks = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 0, amount: 1, rate: 1, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                ]
+            }));
+            map_one_item_multiple_chunks.set(0, map_one_item_issuer);
+            map_one_item_multiple_chunks.set(1, map_one_item_issuer);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey0, place_item_map: map_one_item_multiple_chunks
+            }).send();
+        });
+
+        // place ten items in multiple chunks
+        await runTaskAndAddGasResults(gas_results, "place_items chunks (2x10)", () => {
+            const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_FA2_contract")!.address]: [
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                ]
+            }));
+            map_ten_items.set(0, map_ten_items_issuer);
+            map_ten_items.set(1, map_ten_items_issuer);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey0, place_item_map: map_ten_items
+            }).send();
+        });
+
+        gas_results = addGasResultsTable({ name: "World set_item_data", rows: {} });
 
         // set one items data
-        {
-            const map_update_one_item = MichelsonMap.fromLiteral({
+        await runTaskAndAddGasResults(gas_results, "set_item_data (1)", () => {
+            const map_update_one_item = new MichelsonMap<number, unknown>()
+            const map_update_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
                         { item_id: 0, data: "01800041b1be48a779c9c244023dd5" }
                     ]
                 }
             });
-            const set_item_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: placeKey0Chunk0, update_map: map_update_one_item
+            map_update_one_item.set(0, map_update_one_item_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                place_key: placeKey0, update_map: map_update_one_item
             }).send();
-            await set_item_data_op.confirmation();
-            console.log("set_item_data (1):\t" + await this.feesToString(set_item_data_op));
-        }
+        });
 
         // set ten items data
-        {
-            const map_update_ten_items = MichelsonMap.fromLiteral({
+        await runTaskAndAddGasResults(gas_results, "set_item_data (10)", () => {
+            const map_update_ten_items = new MichelsonMap<number, unknown>()
+            const map_update_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [
                         { item_id: 1, data: "01800041b1be48a779c9c244023dd5" },
@@ -473,78 +551,155 @@ export default class PostUpgrade extends PostDeployBase {
                     ]
                 }
             });
-            const set_ten_items_data_op = await contracts.get("World_v2_contract")!.methodsObject.set_item_data({
-                chunk_key: placeKey0Chunk0, update_map: map_update_ten_items
+            map_update_ten_items.set(0, map_update_ten_items_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                place_key: placeKey0, update_map: map_update_ten_items
             }).send();
-            await set_ten_items_data_op.confirmation();
-            console.log("set_item_data (10):\t" + await this.feesToString(set_ten_items_data_op));
-        }
+        });
 
-        console.log();
+        // set one items data multiple chunks
+        await runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x1)", () => {
+            const map_update_one_item = new MichelsonMap<number, unknown>()
+            const map_update_one_item_issuer = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 0, data: "01800041b1be48a779c9c244023dd5" }
+                    ]
+                }
+            });
+            map_update_one_item.set(0, map_update_one_item_issuer)
+            map_update_one_item.set(1, map_update_one_item_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                place_key: placeKey0, update_map: map_update_one_item
+            }).send();
+        });
+
+        // set ten items data multiple chunks
+        await runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x10)", () => {
+            const map_update_ten_items = new MichelsonMap<number, unknown>()
+            const map_update_ten_items_issuer = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [
+                        { item_id: 1, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 2, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 3, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 4, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 5, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 6, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 7, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 8, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 9, data: "01800041b1be48a779c9c244023dd5" },
+                        { item_id: 10, data: "01800041b1be48a779c9c244023dd5" }
+                    ]
+                }
+            });
+            map_update_ten_items.set(0, map_update_ten_items_issuer)
+            map_update_ten_items.set(1, map_update_ten_items_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.set_item_data({
+                place_key: placeKey0, update_map: map_update_ten_items
+            }).send();
+        });
+
+        gas_results = addGasResultsTable({ name: "World remove_items", rows: {} });
 
         // remove one item
-        {
-            const map_remove_one_item = MichelsonMap.fromLiteral({
+        await runTaskAndAddGasResults(gas_results, "remove_items (1)", () => {
+            const map_remove_one_item = new MichelsonMap<number, unknown>()
+            const map_remove_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [0]
                 }
             });
-            const remove_one_item_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
-                chunk_key: placeKey0Chunk0, remove_map: map_remove_one_item
+            map_remove_one_item.set(0, map_remove_one_item_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.remove_items({
+                place_key: placeKey0, remove_map: map_remove_one_item
             }).send();
-            await remove_one_item_op.confirmation();
-            console.log("remove_items (1):\t" + await this.feesToString(remove_one_item_op));
-        }
+        });
 
         // remove ten items
-        {
-            const map_remove_ten_items = MichelsonMap.fromLiteral({
+        await runTaskAndAddGasResults(gas_results, "remove_items (10)", () => {
+            const map_remove_ten_items = new MichelsonMap<number, unknown>()
+            const map_remove_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
                     [contracts.get("items_FA2_contract")!.address]: [1,2,3,4,5,6,7,8,9,10]
                 }
             });
-            const remove_ten_items_op = await contracts.get("World_v2_contract")!.methodsObject.remove_items({
-                chunk_key: placeKey0Chunk0, remove_map: map_remove_ten_items
+            map_remove_ten_items.set(0, map_remove_ten_items_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.remove_items({
+                place_key: placeKey0, remove_map: map_remove_ten_items
             }).send();
-            await remove_ten_items_op.confirmation();
-            console.log("remove_items (10):\t" + await this.feesToString(remove_ten_items_op));
-        }
+        });
 
-        console.log();
+        // remove one item multiple chunks
+        await runTaskAndAddGasResults(gas_results, "remove_items chunks (2x1)", () => {
+            const map_remove_one_item = new MichelsonMap<number, unknown>()
+            const map_remove_one_item_issuer = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [11]
+                }
+            });
+            const map_remove_one_item_issuer_1 = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [0]
+                }
+            });
+            map_remove_one_item.set(0, map_remove_one_item_issuer)
+            map_remove_one_item.set(1, map_remove_one_item_issuer_1)
+            return contracts.get("World_v2_contract")!.methodsObject.remove_items({
+                place_key: placeKey0, remove_map: map_remove_one_item
+            }).send();
+        });
+
+        // remove ten items multiple chunks
+        await runTaskAndAddGasResults(gas_results, "remove_items chunks (2x10)", () => {
+            const map_remove_ten_items = new MichelsonMap<number, unknown>()
+            const map_remove_ten_items_issuer = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [12,13,14,15,16,17,18,19,20,21]
+                }
+            });
+            const map_remove_ten_items_issuer_1 = MichelsonMap.fromLiteral({
+                [this.accountAddress!]: {
+                    [contracts.get("items_FA2_contract")!.address]: [1,2,3,4,5,6,7,8,9,10]
+                }
+            });
+            map_remove_ten_items.set(0, map_remove_ten_items_issuer)
+            map_remove_ten_items.set(1, map_remove_ten_items_issuer_1)
+            return contracts.get("World_v2_contract")!.methodsObject.remove_items({
+                place_key: placeKey0, remove_map: map_remove_ten_items
+            }).send();
+        });
+
+        gas_results = addGasResultsTable({ name: "World set_permissions", rows: {} });
 
         // set_permissions
-        {
-            const perm_op = await contracts.get("World_v2_contract")!.methods.set_permissions([{
+        await runTaskAndAddGasResults(gas_results, "set_permissions", () => {
+            return contracts.get("World_v2_contract")!.methods.set_permissions([{
                 add: {
                     place_key: placeKey0,
                     owner: this.accountAddress,
                     permittee: contracts.get("Dutch_v2_contract")!.address,
                     perm: 7
                 }
-            }]).send()
-            await perm_op.confirmation();
-            console.log("set_permissions:\t" + await this.feesToString(perm_op));
-        }
+            }]).send();
+        });
 
         // get item
-        {
-            const get_item_op = await contracts.get("World_v2_contract")!.methodsObject.get_item({
-                chunk_key: placeKey0Chunk0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 11
+        await runTaskAndAddGasResults(gas_results, "get_item", () => {
+            return contracts.get("World_v2_contract")!.methodsObject.get_item({
+                chunk_key: placeKey0Chunk0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 22
             }).send({ mutez: true, amount: 1000000 });
-            await get_item_op.confirmation();
-            console.log("get_item:\t\t" + await this.feesToString(get_item_op));
-        }
+        });
 
-        console.log();
-        console.log();
+        gas_results = addGasResultsTable({ name: "Auctions", rows: {} });
 
         /**
          * Auctions
          */
         // set operator
-        {
+        await runTaskAndAddGasResults(gas_results, "create_auction", () => {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
-            const create_auction_op = await this.tezos!.wallet.batch().with([
+            return this.tezos!.wallet.batch().with([
                 // add operator
                 {
                     kind: OpKind.TRANSACTION,
@@ -574,28 +729,23 @@ export default class PostUpgrade extends PostDeployBase {
                     }).toTransferParams()
                 }
             ]).send();
-            await create_auction_op.confirmation();
-            console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
-            await sleep(config.sandbox.blockTime * 1000);
-        }
+        });
 
-        {
-            const bid_op = await contracts.get("Dutch_v2_contract")!.methodsObject.bid({
+        await sleep(config.sandbox.blockTime * 1000);
+
+        await runTaskAndAddGasResults(gas_results, "bid", () => {
+            return contracts.get("Dutch_v2_contract")!.methodsObject.bid({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
                     owner: this.accountAddress
                 }
             }).send({amount: 200000, mutez: true});
-            await bid_op.confirmation();
-            console.log("bid:\t\t\t" + await this.feesToString(bid_op));
-        }
+        });
 
-        console.log();
-
-        {
+        await runTaskAndAddGasResults(gas_results, "create_auction", () => {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
-            const create_auction_op = await this.tezos!.wallet.batch().with([
+            return this.tezos!.wallet.batch().with([
                 // add operator
                 {
                     kind: OpKind.TRANSACTION,
@@ -625,31 +775,27 @@ export default class PostUpgrade extends PostDeployBase {
                     }).toTransferParams()
                 }
             ]).send();
-            await create_auction_op.confirmation();
-            console.log("create_auction:\t\t" + await this.feesToString(create_auction_op));
-            await sleep(config.sandbox.blockTime * 1000);
-        }
+        });
 
-        {
-            const cancel_op = await contracts.get("Dutch_v2_contract")!.methodsObject.cancel({
+        await sleep(config.sandbox.blockTime * 1000);
+
+        await runTaskAndAddGasResults(gas_results, "cancel", () => {
+            return contracts.get("Dutch_v2_contract")!.methodsObject.cancel({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
                     owner: this.accountAddress
                 }
             }).send();
-            await cancel_op.confirmation();
-            console.log("cancel:\t\t\t" + await this.feesToString(cancel_op));
-        }
+        });
 
-        console.log();
-        console.log();
+        gas_results = addGasResultsTable({ name: "Adhoc Operators", rows: {} });
 
         /**
          * Test adhoc operator storage effects on gas consumption.
          */
         // set 100 regular operators
-        {
+        await runTaskAndAddGasResults(gas_results, "update_operators (100)", () => {
             const op_alot = [];
             for (const n of [...Array(100).keys()])
                 op_alot.push({
@@ -659,18 +805,14 @@ export default class PostUpgrade extends PostDeployBase {
                         token_id: n
                     }
                 });
-            const op_alot_op = await contracts.get("items_FA2_contract")!.methods.update_operators(
+            return contracts.get("items_FA2_contract")!.methods.update_operators(
                 op_alot
-            ).send()
-            await op_alot_op.confirmation();
-            console.log("update_operators (100):\t\t" + await this.feesToString(op_alot_op));
-        }
-
-        console.log();
+            ).send();
+        });
 
         // token transfer
-        {
-            const transfer_before_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
+        await runTaskAndAddGasResults(gas_results, "transfer", () => {
+            return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
                     to_: contracts.get("Minter_v2_contract")!.address,
@@ -678,25 +820,21 @@ export default class PostUpgrade extends PostDeployBase {
                     token_id: 0
                 }]
             }]).send();
-            await transfer_before_op.confirmation();
-            console.log("transfer:\t\t\t" + await this.feesToString(transfer_before_op));
-        }
+        });
 
         // set adhoc operators
-        {
-            const item_adhoc_op_op = await contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
+        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators", () => {
+            return contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
                     operator: contracts.get("Minter_v2_contract")!.address,
                     token_id: 0
                 }]
-            }).send()
-            await item_adhoc_op_op.confirmation();
-            console.log("update_adhoc_operators:\t\t" + await this.feesToString(item_adhoc_op_op));
-        }
+            }).send();
+        });
 
         // set max adhoc operators
-        let item_adhoc_max_op;
-        {
+        let item_adhoc_max_op: ContractMethodObject<Wallet>;
+        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
             const adhoc_ops = [];
             for (const n of [...Array(100).keys()])
                 adhoc_ops.push({
@@ -706,21 +844,17 @@ export default class PostUpgrade extends PostDeployBase {
             item_adhoc_max_op = contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: adhoc_ops
             });
-            const item_adhoc_max_op_op = await item_adhoc_max_op.send()
-            await item_adhoc_max_op_op.confirmation();
-            console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op));
-        }
+            return item_adhoc_max_op.send();
+        });
 
-        {
+        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
             // Do that again to see storage diff
-            const item_adhoc_max_op_op2 = await item_adhoc_max_op.send()
-            await item_adhoc_max_op_op2.confirmation();
-            console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op2));
-        }
+            return item_adhoc_max_op.send();
+        });
 
         // tokens transfer
-        {
-            const transfer_after_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
+        await runTaskAndAddGasResults(gas_results, "transfer (100 adhoc)", () => {
+            return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
                     to_: contracts.get("Minter_v2_contract")!.address,
@@ -728,25 +862,21 @@ export default class PostUpgrade extends PostDeployBase {
                     token_id: 0
                 }]
             }]).send();
-            await transfer_after_op.confirmation();
-            console.log("transfer (100 adhoc):\t\t" + await this.feesToString(transfer_after_op));
-        }
+        });
 
         // set adhoc operators
-        {
-            const item_adhoc_after_op = await contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
+        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (reset)", async () => {
+            return contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
                     operator: contracts.get("Minter_v2_contract")!.address,
                     token_id: 0
                 }]
-            }).send()
-            await item_adhoc_after_op.confirmation();
-            console.log("update_adhoc_operators (reset):\t" + await this.feesToString(item_adhoc_after_op));
-        }
+            }).send();
+        });
 
         // final transfer after adhoc reset
-        {
-            const transfer_final_op = await contracts.get("items_FA2_contract")!.methodsObject.transfer([{
+        await runTaskAndAddGasResults(gas_results, "transfer (reset)", () => {
+            return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
                     to_: contracts.get("Minter_v2_contract")!.address,
@@ -754,43 +884,46 @@ export default class PostUpgrade extends PostDeployBase {
                     token_id: 0
                 }]
             }]).send();
-            await transfer_final_op.confirmation();
-            console.log("transfer (reset):\t\t" + await this.feesToString(transfer_final_op));
-        }
+        });
 
-        console.log();
+        gas_results = addGasResultsTable({ name: "Mint", rows: {} });
 
         // mint again
-        {
-            const mint_batch2 = this.tezos.wallet.batch();
+        await runTaskAndAddGasResults(gas_results, "mint some", async () => {
+            const mint_batch2 = this.tezos!.wallet.batch();
             await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
             await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
-            const mint_batch2_op = await mint_batch2.send();
-            await mint_batch2_op.confirmation();
-            console.log("mint some:\t\t\t" + await this.feesToString(mint_batch2_op));
-        }
+            return mint_batch2.send();
+        });
 
         // Do that again to see storage diff
-        {
-            const item_adhoc_max_op_op3 = await item_adhoc_max_op.send()
-            await item_adhoc_max_op_op3.confirmation();
-            console.log("update_adhoc_operators (100):\t" + await this.feesToString(item_adhoc_max_op_op3));
-        }
+        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", async () => {
+            return item_adhoc_max_op.send()
+        });
 
-        console.log();
-        console.log();
-        console.log();
+        gas_results = addGasResultsTable({ name: "Factory", rows: {} });
 
         /**
          * Factory
          */
-        {
+        await runTaskAndAddGasResults(gas_results, "create_token", async () => {
             const token_metadata_url = await ipfs.upload_metadata({name: "bla", whatever: "yes"}, this.isSandboxNet);
-            const token_creation_op = await contracts.get("Factory_contract")!.methods.create_token(
+            return contracts.get("Factory_contract")!.methods.create_token(
                 char2Bytes(token_metadata_url)
             ).send();
-            await token_creation_op.confirmation();
-            console.log("create_token:\t\t" + await this.feesToString(token_creation_op));
+        });
+
+        /**
+         * Print results to console.
+         */
+        for (const table of gas_results_tables) {
+            console.log();
+            console.log(kleur.blue(table.name));
+            for (const row_key of Object.keys(table.rows)) {
+                const row = table.rows[row_key];
+                console.log(`${row_key.padEnd(32, " ")}: storage: ${row.storage}, gas: ${row.fee}`);
+            }
+            //console.table(table.rows);
         }
     }
 
@@ -820,8 +953,10 @@ export default class PostUpgrade extends PostDeployBase {
             item_list.push({ item: { token_id: token_id, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } });
 
 
-        const item_map = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
-        item_map.set(false, MichelsonMap.fromLiteral({ [contracts.get("items_FA2_contract")!.address]: item_list } ));
+        const item_map = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+        const item_map_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+        item_map_issuer.set(false, MichelsonMap.fromLiteral({ [contracts.get("items_FA2_contract")!.address]: item_list } ));
+        item_map.set(0, item_map_issuer);
 
         for (let i = 0; i < batches; ++i) {
             console.log("Placing batch: ", i + 1);
