@@ -41,11 +41,12 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: make sure royalties version is set correctly everywhere.
 # TODO: test set_props value_to
 # TODO: test value_to place setting.
+# TODO: test placing/updating/removing items in multiple chunks.
 # TODO: add views option to mixins to allow not including views.
 # TODO: test searching through chunks to find space when placing items. (see migration code). with lots of chunks. if it's worth the gas, maybe consider it.
 # TODO: don't deploy factory in upgrade, this feature comes later.
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
-# TODO: place, update, delete in multiple chunks! (add a chunk id layer to maps)!!!!!!!!!!!
+# TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
 
 
 # maybe?
@@ -668,219 +669,238 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def place_items(self, params):
         sp.set_type(params, sp.TRecord(
-            chunk_key =  chunkPlaceKeyType,
-            place_item_map = sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType))),
+            place_key = placeKeyType,
+            place_item_map = sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))),
             merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
             ext = extensionArgType
-        ).layout(("chunk_key", ("place_item_map", ("merkle_proofs", "ext")))))
+        ).layout(("place_key", ("place_item_map", ("merkle_proofs", "ext")))))
 
         self.onlyUnpaused()
 
         # Place token must be allowed
-        place_limits = self.getAllowedPlaceTokenLimits(params.chunk_key.place_key.fa2)
-
-        sp.verify(params.chunk_key.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+        place_limits = self.getAllowedPlaceTokenLimits(params.place_key.fa2)
 
         # Caller must have PlaceItems permissions.
-        permissions = sp.snd(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
+        permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
         sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
         # TODO: special permission for sending items to place? Might be good.
 
-        # Get or create the place and chunk.
-        this_place = PlaceStorage(self.data.places, params.chunk_key.place_key, True)
-        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key, True)
-
-        # Count items in place item storage.
-        chunk_item_count = this_chunk.count_items()
-
-        # Count items to be added.
-        add_item_count = sp.local("add_item_count", sp.nat(0))
+        # Count items to be added, get FA2 set and check id limits.
+        chunk_add_item_count = sp.local("chunk_add_item_count", sp.map(tkey=sp.TNat, tvalue=sp.TNat))
         fa2_set = sp.local("fa2_set", sp.set(t=sp.TAddress))
-        with sp.for_("fa2_map", params.place_item_map.values()) as fa2_map:
-            with sp.for_("fa2_item", fa2_map.items()) as fa2_item:
-                fa2_set.value.add(fa2_item.key)
-                add_item_count.value += sp.len(fa2_item.value)
+        with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
+            sp.verify(chunk_item.key < place_limits.chunk_limit, message = self.error_message.chunk_limit())
 
-        # Make sure chunk item limit is not exceeded.
-        sp.verify(chunk_item_count + add_item_count.value <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
+            add_item_count = sp.local("add_item_count", sp.nat(0))
+            with sp.for_("fa2_map", chunk_item.value.values()) as fa2_map:
+                with sp.for_("fa2_item", fa2_map.items()) as fa2_item:
+                    fa2_set.value.add(fa2_item.key)
+                    add_item_count.value += sp.len(fa2_item.value)
+
+            chunk_add_item_count.value[chunk_item.key] = add_item_count.value
+
+        # Get or create the place and chunk.
+        this_place = PlaceStorage(self.data.places, params.place_key, True)
 
         # Our token transfer map.
         transferMap = utils.FA2TokenTransferMap()
 
+        # Get registry info for FA2s.
         registry_info = registry_contract.getTokenRegistryInfo(
             self.data.registry,
             fa2_set.value.elements(),
             params.merkle_proofs)
 
-        # For each fa2 in the map.
-        with sp.for_("send_to_place_item", params.place_item_map.items()) as send_to_place_item:
-            # If tokens are sent to place, the issuer should be none, otherwise sender.
-            issuer = sp.compute(sp.eif(send_to_place_item.key, sp.none, sp.some(sp.sender)))
+        with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
+            chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
 
-            with sp.for_("fa2_item", send_to_place_item.value.items()) as fa2_item:
-                sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
+            this_chunk = ChunkStorage(self.data.chunks, chunk_key, True)
 
-                # Get or create item storage.
-                item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
+            # Count items in place item storage.
+            chunk_item_count = this_chunk.count_items()
 
-                transferMap.add_fa2(fa2_item.key)
+            # Make sure chunk item limit is not exceeded.
+            sp.verify(chunk_item_count + chunk_add_item_count.value.get(chunk_item.key, sp.nat(0)) <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
 
-                # For each item in the list.
-                with sp.for_("curr", fa2_item.value) as curr:
-                    with curr.match_cases() as arg:
-                        with arg.match("item") as item:
-                            self.validateItemData(item.data)
+            # For each fa2 in the map.
+            with sp.for_("send_to_place_item", chunk_item.value.items()) as send_to_place_item:
+                # If tokens are sent to place, the issuer should be none, otherwise sender.
+                issuer = sp.compute(sp.eif(send_to_place_item.key, sp.none, sp.some(sp.sender)))
 
-                            # TODO:
-                            # Token registry should be a separate contract
-                            ## Check if FA2 token is permitted and get props.
-                            #fa2_props = self.getPermittedFA2Props(fa2)
-                            #
-                            ## If swapping is not allowed, amount MUST be 1 and rate MUST be 0.
-                            #with sp.if_(~ fa2_props.swap_allowed):
-                            #    sp.verify((item.amount == sp.nat(1)) & (item.rate == sp.tez(0)), message = self.error_message.parameter_error())
+                with sp.for_("fa2_item", send_to_place_item.value.items()) as fa2_item:
+                    sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
 
-                            # Transfer item to this contract.
-                            transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.amount)
+                    # Get or create item storage.
+                    item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
 
-                        with arg.match("ext") as ext_data:
-                            self.validateItemData(ext_data)
+                    transferMap.add_fa2(fa2_item.key)
 
-                    # Add item to storage.
-                    item_store.value[this_chunk.value.next_id] = curr
+                    # For each item in the list.
+                    with sp.for_("curr", fa2_item.value) as curr:
+                        with curr.match_cases() as arg:
+                            with arg.match("item") as item:
+                                self.validateItemData(item.data)
 
-                    # Increment next_id.
-                    this_chunk.value.next_id += 1
+                                # TODO:
+                                # Token registry should be a separate contract
+                                ## Check if FA2 token is permitted and get props.
+                                #fa2_props = self.getPermittedFA2Props(fa2)
+                                #
+                                ## If swapping is not allowed, amount MUST be 1 and rate MUST be 0.
+                                #with sp.if_(~ fa2_props.swap_allowed):
+                                #    sp.verify((item.amount == sp.nat(1)) & (item.rate == sp.tez(0)), message = self.error_message.parameter_error())
 
-                # Persist item storage.
-                item_store.persist()
+                                # Transfer item to this contract.
+                                transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.amount)
 
-        # Don't increment chunk interaction counter, as next_id changes.
+                            with arg.match("ext") as ext_data:
+                                self.validateItemData(ext_data)
+
+                        # Add item to storage.
+                        item_store.value[this_chunk.value.next_id] = curr
+
+                        # Increment next_id.
+                        this_chunk.value.next_id += 1
+
+                    # Persist item storage.
+                    item_store.persist()
+
+            # Don't increment chunk interaction counter, as next_id changes.
+
+            # Persist chunk.
+            this_chunk.persist(this_place)
+        
+        # Persist place.
+        this_place.persist()
 
         # Transfer the tokens.
         transferMap.transfer_tokens(sp.sender)
-
-        # Persist chunk and place.
-        this_chunk.persist(this_place)
-        this_place.persist()
 
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
         sp.set_type(params, sp.TRecord(
-            chunk_key =  chunkPlaceKeyType,
-            update_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType))),
+            place_key = placeKeyType,
+            update_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType)))),
             ext = extensionArgType
-        ).layout(("chunk_key", ("update_map", "ext"))))
+        ).layout(("place_key", ("update_map", "ext"))))
 
         self.onlyUnpaused()
 
         # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
-
-        # Get the chunk - must exist.
-        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
+        self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        permissions = sp.snd(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
+        permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure update map only contains sender items.
         with sp.if_(~hasModifyAll):
-            with sp.for_("remove_key", params.update_map.keys()) as remove_key:
-                sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
+            with sp.for_("issuer_map", params.update_map.values()) as issuer_map:
+                with sp.for_("remove_key", issuer_map.keys()) as remove_key:
+                    sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Update items.
-        with sp.for_("issuer_item", params.update_map.items()) as issuer_item:
-            with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                update_list = fa2_item.value
+        with sp.for_("chunk_item", params.update_map.items()) as chunk_item:
+            chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
 
-                # Get item store - must exist.
-                item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
+            # Get the chunk - must exist.
+            this_chunk = ChunkStorage(self.data.chunks, chunk_key)
 
-                with sp.for_("update", update_list) as update:
-                    self.validateItemData(update.data)
+            with sp.for_("issuer_item", chunk_item.value.items()) as issuer_item:
+                with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                    update_list = fa2_item.value
 
-                    with item_store.value[update.item_id].match_cases() as arg:
-                        with arg.match("item") as immutable:
-                            # sigh - variants are not mutable
-                            item_var = sp.compute(immutable)
-                            item_var.data = update.data
-                            item_store.value[update.item_id] = sp.variant("item", item_var)
-                        with arg.match("ext"):
-                            item_store.value[update.item_id] = sp.variant("ext", update.data)
+                    # Get item store - must exist.
+                    item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
 
-                # Persist item storage.
-                item_store.persist()
+                    with sp.for_("update", update_list) as update:
+                        self.validateItemData(update.data)
 
-        # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.value.counter += 1
+                        with item_store.value[update.item_id].match_cases() as arg:
+                            with arg.match("item") as immutable:
+                                # sigh - variants are not mutable
+                                item_var = sp.compute(immutable)
+                                item_var.data = update.data
+                                item_store.value[update.item_id] = sp.variant("item", item_var)
+                            with arg.match("ext"):
+                                item_store.value[update.item_id] = sp.variant("ext", update.data)
 
-        # Persist chunk
-        this_chunk.persist()
+                    # Persist item storage.
+                    item_store.persist()
+
+            # Increment chunk interaction counter, as next_id does not change.
+            this_chunk.value.counter += 1
+
+            # Persist chunk
+            this_chunk.persist()
 
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
-            chunk_key =  chunkPlaceKeyType,
-            remove_map = sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat))),
+            place_key = placeKeyType,
+            remove_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat)))),
             ext = extensionArgType
-        ).layout(("chunk_key", ("remove_map", "ext"))))
+        ).layout(("place_key", ("remove_map", "ext"))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
-        #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
-
-        # Get the chunk - must exist.
-        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
+        #self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
-        owner, permissions = sp.match_pair(self.getPermissionsInline(params.chunk_key.place_key, sp.sender))
+        owner, permissions = sp.match_pair(self.getPermissionsInline(params.place_key, sp.sender))
         hasModifyAll = permissions & permissionModifyAll == permissionModifyAll
 
         # If ModifyAll permission is not given, make sure remove map only contains sender items.
         with sp.if_(~hasModifyAll):
-            with sp.for_("remove_key", params.remove_map.keys()) as remove_key:
-                sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
+            with sp.for_("issuer_map", params.remove_map.values()) as issuer_map:
+                with sp.for_("remove_key", issuer_map.keys()) as remove_key:
+                    sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Token transfer map.
         transferMap = utils.FA2TokenTransferMap()
 
         # Remove items.
-        with sp.for_("issuer_item", params.remove_map.items()) as issuer_item:
-            item_owner = utils.openSomeOrDefault(issuer_item.key, owner)
+        with sp.for_("chunk_item", params.remove_map.items()) as chunk_item:
+            chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
 
-            with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                # Get item store - must exist.
-                item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
+            # Get the chunk - must exist.
+            this_chunk = ChunkStorage(self.data.chunks, chunk_key)
 
-                transferMap.add_fa2(fa2_item.key)
-                
-                with sp.for_("curr", fa2_item.value) as curr:
-                    # Nothing to do here with ext items. Just remove them.
-                    with item_store.value[curr].match("item") as the_item:
-                        # Transfer items back to issuer/owner
-                        transferMap.add_token(
-                            fa2_item.key,
-                            item_owner,
-                            the_item.token_id, the_item.amount)
+            with sp.for_("issuer_item", chunk_item.value.items()) as issuer_item:
+                item_owner = utils.openSomeOrDefault(issuer_item.key, owner)
 
-                    # Delete item from storage.
-                    del item_store.value[curr]
+                with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
+                    # Get item store - must exist.
+                    item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
 
-                # Remove the item store if empty.
-                item_store.persist_or_remove()
+                    transferMap.add_fa2(fa2_item.key)
+                    
+                    with sp.for_("curr", fa2_item.value) as curr:
+                        # Nothing to do here with ext items. Just remove them.
+                        with item_store.value[curr].match("item") as the_item:
+                            # Transfer items back to issuer/owner
+                            transferMap.add_token(
+                                fa2_item.key,
+                                item_owner,
+                                the_item.token_id, the_item.amount)
+
+                        # Delete item from storage.
+                        del item_store.value[curr]
+
+                    # Remove the item store if empty.
+                    item_store.persist_or_remove()
+
+            # Increment chunk interaction counter, as next_id does not change.
+            this_chunk.value.counter += 1
+
+            # Persist chunk
+            this_chunk.persist()
 
         # Transfer tokens.
         transferMap.transfer_tokens(sp.self_address)
-
-        # Increment chunk interaction counter, as next_id does not change.
-        this_chunk.value.counter += 1
-
-        # Persist chunk
-        this_chunk.persist()
 
 
     def sendValueRoyaltiesFeesInline(self, rate, issuer_or_place_owner, item_royalty_info, primary):
