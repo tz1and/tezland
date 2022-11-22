@@ -787,8 +787,8 @@ class TL_World(
 
         self.onlyUnpaused()
 
-        # Place token must be allowed
-        self.onlyAllowedPlaceTokens(params.place_key.fa2)
+        # TODO: Place token must be allowed?
+        #self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
         permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
@@ -809,12 +809,10 @@ class TL_World(
 
             with sp.for_("issuer_item", chunk_item.value.items()) as issuer_item:
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                    update_list = fa2_item.value
-
                     # Get item store - must exist.
                     item_store = ItemStorage(this_chunk, issuer_item.key, fa2_item.key)
 
-                    with sp.for_("update", update_list) as update:
+                    with sp.for_("update", fa2_item.value) as update:
                         self.validateItemData(update.data)
 
                         with item_store.value[update.item_id].match_cases() as arg:
