@@ -921,7 +921,7 @@ export default class PostUpgrade extends PostDeployBase {
             console.log(kleur.blue(table.name));
             for (const row_key of Object.keys(table.rows)) {
                 const row = table.rows[row_key];
-                console.log(`${(row_key + ":").padEnd(32, " ")} storage: ${row.storage}, gas: ${row.fee}`);
+                console.log(`${(row_key + ":").padEnd(32)}storage: ${row.storage}, gas: ${row.fee}`);
             }
             //console.table(table.rows);
         }
