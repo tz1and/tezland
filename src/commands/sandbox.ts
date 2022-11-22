@@ -111,3 +111,21 @@ export async function info(): Promise<void> {
         console.log(kleur.red("failed to get sandbox info"))
     }
 }
+
+export async function isRunning(full: boolean): Promise<boolean> {
+    const checkContainerName = full ? 'flextesa' : 'ipfs';
+    const command = `${configEnv()} docker-compose -f docker-compose.yml ps -q ${checkContainerName}`;
+
+    //console.log("running:", command);
+    const output = child.execSync(command, {encoding: 'utf-8'}).trim();
+
+    // Output will either have the container ID (64 chars) or be empty.
+    // Return true if not empty.
+    return output.length !== 0;
+}
+
+export async function startIfNotRunning(full: boolean) {
+    const sandboxRunning = await isRunning(full);
+
+    if (!sandboxRunning) await start(full);
+}

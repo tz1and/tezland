@@ -118,6 +118,9 @@ export default class DeployBase {
     private deploymentsRegPath: string
     private deploymentsReg: any;
 
+    public getNetwork(): string { return this.network; }
+    public isSandboxNetwork(): boolean { return this.isSandboxNet; }
+
     constructor(options: any) {
         // set network to deploy to.
         if(!options.network) this.network = config.defaultNetwork;
