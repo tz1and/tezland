@@ -469,7 +469,8 @@ def test():
     
         prev_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).counter)
         world.get_item(
-            chunk_key = chunk_key,
+            place_key = chunk_key.place_key,
+            chunk_id = chunk_key.chunk_id,
             item_id = item_id,
             issuer = issuer,
             fa2 = fa2,
