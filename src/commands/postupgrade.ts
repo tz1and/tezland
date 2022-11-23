@@ -380,9 +380,9 @@ export default class PostUpgrade extends PostDeployBase {
         });
 
         const placeKey0 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 };
-        const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
+        //const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
         const placeKey1 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 };
-        const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
+        //const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
 
         gas_results = addGasResultsTable({ name: "World", rows: {} });
 
@@ -687,7 +687,7 @@ export default class PostUpgrade extends PostDeployBase {
         // get item
         await runTaskAndAddGasResults(gas_results, "get_item", () => {
             return contracts.get("World_v2_contract")!.methodsObject.get_item({
-                chunk_key: placeKey0Chunk0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 22
+                place_key: placeKey0, chunk_id: 0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 22
             }).send({ mutez: true, amount: 1000000 });
         });
 

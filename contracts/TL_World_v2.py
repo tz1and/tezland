@@ -971,26 +971,29 @@ class TL_World(
     @sp.entry_point(lazify = True)
     def get_item(self, params):
         sp.set_type(params, sp.TRecord(
-            chunk_key =  chunkPlaceKeyType,
+            place_key = placeKeyType,
+            chunk_id = sp.TNat,
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
             merkle_proof = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
             ext = extensionArgType
-        ).layout(("chunk_key", ("item_id", ("issuer", ("fa2", ("merkle_proof", "ext")))))))
+        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", ("merkle_proof", "ext"))))))))
 
         self.onlyUnpaused()
 
         # TODO: Place token must be allowed?
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
 
+        chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = params.chunk_id))
+
         # Get place and chunk - must exist.
-        this_place = PlaceStorage(self.data.places, params.chunk_key.place_key)
-        this_chunk = ChunkStorage(self.data.chunks, params.chunk_key)
+        this_place = PlaceStorage(self.data.places, params.place_key)
+        this_chunk = ChunkStorage(self.data.chunks, chunk_key)
 
         # If the issuer is none, the value_to or owner is the item owner.
         # Used for sending the value to the correct address.
-        item_owner = self.issuerOrValueToOrPlaceOwnerInline(params.chunk_key.place_key, params.issuer, this_place.value.value_to)
+        item_owner = self.issuerOrValueToOrPlaceOwnerInline(params.place_key, params.issuer, this_place.value.value_to)
 
         # Get item store - must exist.
         item_store = ItemStorage(this_chunk, params.issuer, params.fa2)
