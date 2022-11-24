@@ -13,6 +13,8 @@ def test():
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
     carol = sp.test_account("Carol")
+    royalties_key = sp.test_account("Royalties")
+    collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
 
     scenario.h1("Dutch auction contract v2")
@@ -43,7 +45,7 @@ def test():
 
     scenario.h3("TokenRegistry")
     registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        sp.bytes("0x00"), sp.bytes("0x00"),
+        sp.bytes("0x00"), sp.bytes("0x00"), royalties_key.public_key, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 

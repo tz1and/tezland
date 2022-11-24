@@ -706,7 +706,7 @@ class TL_World(
         transferMap = utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        registry_info = registry_contract.getTokenRegistryInfo(
+        registry_info = registry_contract.getTokenRegistryInfoMerkle(
             self.data.registry,
             fa2_set.value.elements(),
             params.merkle_proofs)
@@ -1014,7 +1014,7 @@ class TL_World(
                     # Get the royalties for this item
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
-                    item_royalty_info = registry_contract.getTokenRoyalties(
+                    item_royalty_info = registry_contract.getTokenRoyaltiesMerkle(
                         self.data.registry,
                         params.fa2, the_item.value.token_id,
                         params.merkle_proof)
@@ -1093,7 +1093,7 @@ class TL_World(
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
-                registry_info = registry_contract.getTokenRegistryInfo(
+                registry_info = registry_contract.getTokenRegistryInfoMerkle(
                     self.data.registry,
                     issuer_item.value.keys(),
                     check_merkle_proofs=False)

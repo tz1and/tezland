@@ -10,6 +10,8 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
+    royalties_key = sp.test_account("Royalties")
+    collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
 
     scenario.h1("TokenRegistry Tests")
@@ -31,7 +33,7 @@ def test():
     # create registry contract
     scenario.h1("Test TokenRegistry")
     registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        sp.bytes("0x00"), sp.bytes("0x00"),
+        sp.bytes("0x00"), sp.bytes("0x00"), royalties_key.public_key, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
@@ -153,33 +155,62 @@ def test():
 
     registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
-    # test get_item_royalties view
-    #scenario.h2("get_item_royalties")
-    #scenario.p("It's a view")
-    #view_res = registry.get_item_royalties(sp.nat(0))
-    #scenario.verify(view_res.royalties == 250)
-    #scenario.verify(view_res.creator == bob.address)
+    # Update settings
+    registry.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    registry.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+
+    scenario.verify_equal(registry.data.royalties_public_key, royalties_key.public_key)
+    registry.update_settings([sp.variant("royalties_public_key", collections_key.public_key)]).run(sender = admin)
+    scenario.verify_equal(registry.data.royalties_public_key, collections_key.public_key)
+    registry.update_settings([sp.variant("royalties_public_key", royalties_key.public_key)]).run(sender = admin)
+    scenario.verify_equal(registry.data.royalties_public_key, royalties_key.public_key)
+
+    scenario.verify_equal(registry.data.collections_public_key, collections_key.public_key)
+    registry.update_settings([sp.variant("collections_public_key", royalties_key.public_key)]).run(sender = admin)
+    scenario.verify_equal(registry.data.collections_public_key, royalties_key.public_key)
+    registry.update_settings([sp.variant("collections_public_key", collections_key.public_key)]).run(sender = admin)
+    scenario.verify_equal(registry.data.collections_public_key, collections_key.public_key)
 
     # Test onchain views
     scenario.h2("Test views")
 
     is_reg_param = [items_tokens.address]
 
+    # Registered.
+    # TODO: test is_private_owner_or_collab
     registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
     scenario.verify_equal(registry.is_private_collection([items_tokens.address]), {items_tokens.address: True})
     scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
+    scenario.verify_equal(registry.is_private_owner(sp.record(address=bob.address, collection=items_tokens.address)), True)
+    scenario.verify_equal(registry.is_private_owner(sp.record(address=alice.address, collection=items_tokens.address)), False)
     registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(registry.is_private_collection([items_tokens.address]), {items_tokens.address: False})
     scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
+    scenario.verify(sp.is_failing(registry.is_private_owner(sp.record(address=bob.address, collection=items_tokens.address))))
+    scenario.verify(sp.is_failing(registry.is_private_owner(sp.record(address=alice.address, collection=items_tokens.address))))
 
     registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
     scenario.verify_equal(registry.is_public_collection([items_tokens.address]), {items_tokens.address: True})
     scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: True})
+    scenario.verify(sp.is_failing(registry.is_private_owner(sp.record(address=bob.address, collection=items_tokens.address))))
+    scenario.verify(sp.is_failing(registry.is_private_owner(sp.record(address=alice.address, collection=items_tokens.address))))
     registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
     scenario.verify_equal(registry.is_public_collection([items_tokens.address]), {items_tokens.address: False})
     scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
-    # TODO: test is_private_owner etc views
-    # TODO: test non-native tokens with merkle proof.
+    registry_info = registry.is_registered(is_reg_param)
+    scenario.verify_equal(registry_info.merkle_root, registry.data.collections_merkle_root)
+    scenario.verify_equal(registry_info.public_key, registry.data.collections_public_key)
+
+    # Royalties type.
+    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
+    royalties_info = registry.get_royalties_type(items_tokens.address)
+    scenario.verify_equal(royalties_info.royalties_version, sp.nat(1))
+    scenario.verify_equal(royalties_info.merkle_root, registry.data.royalties_merkle_root)
+    scenario.verify_equal(royalties_info.public_key, registry.data.royalties_public_key)
+
+    # Royalties and collections keys.
+    scenario.verify_equal(registry.get_royalties_public_key(), royalties_key.public_key)
+    scenario.verify_equal(registry.get_collections_public_key(), collections_key.public_key)
 
     scenario.table_of_contents()

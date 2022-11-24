@@ -90,8 +90,8 @@ t_adhoc_operator_params = sp.TVariant(
 # royalties
 
 t_royalties = sp.TList(
-    # The absolute royalties, per contributor, in permille (3 decimals).
-    # Must be less than the maximum royalties.
+    # The absolute royalties, per contributor. Must add up to less or eqaual
+    # total shares - and maybe not be more than some % of shares.
     sp.TRecord(
         address=sp.TAddress,
         share=sp.TNat

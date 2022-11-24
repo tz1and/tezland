@@ -9,6 +9,8 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
+    royalties_key = sp.test_account("Royalties")
+    collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
 
     scenario.h1("Minter v2 Tests")
@@ -36,7 +38,7 @@ def test():
     # create registry contract
     scenario.h1("Test Minter")
     registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        sp.bytes("0x00"), sp.bytes("0x00"),
+        sp.bytes("0x00"), sp.bytes("0x00"), royalties_key.public_key, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
