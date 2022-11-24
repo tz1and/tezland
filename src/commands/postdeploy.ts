@@ -75,14 +75,14 @@ export default class PostDeploy extends PostDeployBase {
         }]);
     }
 
-    private async prepareNewPlace(center: number[], border: number[][]): Promise<any> {
+    private async prepareNewPlace(center: number[], border: number[][], buildHeight: number = 10): Promise<any> {
         const place_metadata_url = await ipfs.upload_place_metadata({
             name: "Some Place",
             description: "A nice place",
             minter: this.accountAddress!,
             centerCoordinates: center,
             borderCoordinates: border,
-            buildHeight: 10,
+            buildHeight: buildHeight,
             placeType: "exterior"
         }, this.isSandboxNet);
         console.log(`place token metadata: ${place_metadata_url}`);

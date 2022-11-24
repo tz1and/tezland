@@ -118,14 +118,14 @@ export default class PostUpgrade extends PostDeployBase {
         }]);
     }
 
-    private async prepareNewPlace(center: number[], border: number[][]): Promise<any> {
+    private async prepareNewPlace(center: number[], border: number[][], buildHeight: number = 10): Promise<any> {
         const place_metadata_url = await ipfs.upload_place_metadata({
             name: "Some Place",
             description: "A nice place",
             minter: this.accountAddress!,
             centerCoordinates: center,
             borderCoordinates: border,
-            buildHeight: 10,
+            buildHeight: buildHeight,
             placeType: "exterior"
         }, this.isSandboxNet);
         console.log(`place token metadata: ${place_metadata_url}`);
@@ -138,14 +138,14 @@ export default class PostUpgrade extends PostDeployBase {
         }
     }
 
-    private async prepareNewInteriorPlace(center: number[], border: number[][]): Promise<any> {
+    private async prepareNewInteriorPlace(center: number[], border: number[][], buildHeight: number = 200): Promise<any> {
         const place_metadata_url = await ipfs.upload_place_metadata({
             name: "Interior Place",
             description: "A nice place",
             minter: this.accountAddress!,
             centerCoordinates: center,
             borderCoordinates: border,
-            buildHeight: 200,
+            buildHeight: buildHeight,
             placeType: "interior"
         }, this.isSandboxNet);
         console.log(`interior place token metadata: ${place_metadata_url}`);
@@ -160,6 +160,19 @@ export default class PostUpgrade extends PostDeployBase {
 
     protected async deployDevWorld(contracts: PostDeployContracts) {
         console.log(kleur.bgGreen("Deploying dev world"));
+
+        await this.run_op_task("Mint Interiors", async () => {
+            const mint_batch = this.tezos!.wallet.batch();
+
+            const places = [];
+            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[20, 0, 20], [20, 0, -20], [-20, 0, -20], [-20, 0, 20]], 20));
+            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[40, 0, 40], [40, 0, -40], [-40, 0, -40], [-40, 0, 40]], 40));
+            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[80, 0, 80], [80, 0, -80], [-80, 0, -80], [-80, 0, 80]], 80));
+            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[160, 0, 160], [160, 0, -160], [-160, 0, -160], [-160, 0, 160]], 160));
+            this.mintNewInteriorPlaces(places, mint_batch, contracts.get("interiors_FA2_contract")!);
+
+            return mint_batch.send();
+        });
 
         // set operators
         await this.fa2_set_operators(contracts, new Map(Object.entries({
