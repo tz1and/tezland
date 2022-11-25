@@ -47,7 +47,8 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: don't deploy factory in upgrade, this feature comes later.
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
-# TODO: figure out why switching to sigend royalties has such a large impact on perf!
+# TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
+
 
 
 # maybe?
@@ -75,6 +76,15 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # - Regarding chunk item storage efficiency: you can easily have up to 2000-3000 items (depending on issuer and token keys)
 #   per map before gas becomes *expensive*.
 # - use of inline_result. and bound blocks in general. can help with gas.
+# - why switching to sigend royalties has such a large impact on perf:
+#   + So I just wasted a day trying to figure out why having a public key in a contract's storage adds 30 mutez of gas
+#   + And it's linear with the number of keys. I guess it does some cryptography even if the key is not used. Would be nice if that was deferred to when/if the key is actually used. (edited)
+#   + I still don't really know what's going on but I'm also somewhat unwilling to read the tezos node code.
+#   + So yeh - placing items and collecting them is now both 60 mutez more expensive, even if the key is unused.
+#   + which is not much but it sure was curious enough to look into it.
+#   + Interestingly, putting the keys into a bigmap did not help. At least not with only two keys.
+#   + Ended up being closer to 90 mutez. I guess (hope) bigmap read + key init > 2 * key init.
+#   + If you have more than two or three public keys in your contract, consider putting them in a bigmap.
 
 # Optional ext argument type.
 # Map val can contain about anything and be
