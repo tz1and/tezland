@@ -727,3 +727,57 @@ update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
 
 Factory
 create_token:                   storage: 1.180500, gas: 0.001290
+
+
+World v2 - signed royalties and collections
+----------------------------------------------
+FA2
+update_operators:               storage: 0.016750, gas: 0.000560
+
+World
+create place 0 (item):          storage: 0.082250, gas: 0.001808
+create place 1 (item):          storage: 0.072250, gas: 0.001831
+update_place_props:             storage: 0.000000, gas: 0.000928
+
+World place_items
+place_items (1):                storage: 0.009750, gas: 0.001880
+place_items (10):               storage: 0.102500, gas: 0.002257
+place_items chunks (2x1):       storage: 0.057000, gas: 0.002050
+place_items chunks (2x10):      storage: 0.205000, gas: 0.002827
+
+World set_item_data
+set_item_data (1):              storage: 0.000000, gas: 0.001069
+set_item_data (10):             storage: 0.000000, gas: 0.001286
+set_item_data chunks (2x1):     storage: 0.000000, gas: 0.001288
+set_item_data chunks (2x10):    storage: 0.000000, gas: 0.001723
+
+World remove_items
+remove_items (1):               storage: 0.000000, gas: 0.001417
+remove_items (10):              storage: 0.000000, gas: 0.001426
+remove_items chunks (2x1):      storage: 0.000000, gas: 0.001599
+remove_items chunks (2x10):     storage: 0.000000, gas: 0.001613
+
+World set_permissions
+set_permissions:                storage: 0.000000, gas: 0.000611
+get_item:                       storage: 0.000000, gas: 0.002015
+
+Auctions
+create_auction:                 storage: 0.000000, gas: 0.001714
+bid:                            storage: 0.000000, gas: 0.002184
+cancel:                         storage: 0.000000, gas: 0.000621
+
+Adhoc Operators
+update_operators (100):         storage: 1.675000, gas: 0.011919
+transfer:                       storage: 0.016750, gas: 0.000676
+update_adhoc_operators:         storage: 0.009250, gas: 0.000501
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000706
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000509
+transfer (reset):               storage: 0.000000, gas: 0.000706
+
+Mint
+mint some:                      storage: 0.170000, gas: 0.002650
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+
+Factory
+create_token:                   storage: 1.190250, gas: 0.001292
