@@ -90,7 +90,8 @@ t_get_royalties_type_result = sp.TRecord(
 # Offchain royalties type
 t_royalties_offchain = sp.TRecord(
     fa2 = sp.TAddress,
-    token_id = sp.TNat,
+    # Token ID is optional, for contracts with global royalties (PFPs, etc).
+    token_id = sp.TOption(sp.TNat),
     token_royalties = FA2.t_royalties_interop
 ).layout(("fa2", ("token_id", "token_royalties")))
 
@@ -172,11 +173,11 @@ def getTokenRoyaltiesSigned(token_registry_contract, fa2, token_id, royalties_si
         sp.verify(sp.check_signature(royalties_type.value.public_key, royalties_signed_open.signature, royalties_signed_open.royalties_data), "INVALID_SIGNATURE")
 
         # Data should match fa and token id. So it can be verified against the token.
-        unpacked_data = sp.compute(sp.unpack(royalties_signed_open.royalties_data, t_royalties_offchain).open_some("INVALID_DATA"))
+        royalties_offchain = sp.compute(sp.unpack(royalties_signed_open.royalties_data, t_royalties_offchain).open_some("INVALID_DATA"))
 
         # Make sure data matches token and return.
-        sp.verify((fa2 == unpacked_data.fa2) & (token_id == unpacked_data.token_id), "DATA_DOES_NOT_MATCH_TOKEN")
-        sp.result(unpacked_data.token_royalties)
+        sp.verify((fa2 == royalties_offchain.fa2) & (token_id == utils.openSomeOrDefault(royalties_offchain.token_id, token_id)), "DATA_DOES_NOT_MATCH_TOKEN")
+        sp.result(royalties_offchain.token_royalties)
 
     with sp.else_():
         with sp.if_(royalties_type.value.royalties_version == 1):

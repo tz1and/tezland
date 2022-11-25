@@ -262,7 +262,7 @@ def test():
     # Royalties
     offchain_royalties = sp.set_type_expr(sp.record(
         fa2=items_tokens.address,
-        token_id=10,
+        token_id=sp.some(10),
         token_royalties=sp.set_type_expr(sp.record(
             total=2000,
             shares=[
