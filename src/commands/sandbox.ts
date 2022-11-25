@@ -31,6 +31,9 @@ export async function start(full?: boolean): Promise<void> {
             {stdio: 'inherit'}
         )
 
+        // Sleep a couple of seconds to make sure everything is actually started.
+        await sleep(5000);
+
         /*console.log("Waiting to deploy lambda view contract");
         await sleep(20000);
 

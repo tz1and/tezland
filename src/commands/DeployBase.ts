@@ -12,7 +12,7 @@ import assert from 'assert';
 import kleur from 'kleur';
 import prompt from 'prompt';
 import fs from 'fs';
-import util from 'util';
+import util, { promisify } from 'util';
 import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
 
@@ -22,9 +22,7 @@ type FeeResult = {
     fee: string;
 }
 
-export const sleep = (milliseconds: number) => {
-    return new Promise(resolve => setTimeout(resolve, milliseconds))
-};
+export const sleep = promisify(setTimeout);
 
 // NOTE: only works with single origination per op
 export class DeployContractBatch {
