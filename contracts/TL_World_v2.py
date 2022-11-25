@@ -47,6 +47,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 # TODO: don't deploy factory in upgrade, this feature comes later.
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
+# TODO: figure out why switching to sigend royalties has such a large impact on perf!
 
 
 # maybe?
