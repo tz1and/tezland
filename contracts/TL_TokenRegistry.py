@@ -20,6 +20,7 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: test update_settings
 # TODO: layouts!!!
 # TODO: remove merkle tree if the signature stuff works properly.
+# TODO: t_royalties_signed: decide if data should be packed or not.
 
 privateCollectionValueType = sp.TRecord(
     owner = sp.TAddress,
@@ -81,14 +82,6 @@ t_get_royalties_type_result = sp.TRecord(
     public_key = sp.TKey
 ).layout(("royalties_version", ("merkle_root", "public_key")))
 
-# Interop royalties are based on new FA2 royalties, with total shares.
-t_royalties_interop = sp.TRecord(
-    # Total shares. Because calculating powers of 10 is lame.
-    total = sp.TNat,
-    shares = FA2.t_royalties
-).layout(("total", "shares"))
-
-
 #
 # Royalties and collections
 #
@@ -96,16 +89,13 @@ t_royalties_interop = sp.TRecord(
 #
 # "Trusted" - signed offchain.
 
-# Leaf types
+# Offchain royalties type
 t_royalties_offchain = sp.TRecord(
     fa2 = sp.TAddress,
     token_id = sp.TNat,
-    token_royalties = t_royalties_interop
+    token_royalties = FA2.t_royalties_interop
 ).layout(("fa2", ("token_id", "token_royalties")))
 
-
-# NOTE: similar to t_collection_sigend, we might not include the FA2
-# in the roylaties and include it when verifying the signature.
 t_royalties_signed = sp.TRecord(
     signature = sp.TSignature,
     royalties_data = sp.TBytes # packed t_royalties_offchain
@@ -117,8 +107,9 @@ t_collection_signed = sp.TSignature
 
 
 def sign_royalties(royalties, private_key):
-    sp.set_type(royalties, t_royalties_offchain)
-    sp.set_type(private_key, sp.TString)
+    royalties = sp.set_type_expr(royalties, t_royalties_offchain)
+    # Gives: Type format error atom secret_key
+    #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
 
     packed_royalties = sp.pack(royalties)
 
@@ -127,11 +118,12 @@ def sign_royalties(royalties, private_key):
         packed_royalties,
         message_format = 'Raw')
 
-    return signature
+    return sp.record(signature=signature, royalties_data=packed_royalties)
 
 def sign_collection(address, private_key):
-    sp.set_type(address, sp.TAddress)
-    sp.set_type(private_key, sp.TString)
+    address = sp.set_type_expr(address, sp.TAddress)
+    # Gives: Type format error atom secret_key
+    #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
 
     packed_collection = sp.pack(address)
 
@@ -191,7 +183,7 @@ def getTokenRoyaltiesSigned(token_registry_contract, fa2, token_id, royalties_si
     with sp.else_():
         with sp.if_(royalties_type.value.royalties_version == 1):
             royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
-            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), t_royalties_interop)
+            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), FA2.t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
                 royalties_v2.value.shares.push(sp.record(
@@ -201,7 +193,7 @@ def getTokenRoyaltiesSigned(token_registry_contract, fa2, token_id, royalties_si
             sp.result(royalties_v2.value)
         with sp.else_():
             with sp.if_(royalties_type.value.royalties_version == 2):
-                sp.result(sp.record(total = 1000, shares = FA2.get_token_royalties(fa2, token_id)))
+                sp.result(FA2.get_token_royalties(fa2, token_id))
             with sp.else_():
                 sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
 
@@ -262,7 +254,7 @@ def getTokenRoyaltiesMerkle(token_registry_contract, fa2, token_id, merkle_proof
     with sp.else_():
         with sp.if_(royalties_type.value.royalties_version == 1):
             royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
-            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), t_royalties_interop)
+            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), FA2.t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
                 royalties_v2.value.shares.push(sp.record(
@@ -272,7 +264,7 @@ def getTokenRoyaltiesMerkle(token_registry_contract, fa2, token_id, merkle_proof
             sp.result(royalties_v2.value)
         with sp.else_():
             with sp.if_(royalties_type.value.royalties_version == 2):
-                sp.result(sp.record(total = 1000, shares = FA2.get_token_royalties(fa2, token_id)))
+                sp.result(FA2.get_token_royalties(fa2, token_id))
             with sp.else_():
                 sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
 
