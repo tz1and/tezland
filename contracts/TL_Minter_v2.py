@@ -205,7 +205,7 @@ class TL_Minter(
             collection = sp.TAddress,
             to_ = sp.TAddress,
             amount = sp.TNat,
-            royalties = FA2.t_royalties,
+            royalties = FA2.t_royalties_shares,
             metadata = sp.TBytes
         ).layout(("collection", ("to_", ("amount", ("royalties", "metadata"))))))
 
@@ -249,7 +249,7 @@ class TL_Minter(
             collection = sp.TAddress,
             to_ = sp.TAddress,
             amount = sp.TNat,
-            royalties = FA2.t_royalties,
+            royalties = FA2.t_royalties_shares,
             metadata = sp.TBytes
         ).layout(("collection", ("to_", ("amount", ("royalties", "metadata"))))))
 

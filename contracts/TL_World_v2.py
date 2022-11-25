@@ -905,7 +905,7 @@ class TL_World(
         """Inline function for sending royalties, fees, etc."""
         sp.set_type(rate, sp.TMutez)
         sp.set_type(issuer_or_place_owner, sp.TAddress)
-        sp.set_type(item_royalty_info, registry_contract.t_royalties_interop)
+        sp.set_type(item_royalty_info, FA2.t_royalties_interop)
         sp.set_type(primary, sp.TBool)
 
         # Collect amounts to send in a map.

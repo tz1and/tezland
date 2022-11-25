@@ -89,7 +89,7 @@ t_adhoc_operator_params = sp.TVariant(
 
 # royalties
 
-t_royalties = sp.TList(
+t_royalties_shares = sp.TList(
     # The absolute royalties, per contributor. Must add up to less or eqaual
     # total shares - and maybe not be more than some % of shares.
     sp.TRecord(
@@ -97,12 +97,19 @@ t_royalties = sp.TList(
         share=sp.TNat
     ).layout(("address", "share")))
 
+# Interop royalties are based on new FA2 royalties, with total shares.
+t_royalties_interop = sp.TRecord(
+    # Total shares. Because calculating powers of 10 is lame.
+    total = sp.TNat,
+    shares = t_royalties_shares
+).layout(("total", "shares"))
+
 # mint with royalties
 
 t_mint_nft_royalties_batch = sp.TList(sp.TRecord(
     to_=sp.TAddress,
     metadata=sp.TMap(sp.TString, sp.TBytes),
-    royalties=t_royalties
+    royalties=t_royalties_shares
 ).layout(("to_", ("metadata", "royalties"))))
 
 t_mint_fungible_royalties_batch = sp.TList(sp.TRecord(
@@ -111,7 +118,7 @@ t_mint_fungible_royalties_batch = sp.TList(sp.TRecord(
     token=sp.TVariant(
         new=sp.TRecord(
             metadata=sp.TMap(sp.TString, sp.TBytes),
-            royalties=t_royalties
+            royalties=t_royalties_shares
         ).layout(("metadata", "royalties")),
         existing=sp.TNat
     ).layout(("new", "existing"))
@@ -121,11 +128,11 @@ t_mint_fungible_royalties_batch = sp.TList(sp.TRecord(
 
 t_token_extra_royalties_supply = sp.TRecord(
     supply=sp.TNat,
-    royalty_info=t_royalties
+    royalty_info=t_royalties_shares
 ).layout(("supply", "royalty_info"))
 
 t_token_extra_royalties = sp.TRecord(
-    royalty_info=t_royalties
+    royalty_info=t_royalties_shares
 )
 
 t_token_extra_supply = sp.TRecord(
@@ -601,9 +608,7 @@ class Fa2Nft(Common):
                 token_id=token_id, token_info=metadata
             )
             token_extra_dict[token_id] = sp.record(
-                royalty_info=sp.record(
-                    royalties=0, contributors=[]
-                )
+                royalty_info=[]
             )
         for token_id, address in ledger.items():
             if token_id not in token_metadata_dict:
@@ -700,9 +705,7 @@ class Fa2Fungible(Common):
             if has_royalties:
                 token_extra_dict[token_id] = sp.record(
                     supply=sp.nat(0),
-                    royalty_info=sp.record(
-                        royalties=0, contributors=[]
-                    )
+                    royalty_info=[]
                 )
             else:
                 token_extra_dict[token_id] = sp.record(supply=sp.nat(0))
@@ -1119,10 +1122,13 @@ class Royalties:
 
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, token_id):
-        """Returns the token royalties information"""
+        """Returns the token royalties information, including total shares."""
         sp.set_type(token_id, sp.TNat)
 
-        sp.result(self.data.token_extra.get(token_id, self.token_extra_default).royalty_info)
+        with sp.set_result_type(t_royalties_interop):
+            sp.result(sp.record(
+                total=1000,
+                shares=self.data.token_extra.get(token_id, self.token_extra_default).royalty_info))
 
 
 class OnchainviewCountTokens:
@@ -1142,7 +1148,7 @@ class OnchainviewCountTokens:
 def get_token_royalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
-        t = t_royalties).open_some()
+        t = t_royalties_interop).open_some()
 
 # Get owner
 def fa2_nft_get_owner(fa2, token_id):
@@ -1155,7 +1161,7 @@ def fa2_nft_get_owner(fa2, token_id):
 # Validating royalties
 def validate_royalties(royalties, max_royalties, max_contributors):
     """Inline function to validate royalties."""
-    sp.set_type(royalties, t_royalties)
+    sp.set_type(royalties, t_royalties_shares)
     sp.set_type(max_royalties, sp.TNat)
     sp.set_type(max_contributors, sp.TNat)
     

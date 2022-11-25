@@ -1779,7 +1779,7 @@ def test_royalties(nft_contract, fungible_contract):
 
             # Check onchain view
             sc.verify_equal(
-                royalties, c1.get_token_royalties(abs(c1.data.last_token_id - 1))
+                sp.record(total=1000, shares=royalties), c1.get_token_royalties(abs(c1.data.last_token_id - 1))
             )
 
             c2.mint([
@@ -1798,5 +1798,5 @@ def test_royalties(nft_contract, fungible_contract):
 
             # Check onchain view
             sc.verify_equal(
-                royalties, c2.get_token_royalties(abs(c2.data.last_token_id - 1))
+                sp.record(total=1000, shares=royalties), c2.get_token_royalties(abs(c2.data.last_token_id - 1))
             )
