@@ -63,8 +63,8 @@ def test():
 
     # create registry contract
     scenario.h1("Test TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        sp.bytes("0x00"), sp.bytes("0x00"), royalties_key.public_key, collections_key.public_key,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address, #sp.bytes("0x00"), sp.bytes("0x00"),
+        royalties_key.public_key, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
@@ -230,14 +230,14 @@ def test():
     scenario.verify_equal(registry.is_registered(is_reg_param).result_map, {items_tokens.address: False})
 
     registry_info = registry.is_registered(is_reg_param)
-    scenario.verify_equal(registry_info.merkle_root, registry.data.collections_merkle_root)
+    #scenario.verify_equal(registry_info.merkle_root, registry.data.collections_merkle_root)
     scenario.verify_equal(registry_info.public_key, registry.data.collections_public_key)
 
     # Royalties type.
     registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
     royalties_info = registry.get_royalties_type(items_tokens.address)
     scenario.verify_equal(royalties_info.royalties_version, sp.nat(1))
-    scenario.verify_equal(royalties_info.merkle_root, registry.data.royalties_merkle_root)
+    #scenario.verify_equal(royalties_info.merkle_root, registry.data.royalties_merkle_root)
     scenario.verify_equal(royalties_info.public_key, registry.data.royalties_public_key)
     registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 

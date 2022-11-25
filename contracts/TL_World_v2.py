@@ -671,9 +671,10 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             place_key = placeKeyType,
             place_item_map = sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))),
-            merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
+            #merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
+            signed_registries = sp.TOption(sp.TMap(sp.TAddress, registry_contract.t_collection_signed)),
             ext = extensionArgType
-        ).layout(("place_key", ("place_item_map", ("merkle_proofs", "ext")))))
+        ).layout(("place_key", ("place_item_map", ("signed_registries", "ext")))))
 
         self.onlyUnpaused()
 
@@ -706,10 +707,10 @@ class TL_World(
         transferMap = utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        registry_info = registry_contract.getTokenRegistryInfoMerkle(
+        registry_info = registry_contract.getTokenRegistryInfoSigned(
             self.data.registry,
             fa2_set.value.elements(),
-            params.merkle_proofs)
+            params.signed_registries)
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -976,9 +977,10 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
-            merkle_proof = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
+            #merkle_proof = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
+            signed_royalties = sp.TOption(registry_contract.t_royalties_signed),
             ext = extensionArgType
-        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", ("merkle_proof", "ext"))))))))
+        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", ("signed_royalties", "ext"))))))))
 
         self.onlyUnpaused()
 
@@ -1014,10 +1016,10 @@ class TL_World(
                     # Get the royalties for this item
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
-                    item_royalty_info = registry_contract.getTokenRoyaltiesMerkle(
+                    item_royalty_info = registry_contract.getTokenRoyaltiesSigned(
                         self.data.registry,
                         params.fa2, the_item.value.token_id,
-                        params.merkle_proof)
+                        params.signed_royalties)
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1093,10 +1095,10 @@ class TL_World(
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
-                registry_info = registry_contract.getTokenRegistryInfoMerkle(
+                registry_info = registry_contract.getTokenRegistryInfoSigned(
                     self.data.registry,
                     issuer_item.value.keys(),
-                    check_merkle_proofs=False)
+                    check_signed_registries=False)
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())

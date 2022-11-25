@@ -5,7 +5,7 @@ token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFa
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
+#merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Some frequently used forwarded types
@@ -253,8 +253,8 @@ def test():
     scenario += places_tokens
 
     scenario.h2("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address,
-        sp.bytes("0x00"), sp.bytes("0x00"), royalties_key.public_key, collections_key.public_key,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address, #sp.bytes("0x00"), sp.bytes("0x00"),
+        royalties_key.public_key, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
@@ -423,7 +423,8 @@ def test():
         sender: sp.TestAccount,
         valid: bool = True,
         message: str = None,
-        merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.merkle_tree_collections.MerkleProofType)) = sp.none):
+        #merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.merkle_tree_collections.MerkleProofType)) = sp.none
+        signed_registries: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.t_collection_signed)) = sp.none):
 
         if valid == True:
             before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
@@ -435,7 +436,8 @@ def test():
         world.place_items(
             place_key = place_key,
             place_item_map = token_arr,
-            merkle_proofs = merkle_proofs,
+            #merkle_proofs = merkle_proofs,
+            signed_registries = signed_registries,
             ext = sp.none
         ).run(sender = sender, valid = valid, exception = message)
     
@@ -476,7 +478,8 @@ def test():
             item_id = item_id,
             issuer = issuer,
             fa2 = fa2,
-            merkle_proof = sp.none,
+            #merkle_proof = sp.none,
+            signed_royalties = sp.none,
             ext = sp.none
         ).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
     
