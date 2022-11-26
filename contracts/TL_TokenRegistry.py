@@ -10,15 +10,13 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
-# TODO: merkle tree for royalties - test
-# TODO: merkle tree for registry - test
 # TODO: can drastically optimise the size by not having the admin/contract metadata mixins. Maybe useful to optimise.
 # TODO: decide laziness of entrypoints...
 # TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
 # TODO: test update_settings
 # TODO: layouts!!!
-# TODO: remove merkle tree if the signature stuff works properly.
 # TODO: t_royalties_signed: decide if data should be packed or not.
+
 
 privateCollectionValueType = sp.TRecord(
     owner = sp.TAddress,
