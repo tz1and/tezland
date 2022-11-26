@@ -930,7 +930,7 @@ class TL_World(
         with sp.if_(royalties_type.value == 0):
             # Get royalties from legacy royalties contract.
             sp.result(sp.view("get_token_royalties", self.data.legacy_royalties,
-                sp.set_type_expr(sp.record(fa2=fa2, id=sp.some(token_id)), legacy_royalties_contract.t_token_key),
+                sp.set_type_expr(sp.record(fa2=fa2, id=token_id), legacy_royalties_contract.t_token_key),
                 t = FA2.t_royalties_interop).open_some())
 
         with sp.else_():

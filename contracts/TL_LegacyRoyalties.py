@@ -10,11 +10,15 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: layouts!!!
 # TODO: t_royalties_signed: decide if data should be packed or not.
-# TODO: if key with some does not exist check for none!!! ???
 
 #
 # Trusted Royalties - signed offchain.
 #
+
+t_public_key_item = sp.TRecord(
+    owner = sp.TAddress,
+    key = sp.TKey
+).layout(("owner", "key"))
 
 t_manage_public_keys = sp.TList(sp.TVariant(
     add = sp.TList(sp.TRecord(
@@ -24,20 +28,25 @@ t_manage_public_keys = sp.TList(sp.TVariant(
     remove = sp.TList(sp.TString)
 ).layout(("add", "remove")))
 
-t_token_key = sp.TRecord(
+t_token_key_opt = sp.TRecord(
     fa2 = sp.TAddress,
     # Token ID is optional, for contracts with global royalties (PFPs, etc).
     id = sp.TOption(sp.TNat),
 ).layout(("fa2", "id"))
 
+t_token_key = sp.TRecord(
+    fa2 = sp.TAddress,
+    id = sp.TNat,
+).layout(("fa2", "id"))
+
 # Offchain royalties type
 t_royalties_offchain = sp.TRecord(
-    token_key = t_token_key,
+    token_key = t_token_key_opt,
     # TODO: prob want to define royalties here directly.
     token_royalties = FA2.t_royalties_interop
 ).layout(("token_key", "token_royalties"))
 
-t_remove_royalties_params = sp.TSet(t_token_key)
+t_remove_royalties_params = sp.TMap(sp.TAddress, sp.TSet(sp.TOption(sp.TNat)))
 
 t_add_royalties_params = sp.TMap(
     sp.TString, # private key id
@@ -76,8 +85,8 @@ class TL_LegacyRoyalties(
         #self.add_flag("erase-comments")
 
         self.init_storage(
-            public_keys = sp.big_map(tkey=sp.TString, tvalue=sp.TKey),
-            royalties = sp.big_map(tkey=t_token_key, tvalue=FA2.t_royalties_interop)
+            public_keys = sp.big_map(tkey=sp.TString, tvalue=t_public_key_item),
+            royalties = sp.big_map(tkey=t_token_key_opt, tvalue=FA2.t_royalties_interop)
         )
 
         self.available_settings = []
@@ -153,12 +162,16 @@ class TL_LegacyRoyalties(
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
                 with arg.match("add") as add:
-                    with sp.for_("key", add) as key:
-                        self.data.public_keys[key.id] = key.key
+                    with sp.for_("add_key", add) as add_key:
+                        self.data.public_keys[add_key.id] = sp.record(owner=sp.sender, key=add_key.key)
 
                 with arg.match("remove") as remove:
                     with sp.for_("id", remove) as id:
-                        del self.data.public_keys[id]
+                        # TODO: check owner or admin!
+                        with sp.if_(self.isAdministrator(sp.sender) | (self.data.public_keys.get(id, message="UNKNOWN_KEY").owner == sp.sender)):
+                            del self.data.public_keys[id]
+                        with sp.else_():
+                            sp.failwith("NOT_KEY_OWNER_OR_ADMIN")
 
     @sp.entry_point(lazify = False)
     def remove_royalties(self, params):
@@ -168,8 +181,9 @@ class TL_LegacyRoyalties(
         #self.onlyUnpaused()
         self.onlyAdministratorOrPermitted()
 
-        with sp.for_("token_key", params.elements()) as token_key:
-            del self.data.royalties[token_key]
+        with sp.for_("fa2_item", params.items()) as fa2_item:
+            with sp.for_("token_id", fa2_item.value.elements()) as token_id:
+                del self.data.royalties[sp.record(fa2=fa2_item.key, id=token_id)]
 
     #
     # Public entry points
@@ -182,7 +196,7 @@ class TL_LegacyRoyalties(
         #self.onlyUnpaused()
 
         with sp.for_("key_item", params.items()) as key_item:
-            public_key = sp.compute(self.data.public_keys.get(key_item.key, message="INVALID_KEY_ID"))
+            public_key = sp.compute(self.data.public_keys.get(key_item.key, message="INVALID_KEY_ID").key)
 
             with sp.for_("royalties_item", key_item.value) as royalties_item:
                 # Verify the signature matches.
@@ -198,24 +212,34 @@ class TL_LegacyRoyalties(
     def get_token_royalties(self, token_key):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns royalties, if known.
+
+        First checks unique royalties, then global (id some or none).
         
         Fails if unknown."""
         sp.set_type(token_key, t_token_key)
-        sp.result(self.data.royalties.get(token_key, message="UNKNOWN_ROYALTIES"))
+        sp.result(utils.openSomeOrDefault(
+            self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
+            self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none), message="UNKNOWN_ROYALTIES")))
 
 
     @sp.onchain_view(pure=True)
     def get_token_royalties_batch(self, token_keys):
         # TODO: should we store royalty-type information with registered tokens?
         """Returns batch of royalties, if known.
+
+        First checks unique royalties, then global (id some or none).
         
         Doesn't add royalties to result if unknown."""
         sp.set_type(token_keys, sp.TSet(t_token_key))
 
         result_map = sp.local("result_map", sp.map({}, tkey=t_token_key, tvalue=FA2.t_royalties_interop))
         with sp.for_("token_key", token_keys.elements()) as token_key:
-            with self.data.royalties.get_opt(token_key).match("Some") as some_royalties:
-                result_map.value[token_key] = some_royalties
+            with self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))).match_cases() as arg:
+                with arg.match("Some") as some_unique_royalties:
+                    result_map.value[token_key] = some_unique_royalties
+                with arg.match("None"):
+                    with self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.none)).match("Some") as some_global_royalties:
+                        result_map.value[token_key] = some_global_royalties
         sp.result(result_map.value)
 
 
@@ -228,6 +252,6 @@ class TL_LegacyRoyalties(
 
         result_map = sp.local("result_map", sp.map({}, tkey=sp.TString, tvalue=sp.TKey))
         with sp.for_("key_id", key_ids.elements()) as key_id:
-            with self.data.public_keys.get_opt(key_id).match("Some") as some_key:
-                result_map.value[key_id] = some_key
+            with self.data.public_keys.get_opt(key_id).match("Some") as some_key_item:
+                result_map.value[key_id] = some_key_item.key
         sp.result(result_map.value)
