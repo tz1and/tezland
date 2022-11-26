@@ -10,6 +10,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: layouts!!!
 # TODO: t_royalties_signed: decide if data should be packed or not.
+# TODO: if key with some does not exist check for none!!! ???
 
 #
 # Trusted Royalties - signed offchain.
@@ -194,22 +195,39 @@ class TL_LegacyRoyalties(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, token_keys):
+    def get_token_royalties(self, token_key):
         # TODO: should we store royalty-type information with registered tokens?
-        """Returns true if contract is registered, false otherwise."""
+        """Returns royalties, if known.
+        
+        Fails if unknown."""
+        sp.set_type(token_key, t_token_key)
+        sp.result(self.data.royalties.get(token_key, message="UNKNOWN_ROYALTIES"))
+
+
+    @sp.onchain_view(pure=True)
+    def get_token_royalties_batch(self, token_keys):
+        # TODO: should we store royalty-type information with registered tokens?
+        """Returns batch of royalties, if known.
+        
+        Doesn't add royalties to result if unknown."""
         sp.set_type(token_keys, sp.TSet(t_token_key))
 
         result_map = sp.local("result_map", sp.map({}, tkey=t_token_key, tvalue=FA2.t_royalties_interop))
         with sp.for_("token_key", token_keys.elements()) as token_key:
-            result_map.value[token_key] = self.data.royalties.get(token_key, message="UNKNOWN_ROYALTIES")
+            with self.data.royalties.get_opt(token_key).match("Some") as some_royalties:
+                result_map.value[token_key] = some_royalties
         sp.result(result_map.value)
 
 
     @sp.onchain_view(pure=True)
     def get_public_keys(self, key_ids):
+        """Return one or more private keys.
+        
+        Doesn't add key to result if unknown."""
         sp.set_type(key_ids, sp.TSet(sp.TString))
 
         result_map = sp.local("result_map", sp.map({}, tkey=sp.TString, tvalue=sp.TKey))
         with sp.for_("key_id", key_ids.elements()) as key_id:
-            result_map.value[key_id] = self.data.public_keys.get(key_id, message="INVALID_KEY_ID")
+            with self.data.public_keys.get_opt(key_id).match("Some") as some_key:
+                result_map.value[key_id] = some_key
         sp.result(result_map.value)

@@ -6,8 +6,6 @@ contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractM
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
 #MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 # TODO: can drastically optimise the size by not having the admin/contract metadata mixins. Maybe useful to optimise.
@@ -72,50 +70,15 @@ t_registry_result_with_pubkey = sp.TRecord(
     public_key = sp.TKey
 ).layout(("result_map", "public_key"))
 
-t_get_royalties_type_result = sp.TRecord(
-    royalties_version = sp.TNat,
-    #merkle_root = sp.TBytes,
-    public_key = sp.TKey
-).layout(("royalties_version", "public_key"))
+t_get_royalties_type_result = sp.TNat
 
 #
-# Royalties and collections
+# Collections "Trusted" - signed offchain.
 #
-
-#
-# "Trusted" - signed offchain.
-
-# Offchain royalties type
-t_royalties_offchain = sp.TRecord(
-    fa2 = sp.TAddress,
-    # Token ID is optional, for contracts with global royalties (PFPs, etc).
-    token_id = sp.TOption(sp.TNat),
-    token_royalties = FA2.t_royalties_interop
-).layout(("fa2", ("token_id", "token_royalties")))
-
-t_royalties_signed = sp.TRecord(
-    signature = sp.TSignature,
-    royalties_data = sp.TBytes # packed t_royalties_offchain
-)
-
 
 # Don't need the address here, because it's the map key map.
 t_collection_signed = sp.TSignature
 
-
-def sign_royalties(royalties, private_key):
-    royalties = sp.set_type_expr(royalties, t_royalties_offchain)
-    # Gives: Type format error atom secret_key
-    #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
-
-    packed_royalties = sp.pack(royalties)
-
-    signature = sp.make_signature(
-        private_key,
-        packed_royalties,
-        message_format = 'Raw')
-
-    return sp.record(signature=signature, royalties_data=packed_royalties)
 
 def sign_collection(address, private_key):
     address = sp.set_type_expr(address, sp.TAddress)
@@ -153,46 +116,6 @@ def getTokenRegistryInfoSigned(token_registry_contract, fa2_list, signed_registr
                 registry_info.value.result_map[item.key] = True
     
     sp.result(registry_info.value.result_map)
-
-
-@sp.inline_result
-def getTokenRoyaltiesSigned(token_registry_contract, fa2, token_id, royalties_signed):
-    """Gets token royalties and/or validate signed royalties."""
-    sp.set_type(token_registry_contract, sp.TAddress)
-    sp.set_type(fa2, sp.TAddress)
-    sp.set_type(token_id, sp.TNat)
-    sp.set_type(royalties_signed, sp.TOption(t_royalties_signed))
-    royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", token_registry_contract,
-        fa2, t = t_get_royalties_type_result).open_some())
-
-    with sp.if_(royalties_type.value.royalties_version == 0):
-        royalties_signed_open = sp.compute(royalties_signed.open_some("NO_SIGNED_ROYALTIES"))
-        # Verify the signature matches.
-        sp.verify(sp.check_signature(royalties_type.value.public_key, royalties_signed_open.signature, royalties_signed_open.royalties_data), "INVALID_SIGNATURE")
-
-        # Data should match fa and token id. So it can be verified against the token.
-        royalties_offchain = sp.compute(sp.unpack(royalties_signed_open.royalties_data, t_royalties_offchain).open_some("INVALID_DATA"))
-
-        # Make sure data matches token and return.
-        sp.verify((fa2 == royalties_offchain.fa2) & (token_id == utils.openSomeOrDefault(royalties_offchain.token_id, token_id)), "DATA_DOES_NOT_MATCH_TOKEN")
-        sp.result(royalties_offchain.token_royalties)
-
-    with sp.else_():
-        with sp.if_(royalties_type.value.royalties_version == 1):
-            royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
-            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), FA2.t_royalties_interop)
-
-            with sp.for_("contributor", royalties.contributors) as contributor:
-                royalties_v2.value.shares.push(sp.record(
-                    address = contributor.address,
-                    share = contributor.relative_royalties * royalties.royalties / 1000))
-
-            sp.result(royalties_v2.value)
-        with sp.else_():
-            with sp.if_(royalties_type.value.royalties_version == 2):
-                sp.result(FA2.get_token_royalties(fa2, token_id))
-            with sp.else_():
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
 
 
 ##
@@ -275,16 +198,13 @@ class TL_TokenRegistry(
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, #royalties_merkle_root, collections_merkle_root,
-        royalties_public_key, collections_public_key, metadata, exception_optimization_level="default-line"):
-
+    def __init__(self, administrator, collections_public_key, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
         #royalties_merkle_root = sp.set_type_expr(royalties_merkle_root, sp.TBytes)
         #collections_merkle_root = sp.set_type_expr(collections_merkle_root, sp.TBytes)
 
-        royalties_public_key = sp.set_type_expr(royalties_public_key, sp.TKey)
         collections_public_key = sp.set_type_expr(collections_public_key, sp.TKey)
 
         self.init_storage(
@@ -293,14 +213,12 @@ class TL_TokenRegistry(
             collaborators = collaboratorsMapLiteral,
             #royalties_merkle_root = royalties_merkle_root,
             #collections_merkle_root = collections_merkle_root,
-            royalties_public_key = royalties_public_key,
             collections_public_key = collections_public_key
         )
 
         self.available_settings = [
             #("royalties_merkle_root", sp.TBytes, None),
             #("collections_merkle_root", sp.TBytes, None),
-            ("royalties_public_key", sp.TKey, None),
             ("collections_public_key", sp.TKey, None)
         ]
 
@@ -556,10 +474,7 @@ class TL_TokenRegistry(
                     with private_opt.match("Some") as private_some:
                         royalties_version.value = private_some.royalties_version
 
-            sp.result(sp.record(
-                royalties_version = royalties_version.value,
-                #merkle_root = self.data.royalties_merkle_root,
-                public_key = self.data.royalties_public_key))
+            sp.result(royalties_version.value)
 
 #    @sp.onchain_view(pure=True)
 #    def get_collections_merkle_root(self):
@@ -572,7 +487,3 @@ class TL_TokenRegistry(
     @sp.onchain_view(pure=True)
     def get_collections_public_key(self):
         sp.result(self.data.collections_public_key)
-
-    @sp.onchain_view(pure=True)
-    def get_royalties_public_key(self):
-        sp.result(self.data.royalties_public_key)

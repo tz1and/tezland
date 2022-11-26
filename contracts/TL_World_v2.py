@@ -13,8 +13,10 @@ allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlace
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
+legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 # Now:
 # TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
@@ -480,7 +482,7 @@ class TL_World(
     allowed_place_tokens.AllowedPlaceTokens,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, registry, paused, items_tokens, metadata,
+    def __init__(self, administrator, registry, legacy_royalties, paused, items_tokens, metadata,
         name, description, exception_optimization_level="default-line"):
 
         # Needed for migration ep but not really needed otherwise.
@@ -496,12 +498,14 @@ class TL_World(
         #self.add_flag("simplify-via-michel")
 
         registry = sp.set_type_expr(registry, sp.TAddress)
+        legacy_royalties = sp.set_type_expr(legacy_royalties, sp.TAddress)
 
         self.error_message = Error_message()
         self.permission_map = Permission_map()
 
         self.init_storage(
             registry = registry,
+            legacy_royalties = legacy_royalties,
             migration_from = sp.none,
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
@@ -511,6 +515,7 @@ class TL_World(
 
         self.available_settings = [
             ("registry", sp.TAddress, None),
+            ("legacy_royalties", sp.TAddress, None),
             ("migration_from", sp.TOption(sp.TAddress), None),
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
@@ -913,6 +918,41 @@ class TL_World(
         transferMap.transfer_tokens(sp.self_address)
 
 
+    @sp.inline_result
+    def getTokenRoyalties(self, fa2, token_id):
+        """Gets token royalties and/or validate signed royalties."""
+        sp.set_type(fa2, sp.TAddress)
+        sp.set_type(token_id, sp.TNat)
+        royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", self.data.registry,
+            fa2, t = registry_contract.t_get_royalties_type_result).open_some())
+
+        # Type 0 = Registry does not know about this token's royalties.
+        with sp.if_(royalties_type.value == 0):
+            # Get royalties from legacy royalties contract.
+            sp.result(sp.view("get_token_royalties", self.data.legacy_royalties,
+                sp.set_type_expr(sp.record(fa2=fa2, id=sp.some(token_id)), legacy_royalties_contract.t_token_key),
+                t = FA2.t_royalties_interop).open_some())
+
+        with sp.else_():
+            with sp.if_(royalties_type.value == 1):
+                # Convert V1 royalties to V2.
+                royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
+                royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), FA2.t_royalties_interop)
+
+                with sp.for_("contributor", royalties.contributors) as contributor:
+                    royalties_v2.value.shares.push(sp.record(
+                        address = contributor.address,
+                        share = contributor.relative_royalties * royalties.royalties / 1000))
+
+                sp.result(royalties_v2.value)
+            with sp.else_():
+                with sp.if_(royalties_type.value == 2):
+                    # Just return V2 royalties.
+                    sp.result(FA2.get_token_royalties(fa2, token_id))
+                with sp.else_():
+                    sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+
+
     def sendValueRoyaltiesFeesInline(self, rate, issuer_or_place_owner, item_royalty_info, primary):
         """Inline function for sending royalties, fees, etc."""
         sp.set_type(rate, sp.TMutez)
@@ -988,10 +1028,8 @@ class TL_World(
             item_id = sp.TNat,
             issuer = sp.TOption(sp.TAddress),
             fa2 = sp.TAddress,
-            #merkle_proof = sp.TOption(registry_contract.merkle_tree_royalties.MerkleProofType),
-            signed_royalties = sp.TOption(registry_contract.t_royalties_signed),
             ext = extensionArgType
-        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", ("signed_royalties", "ext"))))))))
+        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", "ext")))))))
 
         self.onlyUnpaused()
 
@@ -1027,10 +1065,8 @@ class TL_World(
                     # Get the royalties for this item
                     # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
                     # at least in terms of what "type" of royalties.
-                    item_royalty_info = registry_contract.getTokenRoyaltiesSigned(
-                        self.data.registry,
-                        params.fa2, the_item.value.token_id,
-                        params.signed_royalties)
+                    item_royalty_info = self.getTokenRoyalties(
+                        params.fa2, the_item.value.token_id)
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)

@@ -24,17 +24,6 @@ class TestSignedRoyaltiesAndCollections(sp.Contract):
             sp.verify(res.contains(key))
             sp.verify(res[key] == True)
 
-    @sp.entry_point
-    def testSignedRoyalties(self, params):
-        sp.set_type(params, sp.TRecord(
-            fa2 = sp.TAddress,
-            token_id = sp.TNat,
-            royalties_signed = sp.TOption(token_registry_contract.t_royalties_signed)))
-
-        #sp.trace(params)
-
-        token_registry_contract.getTokenRoyaltiesSigned(self.data.registry, params.fa2, params.token_id, params.royalties_signed)
-
 
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
 def test():
@@ -63,8 +52,7 @@ def test():
 
     # create registry contract
     scenario.h1("Test TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, #sp.bytes("0x00"), sp.bytes("0x00"),
-        royalties_key.public_key, collections_key.public_key,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
@@ -190,12 +178,6 @@ def test():
     registry.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
     registry.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
 
-    scenario.verify_equal(registry.data.royalties_public_key, royalties_key.public_key)
-    registry.update_settings([sp.variant("royalties_public_key", collections_key.public_key)]).run(sender = admin)
-    scenario.verify_equal(registry.data.royalties_public_key, collections_key.public_key)
-    registry.update_settings([sp.variant("royalties_public_key", royalties_key.public_key)]).run(sender = admin)
-    scenario.verify_equal(registry.data.royalties_public_key, royalties_key.public_key)
-
     scenario.verify_equal(registry.data.collections_public_key, collections_key.public_key)
     registry.update_settings([sp.variant("collections_public_key", royalties_key.public_key)]).run(sender = admin)
     scenario.verify_equal(registry.data.collections_public_key, royalties_key.public_key)
@@ -236,13 +218,10 @@ def test():
     # Royalties type.
     registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
     royalties_info = registry.get_royalties_type(items_tokens.address)
-    scenario.verify_equal(royalties_info.royalties_version, sp.nat(1))
-    #scenario.verify_equal(royalties_info.merkle_root, registry.data.royalties_merkle_root)
-    scenario.verify_equal(royalties_info.public_key, registry.data.royalties_public_key)
+    scenario.verify_equal(royalties_info, sp.nat(1))
     registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
     # Royalties and collections keys.
-    scenario.verify_equal(registry.get_royalties_public_key(), royalties_key.public_key)
     scenario.verify_equal(registry.get_collections_public_key(), collections_key.public_key)
 
     scenario.h2("Test signed royalties and collections")
@@ -258,28 +237,5 @@ def test():
 
     test_signed.testSignedCollection({ items_tokens.address: collection_signed_valid1, minter.address: collection_signed_valid2 }).run(sender=admin)
     test_signed.testSignedCollection({ items_tokens.address: collection_signed_invalid }).run(sender=admin, valid=False, exception="INVALID_SIGNATURE")
-
-    # Royalties
-    offchain_royalties = sp.set_type_expr(sp.record(
-        fa2=items_tokens.address,
-        token_id=sp.some(10),
-        token_royalties=sp.set_type_expr(sp.record(
-            total=2000,
-            shares=[
-                sp.record(address=bob.address, share=200),
-                sp.record(address=alice.address, share=200)
-            ]
-        ), FA2.t_royalties_interop)
-    ), token_registry_contract.t_royalties_offchain)
-
-    royalties_signed_valid = token_registry_contract.sign_royalties(offchain_royalties, royalties_key.secret_key)
-    royalties_signed_invalid = token_registry_contract.sign_royalties(offchain_royalties, collections_key.secret_key)
-
-    test_signed.testSignedRoyalties(fa2=items_tokens.address, token_id=10, royalties_signed=sp.some(royalties_signed_valid)).run(sender=admin)
-    test_signed.testSignedRoyalties(fa2=items_tokens.address, token_id=11, royalties_signed=sp.some(royalties_signed_valid)).run(sender=admin, valid=False, exception="DATA_DOES_NOT_MATCH_TOKEN")
-    test_signed.testSignedRoyalties(fa2=minter.address, token_id=10, royalties_signed=sp.some(royalties_signed_valid)).run(sender=admin, valid=False, exception="DATA_DOES_NOT_MATCH_TOKEN")
-    test_signed.testSignedRoyalties(fa2=items_tokens.address, token_id=10, royalties_signed=sp.some(royalties_signed_invalid)).run(sender=admin, valid=False, exception="INVALID_SIGNATURE")
-    test_signed.testSignedRoyalties(fa2=items_tokens.address, token_id=10, royalties_signed=sp.none).run(sender=admin, valid=False, exception="NO_SIGNED_ROYALTIES")
-    # NOTE: "INVALID_DATA" is tricky to test... sign wrong datatype.
 
     scenario.table_of_contents()

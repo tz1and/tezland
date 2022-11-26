@@ -4,6 +4,7 @@ dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch_v2.py")
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
+legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
@@ -44,10 +45,14 @@ def test():
     scenario += interiors_tokens
 
     scenario.h3("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, #sp.bytes("0x00"), sp.bytes("0x00"),
-        royalties_key.public_key, collections_key.public_key,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
+
+    scenario.h3("LegacyRoyalties")
+    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += legacy_royalties
 
     scenario.h3("Minter v2")
     minter = minter_contract.TL_Minter(admin.address, registry.address,
@@ -61,7 +66,7 @@ def test():
     scenario.register(token_factory.collection_contract)
 
     scenario.h2("World v2")
-    world = world_contract.TL_World(admin.address, registry.address, False, items_tokens.address,
+    world = world_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 

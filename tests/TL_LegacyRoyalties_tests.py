@@ -136,16 +136,36 @@ def test():
     get_public_keys = legacy_royalties.get_public_keys(sp.set(["key1", "key2"]))
     scenario.show(get_public_keys)
     scenario.verify_equal(get_public_keys, sp.map({"key1": royalties_key1.public_key, "key2": royalties_key2.public_key}))
-    scenario.verify(sp.is_failing(legacy_royalties.get_public_keys(sp.set(["key1", "invalid_key"]))))
+
+    # includes an invalid key
+    get_public_keys = legacy_royalties.get_public_keys(sp.set(["key1", "invalid_key"]))
+    scenario.show(get_public_keys)
+    scenario.verify(~sp.is_failing(get_public_keys))
+    scenario.verify_equal(get_public_keys, sp.map({"key1": royalties_key1.public_key}))
+
+    scenario.h3("get_token_royalties_batch")
+    legacy_royalties.add_royalties({"key2": [
+        sp.record(signature=royalties_signed_valid2, offchain_royalties=offchain_royalties)
+    ]}).run(sender=bob)
+
+    get_royalties = legacy_royalties.get_token_royalties_batch(sp.set([offchain_royalties.token_key]))
+    scenario.show(get_royalties)
+    scenario.verify_equal(get_royalties, sp.map({offchain_royalties.token_key: offchain_royalties.token_royalties}))
+
+    # includes unknown royalties
+    get_royalties = legacy_royalties.get_token_royalties_batch(sp.set([offchain_royalties.token_key, sp.record(fa2=items_tokens.address, id=sp.some(10000234))]))
+    scenario.show(get_royalties)
+    scenario.verify(~sp.is_failing(get_royalties))
+    scenario.verify_equal(get_royalties, sp.map({offchain_royalties.token_key: offchain_royalties.token_royalties}))
 
     scenario.h3("get_token_royalties")
     legacy_royalties.add_royalties({"key2": [
         sp.record(signature=royalties_signed_valid2, offchain_royalties=offchain_royalties)
     ]}).run(sender=bob)
 
-    get_royalties = legacy_royalties.get_token_royalties(sp.set([offchain_royalties.token_key]))
+    get_royalties = legacy_royalties.get_token_royalties(offchain_royalties.token_key)
     scenario.show(get_royalties)
-    scenario.verify_equal(get_royalties, sp.map({offchain_royalties.token_key: offchain_royalties.token_royalties}))
+    scenario.verify_equal(get_royalties, offchain_royalties.token_royalties)
 
     # TODO: get keys
     # TODO: get royalties

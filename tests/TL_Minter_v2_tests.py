@@ -37,8 +37,7 @@ def test():
 
     # create registry contract
     scenario.h1("Test Minter")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, #sp.bytes("0x00"), sp.bytes("0x00"),
-        royalties_key.public_key, collections_key.public_key,
+    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
