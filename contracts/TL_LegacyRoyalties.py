@@ -1,0 +1,205 @@
+import smartpy as sp
+
+pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+
+
+# TODO: layouts!!!
+# TODO: t_royalties_signed: decide if data should be packed or not.
+
+#
+# Trusted Royalties - signed offchain.
+#
+
+t_manage_public_keys = sp.TList(sp.TVariant(
+    add = sp.TList(sp.TRecord(
+        id = sp.TString,
+        key = sp.TKey
+    ).layout(("id", "key"))),
+    remove = sp.TList(sp.TString)
+).layout(("add", "remove")))
+
+t_token_key = sp.TRecord(
+    fa2 = sp.TAddress,
+    # Token ID is optional, for contracts with global royalties (PFPs, etc).
+    id = sp.TOption(sp.TNat),
+).layout(("fa2", "id"))
+
+# Offchain royalties type
+t_royalties_offchain = sp.TRecord(
+    token_key = t_token_key,
+    # TODO: prob want to define royalties here directly.
+    token_royalties = FA2.t_royalties_interop
+).layout(("token_key", "token_royalties"))
+
+t_add_royalties_params = sp.TRecord(
+    key_id = sp.TString,
+    royalties_list = sp.TList(sp.TRecord(
+        signature = sp.TSignature,
+        offchain_royalties = t_royalties_offchain
+    ).layout(("signature", "offchain_royalties")))
+).layout(("key_id", "royalties_list"))
+
+
+def sign_royalties(royalties, private_key):
+    royalties = sp.set_type_expr(royalties, t_royalties_offchain)
+    # Gives: Type format error atom secret_key
+    #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
+
+    packed_royalties = sp.pack(royalties)
+
+    signature = sp.make_signature(
+        private_key,
+        packed_royalties,
+        message_format = 'Raw')
+
+    return signature
+
+
+#
+# Token registry contract.
+# NOTE: should be pausable for code updates.
+class TL_LegacyRoyalties(
+    contract_metadata_mixin.ContractMetadata,
+    basic_permissions_mixin.BasicPermissions,
+    pause_mixin.Pausable,
+    upgradeable_mixin.Upgradeable,
+    sp.Contract):
+    def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
+
+        self.add_flag("exceptions", exception_optimization_level)
+        self.add_flag("erase-comments")
+
+        self.init_storage(
+            public_keys = sp.big_map(tkey=sp.TString, tvalue=sp.TKey),
+            royalties = sp.big_map(tkey=t_token_key, tvalue=FA2.t_royalties_interop)
+        )
+
+        self.available_settings = []
+
+        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
+        basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
+        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        self.generate_contract_metadata()
+
+
+    def generate_contract_metadata(self):
+        """Generate a metadata json file with all the contract's offchain views
+        and standard TZIP-12 and TZIP-016 key/values."""
+        metadata_base = {
+            "name": 'tz1and LegacyRoyalties',
+            "description": 'tz1and legacy royalties',
+            "version": "1.0.0",
+            "interfaces": ["TZIP-012", "TZIP-016"],
+            "authors": [
+                "852Kerfunkle <https://github.com/852Kerfunkle>"
+            ],
+            "homepage": "https://www.tz1and.com",
+            "source": {
+                "tools": ["SmartPy"],
+                "location": "https://github.com/tz1and",
+            },
+            "license": { "name": "UNLICENSED" }
+        }
+        offchain_views = []
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.OnOffchainView):
+                # Include onchain views as tip 16 offchain views
+                offchain_views.append(attr)
+        metadata_base["views"] = offchain_views
+        self.init_metadata("metadata_base", metadata_base)
+
+
+    #
+    # Admin and permitted entry points
+    #
+    @sp.entry_point(lazify = False)
+    def update_settings(self, params):
+        """Allows the administrator to update various settings.
+        
+        Parameters are metaprogrammed with self.available_settings"""
+        sp.set_type(params, sp.TList(sp.TVariant(
+            **{setting[0]: setting[1] for setting in self.available_settings})))
+
+        # NOTE: Currently this means updating the merkle tree root nodes
+        # would require admin permissions, which is tricky, should this
+        # ever be automated. But in that case this ep can be upgraded.
+        self.onlyAdministrator()
+
+        with sp.for_("update", params) as update:
+            with update.match_cases() as arg:
+                for setting in self.available_settings:
+                    with arg.match(setting[0]) as value:
+                        if setting[2] != None:
+                            setting[2](value)
+                        setattr(self.data, setting[0], value)
+
+
+    @sp.entry_point(lazify = False)
+    def manage_public_keys(self, params):
+        """Admin or permitted can add/remove public collections in minter"""
+        sp.set_type(params, t_manage_public_keys)
+
+        self.onlyUnpaused()
+        self.onlyAdministratorOrPermitted()
+
+        with sp.for_("upd", params) as upd:
+            with upd.match_cases() as arg:
+                with arg.match("add") as add:
+                    with sp.for_("key", add) as key:
+                        self.data.public_keys[key.id] = key.key
+
+                with arg.match("remove") as remove:
+                    with sp.for_("id", remove) as id:
+                        del self.data.public_keys[id]
+
+    # TODO: admin/permitted ep for deleting royalties!
+
+    #
+    # Public entry points
+    #
+    @sp.entry_point(lazify = False)
+    def add_royalties(self, params):
+        """User can add royalties if they are signed with a valid key."""
+        sp.set_type(params, t_add_royalties_params)
+
+        self.onlyUnpaused()
+
+        public_key = sp.compute(self.data.public_keys.get(params.key_id, message="INVALID_KEY_ID"))
+
+        with sp.for_("royalties_item", params.royalties_list) as royalties_item:
+             # Verify the signature matches.
+            sp.verify(sp.check_signature(public_key, royalties_item.signature, sp.pack(royalties_item.offchain_royalties)), "INVALID_SIGNATURE")
+
+            # If the signature is valid, add royalties to storage.
+            self.data.royalties[royalties_item.offchain_royalties.token_key] = royalties_item.offchain_royalties.token_royalties
+
+    #
+    # Views
+    #
+    @sp.onchain_view(pure=True)
+    def get_token_royalties(self, token_keys):
+        # TODO: should we store royalty-type information with registered tokens?
+        """Returns true if contract is registered, false otherwise."""
+        sp.set_type(token_keys, sp.TSet(t_token_key))
+
+        result_map = sp.local("result_map", sp.map({}, tkey=t_token_key, tvalue=FA2.t_royalties_interop))
+        with sp.for_("token_key", token_keys.elements()) as token_key:
+            result_map.value[token_key] = self.data.royalties.get(token_key, message="UNKNOWN_ROYALTIES")
+        sp.result(result_map.value)
+
+
+    @sp.onchain_view(pure=True)
+    def get_public_keys(self, key_ids):
+        sp.set_type(key_ids, sp.TSet(sp.TString))
+
+        result_map = sp.local("result_map", sp.map({}, tkey=sp.TString, tvalue=sp.TKey))
+        with sp.for_("key_id", key_ids.elements()) as key_id:
+            result_map.value[key_id] = self.data.public_keys.get(key_id, message="INVALID_KEY_ID")
+        sp.result(result_map.value)
