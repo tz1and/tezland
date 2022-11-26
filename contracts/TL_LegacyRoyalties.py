@@ -213,7 +213,6 @@ class TL_LegacyRoyalties(
     #
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, token_key):
-        # TODO: should we store royalty-type information with registered tokens?
         """Returns royalties, if known.
 
         First checks unique royalties, then global (id some or none).
@@ -227,7 +226,6 @@ class TL_LegacyRoyalties(
 
     @sp.onchain_view(pure=True)
     def get_token_royalties_batch(self, token_keys):
-        # TODO: should we store royalty-type information with registered tokens?
         """Returns batch of royalties, if known.
 
         First checks unique royalties, then global (id some or none).
