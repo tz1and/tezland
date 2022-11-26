@@ -83,8 +83,8 @@ def test():
 
     # Update settings
     scenario.h2("update_settings")
-    legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
-    legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    #legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    #legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
 
     # Adding royalties
     scenario.h2("add_royalties")
@@ -98,8 +98,8 @@ def test():
         token_royalties=sp.record(
             total=2000,
             shares=[
-                sp.record(address=bob.address, share=2000),
-                sp.record(address=alice.address, share=2000)])
+                sp.record(address=bob.address, share=200),
+                sp.record(address=alice.address, share=200)])
     ), legacy_royalties_contract.t_royalties_offchain)
 
     royalties_signed_valid1 = legacy_royalties_contract.sign_royalties(offchain_royalties, royalties_key1.secret_key)
@@ -120,8 +120,30 @@ def test():
         sp.record(signature=royalties_signed_invalid, offchain_royalties=offchain_royalties)
     ]).run(sender=bob, valid=False, exception="INVALID_SIGNATURE")
 
+    scenario.h2("remove_royalties")
+
+    legacy_royalties.remove_royalties([offchain_royalties.token_key]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.remove_royalties([offchain_royalties.token_key]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.remove_royalties([offchain_royalties.token_key]).run(sender=admin)
+    scenario.verify(~legacy_royalties.data.royalties.contains(offchain_royalties.token_key))
+
     # Test onchain views
     scenario.h2("Test views")
+
+    scenario.h3("get_public_keys")
+    get_public_keys = legacy_royalties.get_public_keys(sp.set(["key1", "key2"]))
+    scenario.show(get_public_keys)
+    scenario.verify_equal(get_public_keys, sp.map({"key1": royalties_key1.public_key, "key2": royalties_key2.public_key}))
+    scenario.verify(sp.is_failing(legacy_royalties.get_public_keys(sp.set(["key1", "invalid_key"]))))
+
+    scenario.h3("get_token_royalties")
+    legacy_royalties.add_royalties(key_id="key1", royalties_list=[
+        sp.record(signature=royalties_signed_valid2, offchain_royalties=offchain_royalties)
+    ]).run(sender=bob)
+
+    get_royalties = legacy_royalties.get_token_royalties(sp.set([offchain_royalties.token_key]))
+    scenario.show(get_royalties)
+    scenario.verify_equal(get_royalties, sp.map({offchain_royalties.token_key: offchain_royalties.token_royalties}))
 
     # TODO: get keys
     # TODO: get royalties

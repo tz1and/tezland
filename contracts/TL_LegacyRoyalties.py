@@ -1,6 +1,6 @@
 import smartpy as sp
 
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+#pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
@@ -36,6 +36,8 @@ t_royalties_offchain = sp.TRecord(
     token_royalties = FA2.t_royalties_interop
 ).layout(("token_key", "token_royalties"))
 
+t_remove_royalties_params = sp.TList(t_token_key)
+
 t_add_royalties_params = sp.TRecord(
     key_id = sp.TString,
     royalties_list = sp.TList(sp.TRecord(
@@ -62,17 +64,16 @@ def sign_royalties(royalties, private_key):
 
 #
 # Token registry contract.
-# NOTE: should be pausable for code updates.
 class TL_LegacyRoyalties(
     contract_metadata_mixin.ContractMetadata,
     basic_permissions_mixin.BasicPermissions,
-    pause_mixin.Pausable,
+    #pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
 
         self.add_flag("exceptions", exception_optimization_level)
-        self.add_flag("erase-comments")
+        #self.add_flag("erase-comments")
 
         self.init_storage(
             public_keys = sp.big_map(tkey=sp.TString, tvalue=sp.TKey),
@@ -83,7 +84,7 @@ class TL_LegacyRoyalties(
 
         contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
         basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
+        #pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
         upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
         self.generate_contract_metadata()
 
@@ -143,10 +144,10 @@ class TL_LegacyRoyalties(
 
     @sp.entry_point(lazify = False)
     def manage_public_keys(self, params):
-        """Admin or permitted can add/remove public collections in minter"""
+        """Admin or permitted can add/remove public keys"""
         sp.set_type(params, t_manage_public_keys)
 
-        self.onlyUnpaused()
+        #self.onlyUnpaused()
         self.onlyAdministratorOrPermitted()
 
         with sp.for_("upd", params) as upd:
@@ -159,7 +160,16 @@ class TL_LegacyRoyalties(
                     with sp.for_("id", remove) as id:
                         del self.data.public_keys[id]
 
-    # TODO: admin/permitted ep for deleting royalties!
+    @sp.entry_point(lazify = False)
+    def remove_royalties(self, params):
+        """Admin or permitted can remove royalties"""
+        sp.set_type(params, t_remove_royalties_params)
+
+        #self.onlyUnpaused()
+        self.onlyAdministratorOrPermitted()
+
+        with sp.for_("token_key", params) as token_key:
+            del self.data.royalties[token_key]
 
     #
     # Public entry points
@@ -169,7 +179,7 @@ class TL_LegacyRoyalties(
         """User can add royalties if they are signed with a valid key."""
         sp.set_type(params, t_add_royalties_params)
 
-        self.onlyUnpaused()
+        #self.onlyUnpaused()
 
         public_key = sp.compute(self.data.public_keys.get(params.key_id, message="INVALID_KEY_ID"))
 

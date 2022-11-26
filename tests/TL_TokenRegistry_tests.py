@@ -266,8 +266,8 @@ def test():
         token_royalties=sp.set_type_expr(sp.record(
             total=2000,
             shares=[
-                sp.record(address=bob.address, share=2000),
-                sp.record(address=alice.address, share=2000)
+                sp.record(address=bob.address, share=200),
+                sp.record(address=alice.address, share=200)
             ]
         ), FA2.t_royalties_interop)
     ), token_registry_contract.t_royalties_offchain)
