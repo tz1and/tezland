@@ -50,7 +50,7 @@ def test():
 
     # Let's display the accounts:
     scenario.h1("Accounts")
-    scenario.show([admin, alice, bob])
+    scenario.show([admin, alice, bob, royalties_key, collections_key])
 
     # create a FA2 contract for testing
     scenario.h1("Create test env")

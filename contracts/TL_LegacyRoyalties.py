@@ -36,15 +36,14 @@ t_royalties_offchain = sp.TRecord(
     token_royalties = FA2.t_royalties_interop
 ).layout(("token_key", "token_royalties"))
 
-t_remove_royalties_params = sp.TList(t_token_key)
+t_remove_royalties_params = sp.TSet(t_token_key)
 
-t_add_royalties_params = sp.TRecord(
-    key_id = sp.TString,
-    royalties_list = sp.TList(sp.TRecord(
+t_add_royalties_params = sp.TMap(
+    sp.TString, # private key id
+    sp.TList(sp.TRecord(
         signature = sp.TSignature,
         offchain_royalties = t_royalties_offchain
-    ).layout(("signature", "offchain_royalties")))
-).layout(("key_id", "royalties_list"))
+    ).layout(("signature", "offchain_royalties"))))
 
 
 def sign_royalties(royalties, private_key):
@@ -168,7 +167,7 @@ class TL_LegacyRoyalties(
         #self.onlyUnpaused()
         self.onlyAdministratorOrPermitted()
 
-        with sp.for_("token_key", params) as token_key:
+        with sp.for_("token_key", params.elements()) as token_key:
             del self.data.royalties[token_key]
 
     #
@@ -181,14 +180,15 @@ class TL_LegacyRoyalties(
 
         #self.onlyUnpaused()
 
-        public_key = sp.compute(self.data.public_keys.get(params.key_id, message="INVALID_KEY_ID"))
+        with sp.for_("key_item", params.items()) as key_item:
+            public_key = sp.compute(self.data.public_keys.get(key_item.key, message="INVALID_KEY_ID"))
 
-        with sp.for_("royalties_item", params.royalties_list) as royalties_item:
-             # Verify the signature matches.
-            sp.verify(sp.check_signature(public_key, royalties_item.signature, sp.pack(royalties_item.offchain_royalties)), "INVALID_SIGNATURE")
+            with sp.for_("royalties_item", key_item.value) as royalties_item:
+                # Verify the signature matches.
+                sp.verify(sp.check_signature(public_key, royalties_item.signature, sp.pack(royalties_item.offchain_royalties)), "INVALID_SIGNATURE")
 
-            # If the signature is valid, add royalties to storage.
-            self.data.royalties[royalties_item.offchain_royalties.token_key] = royalties_item.offchain_royalties.token_royalties
+                # If the signature is valid, add royalties to storage.
+                self.data.royalties[royalties_item.offchain_royalties.token_key] = royalties_item.offchain_royalties.token_royalties
 
     #
     # Views
