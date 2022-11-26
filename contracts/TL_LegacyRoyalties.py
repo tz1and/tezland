@@ -173,6 +173,7 @@ class TL_LegacyRoyalties(
                         with sp.else_():
                             sp.failwith("NOT_KEY_OWNER_OR_ADMIN")
 
+
     @sp.entry_point(lazify = False)
     def remove_royalties(self, params):
         """Admin or permitted can remove royalties"""
@@ -184,6 +185,7 @@ class TL_LegacyRoyalties(
         with sp.for_("fa2_item", params.items()) as fa2_item:
             with sp.for_("token_id", fa2_item.value.elements()) as token_id:
                 del self.data.royalties[sp.record(fa2=fa2_item.key, id=token_id)]
+
 
     #
     # Public entry points
@@ -204,6 +206,7 @@ class TL_LegacyRoyalties(
 
                 # If the signature is valid, add royalties to storage.
                 self.data.royalties[royalties_item.offchain_royalties.token_key] = royalties_item.offchain_royalties.token_royalties
+
 
     #
     # Views
