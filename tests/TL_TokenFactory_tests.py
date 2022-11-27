@@ -85,8 +85,8 @@ def test():
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
     scenario.verify_equal(registry.is_registered(sp.set([dyn_collection_token.address])), sp.set([dyn_collection_token.address]))
-    scenario.verify(registry.data.collections.get(dyn_collection_token.address).props.is_variant("private"))
-    scenario.verify(registry.get_collection_info(dyn_collection_token.address).props.is_variant("private"))
+    scenario.verify(registry.data.collections.get(dyn_collection_token.address).collection_type == token_registry_contract.collectionPrivate)
+    scenario.verify(registry.get_collection_info(dyn_collection_token.address).ownership.is_some())
     scenario.verify(registry.is_private_owner_or_collab(sp.record(collection = dyn_collection_token.address, address = admin.address)) == sp.bounded("owner"))
 
     token_factory.update_settings([sp.variant("paused", True)]).run(sender = admin)
