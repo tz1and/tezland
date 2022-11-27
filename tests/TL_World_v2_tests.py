@@ -536,7 +536,7 @@ def test():
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount = 1, token_id = item_alice, rate = sp.tez(1), data = position, primary = False))
     ]}}}, bob, valid = False, message='PLACE_TOKEN_NOT_ALLOWED')
-    world.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64)))])).run(sender = admin)
+    world.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 1, chunk_item_limit = 64)})])).run(sender = admin)
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount = 1, token_id = item_alice, rate = sp.tez(1), data = position, primary = False))
     ]}}}, bob, valid = False, message='FA2_NOT_OPERATOR')
@@ -824,7 +824,7 @@ def test():
     scenario.h2("Limits")
 
     scenario.h3("chunk item limit on place_items")
-    world.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 10)))])).run(sender = admin)
+    world.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 1, chunk_item_limit = 10)})])).run(sender = admin)
     place_items(place_alice, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount = 1, token_id = item_alice, rate = sp.tez(1), data = position, primary = False)),
         sp.variant("item", sp.record(amount = 1, token_id = item_alice, rate = sp.tez(1), data = position, primary = False)),
@@ -1304,7 +1304,7 @@ def test():
 
     # Set migration contract to be admin address.
     world.update_settings([sp.variant("migration_from", sp.some(admin.address))]).run(sender = admin)
-    world.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 2, chunk_item_limit = 4)))])).run(sender = admin)
+    world.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 2, chunk_item_limit = 4)})])).run(sender = admin)
 
     # Invalid migration - place not not empty.
     world.migration(

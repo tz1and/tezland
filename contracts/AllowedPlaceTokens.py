@@ -29,21 +29,10 @@ class Allowed_place_token_map:
 
 class Allowed_place_token_param:
     def get_add_type(self):
-        return sp.TRecord(
-            fa2 = sp.TAddress,
-            place_limits = allowedPlaceLimitsType
-        ).layout(("fa2", "place_limits"))
-
-    def make_add(self, fa2, place_limits):
-        r = sp.record(fa2 = fa2,
-            place_limits = place_limits)
-        return sp.set_type_expr(r, self.get_add_type())
+        return sp.TMap(sp.TAddress, allowedPlaceLimitsType)
 
     def get_remove_type(self):
-        return sp.TAddress
-
-    def make_remove(self, fa2):
-        return sp.set_type_expr(fa2, self.get_remove_type())
+        return sp.TSet(sp.TAddress)
 
 
 # NOTE:
@@ -93,10 +82,12 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
         
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("add") as upd:
-                    self.allowed_place_tokens_map.add(self.data.place_tokens, upd.fa2, upd.place_limits)
-                with arg.match("remove") as upd:
-                    self.allowed_place_tokens_map.remove(self.data.place_tokens, upd)
+                with arg.match("add") as add:
+                    with sp.for_("add_item", add.items()) as add_item:
+                        self.allowed_place_tokens_map.add(self.data.place_tokens, add_item.key, add_item.value)
+                with arg.match("remove") as remove:
+                    with sp.for_("remove_element", remove.elements()) as remove_element:
+                        self.allowed_place_tokens_map.remove(self.data.place_tokens, remove_element)
 
 
     @sp.onchain_view(pure=True)
