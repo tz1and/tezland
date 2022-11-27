@@ -263,12 +263,8 @@ export default class Upgrade extends PostUpgrade {
                             kind: OpKind.TRANSACTION,
                             ...Dutch_v2_contract.methods.manage_whitelist([
                                 {add_permitted: {
-                                    fa2: places_v2_FA2_contract.address,
-                                    props: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
-                                }},
-                                {add_permitted: {
-                                    fa2: interiors_FA2_contract.address,
-                                    props: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
+                                    [places_v2_FA2_contract.address]: { whitelist_enabled: false, whitelist_admin: this.accountAddress },
+                                    [interiors_FA2_contract.address]: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
                                 }}
                             ]).toTransferParams()
                         }
