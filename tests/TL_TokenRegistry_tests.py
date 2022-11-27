@@ -29,16 +29,20 @@ def test():
     scenario.h1("Create test env")
 
     scenario.h2("tokens")
+
+    scenario.h3("tz1andItems")
     items_tokens = tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
+    scenario.h3("tz1andItems_v2")
     items_tokens_v2 = tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens_v2
 
+    scenario.h3("other token")
     other_tokens = tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
