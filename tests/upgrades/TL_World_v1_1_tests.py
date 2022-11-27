@@ -188,7 +188,7 @@ def test():
     world.update_item_limit(9).run(sender=admin)
 
     scenario.h4("registry permissions for factory")
-    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     scenario.h4("add public collection")
     registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1})]).run(sender = admin)

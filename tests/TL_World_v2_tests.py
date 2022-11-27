@@ -701,9 +701,9 @@ def test():
     scenario.verify(world.data.places[place_bob].props.get(sp.bytes("0xf1")) == sp.utils.bytes_of_string("blablablabla"))
     world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = bob)
     world.update_place_props(place_key = place_bob, updates = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFF')})], ext = sp.none).run(sender = bob, valid = False, exception = "DATA_LEN")
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", [sp.bytes("0x00")])], ext = sp.none).run(sender = bob, valid = False, exception = "PARAM_ERROR")
+    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", sp.set([sp.bytes("0x00")]))], ext = sp.none).run(sender = bob, valid = False, exception = "PARAM_ERROR")
     world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", [sp.bytes("0xf1")])], ext = sp.none).run(sender = bob)
+    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", sp.set([sp.bytes("0xf1")]))], ext = sp.none).run(sender = bob)
     scenario.verify(~world.data.places[place_bob].props.contains(sp.bytes("0xf1")))
 
     #

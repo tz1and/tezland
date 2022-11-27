@@ -344,7 +344,7 @@ class ItemStorage:
 
 setPlacePropsVariantType = sp.TVariant(
     add_props = placePropsType,
-    del_props = sp.TList(sp.TBytes),
+    del_props = sp.TSet(sp.TBytes),
     value_to = sp.TOption(sp.TAddress)
 ).layout(("add_props", ("del_props", "value_to")))
 
@@ -660,7 +660,7 @@ class TL_World(
                         this_place.value.props[prop.key] = prop.value
 
                 with arg.match("del_props") as del_props:
-                    with sp.for_("prop", del_props) as prop:
+                    with sp.for_("prop", del_props.elements()) as prop:
                         del this_place.value.props[prop]
 
                 with arg.match("value_to") as value_to:
