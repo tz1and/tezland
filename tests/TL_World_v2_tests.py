@@ -127,7 +127,7 @@ class FA2_utils(sp.Contract):
         sp.set_type(params.place_key, places_contract.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
-        sp.set_type(params.remove_map, sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat)))))
+        sp.set_type(params.remove_map, sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))))
 
         world_data = sp.compute(self.world_get_place_data(params.world, params.place_key, params.chunk_ids))
 
@@ -137,7 +137,7 @@ class FA2_utils(sp.Contract):
                 with sp.for_("fa2", issuer_item.value.keys()) as fa2:
                     with sp.for_("chunk", world_data.chunks.values()) as chunk:
                         fa2_store = chunk.storage[issuer_item.key][fa2]
-                        with sp.for_("item_id", issuer_item.value[fa2]) as item_id:
+                        with sp.for_("item_id", issuer_item.value[fa2].elements()) as item_id:
                             with fa2_store[item_id].match("item") as item:
                                 key = sp.record(fa2=fa2, token_id=item.token_id, owner=issuer_item.key)
                                 token_amts.value[key] = token_amts.value.get(key, default_value=sp.nat(0)) + item.amount
@@ -275,7 +275,7 @@ def test():
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("registry permissions for factory")
-    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     scenario.h2("dao")
     dao_token = tokens.tz1andDAO(
@@ -497,7 +497,7 @@ def test():
     # TODO: make sure item is not in map
     def remove_items(
         place_key: places_contract.placeKeyType,
-        remove_map: sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat)))),
+        remove_map: sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
         sender: sp.TestAccount,
         valid: bool = True,
         message: str = None):
@@ -651,16 +651,16 @@ def test():
     scenario.h2("Removing items")
     
     scenario.h3("in a lot not owned")
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [bob_placed_item0]}}}, sender=alice, valid=False)
-    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: [alice_placed_item0]}}}, sender=bob, valid=False)
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([bob_placed_item0])}}}, sender=alice, valid=False)
+    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: sp.set([alice_placed_item0])}}}, sender=bob, valid=False)
 
     scenario.h3("valid and make sure tokens are transferred") # TODO: remove this
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [bob_placed_item0]}}}, sender=bob)
-    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: [alice_placed_item0]}}}, sender=alice)
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([bob_placed_item0])}}}, sender=bob)
+    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: sp.set([alice_placed_item0])}}}, sender=alice)
 
     scenario.h3("place owned")
-    remove_items(place_alice, {0: {sp.none: {items_tokens.address: [alice_placed_item_to_place_owner]}}}, sender=bob, valid=False)
-    remove_items(place_alice, {0: {sp.none: {items_tokens.address: [alice_placed_item_to_place_owner]}}}, sender=alice)
+    remove_items(place_alice, {0: {sp.none: {items_tokens.address: sp.set([alice_placed_item_to_place_owner])}}}, sender=bob, valid=False)
+    remove_items(place_alice, {0: {sp.none: {items_tokens.address: sp.set([alice_placed_item_to_place_owner])}}}, sender=alice)
 
     #
     # test ext items
@@ -684,9 +684,9 @@ def test():
     get_item(place_bob_chunk_0, bob_placed_ext2, sp.some(bob.address), items_tokens.address, sender=bob, amount=sp.tez(1), valid=False, message="WRONG_ITEM_TYPE")
 
     scenario.h3("Remvove ext items")
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([
         bob_placed_ext2
-    ]}}}, sender=bob)
+    ])}}}, sender=bob)
 
     #
     # set place props
@@ -921,13 +921,13 @@ def test():
     get_item(place_alice_chunk_0, sp.as_nat(item_counter - 5), sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message="NOT_FOR_SALE")
 
     scenario.h4("remove")
-    remove_items(place_alice, {0: {sp.some(alice.address): {dyn_collection_token.address: [
+    remove_items(place_alice, {0: {sp.some(alice.address): {dyn_collection_token.address: sp.set([
         sp.as_nat(item_counter - 1),
         sp.as_nat(item_counter - 2),
         sp.as_nat(item_counter - 3),
         sp.as_nat(item_counter - 4),
         sp.as_nat(item_counter - 5)
-    ]}}}, sender=alice)
+    ])}}}, sender=alice)
 
     #
     # test world permissions
@@ -959,7 +959,7 @@ def test():
 
     # alice tries to remove an item but has no permission
     remove_items(place_bob, {0: {
-        sp.some(bob.address): {items_tokens.address: [remove_bobs_item1]}
+        sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item1])}
     }}, sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.h3("Permissions")
@@ -999,8 +999,8 @@ def test():
 
     # remove placed item and one of bobs
     remove_items(place_bob, {0: {
-        sp.some(alice.address): {items_tokens.address: [last_item]},
-        sp.some(bob.address): {items_tokens.address: [remove_bobs_item1]}
+        sp.some(alice.address): {items_tokens.address: sp.set([last_item])},
+        sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item1])}
     }}, sender=alice, valid=True)
 
     #
@@ -1037,9 +1037,9 @@ def test():
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
 
     # can remove own items
-    remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: [last_item]}}}, sender=alice, valid=True)
+    remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: sp.set([last_item])}}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [remove_bobs_item2]}}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item2])}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     #
     #
@@ -1080,8 +1080,8 @@ def test():
 
     # can remove own items and bobs items
     remove_items(place_bob, {0: {
-        sp.some(alice.address): {items_tokens.address: [last_item]},
-        sp.some(bob.address): {items_tokens.address: [remove_bobs_item2]}
+        sp.some(alice.address): {items_tokens.address: sp.set([last_item])},
+        sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item2])}
     }}, sender=alice, valid=True)
 
     #
@@ -1117,9 +1117,9 @@ def test():
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
 
     # can remove own items. no need to test that again...
-    #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: [last_item]}}}, sender=alice, valid=True)
+    #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: sp.set([last_item])}}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [remove_bobs_item3]}}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item3])}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     #
     #
@@ -1152,9 +1152,9 @@ def test():
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
 
     # Can of course remove own items
-    remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: [last_item]}}}, sender=alice, valid=True)
+    remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens.address: sp.set([last_item])}}}, sender=alice, valid=True)
     # can't remove others items
-    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: [remove_bobs_item3]}}}, sender=alice, valid=False, message="NO_PERMISSION")
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens.address: sp.set([remove_bobs_item3])}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
     scenario.h4("Invalid add permission")
     # incorrect perm parameter
@@ -1279,7 +1279,7 @@ def test():
 
     get_item(place_alice_chunk_0, 3, sp.some(alice.address), items_tokens.address, sender=bob, amount=sp.mutez(1), valid=False, message="ONLY_UNPAUSED")
 
-    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: [3]}}}, sender=alice, valid=False, message="ONLY_UNPAUSED")
+    remove_items(place_alice, {0: {sp.some(alice.address): {items_tokens.address: sp.set([3])}}}, sender=alice, valid=False, message="ONLY_UNPAUSED")
 
     # update permissions is still allowed
     world.set_permissions([

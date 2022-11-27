@@ -42,7 +42,7 @@ def test():
     scenario.register(token_factory.collection_contract)
 
     # registry permissions
-    registry.manage_permissions([sp.variant("add_permissions", [token_factory.address])]).run(sender=admin)
+    registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     # test update_minter
     scenario.h2("update_settings")

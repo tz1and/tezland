@@ -851,7 +851,7 @@ class TL_World(
     def remove_items(self, params):
         sp.set_type(params, sp.TRecord(
             place_key = placeKeyType,
-            remove_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(sp.TNat)))),
+            remove_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
             ext = extensionArgType
         ).layout(("place_key", ("remove_map", "ext"))))
 
@@ -889,7 +889,7 @@ class TL_World(
 
                     transferMap.add_fa2(fa2_item.key)
                     
-                    with sp.for_("curr", fa2_item.value) as curr:
+                    with sp.for_("curr", fa2_item.value.elements()) as curr:
                         # Nothing to do here with ext items. Just remove them.
                         with item_store.value[curr].match("item") as the_item:
                             # Transfer items back to issuer/owner
