@@ -34,24 +34,11 @@ class FA2WhitelistMap(utils.GenericMap):
 class PermittedFA2Params:
     @classmethod
     def get_add_type(cls):
-        return sp.TRecord(
-            fa2 = sp.TAddress,
-            props = permittedFA2MapValueType
-        ).layout(("fa2", "props"))
-
-    @classmethod
-    def make_add(cls, fa2, props):
-        r = sp.record(fa2 = fa2,
-            props = props)
-        return sp.set_type_expr(r, cls.get_add_type())
+        return sp.TMap(sp.TAddress, permittedFA2MapValueType)
 
     @classmethod
     def get_remove_type(cls):
-        return sp.TAddress
-
-    @classmethod
-    def make_remove(cls, fa2):
-        return sp.set_type_expr(fa2, cls.get_remove_type())
+        return sp.TSet(sp.TAddress)
 
 
 # NOTE:
@@ -77,11 +64,13 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
         sp.set_type(fa2, sp.TAddress)
         return sp.compute(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2))
 
+
     def isWhitelistedForFA2(self, fa2, user):
         """If an address is whitelisted."""
         sp.set_type(fa2, sp.TAddress)
         sp.set_type(user, sp.TAddress)
         return self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user))
+
 
     def onlyWhitelistedForFA2(self, fa2, user):
         """Fails if whitelist enabled address is not whitelisted.
@@ -92,6 +81,7 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
         with sp.if_(fa2_props.whitelist_enabled):
             sp.verify(self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user)), message="ONLY_WHITELISTED")
         return fa2_props
+
 
     def removeFromFA2Whitelist(self, fa2, user):
         """Removes an address from the whitelist."""
@@ -122,11 +112,13 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
         
         with sp.for_("update", params) as update:
             with update.match_cases() as arg:
-                with arg.match("add_permitted") as upd:
-                    self.permitted_fa2_map.add(self.data.permitted_fa2, upd.fa2, upd.props)
+                with arg.match("add_permitted") as add_permitted:
+                    with sp.for_("add_permitted_item", add_permitted.items()) as add_permitted_item:
+                        self.permitted_fa2_map.add(self.data.permitted_fa2, add_permitted_item.key, add_permitted_item.value)
 
-                with arg.match("remove_permitted") as upd:
-                    self.permitted_fa2_map.remove(self.data.permitted_fa2, upd)
+                with arg.match("remove_permitted") as remove_permitted:
+                    with sp.for_("remove_permitted_item", remove_permitted.elements()) as remove_permitted_element:
+                        self.permitted_fa2_map.remove(self.data.permitted_fa2, remove_permitted_element)
 
                 with arg.match("whitelist_add") as upd:
                     with sp.for_("key", upd) as key:
@@ -145,6 +137,7 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
         """Returns permitted fa2 props."""
         sp.set_type(fa2, sp.TAddress)
         sp.result(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2))
+
 
     @sp.onchain_view(pure=True)
     def is_whitelisted(self, key):

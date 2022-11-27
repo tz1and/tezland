@@ -149,18 +149,14 @@ def test():
 
     # some useful expressions for permitted fa2
     add_permitted_fa2_wl_enabled = sp.list([sp.variant("add_permitted",
-        sp.record(
-            fa2 = places_tokens.address,
-            props = sp.record(
+        { places_tokens.address: sp.record(
                 whitelist_enabled = True,
-                whitelist_admin = admin.address)))])
+                whitelist_admin = admin.address) })])
 
     add_permitted_fa2_wl_disabled = sp.list([sp.variant("add_permitted",
-        sp.record(
-            fa2 = places_tokens.address,
-            props = sp.record(
+        { places_tokens.address: sp.record(
                 whitelist_enabled = False,
-                whitelist_admin = admin.address)))])
+                whitelist_admin = admin.address) })])
 
     # permit fa2 and disable whitelist for it
     dutch.manage_whitelist(add_permitted_fa2_wl_disabled).run(sender = admin)
@@ -707,11 +703,9 @@ def test():
         ext = sp.none).run(sender = bob, now = sp.timestamp(0), valid = False, exception = "TOKEN_NOT_PERMITTED")
 
     add_other_permitted = sp.list([sp.variant("add_permitted",
-        sp.record(
-            fa2 = interiors_tokens.address,
-            props = sp.record(
+        { interiors_tokens.address: sp.record(
                 whitelist_enabled = False,
-                whitelist_admin = admin.address)))])
+                whitelist_admin = admin.address) })])
     dutch.manage_whitelist(add_other_permitted).run(sender = admin)
 
     dutch.create(

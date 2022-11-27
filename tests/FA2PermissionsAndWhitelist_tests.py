@@ -63,11 +63,9 @@ def test():
         whitelist_enabled = True,
         whitelist_admin = admin.address)
     add_permitted_fa2 = sp.list([sp.variant("add_permitted",
-        sp.record(
-            fa2 = other_token.address,
-            props = permitted_props))])
+        { other_token.address: permitted_props })])
 
-    remove_permitted_fa2 = sp.list([sp.variant("remove_permitted", other_token.address)])
+    remove_permitted_fa2 = sp.list([sp.variant("remove_permitted", sp.set([other_token.address]))])
 
     # no permission
     permitted.manage_whitelist(add_permitted_fa2).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
