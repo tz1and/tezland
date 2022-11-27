@@ -162,7 +162,7 @@ class TL_LegacyRoyalties(
 
                 with arg.match("remove") as remove:
                     with sp.for_("id", remove.elements()) as id:
-                        # TODO: check owner or admin!
+                        # check owner or admin
                         with sp.if_(self.isAdministrator(sp.sender) | (self.data.public_keys.get(id, message="UNKNOWN_KEY").owner == sp.sender)):
                             del self.data.public_keys[id]
                         with sp.else_():

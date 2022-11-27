@@ -19,39 +19,24 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 # Now:
-# TODO: registry which should also contain information about royalties. maybe merkle tree stuff.
-# TODO: consider where to put merkle tree proofs when placing (allowed fa2) and getting (royalties) items.
-#       + properly define the royalties type for the merkle proof stuff. probably the same as explicit royalties!
 # TODO: allow direct royalties? :( hate it but maybe have to allow it...
-# TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
-#       at least in terms of what "type" of royalties.
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
 # TODO: gas optimisations!
 # TODO: FA2 origination is too large! try and optimise
-# TODO: try to always use .get_opt()/.get() instead of contains/[] on maps/bigmaps. makes nasty code otherwise. duplicate/empty fails.
 # TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
 # TODO: so many empty FAILWITHs. Optimise... What still can be.
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrValueToOrPlaceOwnerInline, etc. to make sure they work correctly in all combinations.
-# TODO: re-distributing places. added get_owner view
-# TODO: optional value_to/send_to address on the place. can be used to split/for other contracts managing places, etc.
-# TODO: if a place is on auction and someone buys an item owned by the place, the tez would be sent to the auction contract.
-#       I could change the auction contract so it does the "ask" thing instead - where you make a swap but only set operators instead of actually transferring the nft.
-#       but it could lead to people just spamming auctions for the same place or revoking operators and having a bunch of dead auctions
-#       I think you can make contract deny tez sent to it. I could just do that for the auction contract. which means you're not able to buy place owned items from a place on auction (since it actually doesn't have an owner)
-#       Can also have a global optional "send to" address in the place that can be set by the auction contract.
-# TODO: make sure royalties version is set correctly everywhere.
+# TODO: test collecting royalties from LegacyRoyalties contract!
 # TODO: test set_props value_to
 # TODO: test value_to place setting.
-# TODO: test placing/updating/removing items in multiple chunks.
+# TODO: decide if auction contract should hold places and instead set value_to!!!!!!!
 # TODO: add views option to mixins to allow not including views.
-# TODO: test searching through chunks to find space when placing items. (see migration code). with lots of chunks. if it's worth the gas, maybe consider it.
-# TODO: don't deploy factory in upgrade, this feature comes later.
+# TODO: don't deploy factory in upgrade, this feature comes later!
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
-# TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
 
 
 
@@ -145,7 +130,7 @@ placeStorageDefault = sp.record(
     value_to = sp.none)
 
 placeKeyType = sp.TRecord(
-    fa2 = sp.TAddress, # TODO: rename? shorten?
+    fa2 = sp.TAddress,
     id = sp.TNat
 ).layout(("fa2", "id"))
 
@@ -754,15 +739,6 @@ class TL_World(
                             with arg.match("item") as item:
                                 self.validateItemData(item.data)
 
-                                # TODO:
-                                # Token registry should be a separate contract
-                                ## Check if FA2 token is permitted and get props.
-                                #fa2_props = self.getPermittedFA2Props(fa2)
-                                #
-                                ## If swapping is not allowed, amount MUST be 1 and rate MUST be 0.
-                                #with sp.if_(~ fa2_props.swap_allowed):
-                                #    sp.verify((item.amount == sp.nat(1)) & (item.rate == sp.tez(0)), message = self.error_message.parameter_error())
-
                                 # Transfer item to this contract.
                                 transferMap.add_token(fa2_item.key, sp.self_address, item.token_id, item.amount)
 
@@ -800,7 +776,7 @@ class TL_World(
 
         self.onlyUnpaused()
 
-        # TODO: Place token must be allowed?
+        # NOTE: doesn't matter if place token is not allowed.
         #self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
@@ -857,7 +833,7 @@ class TL_World(
 
         self.onlyUnpaused()
 
-        # TODO: Place token must be allowed?
+        # NOTE: doesn't matter if place token is not allowed.
         #self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
         # Caller must have ModifyAll or ModifyOwn permissions.
@@ -1029,7 +1005,7 @@ class TL_World(
 
         self.onlyUnpaused()
 
-        # TODO: Place token must be allowed?
+        # NOTE: doesn't matter if place token is not allowed.
         #self.onlyAllowedPlaceTokens(params.chunk_key.place_key.fa2)
 
         chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = params.chunk_id))
@@ -1059,8 +1035,6 @@ class TL_World(
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
-                    # TODO: royalties for non-tz1and items? maybe token registry could handle that to some extent?
-                    # at least in terms of what "type" of royalties.
                     item_royalty_info = self.getTokenRoyalties(
                         params.fa2, the_item.value.token_id)
 

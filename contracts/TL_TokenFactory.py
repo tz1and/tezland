@@ -56,7 +56,7 @@ class TL_TokenFactory(
         registry = sp.set_type_expr(registry, sp.TAddress)
         minter = sp.set_type_expr(minter, sp.TAddress)
 
-        # NOTE: TODO: args don't matter here since we set storage on origination.
+        # NOTE: args don't matter here since we set storage on origination.
         self.collection_contract = tz1andCollection(metadata, administrator)
         
         self.init_storage(

@@ -8,13 +8,9 @@ basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPerm
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-# TODO: can drastically optimise the size by not having the admin/contract metadata mixins. Maybe useful to optimise.
 # TODO: decide laziness of entrypoints...
-# TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
 # TODO: test update_settings
 # TODO: layouts!!!
-# TODO: signed collection should allow every user to add a collection with a royalties type.
-# TODO: BULLSHIT
 
 
 # Know royalties types:

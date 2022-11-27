@@ -11,16 +11,6 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 
 
 # TODO: decide laziness of entrypoints...
-# TODO: should we address collections by id or by address???? shouldn't make a diff in bigmap keys...
-#       but makes a small difference in gas when deserialising ops. in turn would mean world would have to use collection IDs.
-# TODO: figure out if the minter should also be the token registry or have similar functionality, to be used by the token registry (which could be replaced as it's upgraded)
-#       + maybe: token registry checks minter and also provides roylaties. that way the oncahin royalty provider (registry) can always be updated and can also use merkle
-#         trees for objkt.com tokens, etc.
-# TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
-# TODO: *should* split registry bit into TokenRegistry to make the registry smaller to call. (without all the minter stuff).
-#       might need a layer on top of the registry anyway, for the merkle tree stuff. can always add that later.
-#       both world and minter would then use registry to check for inclusion. probably cheaper for world to only call registry.
-#       Gotta see how it actually works out in terms of size.
 # TODO: layouts!!!
 # TODO: test update_settings
 
@@ -146,7 +136,6 @@ class TL_Minter(
             sp.transfer(sp.variant("clear_adhoc_operators", sp.unit),
                 sp.mutez(0), update_adhoc_operators_handle)
 
-    # TODO: test
     @sp.entry_point(lazify = True)
     def update_settings(self, params):
         """Allows the administrator to update various settings.

@@ -1107,7 +1107,6 @@ class BurnSingleAsset:
                     self.data.supply = sp.nat(0)
 
 
-# TODO: implement versum views?
 class Royalties:
     """(Mixin) Non-standard royalties for nft and fungible.
     Requires has_royalties=True on base.
