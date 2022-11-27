@@ -1,0 +1,53 @@
+/**
+ * Map key to list/set stuff
+ */
+
+#
+# Temp map key tests
+#
+@sp.entry_point(lazify = False)
+def map_rev_keys(self, params):
+    sp.set_type(params, sp.TMap(sp.TString, sp.TNat))
+    key_list = sp.local("key_list", params.rev_keys())
+    self.data.max_permission = sp.len(key_list.value)
+
+@sp.entry_point(lazify = False)
+def map_keys(self, params):
+    sp.set_type(params, sp.TMap(sp.TString, sp.TNat))
+    key_list = sp.local("key_list", params.keys())
+    self.data.max_permission = sp.len(key_list.value)
+
+@sp.entry_point(lazify = False)
+def map_keys_to_set(self, params):
+    sp.set_type(params, sp.TMap(sp.TString, sp.TNat))
+    key_set = sp.local("key_set", sp.set())
+    with sp.for_("key", params.keys()) as key:
+        key_set.value.add(key)
+    self.data.max_permission = sp.len(key_set.value)
+
+@sp.entry_point(lazify = False)
+def map_rev_keys_to_set(self, params):
+    sp.set_type(params, sp.TMap(sp.TString, sp.TNat))
+    key_set = sp.local("key_set", sp.set())
+    with sp.for_("key", params.rev_keys()) as key:
+        key_set.value.add(key)
+    self.data.max_permission = sp.len(key_set.value)
+
+const testListMap = async (ep_name: string) => {
+    let total_gas = 0;
+    for(let i = 0; i < 10; ++i) {
+        const gas = await this.feesToObject(await this.run_op_task(ep_name, () => {
+            const map = new MichelsonMap<string, number>();
+            for (let j = 0; j < 70; ++j) map.set(randomBytes(18).toString('hex'), 1)
+            return contracts.get("World_v2_contract")!.methods[ep_name](map).send();
+        }));
+        total_gas += parseFloat(gas.fee);
+    }
+    const average_gas = total_gas / 10;
+    console.log(`${ep_name} average gas: ${average_gas.toFixed(6)}`)
+}
+
+await testListMap("map_rev_keys");
+await testListMap("map_keys");
+await testListMap("map_keys_to_set");
+await testListMap("map_rev_keys_to_set");
