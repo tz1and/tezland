@@ -155,7 +155,7 @@ def test():
 
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
-    manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = sp.set([alice.address]))
+    manager_collaborators_params = {items_tokens.address: sp.set([alice.address])}
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
     scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))

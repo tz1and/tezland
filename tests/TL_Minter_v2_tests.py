@@ -93,7 +93,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_collections([sp.variant("remove", [items_tokens_legacy.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens_legacy.address]))]).run(sender = admin)
 
 
     #
@@ -133,7 +133,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
 
     #
@@ -145,7 +145,7 @@ def test():
     scenario.h3("mint_private")
 
     manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = 2)}
-    manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
+    manager_collaborators_params = {items_tokens.address: sp.set([alice.address])}
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
     minter.mint_private(collection = minter.address,
@@ -184,7 +184,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
     scenario.h3("update_private_metadata")
 
@@ -205,7 +205,7 @@ def test():
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
 
     #
