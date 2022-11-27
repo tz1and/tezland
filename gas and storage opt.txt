@@ -843,15 +843,15 @@ FA2
 update_operators:               storage: 0.016750, gas: 0.000560
 
 World
-create place 0 (item):          storage: 0.082250, gas: 0.001711
-create place 1 (item):          storage: 0.072250, gas: 0.001734
+create place 0 (item):          storage: 0.082250, gas: 0.001709
+create place 1 (item):          storage: 0.072250, gas: 0.001732
 update_place_props:             storage: 0.000000, gas: 0.000927
 
 World place_items
-place_items (1):                storage: 0.009750, gas: 0.001781
-place_items (10):               storage: 0.102500, gas: 0.002158
-place_items chunks (2x1):       storage: 0.057000, gas: 0.001951
-place_items chunks (2x10):      storage: 0.205000, gas: 0.002729
+place_items (1):                storage: 0.009750, gas: 0.001780
+place_items (10):               storage: 0.102500, gas: 0.002157
+place_items chunks (2x1):       storage: 0.057000, gas: 0.001950
+place_items chunks (2x10):      storage: 0.205000, gas: 0.002727
 
 World set_item_data
 set_item_data (1):              storage: 0.000000, gas: 0.001068
@@ -860,14 +860,14 @@ set_item_data chunks (2x1):     storage: 0.000000, gas: 0.001287
 set_item_data chunks (2x10):    storage: 0.000000, gas: 0.001722
 
 World remove_items
-remove_items (1):               storage: 0.000000, gas: 0.001417
-remove_items (10):              storage: 0.000000, gas: 0.001425
-remove_items chunks (2x1):      storage: 0.000000, gas: 0.001598
-remove_items chunks (2x10):     storage: 0.000000, gas: 0.001613
+remove_items (1):               storage: 0.000000, gas: 0.001415
+remove_items (10):              storage: 0.000000, gas: 0.001424
+remove_items chunks (2x1):      storage: 0.000000, gas: 0.001597
+remove_items chunks (2x10):     storage: 0.000000, gas: 0.001612
 
 World set_permissions
 set_permissions:                storage: 0.000000, gas: 0.000610
-get_item:                       storage: 0.000000, gas: 0.001942
+get_item:                       storage: 0.000000, gas: 0.001941
 
 Auctions
 create_auction:                 storage: 0.000000, gas: 0.001712
@@ -884,7 +884,7 @@ update_adhoc_operators (reset): storage: 0.000000, gas: 0.000508
 transfer (reset):               storage: 0.000000, gas: 0.000705
 
 Mint
-mint some:                      storage: 0.170000, gas: 0.002566
+mint some:                      storage: 0.170000, gas: 0.002564
 update_adhoc_operators (100):   storage: 0.000000, gas: 0.005118
 
 Factory
