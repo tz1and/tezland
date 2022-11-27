@@ -38,17 +38,17 @@ def test():
     scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == False)
 
-    basic_permissions.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    basic_permissions.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([alice.address]))]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([bob.address]))]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
 
-    basic_permissions.manage_permissions([sp.variant("add_permissions", [bob.address])]).run(sender=admin)
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([bob.address]))]).run(sender=admin)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == True)
 
-    basic_permissions.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender=admin)
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([alice.address]))]).run(sender=admin)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == True)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == True)
 
-    basic_permissions.manage_permissions([sp.variant("remove_permissions", [bob.address, alice.address])]).run(sender=admin)
+    basic_permissions.manage_permissions([sp.variant("remove_permissions", sp.set([bob.address, alice.address]))]).run(sender=admin)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == False)

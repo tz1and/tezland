@@ -21,8 +21,8 @@ class BasicPermissions(admin_mixin.Administrable):
             """Allows the administrator to add accounts permitted
             to register FA2s"""
             sp.set_type(params, sp.TList(sp.TVariant(
-                add_permissions = sp.TList(sp.TAddress),
-                remove_permissions = sp.TList(sp.TAddress)
+                add_permissions = sp.TSet(sp.TAddress),
+                remove_permissions = sp.TSet(sp.TAddress)
             )))
 
             self.onlyAdministrator()
@@ -30,11 +30,11 @@ class BasicPermissions(admin_mixin.Administrable):
             with sp.for_("update", params) as update:
                 with update.match_cases() as arg:
                     with arg.match("add_permissions") as addresses:
-                        with sp.for_("address", addresses) as address:
+                        with sp.for_("address", addresses.elements()) as address:
                             self.address_set.add(self.data.permitted_accounts, address)
 
                     with arg.match("remove_permissions") as addresses:
-                        with sp.for_("address", addresses) as address:
+                        with sp.for_("address", addresses.elements()) as address:
                             self.address_set.remove(self.data.permitted_accounts, address)
 
         self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep)

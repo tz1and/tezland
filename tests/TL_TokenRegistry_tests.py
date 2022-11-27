@@ -82,7 +82,7 @@ def test():
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
     # add permission for alice
-    registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("add_permissions", sp.set([alice.address]))]).run(sender = admin)
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = alice)
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, token_registry_contract.collectionPublic)
@@ -99,7 +99,7 @@ def test():
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
     registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("remove_permissions", sp.set([alice.address]))]).run(sender = admin)
 
     # test trusted collections
     scenario.h2("Trusted Collections")
@@ -132,7 +132,7 @@ def test():
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = alice, valid = False, exception = "NOT_PERMITTED")
 
     # add permission for alice
-    registry.manage_permissions([sp.variant("add_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("add_permissions", sp.set([alice.address]))]).run(sender = admin)
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = alice)
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, token_registry_contract.collectionPrivate)
@@ -149,7 +149,7 @@ def test():
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
     registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_permissions([sp.variant("remove_permissions", [alice.address])]).run(sender = admin)
+    registry.manage_permissions([sp.variant("remove_permissions", sp.set([alice.address]))]).run(sender = admin)
 
     scenario.h3("manage_collaborators")
 
