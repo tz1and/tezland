@@ -50,7 +50,7 @@ manageCollectionVariant = sp.TVariant(
         signature = sp.TSignature,
         royalties_type = sp.TNat
     ).layout(("signature", "royalties_type"))),
-    remove = sp.TList(sp.TAddress)
+    remove = sp.TSet(sp.TAddress)
 ).layout(("add_private", ("add_public", ("add_trusted", "remove"))))
 
 t_manage_collections = sp.TList(manageCollectionVariant)
@@ -61,11 +61,11 @@ collaboratorsMapLiteral = sp.big_map(tkey = collaboratorsKeyType, tvalue = sp.TU
 adminPrivateCollectionVariant = sp.TVariant(
     add_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress)
+        collaborators = sp.TSet(sp.TAddress)
     ).layout(("collection", "collaborators")),
     remove_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress)
+        collaborators = sp.TSet(sp.TAddress)
     ).layout(("collection", "collaborators")),
     transfer_ownership = sp.TRecord(
         collection = sp.TAddress,
@@ -284,7 +284,7 @@ class TL_TokenRegistry(
                     # Only admin or permitted can remove.
                     self.onlyAdministratorOrPermitted()
 
-                    with sp.for_("remove_element", remove) as remove_element:
+                    with sp.for_("remove_element", remove.elements()) as remove_element:
                         del self.data.collections[remove_element]
 
 
@@ -302,12 +302,12 @@ class TL_TokenRegistry(
             with upd.match_cases() as arg:
                 with arg.match("add_collaborators") as add_collaborators:
                     self.onlyOwnerPrivate(add_collaborators.collection)
-                    with sp.for_("address", add_collaborators.collaborators) as address:
+                    with sp.for_("address", add_collaborators.collaborators.elements()) as address:
                         self.data.collaborators[sp.record(collection = add_collaborators.collection, collaborator = address)] = sp.unit
 
                 with arg.match("remove_collaborators") as remove_collaborators:
                     self.onlyOwnerPrivate(remove_collaborators.collection)
-                    with sp.for_("address", remove_collaborators.collaborators) as address:
+                    with sp.for_("address", remove_collaborators.collaborators.elements()) as address:
                         del self.data.collaborators[sp.record(collection = remove_collaborators.collection, collaborator = address)]
 
                 with arg.match("transfer_ownership") as transfer_ownership:

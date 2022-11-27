@@ -90,8 +90,8 @@ def test():
     # public collection can't be private
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify(~registry.data.collections.contains(items_tokens.address))
 
     # only unpaused
@@ -113,8 +113,8 @@ def test():
     # trusted collection can't be private
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify(~registry.data.collections.contains(items_tokens.address))
 
     # only unpaused
@@ -140,8 +140,8 @@ def test():
     # private collection can't be public
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify(~registry.data.collections.contains(items_tokens.address))
 
     # only unpaused
@@ -155,7 +155,7 @@ def test():
 
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
-    manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
+    manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = sp.set([alice.address]))
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
     scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
@@ -171,7 +171,7 @@ def test():
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
     registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
     scenario.h3("transfer_private_ownership")
 
@@ -199,7 +199,7 @@ def test():
     registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = admin, valid = False, exception = "ONLY_UNPAUSED")
     registry.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
     scenario.h3("update_settings")
 
@@ -225,7 +225,7 @@ def test():
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify_equal(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address)), sp.bounded("owner"))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify_equal(registry.is_registered(is_reg_param), sp.set([]))
     scenario.verify(sp.is_failing(registry.get_collection_info(items_tokens.address)))
     scenario.verify(sp.is_failing(registry.get_royalties_type(items_tokens.address)))
@@ -241,7 +241,7 @@ def test():
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address))))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify_equal(registry.is_registered(is_reg_param), sp.set([]))
     scenario.verify(sp.is_failing(registry.get_collection_info(items_tokens.address)))
     scenario.verify(sp.is_failing(registry.get_royalties_type(items_tokens.address)))
@@ -255,7 +255,7 @@ def test():
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address))))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
-    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
     scenario.verify_equal(registry.is_registered(is_reg_param), sp.set([]))
     scenario.verify(sp.is_failing(registry.get_collection_info(items_tokens.address)))
     scenario.verify(sp.is_failing(registry.get_royalties_type(items_tokens.address)))
