@@ -174,6 +174,16 @@ export default class DeployBase {
         fs.writeFileSync(this.deploymentsRegPath, JSON.stringify(this.deploymentsReg), { encoding: 'utf-8' })
     }
 
+    public async getAccountPubkey(account_name: string): Promise<string> {
+        const account = this.networkConfig.accounts[account_name];
+        if (account instanceof PrivateKeyAccount) {
+            const signer = await InMemorySigner.fromSecretKey(account.private_key);
+            return signer.publicKey();
+        }
+
+        throw new Error(`Account ${account_name} not defined`);
+    }
+
     /**
      * TODO: add operations done to deployments file, like "added allowed places"?
      */

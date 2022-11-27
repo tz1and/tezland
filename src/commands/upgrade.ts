@@ -94,21 +94,32 @@ export default class Upgrade extends PostUpgrade {
         //
         // Token Registry
         //
-        let Registry_contract: ContractAbstraction<Wallet>;
+        let Registry_contract: ContractAbstraction<Wallet>,
+            LegacyRoyalties_contract: ContractAbstraction<Wallet>;
         {
+            // prepare registry/royalties batch
+            const tezland_batch = new DeployContractBatch(this);
+
             // Compile and deploy registry contract.
             await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
                 `administrator = sp.address("${this.accountAddress}")`,
-                `royalties_merkle_root = sp.bytes("0x00")`,
-                `collections_merkle_root = sp.bytes("0x00")`
+                `collections_public_key = sp.key("${await this.getAccountPubkey("collections_signer")}")`
             ]);
+            tezland_batch.addToBatch("TL_TokenRegistry");
 
-            Registry_contract = await this.deploy_contract("TL_TokenRegistry");
+            // Compile and deploy legacy royalties contract.
+            await this.compile_contract("TL_LegacyRoyalties", "TL_LegacyRoyalties", "TL_LegacyRoyalties", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+            tezland_batch.addToBatch("TL_LegacyRoyalties");
+
+            [Registry_contract, LegacyRoyalties_contract] = await tezland_batch.deployBatch();
         }
 
         //
         // Minter v2, Dutch v2, Places v2 and Interiors.
         //
+        // TODO: deploy places and interiors as paused! Unpause when tzkt shows images and names.
         let Minter_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
             places_v2_FA2_contract: ContractAbstraction<Wallet>;
@@ -158,7 +169,7 @@ export default class Upgrade extends PostUpgrade {
                         // add items as public collection to minter v2
                         {
                             kind: OpKind.TRANSACTION,
-                            ...Registry_contract.methods.manage_public_collections([{add: [{ contract: tezlandItems.address, royalties_version: 1}]}]).toTransferParams()
+                            ...Registry_contract.methods.manage_collections([{add_public: { [tezlandItems.address]: 1 }}]).toTransferParams()
                         },
                         // accept places admin from wallet
                         {
@@ -182,6 +193,7 @@ export default class Upgrade extends PostUpgrade {
             await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
+                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`,
                 `paused = sp.bool(True)`,
                 `items_tokens = sp.address("${tezlandItems.address}")`,
                 `name = "tz1and World"`,
