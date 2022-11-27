@@ -99,7 +99,7 @@ t_collection_sign = sp.TRecord(
 ).layout(("collection", "royalties_type"))
 
 
-def sign_collection(collection_sign, private_key):
+def signCollection(collection_sign, private_key):
     collection_sign = sp.set_type_expr(collection_sign, t_collection_sign)
     # Gives: Type format error atom secret_key
     #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
