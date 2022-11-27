@@ -66,26 +66,26 @@ def test():
 
     # Managing keys
     scenario.h2("manage_public_keys")
-    legacy_royalties.manage_public_keys([sp.variant("add", [
-        sp.record(id="key1", key=royalties_key1.public_key)
-    ])]).run(sender=admin)
+    legacy_royalties.manage_public_keys([sp.variant("add", {
+        "key1": royalties_key1.public_key
+    })]).run(sender=admin)
     scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=admin.address, key=royalties_key1.public_key))
 
-    legacy_royalties.manage_public_keys([sp.variant("remove", ["key1"])]).run(sender=admin)
+    legacy_royalties.manage_public_keys([sp.variant("remove", sp.set(["key1"]))]).run(sender=admin)
     scenario.verify(~legacy_royalties.data.public_keys.contains("key1"))
 
-    legacy_royalties.manage_public_keys([sp.variant("add", [
-        sp.record(id="key1", key=royalties_key1.public_key),
-        sp.record(id="key2", key=royalties_key2.public_key)
-    ])]).run(sender=admin)
+    legacy_royalties.manage_public_keys([sp.variant("add", {
+        "key1": royalties_key1.public_key,
+        "key2": royalties_key2.public_key
+    })]).run(sender=admin)
     scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=admin.address, key=royalties_key1.public_key))
     scenario.verify(legacy_royalties.data.public_keys.get("key2") == sp.record(owner=admin.address, key=royalties_key2.public_key))
 
     # no permission
-    legacy_royalties.manage_public_keys([sp.variant("add", [
-        sp.record(id="key_invalid", key=royalties_key_invalid.public_key)
-    ])]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
-    legacy_royalties.manage_public_keys([sp.variant("remove", ["key_invalid"])]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.manage_public_keys([sp.variant("add", {
+        "key_invalid": royalties_key_invalid.public_key
+    })]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.manage_public_keys([sp.variant("remove", sp.set(["key_invalid"]))]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
 
     # Update settings
     scenario.h2("update_settings")

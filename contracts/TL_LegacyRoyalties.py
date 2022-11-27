@@ -22,11 +22,8 @@ t_public_key_item = sp.TRecord(
 ).layout(("owner", "key"))
 
 t_manage_public_keys = sp.TList(sp.TVariant(
-    add = sp.TList(sp.TRecord(
-        id = sp.TString,
-        key = sp.TKey
-    ).layout(("id", "key"))),
-    remove = sp.TList(sp.TString)
+    add = sp.TMap(sp.TString, sp.TKey),
+    remove = sp.TSet(sp.TString)
 ).layout(("add", "remove")))
 
 t_token_key_opt = sp.TRecord(
@@ -160,11 +157,11 @@ class TL_LegacyRoyalties(
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
                 with arg.match("add") as add:
-                    with sp.for_("add_key", add) as add_key:
-                        self.data.public_keys[add_key.id] = sp.record(owner=sp.sender, key=add_key.key)
+                    with sp.for_("add_item", add.items()) as add_item:
+                        self.data.public_keys[add_item.key] = sp.record(owner=sp.sender, key=add_item.value)
 
                 with arg.match("remove") as remove:
-                    with sp.for_("id", remove) as id:
+                    with sp.for_("id", remove.elements()) as id:
                         # TODO: check owner or admin!
                         with sp.if_(self.isAdministrator(sp.sender) | (self.data.public_keys.get(id, message="UNKNOWN_KEY").owner == sp.sender)):
                             del self.data.public_keys[id]
