@@ -403,7 +403,6 @@ class Error_message:
     def not_for_sale(self):         return self.make("NOT_FOR_SALE")
     def wrong_amount(self):         return self.make("WRONG_AMOUNT")
     def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
-    def token_not_registered(self): return self.make("TOKEN_NOT_REGISTERED")
     def unknown_owner(self):        return self.make("UNKNOWN_OWNER")
 
 #
@@ -723,7 +722,7 @@ class TL_World(
         transferMap = utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        registry_info = registry_contract.isRegistered(
+        registry_contract.checkRegistered(
             self.data.registry,
             fa2_set.value)
 
@@ -744,9 +743,6 @@ class TL_World(
                 issuer = sp.compute(sp.eif(send_to_place_item.key, sp.none, sp.some(sp.sender)))
 
                 with sp.for_("fa2_item", send_to_place_item.value.items()) as fa2_item:
-                    # TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
-                    sp.verify(registry_info.contains(fa2_item.key), self.error_message.token_not_registered())
-
                     # Get or create item storage.
                     item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
 
@@ -1142,7 +1138,7 @@ class TL_World(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            registry_info = registry_contract.isRegistered(
+            registry_contract.checkRegistered(
                 self.data.registry,
                 fa2_set.value)
 
@@ -1152,9 +1148,6 @@ class TL_World(
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                    # TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
-                    sp.verify(registry_info.contains(fa2_item.key), self.error_message.token_not_registered())
-
                     # Get or create item storage.
                     item_store = ItemStorage(this_chunk, sp.some(issuer_item.key), fa2_item.key, True)
 
