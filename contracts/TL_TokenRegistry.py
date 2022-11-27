@@ -79,10 +79,7 @@ t_ownership_check = sp.TRecord(
     collection = sp.TAddress,
     address = sp.TAddress
 ).layout(("collection", "address"))
-t_ownership_result = sp.TVariant(
-    owner = sp.TUnit,
-    collaborator = sp.TUnit
-).layout(("owner", "collaborator"))
+t_ownership_result = sp.TBounded(["owner", "collaborator"], sp.TString) 
 
 t_registry_param = sp.TSet(sp.TAddress)
 t_registry_result = sp.TSet(sp.TAddress)
@@ -387,11 +384,11 @@ class TL_TokenRegistry(
 
             # Return "owner" if owner.
             with sp.if_(private_open.owner == params.address):
-                sp.result(sp.variant("owner", sp.unit))
+                sp.result(sp.bounded("owner"))
             with sp.else_():
                 # Return "collaborator" if collaborator.
                 with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
-                    sp.result(sp.variant("collaborator", sp.unit))
+                    sp.result(sp.bounded("collaborator"))
                 with sp.else_():
                     sp.failwith("NOT_OWNER_OR_COLLABORATOR")
 

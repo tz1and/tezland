@@ -94,7 +94,7 @@ class TL_Minter(
                 collection = collection,
                 address = address
             ), token_registry_contract.t_ownership_check),
-            t = token_registry_contract.t_ownership_result).open_some().is_variant("owner"), "ONLY_OWNER")
+            t = token_registry_contract.t_ownership_result).open_some() == sp.bounded("owner"), "ONLY_OWNER")
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
         # call registry view to check owner or collaborator.
