@@ -50,6 +50,8 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
+# TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
+# TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
 
 
 
@@ -687,10 +689,8 @@ class TL_World(
         sp.set_type(params, sp.TRecord(
             place_key = placeKeyType,
             place_item_map = sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))),
-            #merkle_proofs = sp.TOption(sp.TMap(sp.TAddress, registry_contract.merkle_tree_collections.MerkleProofType)),
-            signed_registries = sp.TOption(sp.TMap(sp.TAddress, registry_contract.t_collection_signed)),
             ext = extensionArgType
-        ).layout(("place_key", ("place_item_map", ("signed_registries", "ext")))))
+        ).layout(("place_key", ("place_item_map", "ext"))))
 
         self.onlyUnpaused()
 
@@ -723,10 +723,9 @@ class TL_World(
         transferMap = utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        registry_info = registry_contract.getTokenRegistryInfoSigned(
+        registry_info = registry_contract.isRegistered(
             self.data.registry,
-            fa2_set.value.elements(),
-            params.signed_registries)
+            fa2_set.value)
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -745,7 +744,8 @@ class TL_World(
                 issuer = sp.compute(sp.eif(send_to_place_item.key, sp.none, sp.some(sp.sender)))
 
                 with sp.for_("fa2_item", send_to_place_item.value.items()) as fa2_item:
-                    sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
+                    # TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
+                    sp.verify(registry_info.contains(fa2_item.key), self.error_message.token_not_registered())
 
                     # Get or create item storage.
                     item_store = ItemStorage(this_chunk, issuer, fa2_item.key, True)
@@ -1137,18 +1137,23 @@ class TL_World(
             # The current chunk we're working on.
             chunk_key = sp.local("chunk_key", sp.record(place_key = params.place_key, chunk_id = sp.nat(0)))
 
+            fa2_set = sp.local("fa2_set", sp.set(t=sp.TAddress))
+            with sp.for_("fa2_map", params.item_map.values()) as fa2_map:
+                with sp.for_("fa2", fa2_map.keys()) as fa2:
+                    fa2_set.value.add(fa2)
+
+            registry_info = registry_contract.isRegistered(
+                self.data.registry,
+                fa2_set.value)
+
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
 
             # For each fa2 in the map.
             with sp.for_("issuer_item", params.item_map.items()) as issuer_item:
-                registry_info = registry_contract.getTokenRegistryInfoSigned(
-                    self.data.registry,
-                    issuer_item.value.keys(),
-                    check_signed_registries=False)
-
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
-                    sp.verify(registry_info.get(fa2_item.key, default_value=False), self.error_message.token_not_registered())
+                    # TODO: if the is_registered view failed on non-registered tokens, we wouldn't waste gas.
+                    sp.verify(registry_info.contains(fa2_item.key), self.error_message.token_not_registered())
 
                     # Get or create item storage.
                     item_store = ItemStorage(this_chunk, sp.some(issuer_item.key), fa2_item.key, True)

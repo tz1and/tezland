@@ -89,27 +89,27 @@ class TL_Minter(
     #
     def onlyOwnerPrivate(self, collection, address):
         # call registry view to check owner.
-        sp.verify(sp.view("is_private_owner", self.data.registry,
-            sp.set_type_expr(sp.record(
-                collection = collection,
-                address = address
-            ), token_registry_contract.t_ownership_check),
-            t = sp.TBool).open_some(), "ONLY_OWNER")
-
-    def onlyOwnerOrCollaboratorPrivate(self, collection, address):
-        # call registry view to check owner or collaborator.
         sp.verify(sp.view("is_private_owner_or_collab", self.data.registry,
             sp.set_type_expr(sp.record(
                 collection = collection,
                 address = address
             ), token_registry_contract.t_ownership_check),
-            t = sp.TBool).open_some(), "ONLY_OWNER_OR_COLLABORATOR")
+            t = token_registry_contract.t_ownership_result).open_some().is_variant("owner"), "ONLY_OWNER")
+
+    def onlyOwnerOrCollaboratorPrivate(self, collection, address):
+        # call registry view to check owner or collaborator.
+        sp.compute(sp.view("is_private_owner_or_collab", self.data.registry,
+            sp.set_type_expr(sp.record(
+                collection = collection,
+                address = address
+            ), token_registry_contract.t_ownership_check),
+            t = token_registry_contract.t_ownership_result).open_some())
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
-        sp.verify(sp.view("is_public_collection", self.data.registry,
-            sp.set_type_expr([collection], sp.TList(sp.TAddress)),
-            t = sp.TMap(sp.TAddress, sp.TBool)).open_some().get(collection, default_value=False), "INVALID_COLLECTION")
+        sp.verify(sp.view("get_collection_info", self.data.registry,
+            sp.set_type_expr(collection, sp.TAddress),
+            t = token_registry_contract.collectionType).open_some().props.is_variant("public"), "NOT_PUBLIC")
 
     #
     # Admin-only entry points

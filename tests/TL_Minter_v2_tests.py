@@ -60,9 +60,7 @@ def test():
     # test Item minting
     scenario.h3("mint_public_v1")
 
-    manage_public_v1_params = sp.record(contract = items_tokens_legacy.address, royalties_version = 1)
-
-    registry.manage_public_collections([sp.variant("add", [manage_public_v1_params])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens_legacy.address: 1})]).run(sender = admin)
 
     minter.mint_public_v1(collection = minter.address,
         to_ = bob.address,
@@ -95,7 +93,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_public_collections([sp.variant("remove", [items_tokens_legacy.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", [items_tokens_legacy.address])]).run(sender = admin)
 
 
     #
@@ -106,9 +104,7 @@ def test():
     # test Item minting
     scenario.h3("mint_public")
 
-    manage_public_params = sp.record(contract = items_tokens.address, royalties_version = 2)
-
-    registry.manage_public_collections([sp.variant("add", [manage_public_params])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
 
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
@@ -137,7 +133,7 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_public_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
 
     #
@@ -148,9 +144,9 @@ def test():
     # test Item minting
     scenario.h3("mint_private")
 
-    manage_private_params = sp.record(contract = items_tokens.address, owner = bob.address, royalties_version = 2)
+    manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = 2)}
     manager_collaborators_params = sp.record(collection = items_tokens.address, collaborators = [alice.address])
-    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
     minter.mint_private(collection = minter.address,
         to_ = bob.address,
@@ -165,19 +161,19 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     # add alice as collaborator
-    registry.manage_collaborators([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
+    registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
         royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
-    registry.manage_collaborators([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
+    registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
 
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
         royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = "ONLY_OWNER_OR_COLLABORATOR")
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
 
     minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
 
@@ -188,17 +184,17 @@ def test():
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
     scenario.h3("update_private_metadata")
 
-    registry.manage_private_collections([sp.variant("add", [manage_private_params])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
     invalid_metadata_uri = sp.utils.bytes_of_string("ipf://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8")
     valid_metadata_uri = sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
 
-    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = admin, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
+    minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = alice, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = invalid_metadata_uri)).run(sender = bob, valid = False, exception = "INVALID_METADATA")
 
     scenario.verify(items_tokens.data.metadata[""] == sp.utils.bytes_of_string("https://example.com"))
@@ -209,7 +205,7 @@ def test():
     minter.update_private_metadata(sp.record(collection = items_tokens.address, metadata_uri = valid_metadata_uri)).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
-    registry.manage_private_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
+    registry.manage_collections([sp.variant("remove", [items_tokens.address])]).run(sender = admin)
 
 
     #
@@ -268,13 +264,11 @@ def test():
     items_tokens_private.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens_private.address]).run(sender = admin)
 
-    registry.manage_public_collections([sp.variant("add", [
-        sp.record(contract = items_tokens.address, royalties_version = 2)
-    ])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
 
-    registry.manage_private_collections([sp.variant("add", [
-        sp.record(contract = items_tokens_private.address, owner = bob.address, royalties_version = 2)
-    ])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_private", {
+        items_tokens_private.address: sp.record(owner = bob.address, royalties_type = 2)
+    })]).run(sender = admin)
 
     scenario.h3("valid royalties")
 

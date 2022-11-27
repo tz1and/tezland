@@ -298,7 +298,7 @@ def test():
     scenario.h3("transfer/register/mint items tokens in minter")
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
-    registry.manage_public_collections([sp.variant("add", [sp.record(contract = items_tokens.address, royalties_version = 1)])]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1})]).run(sender = admin)
 
     # mint some item tokens for testing
     scenario.h3("minting items")
@@ -427,9 +427,7 @@ def test():
         token_arr: sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))),
         sender: sp.TestAccount,
         valid: bool = True,
-        message: str = None,
-        #merkle_proofs: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.merkle_tree_collections.MerkleProofType)) = sp.none
-        signed_registries: sp.TOption(sp.TMap(sp.TAddress, token_registry_contract.t_collection_signed)) = sp.none):
+        message: str = None):
 
         if valid == True:
             before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
@@ -441,8 +439,6 @@ def test():
         world.place_items(
             place_key = place_key,
             place_item_map = token_arr,
-            #merkle_proofs = merkle_proofs,
-            signed_registries = signed_registries,
             ext = sp.none
         ).run(sender = sender, valid = valid, exception = message)
     

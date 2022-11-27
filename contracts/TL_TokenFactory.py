@@ -151,9 +151,15 @@ class TL_TokenFactory(
         ))
 
         # Add private collection in token registry
-        manage_private_collections_handle = sp.contract(
-            token_registry_contract.t_manage_private_collections,
+        manage_collections_handle = sp.contract(
+            token_registry_contract.t_manage_collections,
             self.data.registry, 
-            entry_point = "manage_private_collections").open_some()
+            entry_point = "manage_collections").open_some()
 
-        sp.transfer([sp.variant("add", [sp.record(contract = originated_token, owner = sp.sender, royalties_version = 2)])], sp.mutez(0), manage_private_collections_handle)
+        sp.transfer([
+            sp.variant("add_private", {
+                originated_token: sp.record(
+                    owner = sp.sender,
+                    royalties_type = 2
+                )}
+            )], sp.mutez(0), manage_collections_handle)

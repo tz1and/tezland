@@ -13,62 +13,79 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: private is weird nomenclature. rename to colleciton and public/shared collection maybe.
 # TODO: test update_settings
 # TODO: layouts!!!
-# TODO: t_royalties_signed: decide if data should be packed or not.
+# TODO: signed collection should allow every user to add a collection with a royalties type.
+# TODO: BULLSHIT
 
 
-privateCollectionValueType = sp.TRecord(
-    owner = sp.TAddress,
-    proposed_owner = sp.TOption(sp.TAddress),
-    royalties_version = sp.TNat
-).layout(("owner", ("proposed_owner", "royalties_version")))
-privateCollectionMapType = sp.TBigMap(sp.TAddress, privateCollectionValueType)
-privateCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = privateCollectionValueType)
+# Know royalties types:
+# 0 - legacy royalties
+# 1 - tz1and V1
+# 2 - tz1and V2
 
-publicCollectionMapType = sp.TBigMap(sp.TAddress, sp.TNat)
-publicCollectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = sp.TNat)
+collectionVariantPropsType = sp.TVariant(
+    private = sp.TRecord(
+        owner = sp.TAddress,
+        proposed_owner = sp.TOption(sp.TAddress),
+    ).layout(("owner", "proposed_owner")),
+    public = sp.TUnit,
+    trusted = sp.TUnit
+).layout(("private", ("public", "trusted")))
+
+collectionType = sp.TRecord(
+    royalties_type = sp.TNat,
+    props = collectionVariantPropsType
+).layout(("royalties_type", "props"))
+
+collectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = collectionType)
+
+manageCollectionVariant = sp.TVariant(
+    add_private = sp.TMap(sp.TAddress, sp.TRecord(
+        owner = sp.TAddress,
+        royalties_type = sp.TNat
+    ).layout(("owner", "royalties_type"))),
+    add_public = sp.TMap(sp.TAddress, sp.TNat),
+    add_trusted = sp.TMap(sp.TAddress, sp.TRecord(
+        signature = sp.TSignature,
+        royalties_type = sp.TNat
+    ).layout(("signature", "royalties_type"))),
+    remove = sp.TList(sp.TAddress)
+).layout(("add_private", ("add_public", ("add_trusted", "remove"))))
+
+t_manage_collections = sp.TList(manageCollectionVariant)
 
 collaboratorsKeyType = sp.TRecord(collection = sp.TAddress, collaborator = sp.TAddress).layout(("collection", "collaborator"))
-collaboratorsMapType = sp.TBigMap(collaboratorsKeyType, sp.TUnit)
 collaboratorsMapLiteral = sp.big_map(tkey = collaboratorsKeyType, tvalue = sp.TUnit)
 
-t_manage_public_collections = sp.TList(sp.TVariant(
-    add = sp.TList(sp.TRecord(
-        contract = sp.TAddress,
-        royalties_version = sp.TNat
-    ).layout(("contract", "royalties_version"))),
-    remove = sp.TList(sp.TAddress)
-).layout(("add", "remove")))
-
-t_manage_private_collections = sp.TList(sp.TVariant(
-    add = sp.TList(sp.TRecord(
-        contract = sp.TAddress,
-        owner = sp.TAddress,
-        royalties_version = sp.TNat
-    ).layout(("contract", ("owner", "royalties_version")))),
-    remove = sp.TList(sp.TAddress)
-).layout(("add", "remove")))
-
-t_manage_collaborators = sp.TList(sp.TVariant(
+adminPrivateCollectionVariant = sp.TVariant(
     add_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress)).layout(("collection", "collaborators")),
+        collaborators = sp.TList(sp.TAddress)
+    ).layout(("collection", "collaborators")),
     remove_collaborators = sp.TRecord(
         collection = sp.TAddress,
-        collaborators = sp.TList(sp.TAddress)).layout(("collection", "collaborators"))
-).layout(("add_collaborators", "remove_collaborators")))
+        collaborators = sp.TList(sp.TAddress)
+    ).layout(("collection", "collaborators")),
+    transfer_ownership = sp.TRecord(
+        collection = sp.TAddress,
+        new_owner = sp.TAddress
+    ).layout(("collection", "new_owner")),
+    acccept_ownership = sp.TAddress
+).layout(("add_collaborators", ("remove_collaborators", ("transfer_ownership", "acccept_ownership"))))
+
+t_admin_private_collections = sp.TList(adminPrivateCollectionVariant)
 
 # View params
 t_ownership_check = sp.TRecord(
     collection = sp.TAddress,
-    address = sp.TAddress).layout(("collection", "address"))
+    address = sp.TAddress
+).layout(("collection", "address"))
+t_ownership_result = sp.TVariant(
+    owner = sp.TUnit,
+    collaborator = sp.TUnit
+).layout(("owner", "collaborator"))
 
-t_registry_param = sp.TList(sp.TAddress)
-t_registry_result = sp.TMap(sp.TAddress, sp.TBool)
-t_registry_result_with_pubkey = sp.TRecord(
-    result_map = sp.TMap(sp.TAddress, sp.TBool),
-    #merkle_root = sp.TBytes,
-    public_key = sp.TKey
-).layout(("result_map", "public_key"))
+t_registry_param = sp.TSet(sp.TAddress)
+t_registry_result = sp.TSet(sp.TAddress)
 
 t_get_royalties_type_result = sp.TNat
 
@@ -77,116 +94,35 @@ t_get_royalties_type_result = sp.TNat
 #
 
 # Don't need the address here, because it's the map key map.
-t_collection_signed = sp.TSignature
+t_collection_sign = sp.TRecord(
+    collection=sp.TAddress,
+    royalties_type=sp.TNat
+).layout(("collection", "royalties_type"))
 
 
-def sign_collection(address, private_key):
-    address = sp.set_type_expr(address, sp.TAddress)
+def sign_collection(collection_sign, private_key):
+    collection_sign = sp.set_type_expr(collection_sign, t_collection_sign)
     # Gives: Type format error atom secret_key
     #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
 
-    packed_collection = sp.pack(address)
+    packed_collection_sign = sp.pack(collection_sign)
 
     signature = sp.make_signature(
         private_key,
-        packed_collection,
+        packed_collection_sign,
         message_format = 'Raw')
 
     return signature
 
 
-@sp.inline_result
-def getTokenRegistryInfoSigned(token_registry_contract, fa2_list, signed_registries = sp.none, check_signed_registries: bool = True):
-    """Get token registry info and/or validate signed registry."""
+def isRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
     sp.set_type(token_registry_contract, sp.TAddress)
-    sp.set_type(fa2_list, t_registry_param)
-    sp.set_type(signed_registries, sp.TOption(sp.TMap(sp.TAddress, t_collection_signed)))
-    registry_info = sp.local("registry_info", sp.view("is_registered", token_registry_contract,
+    sp.set_type(fa2_set, sp.TSet(sp.TAddress))
+    return sp.compute(sp.view("is_registered", token_registry_contract,
         sp.set_type_expr(
-            fa2_list,
+            fa2_set,
             t_registry_param),
-        t = t_registry_result_with_pubkey).open_some())
-
-    if check_signed_registries:
-        with signed_registries.match("Some") as signed_registries_open:
-            with sp.for_("item", signed_registries_open.items()) as item:
-                # Verify signature
-                sp.verify(sp.check_signature(registry_info.value.public_key, item.value, sp.pack(item.key)), "INVALID_SIGNATURE")
-                # Registered state true if signature is valid.
-                registry_info.value.result_map[item.key] = True
-    
-    sp.result(registry_info.value.result_map)
-
-
-##
-## Merkle trees
-#
-## Tree classes
-#merkle_tree_royalties = MerkleTree(t_royalties_offchain)
-#merkle_tree_collections = MerkleTree(sp.TAddress)
-#
-#
-#@sp.inline_result
-#def getTokenRegistryInfoMerkle(token_registry_contract, fa2_list, merkle_proofs = sp.none, check_merkle_proofs: bool = True):
-#    """Get token registry info and validate registry merkle proofs."""
-#    sp.set_type(token_registry_contract, sp.TAddress)
-#    sp.set_type(fa2_list, t_registry_param)
-#    sp.set_type(merkle_proofs, sp.TOption(sp.TMap(sp.TAddress, merkle_tree_collections.MerkleProofType)))
-#    registry_info = sp.local("registry_info", sp.view("is_registered", token_registry_contract,
-#        sp.set_type_expr(
-#            fa2_list,
-#            t_registry_param),
-#        t = t_registry_result_with_merkle_root_and_pubkey).open_some())
-#
-#    if check_merkle_proofs:
-#        with merkle_proofs.match("Some") as merkle_proofs_open:
-#            with sp.for_("item", merkle_proofs_open.items()) as item:
-#                # Make sure leaf matches input.
-#                sp.verify(item.key == merkle_tree_collections.unpack_leaf(item.value.leaf), "LEAF_DATA_DOES_NOT_MATCH")
-#                # Registered state true if merkle proof is valid.
-#                registry_info.value.result_map[item.key] = merkle_tree_collections.validate_merkle_root(item.value.proof, item.value.leaf, registry_info.value.merkle_root)
-#    
-#    sp.result(registry_info.value.result_map)
-#
-#
-#@sp.inline_result
-#def getTokenRoyaltiesMerkle(token_registry_contract, fa2, token_id, merkle_proof):
-#    """Gets token royalties and validate royalties merkle proofs."""
-#    sp.set_type(token_registry_contract, sp.TAddress)
-#    sp.set_type(fa2, sp.TAddress)
-#    sp.set_type(token_id, sp.TNat)
-#    sp.set_type(merkle_proof, sp.TOption(merkle_tree_royalties.MerkleProofType))
-#    royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", token_registry_contract,
-#        fa2, t = t_get_royalties_type_result).open_some())
-#
-#    with sp.if_(royalties_type.value.royalties_version == 0):
-#        merkle_proof_open = sp.compute(merkle_proof.open_some("NO_MERKLE_PROOF"))
-#        # for which royalties are requested.
-#        # Verify that the computed merkle root from proof matches the actual merkle root
-#        sp.verify(merkle_tree_royalties.validate_merkle_root(merkle_proof_open.proof, merkle_proof_open.leaf, royalties_type.value.merkle_root),
-#            "INVALID_MERKLE_PROOF")
-#
-#        # Leaf should match fa and token id. so it can be verified against the token.
-#        unpacked_leaf = sp.compute(merkle_tree_royalties.unpack_leaf(merkle_proof_open.leaf))
-#        sp.verify((fa2 == unpacked_leaf.fa2) & (token_id == unpacked_leaf.token_id), "LEAF_DATA_DOES_NOT_MATCH")
-#        sp.result(unpacked_leaf.token_royalties)
-#
-#    with sp.else_():
-#        with sp.if_(royalties_type.value.royalties_version == 1):
-#            royalties = sp.compute(FA2_legacy.get_token_royalties(fa2, token_id))
-#            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = []), FA2.t_royalties_interop)
-#
-#            with sp.for_("contributor", royalties.contributors) as contributor:
-#                royalties_v2.value.shares.push(sp.record(
-#                    address = contributor.address,
-#                    share = contributor.relative_royalties * royalties.royalties / 1000))
-#
-#            sp.result(royalties_v2.value)
-#        with sp.else_():
-#            with sp.if_(royalties_type.value.royalties_version == 2):
-#                sp.result(FA2.get_token_royalties(fa2, token_id))
-#            with sp.else_():
-#                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+        t = t_registry_result).open_some())
 
 
 #
@@ -200,25 +136,17 @@ class TL_TokenRegistry(
     sp.Contract):
     def __init__(self, administrator, collections_public_key, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
-        self.add_flag("erase-comments")
-
-        #royalties_merkle_root = sp.set_type_expr(royalties_merkle_root, sp.TBytes)
-        #collections_merkle_root = sp.set_type_expr(collections_merkle_root, sp.TBytes)
+        #self.add_flag("erase-comments")
 
         collections_public_key = sp.set_type_expr(collections_public_key, sp.TKey)
 
         self.init_storage(
-            private_collections = privateCollectionMapLiteral,
-            public_collections = publicCollectionMapLiteral,
+            collections = collectionMapLiteral,
             collaborators = collaboratorsMapLiteral,
-            #royalties_merkle_root = royalties_merkle_root,
-            #collections_merkle_root = collections_merkle_root,
             collections_public_key = collections_public_key
         )
 
         self.available_settings = [
-            #("royalties_merkle_root", sp.TBytes, None),
-            #("collections_merkle_root", sp.TBytes, None),
             ("collections_public_key", sp.TKey, None)
         ]
 
@@ -260,14 +188,10 @@ class TL_TokenRegistry(
     #
     def onlyOwnerPrivate(self, collection):
         # get owner from private collection map and check owner
-        collection_props = self.data.private_collections.get(collection, message = "INVALID_COLLECTION")
-        sp.verify((collection_props.owner == sp.sender), "ONLY_OWNER")
-
-    def onlyOwnerPrivateGet(self, collection):
-        # get owner from private collection map and check owner
-        collection_props = sp.compute(self.data.private_collections.get(collection, message = "INVALID_COLLECTION"))
-        sp.verify((collection_props.owner == sp.sender), "ONLY_OWNER")
-        return collection_props
+        the_collection = self.data.collections.get(collection, message = "INVALID_COLLECTION")
+        private_open = the_collection.props.open_variant("private", "NOT_PRIVATE")
+        # Only owner can transfer ownership.
+        sp.verify(private_open.owner == sp.sender, "ONLY_OWNER")
 
     #
     # Admin and permitted entry points
@@ -280,9 +204,6 @@ class TL_TokenRegistry(
         sp.set_type(params, sp.TList(sp.TVariant(
             **{setting[0]: setting[1] for setting in self.available_settings})))
 
-        # NOTE: Currently this means updating the merkle tree root nodes
-        # would require admin permissions, which is tricky, should this
-        # ever be automated. But in that case this ep can be upgraded.
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
@@ -293,56 +214,75 @@ class TL_TokenRegistry(
                             setting[2](value)
                         setattr(self.data, setting[0], value)
 
+    #
+    # Mixed admin, permitted and user.
+    #
     @sp.entry_point(lazify = True)
-    def manage_public_collections(self, params):
+    def manage_collections(self, params):
         """Admin or permitted can add/remove public collections in minter"""
-        sp.set_type(params, t_manage_public_collections)
+        sp.set_type(params, t_manage_collections)
 
         self.onlyUnpaused()
-        self.onlyAdministratorOrPermitted()
 
-        with sp.for_("upd", params) as upd:
-            with upd.match_cases() as arg:
-                with arg.match("add") as add:
-                    with sp.for_("address", add) as collection:
-                        # public collections cant be private
-                        sp.verify(self.data.private_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
-                        self.data.public_collections[collection.contract] = collection.royalties_version
+        with sp.for_("task", params) as task:
+            with task.match_cases() as arg:
+                with arg.match("add_private") as add_private:
+                    # Only admin or permitted can add_private.
+                    self.onlyAdministratorOrPermitted()
+
+                    with sp.for_("add_private_item", add_private.items()) as add_private_item:
+                        # You cannot add collections that already exist
+                        sp.verify(~self.data.collections.contains(add_private_item.key), "COLLECTION_EXISTS")
+                        self.data.collections[add_private_item.key] = sp.record(
+                            royalties_type = add_private_item.value.royalties_type,
+                            props = sp.variant("private", sp.record(
+                                owner = add_private_item.value.owner,
+                                proposed_owner = sp.none)))
+
+                with arg.match("add_public") as add_public:
+                    # Only admin or permitted can add_public.
+                    self.onlyAdministratorOrPermitted()
+
+                    with sp.for_("add_public_item", add_public.items()) as add_public_item:
+                        # You cannot add collections that already exist
+                        sp.verify(~self.data.collections.contains(add_public_item.key), "COLLECTION_EXISTS")
+                        self.data.collections[add_public_item.key] = sp.record(
+                            royalties_type = add_public_item.value,
+                            props = sp.variant("public", sp.unit))
+
+                with arg.match("add_trusted") as add_trusted:
+                    # Anyone can add_trusted. If the signature is valid.
+                    with sp.for_("add_trusted_item", add_trusted.items()) as add_trusted_item:
+                        # You cannot add collections that already exist
+                        sp.verify(~self.data.collections.contains(add_trusted_item.key), "COLLECTION_EXISTS")
+
+                        # Validate signature!
+                        sp.verify(sp.check_signature(self.data.collections_public_key,
+                            add_trusted_item.value.signature,
+                            sp.pack(sp.set_type_expr(sp.record(
+                                collection=add_trusted_item.key,
+                                royalties_type=add_trusted_item.value.royalties_type),
+                                t_collection_sign))), "INVALID_SIGNATURE")
+
+                        self.data.collections[add_trusted_item.key] = sp.record(
+                            royalties_type = add_trusted_item.value.royalties_type,
+                            props = sp.variant("trusted", sp.unit))
 
                 with arg.match("remove") as remove:
-                    with sp.for_("address", remove) as address:
-                        del self.data.public_collections[address]
+                    # Only admin or permitted can remove.
+                    self.onlyAdministratorOrPermitted()
 
-    @sp.entry_point(lazify = True)
-    def manage_private_collections(self, params):
-        """Admin or permitted can add/remove private collections in minter"""
-        sp.set_type(params, t_manage_private_collections)
+                    with sp.for_("remove_element", remove) as remove_element:
+                        del self.data.collections[remove_element]
 
-        self.onlyUnpaused()
-        self.onlyAdministratorOrPermitted()
-
-        with sp.for_("upd", params) as upd:
-            with upd.match_cases() as arg:
-                with arg.match("add") as add:
-                    with sp.for_("collection", add) as collection:
-                        # private collections cant be public
-                        sp.verify(self.data.public_collections.contains(collection.contract) == False, "PUBLIC_PRIVATE")
-                        self.data.private_collections[collection.contract] = sp.record(
-                            owner = collection.owner,
-                            proposed_owner = sp.none,
-                            royalties_version = collection.royalties_version)
-
-                with arg.match("remove") as remove:
-                    with sp.for_("address", remove) as address:
-                        del self.data.private_collections[address]
 
     #
     # Private entry points
     #
     @sp.entry_point(lazify = True)
-    def manage_collaborators(self, params):
-        """User can add/remove collaborators to private collections"""
-        sp.set_type(params, t_manage_collaborators)
+    def admin_private_collections(self, params):
+        """User can add/remove collaborators to private collections, transfer owner."""
+        sp.set_type(params, t_admin_private_collections)
 
         self.onlyUnpaused()
 
@@ -358,131 +298,103 @@ class TL_TokenRegistry(
                     with sp.for_("address", remove_collaborators.collaborators) as address:
                         del self.data.collaborators[sp.record(collection = remove_collaborators.collection, collaborator = address)]
 
-    @sp.entry_point(lazify = True)
-    def transfer_private_ownership(self, params):
-        """Proposes to transfer the collection ownership to another address."""
-        sp.set_type(params, sp.TRecord(
-            collection = sp.TAddress,
-            new_owner = sp.TAddress))
+                with arg.match("transfer_ownership") as transfer_ownership:
+                    the_collection = sp.compute(self.data.collections.get(transfer_ownership.collection, message = "INVALID_COLLECTION"))
+                    private_open = sp.compute(the_collection.props.open_variant("private", message="NOT_PRIVATE"))
 
-        self.onlyUnpaused()
-        the_collection = self.onlyOwnerPrivateGet(params.collection)
+                    # Only owner can transfer ownership.
+                    sp.verify(private_open.owner == sp.sender, "ONLY_OWNER")
 
-        # Set proposed owner
-        the_collection.proposed_owner = sp.some(params.new_owner)
+                    # Set proposed owner.
+                    private_open.proposed_owner = sp.some(transfer_ownership.new_owner)
 
-        # Update collection
-        self.data.private_collections[params.collection] = the_collection
+                    # Update collection.
+                    the_collection.props = sp.variant("private", private_open)
+                    self.data.collections[transfer_ownership.collection] = the_collection
 
-    @sp.entry_point(lazify = True)
-    def accept_private_ownership(self, collection):
-        """The proposed collection owner accepts the responsabilities."""
-        sp.set_type(collection, sp.TAddress)
+                with arg.match("acccept_ownership") as acccept_ownership:
+                    the_collection = sp.compute(self.data.collections.get(acccept_ownership, message="INVALID_COLLECTION"))
+                    private_open = sp.compute(the_collection.props.open_variant("private", message="NOT_PRIVATE"))
 
-        self.onlyUnpaused()
+                    # Check that there is a proposed owner and
+                    # check that the proposed owner executed the entry point.
+                    sp.verify(sp.some(sp.sender) == private_open.proposed_owner, message="NOT_PROPOSED_OWNER")
 
-        the_collection = sp.compute(self.data.private_collections.get(collection, message = "INVALID_COLLECTION"))
+                    # Set the new owner address.
+                    private_open.owner = sp.sender
 
-        # Check that there is a proposed owner and
-        # check that the proposed owner executed the entry point
-        sp.verify(sp.some(sp.sender) == the_collection.proposed_owner, message="NOT_PROPOSED_OWNER")
+                    # Reset the proposed owner value.
+                    private_open.proposed_owner = sp.none
 
-        # Set the new owner address
-        the_collection.owner = sp.sender
+                    # Update collection
+                    the_collection.props = sp.variant("private", private_open)
+                    self.data.collections[acccept_ownership] = the_collection
 
-        # Reset the proposed owner value
-        the_collection.proposed_owner = sp.none
-
-        # Update collection
-        self.data.private_collections[collection] = the_collection
 
     #
     # Views
     #
     @sp.onchain_view(pure=True)
-    def is_registered(self, contract_list):
-        # TODO: should we store royalty-type information with registered tokens?
-        """Returns true if contract is registered, false otherwise."""
-        sp.set_type(contract_list, t_registry_param)
-
-        with sp.set_result_type(t_registry_result_with_pubkey):
-            result_map = sp.local("result_map", {}, t_registry_result)
-            with sp.for_("contract", contract_list) as contract:
-                result_map.value[contract] = self.data.private_collections.contains(contract) | self.data.public_collections.contains(contract)
-            sp.result(sp.record(
-                result_map = result_map.value,
-                #merkle_root = self.data.collections_merkle_root,
-                public_key = self.data.collections_public_key))
-
-    @sp.onchain_view(pure=True)
-    def is_private_collection(self, contract_list):
-        """Returns true if contract is a private collection, false otherwise."""
-        sp.set_type(contract_list, t_registry_param)
+    def is_registered(self, contract_set):
+        """Returns set of collections that are registered.
+        
+        Existance in set = inclusion."""
+        sp.set_type(contract_set, t_registry_param)
 
         with sp.set_result_type(t_registry_result):
-            result_map = sp.local("result_map", {}, t_registry_result)
-            with sp.for_("contract", contract_list) as contract:
-                result_map.value[contract] = self.data.private_collections.contains(contract)
-            sp.result(result_map.value)
+            result_set = sp.local("result_set", sp.set([]), t_registry_result)
+            with sp.for_("contract", contract_set.elements()) as contract:
+                with sp.if_(self.data.collections.contains(contract)):
+                    result_set.value.add(contract)
+            sp.result(result_set.value)
+
 
     @sp.onchain_view(pure=True)
-    def is_public_collection(self, contract_list):
-        """Returns true if contract is a public collection, false otherwise."""
-        sp.set_type(contract_list, t_registry_param)
+    def get_royalties_type(self, contract):
+        """Returns the royalties type for a collections.
+        
+        Throws INVALID_COLLECTION if not a valid collection."""
+        sp.set_type(contract, sp.TAddress)
 
-        with sp.set_result_type(t_registry_result):
-            result_map = sp.local("result_map", {}, t_registry_result)
-            with sp.for_("contract", contract_list) as contract:
-                result_map.value[contract] = self.data.public_collections.contains(contract)
-            sp.result(result_map.value)
+        with sp.set_result_type(sp.TNat):
+            sp.result(self.data.collections.get(contract, message="INVALID_COLLECTION").royalties_type)
+
 
     @sp.onchain_view(pure=True)
-    def is_private_owner(self, params):
-        """Returns true if address is collection owner, false otherwise.
-        Throws INVALID_COLLECTION if collection not in private collections."""
-        sp.set_type(params, t_ownership_check)
+    def get_collection_info(self, contract):
+        """Returns the registry info for a collections.
+        
+        Throws INVALID_COLLECTION if not a valid collection."""
+        sp.set_type(contract, sp.TAddress)
 
-        with sp.set_result_type(sp.TBool):
-            collection_props = self.data.private_collections.get(params.collection, message="INVALID_COLLECTION")
-            sp.result(collection_props.owner == params.address)
+        with sp.set_result_type(collectionType):
+            sp.result(self.data.collections.get(contract, message="INVALID_COLLECTION"))
+
 
     @sp.onchain_view(pure=True)
     def is_private_owner_or_collab(self, params):
-        """Returns true if address is collection owner or operator, false otherwise.
-        Throws INVALID_COLLECTION if collection not in private collections."""
+        """Returns owner|collaborator if address is collection owner or collaborator.
+
+        Throws INVALID_COLLECTION if not a valid collection.
+        Throws NOT_PRIVATE if not a private collection.
+        Throws NOT_OWNER_OR_COLLABORATOR if neither owner nor collaborator."""
         sp.set_type(params, t_ownership_check)
 
-        with sp.set_result_type(sp.TBool):
-            collection_props = self.data.private_collections.get(params.collection, message="INVALID_COLLECTION")
-            sp.result((collection_props.owner == params.address) | (self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))))
+        with sp.set_result_type(t_ownership_result):
+            # Get private collection params.
+            the_collection = self.data.collections.get(params.collection, message = "INVALID_COLLECTION")
+            private_open = the_collection.props.open_variant("private", message="NOT_PRIVATE")
 
-    @sp.onchain_view(pure=True)
-    def get_royalties_type(self, fa2):
-        sp.set_type(fa2, sp.TAddress)
+            # Return "owner" if owner.
+            with sp.if_(private_open.owner == params.address):
+                sp.result(sp.variant("owner", sp.unit))
+            with sp.else_():
+                # Return "collaborator" if collaborator.
+                with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
+                    sp.result(sp.variant("collaborator", sp.unit))
+                with sp.else_():
+                    sp.failwith("NOT_OWNER_OR_COLLABORATOR")
 
-        with sp.set_result_type(t_get_royalties_type_result):
-            royalties_version = sp.local("royalties_version", sp.nat(0))
-
-            public_opt = self.data.public_collections.get_opt(fa2)
-            with public_opt.match_cases() as public_arg:
-                with public_arg.match("Some") as public_some:
-                    royalties_version.value = public_some
-
-                with public_arg.match("None", "public_none"):
-                    private_opt = self.data.private_collections.get_opt(fa2)
-
-                    with private_opt.match("Some") as private_some:
-                        royalties_version.value = private_some.royalties_version
-
-            sp.result(royalties_version.value)
-
-#    @sp.onchain_view(pure=True)
-#    def get_collections_merkle_root(self):
-#        sp.result(self.data.collections_merkle_root)
-#
-#    @sp.onchain_view(pure=True)
-#    def get_royalties_merkle_root(self):
-#        sp.result(self.data.royalties_merkle_root)
 
     @sp.onchain_view(pure=True)
     def get_collections_public_key(self):

@@ -84,11 +84,10 @@ def test():
 
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
     dyn_collection_token = scenario.dynamic_contract(0, token_factory.collection_contract)
-    scenario.verify_equal(registry.is_registered([dyn_collection_token.address]).result_map, {dyn_collection_token.address: True})
-    scenario.verify_equal(registry.is_private_collection([dyn_collection_token.address]), {dyn_collection_token.address: True})
-    scenario.verify_equal(registry.is_public_collection([dyn_collection_token.address]), {dyn_collection_token.address: False})
-    scenario.verify(registry.is_private_owner(sp.record(collection = dyn_collection_token.address, address = admin.address)) == True)
-    scenario.verify(registry.data.private_collections.contains(dyn_collection_token.address))
+    scenario.verify_equal(registry.is_registered(sp.set([dyn_collection_token.address])), sp.set([dyn_collection_token.address]))
+    scenario.verify(registry.data.collections.get(dyn_collection_token.address).props.is_variant("private"))
+    scenario.verify(registry.get_collection_info(dyn_collection_token.address).props.is_variant("private"))
+    scenario.verify(registry.is_private_owner_or_collab(sp.record(collection = dyn_collection_token.address, address = admin.address)).is_variant("owner"))
 
     token_factory.update_settings([sp.variant("paused", True)]).run(sender = admin)
     token_factory.create_token(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin, valid=False, exception="ONLY_UNPAUSED")
