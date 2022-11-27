@@ -122,6 +122,16 @@ def isRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
         t = t_registry_result).open_some())
 
 
+def checkRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
+    sp.set_type(token_registry_contract, sp.TAddress)
+    sp.set_type(fa2_set, sp.TSet(sp.TAddress))
+    sp.compute(sp.view("check_registered", token_registry_contract,
+        sp.set_type_expr(
+            fa2_set,
+            t_registry_param),
+        t = sp.TUnit).open_some())
+
+
 #
 # Token registry contract.
 # NOTE: should be pausable for code updates.
@@ -344,6 +354,18 @@ class TL_TokenRegistry(
                 with sp.if_(self.data.collections.contains(contract)):
                     result_set.value.add(contract)
             sp.result(result_set.value)
+
+
+    @sp.onchain_view(pure=True)
+    def check_registered(self, contract_set):
+        """Fails with TOKEN_NOT_REGISTERED if any of the contracts aren't.
+        Otherwise just returns unit."""
+        sp.set_type(contract_set, t_registry_param)
+
+        with sp.for_("contract", contract_set.elements()) as contract:
+            with sp.if_(~self.data.collections.contains(contract)):
+                sp.failwith("TOKEN_NOT_REGISTERED")
+        sp.result(sp.unit)
 
 
     @sp.onchain_view(pure=True)

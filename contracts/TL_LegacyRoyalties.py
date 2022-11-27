@@ -10,6 +10,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 # TODO: layouts!!!
 # TODO: t_royalties_signed: decide if data should be packed or not.
+# TODO: should we use sets in eps supposed to be called from other contracts?
 
 #
 # Trusted Royalties - signed offchain.
@@ -137,9 +138,6 @@ class TL_LegacyRoyalties(
         sp.set_type(params, sp.TList(sp.TVariant(
             **{setting[0]: setting[1] for setting in self.available_settings})))
 
-        # NOTE: Currently this means updating the merkle tree root nodes
-        # would require admin permissions, which is tricky, should this
-        # ever be automated. But in that case this ep can be upgraded.
         self.onlyAdministrator()
 
         with sp.for_("update", params) as update:
