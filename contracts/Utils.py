@@ -102,7 +102,8 @@ class FA2TokenTransferMap:
 
         with sp.for_("transfer_item", self.internal_map.value.items()) as transfer_item:
             with sp.if_(sp.len(transfer_item.value) > 0):
-                fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.values())
+                # NOTE: use rev_values to avoid reversing list.
+                fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.rev_values())
 
     def trace(self):
         sp.trace(self.internal_map.value)
@@ -129,7 +130,8 @@ class FA2TokenTransferMapSingle:
         sp.set_type(from_, sp.TAddress)
 
         with sp.if_(sp.len(self.internal_map.value) > 0):
-            fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.values())
+            # NOTE: use rev_values to avoid reversing list.
+            fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.rev_values())
 
     def trace(self):
         sp.trace(self.internal_map.value)
