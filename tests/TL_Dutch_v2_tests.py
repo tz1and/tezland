@@ -78,8 +78,10 @@ def test():
     minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
 
     world.set_allowed_place_token(sp.list([
-        sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64))),
-        sp.variant("add", sp.record(fa2 = interiors_tokens.address, place_limits = sp.record(chunk_limit = 1, chunk_item_limit = 64))),
+        sp.variant("add", {
+            places_tokens.address: sp.record(chunk_limit = 1, chunk_item_limit = 64),
+            interiors_tokens.address: sp.record(chunk_limit = 1, chunk_item_limit = 64)
+        })
     ])).run(sender = admin)
 
     # mint some item tokens for testing
