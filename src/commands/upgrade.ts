@@ -207,17 +207,11 @@ export default class Upgrade extends PostUpgrade {
                     return World_v2_contract.methodsObject.set_allowed_place_token([
                         {
                             add: {
-                                fa2: places_v2_FA2_contract.address,
-                                place_limits: {
+                                [places_v2_FA2_contract.address]: {
                                     chunk_limit: 2,
                                     chunk_item_limit: 64
-                                }
-                            }
-                        },
-                        {
-                            add: {
-                                fa2: interiors_FA2_contract.address,
-                                place_limits: {
+                                },
+                                [interiors_FA2_contract.address]: {
                                     chunk_limit: 4,
                                     chunk_item_limit: 64
                                 }
