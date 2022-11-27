@@ -5,7 +5,8 @@ admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
-# TODO: test permissions!!! removing keys not owned.
+# TODO: test permissions!!!
+# TODO: test removing keys not owned.
 
 
 class tokenNoRoyalties(
