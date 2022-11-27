@@ -194,7 +194,7 @@ def test():
     registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1})]).run(sender = admin)
 
     scenario.h4("add allowed place token")
-    world_v2.set_allowed_place_token(sp.list([sp.variant("add", sp.record(fa2 = places_tokens.address, place_limits = sp.record(chunk_limit = 6, chunk_item_limit = 2)))])).run(sender = admin)
+    world_v2.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 6, chunk_item_limit = 2)})])).run(sender = admin)
 
     scenario.h4("set migration contract")
     world_v2.update_settings([sp.variant("migration_from", sp.some(world.address))]).run(sender = admin)
