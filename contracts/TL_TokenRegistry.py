@@ -22,19 +22,21 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # 1 - tz1and V1
 # 2 - tz1and V2
 
-collectionVariantPropsType = sp.TVariant(
-    private = sp.TRecord(
-        owner = sp.TAddress,
-        proposed_owner = sp.TOption(sp.TAddress),
-    ).layout(("owner", "proposed_owner")),
-    public = sp.TUnit,
-    trusted = sp.TUnit
-).layout(("private", ("public", "trusted")))
+ownershipInfo = sp.TOption(sp.TRecord(
+    owner = sp.TAddress,
+    proposed_owner = sp.TOption(sp.TAddress),
+).layout(("owner", "proposed_owner")))
+
+# Collection types for bouded type.
+collectionPrivate   = sp.bounded(sp.nat(0))
+collectionPublic    = sp.bounded(sp.nat(1))
+collectionTrusted   = sp.bounded(sp.nat(2))
 
 collectionType = sp.TRecord(
     royalties_type = sp.TNat,
-    props = collectionVariantPropsType
-).layout(("royalties_type", "props"))
+    collection_type = sp.TBounded([0, 1, 2], sp.TNat),
+    ownership = ownershipInfo
+).layout(("royalties_type", ("collection_type", "ownership")))
 
 collectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = collectionType)
 
@@ -194,11 +196,11 @@ class TL_TokenRegistry(
     # Some inline helpers
     #
     def onlyOwnerPrivate(self, collection):
-        # get owner from private collection map and check owner
-        the_collection = self.data.collections.get(collection, message = "INVALID_COLLECTION")
-        private_open = the_collection.props.open_variant("private", "NOT_PRIVATE")
-        # Only owner can transfer ownership.
-        sp.verify(private_open.owner == sp.sender, "ONLY_OWNER")
+        # Get owner from private collection map and check owner
+        the_collection = sp.compute(self.data.collections.get(collection, message = "INVALID_COLLECTION"))
+        sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+        # CHeck owner.
+        sp.verify(the_collection.ownership.open_some().owner == sp.sender, "ONLY_OWNER")
 
     #
     # Admin and permitted entry points
@@ -242,7 +244,8 @@ class TL_TokenRegistry(
                         sp.verify(~self.data.collections.contains(add_private_item.key), "COLLECTION_EXISTS")
                         self.data.collections[add_private_item.key] = sp.record(
                             royalties_type = add_private_item.value.royalties_type,
-                            props = sp.variant("private", sp.record(
+                            collection_type = collectionPrivate,
+                            ownership = sp.some(sp.record(
                                 owner = add_private_item.value.owner,
                                 proposed_owner = sp.none)))
 
@@ -255,7 +258,8 @@ class TL_TokenRegistry(
                         sp.verify(~self.data.collections.contains(add_public_item.key), "COLLECTION_EXISTS")
                         self.data.collections[add_public_item.key] = sp.record(
                             royalties_type = add_public_item.value,
-                            props = sp.variant("public", sp.unit))
+                            collection_type = collectionPublic,
+                            ownership = sp.none)
 
                 with arg.match("add_trusted") as add_trusted:
                     # Anyone can add_trusted. If the signature is valid.
@@ -273,7 +277,8 @@ class TL_TokenRegistry(
 
                         self.data.collections[add_trusted_item.key] = sp.record(
                             royalties_type = add_trusted_item.value.royalties_type,
-                            props = sp.variant("trusted", sp.unit))
+                            collection_type = collectionTrusted,
+                            ownership = sp.none)
 
                 with arg.match("remove") as remove:
                     # Only admin or permitted can remove.
@@ -307,34 +312,36 @@ class TL_TokenRegistry(
 
                 with arg.match("transfer_ownership") as transfer_ownership:
                     the_collection = sp.compute(self.data.collections.get(transfer_ownership.collection, message = "INVALID_COLLECTION"))
-                    private_open = sp.compute(the_collection.props.open_variant("private", message="NOT_PRIVATE"))
+                    sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+                    ownership_open = sp.compute(the_collection.ownership.open_some())
 
                     # Only owner can transfer ownership.
-                    sp.verify(private_open.owner == sp.sender, "ONLY_OWNER")
+                    sp.verify(ownership_open.owner == sp.sender, "ONLY_OWNER")
 
                     # Set proposed owner.
-                    private_open.proposed_owner = sp.some(transfer_ownership.new_owner)
+                    ownership_open.proposed_owner = sp.some(transfer_ownership.new_owner)
 
                     # Update collection.
-                    the_collection.props = sp.variant("private", private_open)
+                    the_collection.ownership = sp.some(ownership_open)
                     self.data.collections[transfer_ownership.collection] = the_collection
 
                 with arg.match("acccept_ownership") as acccept_ownership:
-                    the_collection = sp.compute(self.data.collections.get(acccept_ownership, message="INVALID_COLLECTION"))
-                    private_open = sp.compute(the_collection.props.open_variant("private", message="NOT_PRIVATE"))
+                    the_collection = sp.compute(self.data.collections.get(acccept_ownership, message = "INVALID_COLLECTION"))
+                    sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+                    ownership_open = sp.compute(the_collection.ownership.open_some())
 
                     # Check that there is a proposed owner and
                     # check that the proposed owner executed the entry point.
-                    sp.verify(sp.some(sp.sender) == private_open.proposed_owner, message="NOT_PROPOSED_OWNER")
+                    sp.verify(sp.some(sp.sender) == ownership_open.proposed_owner, message="NOT_PROPOSED_OWNER")
 
                     # Set the new owner address.
-                    private_open.owner = sp.sender
+                    ownership_open.owner = sp.sender
 
                     # Reset the proposed owner value.
-                    private_open.proposed_owner = sp.none
+                    ownership_open.proposed_owner = sp.none
 
                     # Update collection
-                    the_collection.props = sp.variant("private", private_open)
+                    the_collection.ownership = sp.some(ownership_open)
                     self.data.collections[acccept_ownership] = the_collection
 
 
@@ -401,11 +408,11 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_ownership_result):
             # Get private collection params.
-            the_collection = self.data.collections.get(params.collection, message = "INVALID_COLLECTION")
-            private_open = the_collection.props.open_variant("private", message="NOT_PRIVATE")
+            the_collection = sp.compute(self.data.collections.get(params.collection, message = "INVALID_COLLECTION"))
+            sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
 
             # Return "owner" if owner.
-            with sp.if_(private_open.owner == params.address):
+            with sp.if_(the_collection.ownership.open_some().owner == params.address):
                 sp.result(sp.bounded("owner"))
             with sp.else_():
                 # Return "collaborator" if collaborator.

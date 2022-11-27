@@ -109,7 +109,8 @@ class TL_Minter(
         # call registry view to check if public collection.
         sp.verify(sp.view("get_collection_info", self.data.registry,
             sp.set_type_expr(collection, sp.TAddress),
-            t = token_registry_contract.collectionType).open_some().props.is_variant("public"), "NOT_PUBLIC")
+            t = token_registry_contract.collectionType).open_some()
+            .collection_type == token_registry_contract.collectionPublic, "NOT_PUBLIC")
 
     #
     # Admin-only entry points
