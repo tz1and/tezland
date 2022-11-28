@@ -56,6 +56,12 @@ export default class Upgrade extends PostUpgrade {
     protected override async deployDo() {
         assert(this.tezos);
 
+        // If this is a sandbox deploy, run the post deploy tasks.
+        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
+        const debug_asserts = this.isSandboxNet && (deploy_mode != DeployMode.GasTest);
+
+        console.log(kleur.magenta(`Compiling with debug_asserts=${debug_asserts}\n`))
+
         //
         // Get v1 deployments.
         //
@@ -197,7 +203,8 @@ export default class Upgrade extends PostUpgrade {
                 `paused = sp.bool(True)`,
                 `items_tokens = sp.address("${tezlandItems.address}")`,
                 `name = "tz1and World"`,
-                `description = "tz1and Virtual World v2"`
+                `description = "tz1and Virtual World v2"`,
+                `debug_asserts = ${debug_asserts ? "True" : "False"}`
             ]);
 
             World_v2_contract = await this.deploy_contract("TL_World_v2");
@@ -355,10 +362,6 @@ export default class Upgrade extends PostUpgrade {
         //
         // Post deploy
         //
-        // TODO: post upgrade step, gas tests, etc
-        // If this is a sandbox deploy, run the post deploy tasks.
-        const deploy_mode = this.isSandboxNet ? config.sandbox.deployMode : DeployMode.None;
-        
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
             items_FA2_contract: tezlandItems,
             places_FA2_contract: tezlandPlaces,

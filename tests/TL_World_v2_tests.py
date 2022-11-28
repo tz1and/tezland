@@ -382,8 +382,17 @@ def test():
     # create World contract
     #
     scenario.h2("Originate World contract")
-    world = places_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
+    def createWorldContract(debug_asserts: bool):
+        return places_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
+            metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
+            debug_asserts = debug_asserts)
+
+    scenario.h3("release")
+    world_no_debug = createWorldContract(False)
+    scenario += world_no_debug
+
+    scenario.h3("with debug_asserts")
+    world = createWorldContract(True)
     scenario += world
 
     #

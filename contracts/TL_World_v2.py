@@ -37,6 +37,7 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
+# TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount!
 
 
 
@@ -469,10 +470,11 @@ class TL_World(
     upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, legacy_royalties, paused, items_tokens, metadata,
-        name, description, exception_optimization_level="default-line"):
+        name, description, exception_optimization_level="default-line", debug_asserts=False):
 
         # Needed for migration ep but not really needed otherwise.
         self.items_tokens = sp.set_type_expr(items_tokens, sp.TAddress)
+        self.debug_asserts = debug_asserts
 
         self.add_flag("exceptions", exception_optimization_level)
         #self.add_flag("erase-comments")
@@ -744,6 +746,10 @@ class TL_World(
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
+
+                        if (self.debug_asserts):
+                            sp.verify(~item_store.value.contains(this_chunk.value.next_id),
+                                sp.pair("Debug assert: Map already contains item", this_chunk.value.next_id))
 
                         # Add item to storage.
                         item_store.value[this_chunk.value.next_id] = curr
@@ -1152,6 +1158,10 @@ class TL_World(
 
                             with arg.match("ext") as ext_data:
                                 self.validateItemData(ext_data)
+
+                        if (self.debug_asserts):
+                            sp.verify(~item_store.value.contains(this_chunk.value.next_id),
+                                sp.pair("Debug assert: Map already contains item", this_chunk.value.next_id))
 
                         # Add item to storage.
                         item_store.value[this_chunk.value.next_id] = curr

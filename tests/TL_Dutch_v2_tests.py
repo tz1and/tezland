@@ -67,7 +67,8 @@ def test():
 
     scenario.h2("World v2")
     world = world_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
+        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
+        debug_asserts = True)
     scenario += world
 
     scenario.h3("registry permissions for factory, etc")

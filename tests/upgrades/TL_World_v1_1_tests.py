@@ -170,7 +170,8 @@ def test():
 
     scenario.h3("World v2")
     world_v2 = places_contract.TL_World(admin.address, registry.address, legacy_royalties.address, True, items_tokens.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
+        metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
+        debug_asserts = True)
     scenario += world_v2
 
     scenario.h3("Originate World v1 contract")
