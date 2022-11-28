@@ -1752,15 +1752,12 @@ def test_royalties(nft_contract, fungible_contract):
 
         # Define some valid royalties
         valid_royalties = [
-            [
-                sp.record(address=alice.address, share=sp.nat(250))
-            ],
-            [],
-            [
-                sp.record(address=admin.address, share=sp.nat(90)),
-                sp.record(address=bob.address, share=sp.nat(30)),
-                sp.record(address=alice.address, share=sp.nat(30))
-            ]
+            {alice.address: sp.nat(250)},
+            {
+                admin.address: sp.nat(90),
+                bob.address: sp.nat(30),
+                alice.address: sp.nat(30)
+            }
         ]
 
         sc.h3("Mint - valid")

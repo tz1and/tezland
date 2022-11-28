@@ -104,9 +104,9 @@ def test():
         ),
         token_royalties=sp.record(
             total=2000,
-            shares=[
-                sp.record(address=bob.address, share=200),
-                sp.record(address=alice.address, share=200)])
+            shares={
+                bob.address: 200,
+                alice.address: 200 })
     ), legacy_royalties_contract.t_royalties_offchain)
 
     offchain_royalties_global = sp.set_type_expr(sp.record(
@@ -116,9 +116,9 @@ def test():
         ),
         token_royalties=sp.record(
             total=2000,
-            shares=[
-                sp.record(address=bob.address, share=200),
-                sp.record(address=alice.address, share=200)])
+            shares={
+                bob.address: 200,
+                alice.address: 200 })
     ), legacy_royalties_contract.t_royalties_offchain)
 
     token_key_unique=sp.record(
@@ -158,6 +158,10 @@ def test():
 
     legacy_royalties.add_royalties({"key2": [
         sp.record(signature=royalties_unique_signed_invalid, offchain_royalties=offchain_royalties_unique)
+    ]}).run(sender=bob, valid=False, exception="INVALID_SIGNATURE")
+
+    legacy_royalties.add_royalties({"key2": [
+        sp.record(signature=royalties_global_signed_invalid, offchain_royalties=offchain_royalties_global)
     ]}).run(sender=bob, valid=False, exception="INVALID_SIGNATURE")
 
     scenario.h2("remove_royalties")

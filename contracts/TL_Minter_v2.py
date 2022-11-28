@@ -12,6 +12,7 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 
 # TODO: decide laziness of entrypoints...
 # TODO: test update_settings
+# TODO: update_private_metadata is probably a registry task.
 
 #
 # Minter contract.
@@ -201,7 +202,7 @@ class TL_Minter(
         
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        FA2.validate_royalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+        FA2.validateRoyalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(
@@ -246,7 +247,7 @@ class TL_Minter(
 
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        FA2.validate_royalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+        FA2.validateRoyalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(

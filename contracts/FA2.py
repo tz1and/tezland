@@ -89,13 +89,9 @@ t_adhoc_operator_params = sp.TVariant(
 
 # royalties
 
-t_royalties_shares = sp.TList(
-    # The absolute royalties, per contributor. Must add up to less or eqaual
-    # total shares - and maybe not be more than some % of shares.
-    sp.TRecord(
-        address=sp.TAddress,
-        share=sp.TNat
-    ).layout(("address", "share")))
+# royalties, per contributor. Must add up to less or eqaual
+# total shares - and maybe not be more than some % of shares.
+t_royalties_shares = sp.TMap(sp.TAddress, sp.TNat)
 
 # Interop royalties are based on new FA2 royalties, with total shares.
 t_royalties_interop = sp.TRecord(
@@ -585,7 +581,7 @@ class Fa2Nft(Common):
                 token_extra=sp.big_map(token_extra, tkey=sp.TNat, tvalue=t_token_extra_royalties)
             )
             self.token_extra_default = sp.record(
-                royalty_info=[]
+                royalty_info={}
             )
         Common.__init__(
             self,
@@ -608,7 +604,7 @@ class Fa2Nft(Common):
                 token_id=token_id, token_info=metadata
             )
             token_extra_dict[token_id] = sp.record(
-                royalty_info=[]
+                royalty_info={}
             )
         for token_id, address in ledger.items():
             if token_id not in token_metadata_dict:
@@ -675,7 +671,7 @@ class Fa2Fungible(Common):
             )
             self.token_extra_default = sp.record(
                 supply=sp.nat(0),
-                royalty_info=[]
+                royalty_info={}
             )
         else:
             self.update_initial_storage(
@@ -705,7 +701,7 @@ class Fa2Fungible(Common):
             if has_royalties:
                 token_extra_dict[token_id] = sp.record(
                     supply=sp.nat(0),
-                    royalty_info=[]
+                    royalty_info={}
                 )
             else:
                 token_extra_dict[token_id] = sp.record(supply=sp.nat(0))
@@ -1158,19 +1154,19 @@ def fa2_nft_get_owner(fa2, token_id):
         t = sp.TAddress).open_some()
 
 # Validating royalties
-def validate_royalties(royalties, max_royalties, max_contributors):
+def validateRoyalties(royalties, max_royalties, max_contributors):
     """Inline function to validate royalties."""
     sp.set_type(royalties, t_royalties_shares)
     sp.set_type(max_royalties, sp.TNat)
     sp.set_type(max_contributors, sp.TNat)
     
     # Add splits to make sure shares don't exceed the maximum.
-    total_absolute = sp.local("total_absolute", sp.nat(0))
-    with sp.for_("contribution", royalties) as contribution:
-        total_absolute.value += contribution.share
+    total_absolute_shares = sp.local("total_absolute", sp.nat(0))
+    with sp.for_("share", royalties.values()) as share:
+        total_absolute_shares.value += share
 
     # Make sure absolute royalties and splits are in valid range.
-    sp.verify((total_absolute.value <= max_royalties)
+    sp.verify((total_absolute_shares.value <= max_royalties)
         & (sp.len(royalties) <= max_contributors), message="FA2_INV_ROYALTIES")
 
 # Minting with royalties

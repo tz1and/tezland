@@ -880,7 +880,7 @@ def test():
         to_=alice.address,
         amount=50,
         metadata=sp.utils.bytes_of_string("ipfs://Qtesttesttest"),
-        royalties=[ sp.record(address=carol.address, share=sp.nat(250)) ]
+        royalties={ carol.address: sp.nat(250) }
     ).run(sender = admin)
 
     dyn_collection_token.call("update_operators", [

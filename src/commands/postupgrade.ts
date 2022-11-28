@@ -3,6 +3,7 @@ import PostDeployBase, { PostDeployContracts } from "./PostDeployBase";
 import * as ipfs from '../ipfs'
 import { ContractAbstraction, ContractMethodObject, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
 import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
+import { OperationContentsAndResultTransaction, OperationResultOrigination } from '@taquito/rpc';
 import { char2Bytes } from '@taquito/utils'
 import kleur from "kleur";
 import config from "../user.config";
@@ -94,6 +95,27 @@ export default class PostUpgrade extends PostDeployBase {
                 amount: amount,
                 royalties: 250,
                 contributors: contributors,
+                metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
+            }).toTransferParams()
+        }]);
+    }
+
+    private async mintNewItem_private(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
+        assert(this.accountAddress);
+
+        // Create item metadata and upload it
+        const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, polygonCount, this.isSandboxNet);
+        console.log(`item token metadata: ${item_metadata_url}`);
+
+        const shares = { [this.accountAddress]: 250 }
+
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...Minter_contract.methodsObject.mint_private({
+                collection: collection_contract.address,
+                to_: this.accountAddress,
+                amount: amount,
+                royalties: shares,
                 metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
             }).toTransferParams()
         }]);
@@ -902,7 +924,7 @@ export default class PostUpgrade extends PostDeployBase {
         gas_results = addGasResultsTable({ name: "Mint", rows: {} });
 
         // mint again
-        await runTaskAndAddGasResults(gas_results, "mint some", async () => {
+        await runTaskAndAddGasResults(gas_results, "mint some (2)", async () => {
             const mint_batch2 = this.tezos!.wallet.batch();
             await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
             await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
@@ -919,12 +941,42 @@ export default class PostUpgrade extends PostDeployBase {
         /**
          * Factory
          */
+        var originatedTokenContractAddress: string | undefined;
         await runTaskAndAddGasResults(gas_results, "create_token", async () => {
             const token_metadata_url = await ipfs.upload_metadata({name: "bla", whatever: "yes"}, this.isSandboxNet);
-            return contracts.get("Factory_contract")!.methods.create_token(
+            const op = await contracts.get("Factory_contract")!.methods.create_token(
                 char2Bytes(token_metadata_url)
             ).send();
+
+            await op.confirmation();
+
+            const result = await op.operationResults();
+            // looking for originated_contracts
+            for (const res of result) {
+                if (res.kind === OpKind.TRANSACTION) {
+                    const tx: OperationContentsAndResultTransaction = res;
+                    for (const internal_res of tx.metadata.internal_operation_results!) {
+                        const orig = internal_res.result as OperationResultOrigination;
+                        if (orig.originated_contracts) {
+                            originatedTokenContractAddress = orig.originated_contracts[0]
+                            console.log(`Found originated token contract: ${originatedTokenContractAddress}`)
+                        }
+                    }
+                }
+            }
+
+            return op;
         });
+
+        // mint with created token.
+        await runTaskAndAddGasResults(gas_results, "mint_private (2)", async () => {
+            const originatedTokenContract = await this.tezos!.wallet.at(originatedTokenContractAddress!);
+            const mint_batch2 = this.tezos!.wallet.batch();
+            await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
+            await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
+            return mint_batch2.send();
+        });
+        
 
         /**
          * Print results to console.

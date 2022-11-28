@@ -9,7 +9,7 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
-    royalties_key = sp.test_account("Royalties")
+    carol   = sp.test_account("Carol")
     collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
 
@@ -18,7 +18,7 @@ def test():
 
     # Let's display the accounts:
     scenario.h1("Accounts")
-    scenario.show([admin, alice, bob])
+    scenario.show([admin, alice, bob, carol])
 
     # create a FA2 contract for testing
     scenario.h1("Create test env")
@@ -109,19 +109,19 @@ def test():
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
         amount = 4,
-        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
+        royalties = { bob.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = "INVALID_COLLECTION")
 
     minter.mint_public(collection = items_tokens.address,
         to_ = bob.address,
         amount = 4,
-        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
+        royalties = { bob.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     minter.mint_public(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
-        royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
+        royalties = { alice.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
 
     minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
@@ -129,7 +129,7 @@ def test():
     minter.mint_public(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
-        royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
+        royalties = { alice.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
@@ -151,13 +151,13 @@ def test():
     minter.mint_private(collection = minter.address,
         to_ = bob.address,
         amount = 4,
-        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
+        royalties = { bob.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = "INVALID_COLLECTION")
 
     minter.mint_private(collection = items_tokens.address,
         to_ = bob.address,
         amount = 4,
-        royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
+        royalties = { bob.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
 
     # add alice as collaborator
@@ -165,14 +165,14 @@ def test():
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
-        royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
+        royalties = { alice.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
     registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
 
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
-        royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
+        royalties = { alice.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
 
     minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
@@ -180,7 +180,7 @@ def test():
     minter.mint_private(collection = items_tokens.address,
         to_ = alice.address,
         amount = 25,
-        royalties = [ sp.record(address=alice.address, share=sp.nat(250)) ],
+        royalties = { alice.address: sp.nat(250) },
         metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False)
 
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
@@ -274,15 +274,13 @@ def test():
 
     # Define some valid royalties
     valid_royalties = [
-        [
-            sp.record(address=alice.address, share=sp.nat(250))
-        ],
-        [],
-        [
-            sp.record(address=admin.address, share=sp.nat(90)),
-            sp.record(address=bob.address, share=sp.nat(30)),
-            sp.record(address=alice.address, share=sp.nat(30))
-        ]
+        { alice.address: sp.nat(250) },
+        {},
+        {
+            admin.address: sp.nat(90),
+            bob.address: sp.nat(30),
+            alice.address: sp.nat(30)
+        }
     ]
 
     for royalties in valid_royalties:
@@ -304,20 +302,18 @@ def test():
 
     # Define some invalid royalties
     invalid_royalties = [
-        [
-            sp.record(address=alice.address, share=sp.nat(251))
-        ],
-        [
-            sp.record(address=admin.address, share=sp.nat(0)),
-            sp.record(address=admin.address, share=sp.nat(0)),
-            sp.record(address=admin.address, share=sp.nat(0)),
-            sp.record(address=admin.address, share=sp.nat(0))
-        ],
-        [
-            sp.record(address=admin.address, share=sp.nat(100)),
-            sp.record(address=bob.address, share=sp.nat(100)),
-            sp.record(address=alice.address, share=sp.nat(100))
-        ]
+        { alice.address: sp.nat(251) },
+        {
+            admin.address: sp.nat(0),
+            alice.address: sp.nat(0),
+            bob.address: sp.nat(0),
+            carol.address: sp.nat(0)
+        },
+        {
+            admin.address: sp.nat(100),
+            bob.address: sp.nat(100),
+            alice.address: sp.nat(100)
+        }
     ]
 
     for royalties in invalid_royalties:
