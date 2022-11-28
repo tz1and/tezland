@@ -11,7 +11,6 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 
 
 # TODO: decide laziness of entrypoints...
-# TODO: layouts!!!
 # TODO: test update_settings
 
 #

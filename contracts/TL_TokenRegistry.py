@@ -10,7 +10,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: decide laziness of entrypoints...
 # TODO: test update_settings
-# TODO: layouts!!!
 
 
 # Know royalties types:

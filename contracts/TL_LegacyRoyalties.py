@@ -8,7 +8,6 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
-# TODO: layouts!!!
 # TODO: t_royalties_signed: decide if data should be packed or not.
 # TODO: should we use sets in eps supposed to be called from other contracts?
 
