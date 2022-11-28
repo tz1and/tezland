@@ -85,17 +85,11 @@ class FA2TokenTransferMap:
         sp.set_type(token_amount, sp.TNat)
 
         # NOTE: yes it seems silly to do it this way, but it generates much nicer code.
-        fa2_map_opt = self.internal_map.value.get_opt(fa2)
-        with fa2_map_opt.match_cases() as arg:
-            with arg.match("Some") as fa2_map_some:
-                fa2_map = sp.compute(fa2_map_some)
-                new_entry = sp.compute(fa2_map.get(token_id, default_value=sp.record(amount=0, to_=to_, token_id=token_id)))
-                new_entry.amount += token_amount
-                fa2_map[token_id] = new_entry
-                self.internal_map.value[fa2] = fa2_map
-
-            with arg.match("None"):
-                sp.failwith(sp.unit)
+        fa2_map = sp.compute(self.internal_map.value.get(fa2, message=sp.unit))
+        entry = sp.compute(fa2_map.get(token_id, default_value=sp.record(amount=0, to_=to_, token_id=token_id)))
+        entry.amount += token_amount
+        fa2_map[token_id] = entry
+        self.internal_map.value[fa2] = fa2_map
 
     def transfer_tokens(self, from_):
         sp.set_type(from_, sp.TAddress)
