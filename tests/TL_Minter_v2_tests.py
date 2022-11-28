@@ -216,14 +216,14 @@ def test():
     # check tokens are unpaused to begin with
     scenario.verify(items_tokens.data.paused == False)
 
-    minter.pause_fa2(sp.record(tokens = [items_tokens.address], new_paused = True)).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-    minter.pause_fa2(sp.record(tokens = [items_tokens.address], new_paused = True)).run(sender = admin)
+    minter.pause_fa2({items_tokens.address: True}).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    minter.pause_fa2({items_tokens.address: True}).run(sender = admin)
 
     # check tokens are paused
     scenario.verify(items_tokens.data.paused == True)
 
-    minter.pause_fa2(sp.record(tokens = [items_tokens.address], new_paused = False)).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    minter.pause_fa2(sp.record(tokens = [items_tokens.address], new_paused = False)).run(sender = admin)
+    minter.pause_fa2({items_tokens.address: False}).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    minter.pause_fa2({items_tokens.address: False}).run(sender = admin)
 
     # check tokens are unpaused
     scenario.verify(items_tokens.data.paused == False)
@@ -243,9 +243,9 @@ def test():
 
     scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 4)
 
-    minter.clear_adhoc_operators_fa2([items_tokens.address]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
-    minter.clear_adhoc_operators_fa2([items_tokens.address]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    minter.clear_adhoc_operators_fa2([items_tokens.address]).run(sender = admin)
+    minter.clear_adhoc_operators_fa2(sp.set([items_tokens.address])).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+    minter.clear_adhoc_operators_fa2(sp.set([items_tokens.address])).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
+    minter.clear_adhoc_operators_fa2(sp.set([items_tokens.address])).run(sender = admin)
 
     scenario.verify(sp.len(items_tokens.data.adhoc_operators) == 0)
 

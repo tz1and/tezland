@@ -108,27 +108,25 @@ class TL_Minter(
     @sp.entry_point
     def pause_fa2(self, params):
         """The admin can pause/unpause item collection contracts."""
-        sp.set_type(params, sp.TRecord(
-            tokens = sp.TList(sp.TAddress),
-            new_paused = sp.TBool))
+        sp.set_type(params, sp.TMap(sp.TAddress, sp.TBool))
 
         self.onlyAdministrator()
 
-        with sp.for_("fa2", params.tokens) as fa2:
+        with sp.for_("contract_item", params.items()) as contract_item:
             # call items contract
-            set_paused_handle = sp.contract(sp.TBool, fa2, 
+            set_paused_handle = sp.contract(sp.TBool, contract_item.key, 
                 entry_point = "set_pause").open_some()
                 
-            sp.transfer(params.new_paused, sp.mutez(0), set_paused_handle)
+            sp.transfer(contract_item.value, sp.mutez(0), set_paused_handle)
 
     @sp.entry_point
     def clear_adhoc_operators_fa2(self, params):
         """The admin can clear adhoc ops for item collections."""
-        sp.set_type(params, sp.TList(sp.TAddress))
+        sp.set_type(params, sp.TSet(sp.TAddress))
 
         self.onlyAdministrator()
     
-        with sp.for_("fa2", params) as fa2:
+        with sp.for_("fa2", params.elements()) as fa2:
             # call items contract
             update_adhoc_operators_handle = sp.contract(FA2.t_adhoc_operator_params, fa2, 
                 entry_point = "update_adhoc_operators").open_some()
@@ -224,7 +222,8 @@ class TL_Minter(
         """Private collection owner can update its metadata."""
         sp.set_type(params, sp.TRecord(
             collection = sp.TAddress,
-            metadata_uri = sp.TBytes))
+            metadata_uri = sp.TBytes
+        ).layout(("collection", "metadata_uri")))
 
         self.onlyUnpaused()
         self.onlyOwnerPrivate(params.collection, sp.sender)
