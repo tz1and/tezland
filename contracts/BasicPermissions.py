@@ -23,7 +23,7 @@ class BasicPermissions(admin_mixin.Administrable):
             sp.set_type(params, sp.TList(sp.TVariant(
                 add_permissions = sp.TSet(sp.TAddress),
                 remove_permissions = sp.TSet(sp.TAddress)
-            )))
+            ).layout(("add_permissions", "remove_permissions"))))
 
             self.onlyAdministrator()
 
