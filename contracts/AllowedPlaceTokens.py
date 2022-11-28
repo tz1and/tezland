@@ -91,14 +91,7 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
 
 
     @sp.onchain_view(pure=True)
-    def is_allowed_place_token(self, fa2):
-        """Returns True if an fa2 place token is allowed."""
-        sp.set_type(fa2, sp.TAddress)
-        sp.result(self.allowed_place_tokens_map.is_allowed(self.data.place_tokens, fa2))
-
-    @sp.onchain_view(pure=True)
-    def get_allowed_place_token_limits(self, fa2):
+    def get_allowed_place_tokens(self):
         """Returns allowed place token limits."""
-        sp.set_type(fa2, sp.TAddress)
-        sp.result(self.allowed_place_tokens_map.get_limits(self.data.place_tokens, fa2))
+        sp.result(self.data.place_tokens)
 

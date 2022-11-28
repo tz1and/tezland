@@ -71,16 +71,12 @@ def test():
     scenario.verify(allowedPlaceTokens.data.place_tokens.contains(other_token.address) == False)
     scenario.verify(sp.is_failing(allowedPlaceTokens.data.place_tokens[other_token.address]))
 
-    # test views
-    scenario.h3("is_allowed_place_token view")
-    scenario.verify(allowedPlaceTokens.is_allowed_place_token(other_token.address) == False)
+    scenario.h3("get_allowed_place_tokens view")
+    scenario.verify(~allowedPlaceTokens.get_allowed_place_tokens().contains(other_token.address))
     allowedPlaceTokens.set_allowed_place_token(add_allowed).run(sender = admin)
-    scenario.verify(allowedPlaceTokens.is_allowed_place_token(other_token.address) == True)
-
-    scenario.h3("get_allowed_place_token_limits view")
-    scenario.verify(allowedPlaceTokens.get_allowed_place_token_limits(other_token.address) == test_place_limits)
+    scenario.verify_equal(allowedPlaceTokens.get_allowed_place_tokens(), allowedPlaceTokens.data.place_tokens)
+    scenario.verify(allowedPlaceTokens.get_allowed_place_tokens().contains(other_token.address))
     allowedPlaceTokens.set_allowed_place_token(remove_allowed).run(sender = admin)
-    scenario.verify(sp.is_failing(allowedPlaceTokens.get_allowed_place_token_limits(other_token.address)))
 
     scenario.h3("testIsAllowedPlaceToken")
     allowedPlaceTokens.testIsAllowedPlaceToken(sp.record(fa2 = other_token.address, expected = False)).run(sender = admin)
