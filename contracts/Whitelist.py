@@ -1,17 +1,16 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-class Whitelist(admin_mixin.Administrable):
-    def __init__(self, administrator):
+# Mixins required: Administrable
+class Whitelist:
+    def __init__(self):
         self.address_set = utils.AddressSet()
         self.update_initial_storage(
             whitelist_enabled = True, # enabled by default
             whitelist = self.address_set.make(), # administrator doesn't need to be whitelisted
         )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def isWhitelisted(self, address):
         """If an address is whitelisted."""
