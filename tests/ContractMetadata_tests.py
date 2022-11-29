@@ -1,10 +1,16 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 
-class ContractMetadataTest(contract_metadata_mixin.ContractMetadata, sp.Contract):
+
+class ContractMetadataTest(
+    admin_mixin.Administrable,
+    contract_metadata_mixin.ContractMetadata,
+    sp.Contract):
     def __init__(self, administrator, metadata):
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
 
 
 @sp.add_test(name = "ContractMetadata_tests", profile = True)
