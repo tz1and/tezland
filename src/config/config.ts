@@ -52,6 +52,7 @@ export type SandboxConfig = {
 
 export type SmartPyConfig = {
     exclude_tests: Set<string>;
+    test_dirs: Set<string>;
 }
 
 export type SmartpyNodeDevConfig = {
