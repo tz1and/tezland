@@ -1,10 +1,16 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
 
-class ModerationTest(mod_mixin.Moderation, sp.Contract):
-    def __init__(self, administrator):
-        mod_mixin.Moderation.__init__(self, administrator = administrator)
+
+class ModerationTest(
+    admin_mixin.Administrable,
+    mod_mixin.Moderation,
+    sp.Contract):
+    def __init__(self, administrator, moderation_contract):
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        mod_mixin.Moderation.__init__(self, moderation_contract = moderation_contract)
 
 
 @sp.add_test(name = "Moderation_tests", profile = True)
@@ -24,7 +30,7 @@ def test():
     scenario.h2("Test Moderation")
 
     scenario.h3("Contract origination")
-    moderation = ModerationTest(admin.address)
+    moderation = ModerationTest(admin.address, admin.address)
     scenario += moderation
 
     scenario.h3("set_moderation_contract")
