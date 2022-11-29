@@ -516,13 +516,12 @@ class TL_World(
         self.generate_contract_metadata(name, description)
 
     def generate_contract_metadata(self, name, description):
-        """Generate a metadata json file with all the contract's offchain views
-        and standard TZIP-12 and TZIP-016 key/values."""
+        """Generate a metadata json file with all the contract's offchain views."""
         metadata_base = {
             "name": name,
             "description": description,
             "version": "2.0.0",
-            "interfaces": ["TZIP-012", "TZIP-016"],
+            "interfaces": ["TZIP-016"],
             "authors": [
                 "852Kerfunkle <https://github.com/852Kerfunkle>"
             ],

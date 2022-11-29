@@ -42,13 +42,12 @@ class TL_Minter(
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):
-        """Generate a metadata json file with all the contract's offchain views
-        and standard TZIP-12 and TZIP-016 key/values."""
+        """Generate a metadata json file with all the contract's offchain views."""
         metadata_base = {
             "name": 'tz1and Minter',
             "description": 'tz1and Item Collection minter',
             "version": "2.0.0",
-            "interfaces": ["TZIP-012", "TZIP-016"],
+            "interfaces": ["TZIP-016"],
             "authors": [
                 "852Kerfunkle <https://github.com/852Kerfunkle>"
             ],
