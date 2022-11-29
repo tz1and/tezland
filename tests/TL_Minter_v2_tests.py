@@ -42,7 +42,7 @@ def test():
     scenario += registry
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, registry.address,
+    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 

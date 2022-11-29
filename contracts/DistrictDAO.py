@@ -171,8 +171,8 @@ class DistrictDAO(
             proposal_counter = 0
         )
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self)
+        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
+        pause_mixin.Pausable.__init__(self, include_views = False)
         contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
         upgradeable_mixin.Upgradeable.__init__(self)
 

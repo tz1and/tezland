@@ -128,7 +128,8 @@ export default class Upgrade extends PostUpgrade {
         // TODO: deploy places and interiors as paused! Unpause when tzkt shows images and names.
         let Minter_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
-            places_v2_FA2_contract: ContractAbstraction<Wallet>;
+            places_v2_FA2_contract: ContractAbstraction<Wallet>,
+            RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
         {
             const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
 
@@ -136,7 +137,7 @@ export default class Upgrade extends PostUpgrade {
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy Minter contract.
-            await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter", [
+            await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`
             ]);
@@ -152,7 +153,13 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("FA2_Places_v2");
 
-            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract] = await tezland_batch.deployBatch();
+            await this.compile_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
+                `registry = sp.address("${Registry_contract.address}")`,
+                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
+            ]);
+            tezland_batch.addToBatch("TL_RoyaltiesAdapter");
+
+            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract, RoyaltiesAdapter_contract] = await tezland_batch.deployBatch();
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
@@ -196,10 +203,10 @@ export default class Upgrade extends PostUpgrade {
 
             // Compile and deploy Places contract.
             // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
-            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World", [
+            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
-                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`,
+                `royalties_adapter = sp.address("${RoyaltiesAdapter_contract.address}")`,
                 `paused = sp.bool(True)`,
                 `items_tokens = sp.address("${tezlandItems.address}")`,
                 `name = "tz1and World"`,
@@ -250,7 +257,7 @@ export default class Upgrade extends PostUpgrade {
             tezland_batch.addToBatch("TL_TokenFactory");
 
             // Compile and deploy Minter contract.
-            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch", [
+            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `world_contract = sp.address("${World_v2_contract.address}")`
             ]);
@@ -375,7 +382,9 @@ export default class Upgrade extends PostUpgrade {
             Dutch_contract: tezlandDutchAuctions,
             Dutch_v2_contract: Dutch_v2_contract,
             Factory_contract: Factory_contract,
-            Registry_contract: Registry_contract
+            Registry_contract: Registry_contract,
+            LegacyRoyalties_contract: LegacyRoyalties_contract,
+            RoyaltiesAdapter_contract: RoyaltiesAdapter_contract
         })));
     }
 

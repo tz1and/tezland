@@ -4,6 +4,7 @@ minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
+royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 #merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
@@ -268,8 +269,14 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
+    scenario.h2("RoyaltiesAdapter")
+    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+        registry.address, legacy_royalties.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += royalties_adapter
+
     scenario.h2("Minter v2")
-    minter = minter_contract.TL_Minter(admin.address, registry.address,
+    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -388,7 +395,7 @@ def test():
     #
     scenario.h2("Originate World contract")
     def createWorldContract(debug_asserts: bool):
-        return places_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
+        return places_contract.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
             metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
             debug_asserts = debug_asserts)
 

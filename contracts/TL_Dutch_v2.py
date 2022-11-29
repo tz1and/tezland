@@ -41,7 +41,7 @@ class AuctionMap(utils.GenericMap):
 #
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
-class TL_Dutch(
+class TL_Dutch_v2(
     admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
@@ -73,8 +73,8 @@ class TL_Dutch(
             ("world_contract", sp.TAddress, None)
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self, meta_settings = True)
+        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
+        pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
         contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         fees_mixin.Fees.__init__(self, fees_to = administrator, meta_settings = True)
         permitted_fa2.FA2PermissionsAndWhitelist.__init__(self)

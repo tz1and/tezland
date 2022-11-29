@@ -5,6 +5,7 @@ minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
+royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
@@ -54,8 +55,14 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
+    scenario.h2("RoyaltiesAdapter")
+    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+        registry.address, legacy_royalties.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += royalties_adapter
+
     scenario.h3("Minter v2")
-    minter = minter_contract.TL_Minter(admin.address, registry.address,
+    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -66,7 +73,7 @@ def test():
     scenario.register(token_factory.collection_contract)
 
     scenario.h2("World v2")
-    world = world_contract.TL_World(admin.address, registry.address, legacy_royalties.address, False, items_tokens.address,
+    world = world_contract.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
         debug_asserts = True)
     scenario += world
@@ -140,7 +147,7 @@ def test():
 
     # create places contract
     scenario.h3("Originate dutch contract")
-    dutch = dutch_contract.TL_Dutch(admin.address, world.address,
+    dutch = dutch_contract.TL_Dutch_v2(admin.address, world.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 

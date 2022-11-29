@@ -90,8 +90,8 @@ class TL_LegacyRoyalties(
 
         self.available_settings = []
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        #pause_mixin.Pausable.__init__(self, meta_settings = True)
+        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
+        #pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
         contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         basic_permissions_mixin.BasicPermissions.__init__(self)
         upgradeable_mixin.Upgradeable.__init__(self)

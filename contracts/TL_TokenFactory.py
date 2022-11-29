@@ -38,7 +38,7 @@ class tz1andCollection(
             allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
-        admin_mixin.Administrable.__init__(self, admin)
+        admin_mixin.Administrable.__init__(self, admin, include_views = False)
 
 #
 # TokenFactory contract.
@@ -70,8 +70,8 @@ class TL_TokenFactory(
             ("minter", sp.TAddress, None)
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self, meta_settings = True)
+        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
+        pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
         contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         upgradeable_mixin.Upgradeable.__init__(self)
 
