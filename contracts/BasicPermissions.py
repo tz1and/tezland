@@ -1,15 +1,15 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
-class BasicPermissions(admin_mixin.Administrable):
+# Mixins required: Administrable
+class BasicPermissions:
     """(Mixin) Provide basic permission checks.
 
     Requires the `Administrable` mixin.
     """
-    def __init__(self, administrator, default_permitted_accounts = {}, lazy_ep = False):
+    def __init__(self, default_permitted_accounts = {}, lazy_ep = False):
         self.address_set = utils.AddressSet()
 
         self.update_initial_storage(
@@ -38,8 +38,6 @@ class BasicPermissions(admin_mixin.Administrable):
                             self.address_set.remove(self.data.permitted_accounts, address)
 
         self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep)
-
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     # Inline helpers
     def onlyAdministratorOrPermitted(self):
