@@ -1,7 +1,7 @@
 import smartpy as sp
 
 class Administrable:
-    def __init__(self, administrator):
+    def __init__(self, administrator, include_views = True):
         # TODO: figure out how to init the type in subclasses
         #self.init_type(sp.TRecord(
         #    administrator = sp.TAddress,
@@ -11,6 +11,14 @@ class Administrable:
             administrator = administrator,
             proposed_administrator = sp.none
         )
+
+        if include_views:
+            def get_administrator(self):
+                """Returns the administrator.
+                """
+                sp.result(self.data.administrator)
+
+            self.get_administrator = sp.onchain_view(pure=True)(get_administrator)
 
     def isAdministrator(self, address):
         sp.set_type(address, sp.TAddress)
@@ -43,9 +51,3 @@ class Administrable:
 
         # Reset the proposed administrator value
         self.data.proposed_administrator = sp.none
-
-    @sp.onchain_view(pure=True)
-    def get_administrator(self):
-        """Returns the administrator.
-        """
-        sp.result(self.data.administrator)
