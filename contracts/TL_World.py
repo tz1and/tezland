@@ -276,6 +276,7 @@ class TL_World(
         )
 
         admin_mixin.Administrable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self)
         fees_mixin.Fees.__init__(self, fees_to = administrator)
         mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
         permitted_fa2.PermittedFA2.__init__(self)
