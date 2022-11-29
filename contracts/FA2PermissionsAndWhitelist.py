@@ -1,6 +1,5 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -46,8 +45,9 @@ class PermittedFA2Params:
 # I think this is desired. But make sure to give a good error message.
 
 
-class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
-    def __init__(self, administrator, default_permitted = {}):
+# Mixins required: Administrable
+class FA2PermissionsAndWhitelist:
+    def __init__(self, default_permitted = {}):
         self.permitted_fa2_map = PermittedFA2Map()
         self.whitelist_map = FA2WhitelistMap()
 
@@ -55,8 +55,6 @@ class FA2PermissionsAndWhitelist(admin_mixin.Administrable):
             permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
             whitelist = self.whitelist_map.make()
         )
-
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
 
     def getPermittedFA2Props(self, fa2):
