@@ -1,13 +1,12 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
-
-class Fees(admin_mixin.Administrable):
-    def __init__(self, administrator, meta_settings = False):
+# Required mixins: Administrable
+class Fees:
+    def __init__(self, fees_to, meta_settings = False):
         self.update_initial_storage(
             fees = sp.nat(25),
-            fees_to = administrator
+            fees_to = fees_to
         )
 
         if meta_settings:
@@ -17,8 +16,6 @@ class Fees(admin_mixin.Administrable):
             ])
             setattr(self, "update_fees", sp.entry_point(None, None))
             setattr(self, "update_fees_to", sp.entry_point(None, None))
-
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     @sp.entry_point
     def update_fees(self, fees):
