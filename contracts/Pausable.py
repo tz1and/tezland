@@ -1,10 +1,9 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
-
-class Pausable(admin_mixin.Administrable):
-    def __init__(self, administrator, paused = False, meta_settings = False):
+# Mixins required: Administrable
+class Pausable:
+    def __init__(self, paused = False, meta_settings = False):
         self.update_initial_storage(
             paused = paused
         )
@@ -14,8 +13,6 @@ class Pausable(admin_mixin.Administrable):
                 ("paused", sp.TBool, None)
             )
             setattr(self, "set_paused", sp.entry_point(None, None))
-
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
     def isPaused(self):
         return self.data.paused
