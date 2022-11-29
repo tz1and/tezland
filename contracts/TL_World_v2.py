@@ -19,7 +19,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 # Now:
-# TODO: allow direct royalties? :( hate it but maybe have to allow it...
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
 # TODO: gas optimisations!
 # TODO: FA2 origination is too large! try and optimise
@@ -34,7 +33,6 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: add views option to mixins to allow not including views.
 # TODO: don't deploy factory in upgrade, this feature comes later!
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
-# TODO: re-consider sequence number hashing. do they need to be hashed? since they are only checked for inequality, that can be done by pack() and compare.
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount!
@@ -1187,10 +1185,9 @@ class TL_World(
                 chunks = {}))
 
             with sp.for_("chunk_id", utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
-                res.value.chunks[chunk_id] = self.data.chunks.get(sp.record(
-                    place_key = params.place_key,
-                    chunk_id = chunk_id
-                ), chunkStorageDefault)
+                this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = params.place_key, chunk_id = chunk_id))
+                with this_chunk_opt.match("Some") as this_chunk:
+                    res.value.chunks[chunk_id] = this_chunk
 
             sp.result(res.value)
 
@@ -1202,12 +1199,13 @@ class TL_World(
         with sp.set_result_type(seqNumResultType):
             # Collect chunk sequence numbers.
             this_place = PlaceStorage(self.data.places, place_key, True)
-            chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, sp.TMap(sp.TNat, sp.TBytes))
+            chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, seqNumResultType.chunk_seqs)
             with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
-                this_chunk = self.data.chunks.get(sp.record(place_key = place_key, chunk_id = chunk_id), chunkStorageDefault)
-                chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
-                    this_chunk.counter,
-                    this_chunk.next_id)))
+                this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = place_key, chunk_id = chunk_id))
+                with this_chunk_opt.match("Some") as this_chunk:
+                    chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
+                        this_chunk.counter,
+                        this_chunk.next_id)))
 
             # Return the result.
             sp.result(sp.record(

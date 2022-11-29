@@ -63,7 +63,12 @@ class FA2_utils(sp.Contract):
         world_data = sp.compute(self.world_get_place_data(params.world, params.place_key, params.chunk_ids))
         chunk_next_ids = sp.local("chunk_counters", sp.map(tkey=sp.TNat, tvalue=sp.TNat))
         with sp.for_("chunk_id", params.chunk_ids.elements()) as chunk_id:
-            chunk_next_ids.value[chunk_id] = world_data.chunks[chunk_id].next_id
+            chunk_opt = world_data.chunks.get_opt(chunk_id)
+            with chunk_opt.match_cases() as arg:
+                with arg.match("Some") as chunk:
+                    chunk_next_ids.value[chunk_id] = chunk.next_id
+                with arg.match("None"):
+                    chunk_next_ids.value[chunk_id] = 0
 
         sp.result(chunk_next_ids.value)
 
@@ -443,14 +448,14 @@ def test():
             tokens_amounts = scenario.compute(items_utils.token_amounts(sp.record(token_map = token_arr, issuer = sender.address)))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
-    
+
         prev_next_ids = scenario.compute(items_utils.get_chunk_next_ids(sp.record(place_key = place_key, chunk_ids = sp.set(token_arr.keys()), world = world.address)))
         world.place_items(
             place_key = place_key,
             place_item_map = token_arr,
             ext = sp.none
         ).run(sender = sender, valid = valid, exception = message)
-    
+
         if valid == True:
             # check seqnum
             scenario.verify(sp.pack(before_sequence_numbers) != sp.pack(world.get_place_seqnum(place_key).chunk_seqs))
@@ -480,7 +485,7 @@ def test():
             tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].storage[issuer].get(fa2).get(item_id).open_variant("item").token_id), owner = sp.some(sender.address)) : sp.nat(1)}
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
-    
+
         prev_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).counter)
         world.get_item(
             place_key = chunk_key.place_key,
@@ -490,7 +495,7 @@ def test():
             fa2 = fa2,
             ext = sp.none
         ).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
-    
+
         if valid == True:
             # check seqnum
             scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key).chunk_seqs[chunk_key.chunk_id])
@@ -744,6 +749,7 @@ def test():
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item1].open_variant("item").amount == 1)
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item2].open_variant("item").amount == 1)
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item3].open_variant("item").amount == 1)
+    scenario.verify(sp.len(place_data.chunks) == 1)
     scenario.show(place_data)
 
     place_data = world.get_place_data(sp.record(place_key = place_alice, chunk_ids = sp.some(sp.set([0, 1]))))
@@ -751,14 +757,16 @@ def test():
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item1].open_variant("item").amount == 1)
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item2].open_variant("item").amount == 1)
     scenario.verify(place_data.chunks[0].storage[sp.some(alice.address)][items_tokens.address][alice_placed_item3].open_variant("item").amount == 1)
-    scenario.verify(sp.len(place_data.chunks[1].storage) == 0)
+    scenario.verify(sp.len(place_data.chunks) == 1)
+    scenario.verify(~place_data.chunks.contains(1))
     scenario.show(place_data)
 
     empty_place_key = sp.record(fa2 = places_tokens.address, id = sp.nat(5))
     place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.none))
     scenario.verify(sp.len(place_data.chunks) == 0)
     place_data = world.get_place_data(sp.record(place_key = empty_place_key, chunk_ids = sp.some(sp.set([0]))))
-    scenario.verify(sp.len(place_data.chunks[0].storage) == 0)
+    scenario.verify(sp.len(place_data.chunks) == 0)
+    scenario.verify(~place_data.chunks.contains(0))
     scenario.show(place_data)
 
     scenario.h3("Sequence numbers")
