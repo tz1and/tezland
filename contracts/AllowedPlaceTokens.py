@@ -69,7 +69,7 @@ class AllowedPlaceTokens(admin_mixin.Administrable):
         return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.place_tokens, fa2))
 
 
-    @sp.entry_point
+    @sp.entry_point(lazify=True)
     def set_allowed_place_token(self, params):
         """Call to add/remove place token contracts from
         token contracts allowed in the world."""

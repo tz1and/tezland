@@ -567,7 +567,7 @@ class TL_World(
     #
     # Public entry points
     #
-    @sp.entry_point
+    @sp.entry_point(lazify=True)
     def set_permissions(self, params):
         sp.set_type(params, sp.TList(sp.TVariant(
             add = PermissionParams.get_add_type(),
@@ -948,32 +948,23 @@ class TL_World(
         value_after_fees = sp.compute(rate - fees_amount)
 
         # If a primary sale, split entire value (minus fees) according to royalties.
-        # TODO: use same code for both primary and secondary. on diff should be total shares.
+        total_shares = sp.local("total_shares", item_royalty_info.total)
         with sp.if_(primary):
             # Loop over all the shares to find the total shares.
-            total_shares = sp.local("total_shares", sp.nat(0))
             with sp.for_("share_value", item_royalty_info.shares.values()) as share_value:
                 total_shares.value += share_value
 
-            # Loop over all the shares and send value.
-            with sp.for_("share_item", item_royalty_info.shares.items()) as share_item:
-                # Calculate amount to be paid from absolute share.
-                share_mutez = sp.compute(sp.split_tokens(value_after_fees, share_item.value, total_shares.value))
-                sendMap.add(share_item.key, share_mutez)
+        # Send royalties according to total and send remaining value to issuer or place owner.
+        total_royalties = sp.local("total_royalties", sp.mutez(0))
+        with sp.for_("share_item", item_royalty_info.shares.items()) as share_item:
+            # Calculate amount to be paid from absolute share.
+            share_mutez = sp.compute(sp.split_tokens(value_after_fees, share_item.value, total_shares.value))
+            sendMap.add(share_item.key, share_mutez)
+            total_royalties.value += share_mutez
 
-        # Else, send royalties according to total and send value to issuer or place owner.
-        with sp.else_():
-            # Loop over all the shares and record how much to send.
-            total_royalties = sp.local("total_royalties", sp.mutez(0))
-            with sp.for_("share_item", item_royalty_info.shares.items()) as share_item:
-                # Calculate amount to be paid from absolute share.
-                share_mutez = sp.compute(sp.split_tokens(value_after_fees, share_item.value, item_royalty_info.total))
-                sendMap.add(share_item.key, share_mutez)
-                total_royalties.value += share_mutez
-
-            # Send rest of the value to seller.
-            left_amount = value_after_fees - total_royalties.value
-            sendMap.add(issuer_or_place_owner, left_amount)
+        # Send rest of the value to seller. Should throw if royalties total > rate.
+        left_amount = sp.sub_mutez(value_after_fees, total_royalties.value).open_some("ROYALTIES_ERROR")
+        sendMap.add(issuer_or_place_owner, left_amount)
 
         # Transfer.
         sendMap.transfer()
