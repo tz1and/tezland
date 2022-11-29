@@ -1,11 +1,10 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
-
-class FA2_Administration(admin_mixin.Administrable):
-    def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+# Mixins required: Administrable
+class FA2_Administration:
+    def __init__(self):
+        pass
 
     @sp.entry_point
     def transfer_fa2_administrator(self, transfer_list):
