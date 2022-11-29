@@ -1,5 +1,6 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWhitelist.py")
@@ -41,6 +42,7 @@ class AuctionMap(utils.GenericMap):
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
 class TL_Dutch(
+    admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     fees_mixin.Fees,
@@ -71,11 +73,12 @@ class TL_Dutch(
             ("world_contract", sp.TAddress, None)
         ]
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
-        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
-        fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
-        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        pause_mixin.Pausable.__init__(self, meta_settings = True)
+        fees_mixin.Fees.__init__(self, fees_to = administrator, meta_settings = True)
+        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self)
+        upgradeable_mixin.Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
 

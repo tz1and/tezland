@@ -1,5 +1,6 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
@@ -21,6 +22,7 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
 class TL_Dutch(
+    admin_mixin.Administrable,
     pause_mixin.Pausable,
     whitelist_mixin.Whitelist,
     fees_mixin.Fees,
@@ -57,16 +59,18 @@ class TL_Dutch(
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
         )
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
-        whitelist_mixin.Whitelist.__init__(self, administrator = administrator)
-        fees_mixin.Fees.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self, administrator = administrator)
+
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self)
+        whitelist_mixin.Whitelist.__init__(self)
+        fees_mixin.Fees.__init__(self, fees_to = administrator)
+        mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
 
         default_permitted = { places_contract : sp.record(
             swap_allowed = True,
             royalties_kind = sp.variant("none", sp.unit) )}
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator, default_permitted = default_permitted)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        permitted_fa2.PermittedFA2.__init__(self, default_permitted = default_permitted)
+        upgradeable_mixin.Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description, version)
 

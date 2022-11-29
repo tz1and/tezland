@@ -1,5 +1,6 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
@@ -18,6 +19,7 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 # Minter contract.
 # NOTE: should be pausable for code updates.
 class TL_Minter(
+    admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     fa2_admin.FA2_Administration,
@@ -35,10 +37,12 @@ class TL_Minter(
             ("registry", sp.TAddress, None)
         ]
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
-        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
-        fa2_admin.FA2_Administration.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        pause_mixin.Pausable.__init__(self, meta_settings = True)
+        fa2_admin.FA2_Administration.__init__(self)
+        upgradeable_mixin.Upgradeable.__init__(self)
+
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):

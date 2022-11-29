@@ -44,6 +44,7 @@ class tz1andCollection(
 # TokenFactory contract.
 # NOTE: should be pausable for code updates.
 class TL_TokenFactory(
+    admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
@@ -69,9 +70,11 @@ class TL_TokenFactory(
             ("minter", sp.TAddress, None)
         ]
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
-        pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        pause_mixin.Pausable.__init__(self, meta_settings = True)
+        upgradeable_mixin.Upgradeable.__init__(self)
+
         self.generate_contract_metadata()
 
     def generate_contract_metadata(self):

@@ -1,5 +1,6 @@
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 #pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
@@ -71,6 +72,7 @@ def sign_royalties(royalties, private_key):
 #
 # Token registry contract.
 class TL_LegacyRoyalties(
+    admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     basic_permissions_mixin.BasicPermissions,
     #pause_mixin.Pausable,
@@ -88,10 +90,12 @@ class TL_LegacyRoyalties(
 
         self.available_settings = []
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
-        basic_permissions_mixin.BasicPermissions.__init__(self, administrator = administrator)
-        #pause_mixin.Pausable.__init__(self, administrator = administrator, meta_settings = True)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        basic_permissions_mixin.BasicPermissions.__init__(self)
+        #pause_mixin.Pausable.__init__(self, meta_settings = True)
+        upgradeable_mixin.Upgradeable.__init__(self)
+
         self.generate_contract_metadata()
 
 

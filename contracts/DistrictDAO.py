@@ -6,6 +6,7 @@
 
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 world_types = sp.io.import_script_from_url("file:contracts/TL_World.py") 
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
@@ -147,6 +148,7 @@ t_votes = sp.TMap(sp.TAddress, sp.TBool)
 # maybe even fixed election periods?
 # and an emergency vote of confidence to remove/block someone from acting until resolved
 class DistrictDAO(
+    admin_mixin.Administrable,
     pause_mixin.Pausable,
     upgradeable_mixin.Upgradeable,
     contract_metadata_mixin.ContractMetadata,
@@ -168,9 +170,12 @@ class DistrictDAO(
             votes = sp.big_map(tkey = sp.TNat, tvalue = t_votes),
             proposal_counter = 0
         )
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata)
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
+        pause_mixin.Pausable.__init__(self)
+        upgradeable_mixin.Upgradeable.__init__(self)
+
         self.generate_contract_metadata(district_number)
 
     def generate_contract_metadata(self, district_number):

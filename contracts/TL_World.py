@@ -6,6 +6,7 @@
 
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
@@ -241,6 +242,7 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(
+    admin_mixin.Administrable,
     pause_mixin.Pausable,
     fees_mixin.Fees,
     mod_mixin.Moderation,
@@ -272,11 +274,14 @@ class TL_World(
             permissions = self.permission_map.make(),
             places = self.place_store_map.make()
         )
-        pause_mixin.Pausable.__init__(self, administrator = administrator)
-        fees_mixin.Fees.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self, administrator = administrator)
-        permitted_fa2.PermittedFA2.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self)
+        fees_mixin.Fees.__init__(self, fees_to = administrator)
+        mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
+        permitted_fa2.PermittedFA2.__init__(self)
+        upgradeable_mixin.Upgradeable.__init__(self)
+
         self.generate_contract_metadata(name, description, version)
 
     def generate_contract_metadata(self, name, description, version):
