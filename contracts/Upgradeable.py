@@ -1,11 +1,11 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 # TODO: update_ep variant layout?
 
-class Upgradeable(admin_mixin.Administrable):
-    def __init__(self, administrator):
+# Mixins required: Administrable
+class Upgradeable:
+    def __init__(self):
         # get lazy entry points
         self.upgradeable_entrypoints = []
         for f in dir(self):
@@ -29,5 +29,3 @@ class Upgradeable(admin_mixin.Administrable):
                             sp.set_entry_point(entrypoint, params.new_code)
 
             self.update_ep = sp.entry_point(update_ep, lazify=False)
-
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
