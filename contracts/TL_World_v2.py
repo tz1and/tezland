@@ -6,6 +6,7 @@
 
 import smartpy as sp
 
+admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation_v2.py")
@@ -460,6 +461,7 @@ class PermissionParams:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(
+    admin_mixin.Administrable,
     contract_metadata_mixin.ContractMetadata,
     pause_mixin.Pausable,
     fees_mixin.Fees,
@@ -506,12 +508,13 @@ class TL_World(
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
-        contract_metadata_mixin.ContractMetadata.__init__(self, administrator = administrator, metadata = metadata, meta_settings = True)
-        pause_mixin.Pausable.__init__(self, administrator = administrator, paused = paused, meta_settings = True)
-        fees_mixin.Fees.__init__(self, administrator = administrator, meta_settings = True)
-        mod_mixin.Moderation.__init__(self, administrator = administrator, meta_settings = True)
-        allowed_place_tokens.AllowedPlaceTokens.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self, administrator = administrator)
+        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        pause_mixin.Pausable.__init__(self, paused = paused, meta_settings = True)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        fees_mixin.Fees.__init__(self, fees_to = administrator, meta_settings = True)
+        mod_mixin.Moderation.__init__(self, meta_settings = True)
+        allowed_place_tokens.AllowedPlaceTokens.__init__(self)
+        upgradeable_mixin.Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description)
 
