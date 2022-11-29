@@ -1,6 +1,5 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -40,14 +39,14 @@ class Allowed_place_token_param:
 # I think this is desired. One should make sure to only check it on adding items to places.
 
 
-class AllowedPlaceTokens(admin_mixin.Administrable):
-    def __init__(self, administrator, default_allowed = {}):
+# Mixins required: Administrable
+class AllowedPlaceTokens:
+    def __init__(self, default_allowed = {}):
         self.allowed_place_tokens_map = Allowed_place_token_map()
         self.allowed_place_tokens_param = Allowed_place_token_param()
         self.update_initial_storage(
             place_tokens = self.allowed_place_tokens_map.make(default_allowed),
         )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
 
     def onlyAllowedPlaceTokens(self, fa2):
