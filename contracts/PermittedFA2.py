@@ -1,6 +1,5 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
@@ -60,14 +59,14 @@ class Permitted_fa2_param:
 # I think this is desired. But make sure to give a good error message.
 
 
-class PermittedFA2(admin_mixin.Administrable):
-    def __init__(self, administrator, default_permitted = {}):
+# Mixins required: Administrable
+class PermittedFA2:
+    def __init__(self, default_permitted = {}):
         self.permitted_fa2_map = Permitted_fa2_map()
         self.permitted_fa2_param = Permitted_fa2_param()
         self.update_initial_storage(
             permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
         )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
 
 
     def onlyPermittedFA2(self, fa2):
