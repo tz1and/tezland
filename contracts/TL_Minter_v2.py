@@ -38,8 +38,8 @@ class TL_Minter(
         ]
 
         admin_mixin.Administrable.__init__(self, administrator = administrator)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         pause_mixin.Pausable.__init__(self, meta_settings = True)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         fa2_admin.FA2_Administration.__init__(self)
         upgradeable_mixin.Upgradeable.__init__(self)
 

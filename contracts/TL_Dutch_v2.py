@@ -74,8 +74,8 @@ class TL_Dutch(
         ]
 
         admin_mixin.Administrable.__init__(self, administrator = administrator)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         pause_mixin.Pausable.__init__(self, meta_settings = True)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
         fees_mixin.Fees.__init__(self, fees_to = administrator, meta_settings = True)
         permitted_fa2.FA2PermissionsAndWhitelist.__init__(self)
         upgradeable_mixin.Upgradeable.__init__(self)

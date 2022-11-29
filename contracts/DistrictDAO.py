@@ -172,8 +172,8 @@ class DistrictDAO(
         )
 
         admin_mixin.Administrable.__init__(self, administrator = administrator)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
         pause_mixin.Pausable.__init__(self)
+        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
         upgradeable_mixin.Upgradeable.__init__(self)
 
         self.generate_contract_metadata(district_number)
