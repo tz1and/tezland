@@ -1,10 +1,11 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
-basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+BasicPermissions = sp.io.import_script_from_url("file:contracts/BasicPermissions.py").BasicPermissions
+
 #MerkleTree = sp.io.import_script_from_url("file:contracts/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
@@ -128,11 +129,11 @@ def checkRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
 # Token registry contract.
 # NOTE: should be pausable for code updates.
 class TL_TokenRegistry(
-    admin_mixin.Administrable,
-    contract_metadata_mixin.ContractMetadata,
-    basic_permissions_mixin.BasicPermissions,
-    pause_mixin.Pausable,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    ContractMetadata,
+    BasicPermissions,
+    Pausable,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, collections_public_key, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -150,11 +151,11 @@ class TL_TokenRegistry(
             ("collections_public_key", sp.TKey, None)
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
-        pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        basic_permissions_mixin.BasicPermissions.__init__(self, lazy_ep = True)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator, include_views = False)
+        Pausable.__init__(self, meta_settings = True, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        BasicPermissions.__init__(self, lazy_ep = True)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
 

@@ -1,23 +1,24 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
+FA2_Administration = sp.io.import_script_from_url("file:contracts/FA2_Administration.py").FA2_Administration
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 #
 # Minter contract.
 # NOTE: should be pausable for code updates.
 class TL_Minter(
-    admin_mixin.Administrable,
-    pause_mixin.Pausable,
-    mod_mixin.Moderation,
-    fa2_admin.FA2_Administration,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    Pausable,
+    Moderation,
+    FA2_Administration,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, metadata,
         name="tz1and Minter", description="tz1and Items and Places minter", version="1.0.0", exception_optimization_level="default-line"):
@@ -31,11 +32,11 @@ class TL_Minter(
             metadata = metadata,
         )
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self)
-        mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
-        fa2_admin.FA2_Administration.__init__(self)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator)
+        Pausable.__init__(self)
+        Moderation.__init__(self, moderation_contract = administrator)
+        FA2_Administration.__init__(self)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description, version)
 

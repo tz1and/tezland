@@ -6,18 +6,19 @@
 
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation_v2.py")
-allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/Moderation_v2.py").Moderation
+AllowedPlaceTokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py").AllowedPlaceTokens
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Now:
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
@@ -461,13 +462,13 @@ class PermissionParams:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World_v2(
-    admin_mixin.Administrable,
-    contract_metadata_mixin.ContractMetadata,
-    pause_mixin.Pausable,
-    fees_mixin.Fees,
-    mod_mixin.Moderation,
-    allowed_place_tokens.AllowedPlaceTokens,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    ContractMetadata,
+    Pausable,
+    Fees,
+    Moderation,
+    AllowedPlaceTokens,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, royalties_adapter, paused, items_tokens, metadata,
         name, description, exception_optimization_level="default-line", debug_asserts=False):
@@ -508,13 +509,13 @@ class TL_World_v2(
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
-        pause_mixin.Pausable.__init__(self, paused = paused, meta_settings = True, include_views = False)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        fees_mixin.Fees.__init__(self, fees_to = administrator, meta_settings = True)
-        mod_mixin.Moderation.__init__(self, meta_settings = True)
-        allowed_place_tokens.AllowedPlaceTokens.__init__(self)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator, include_views = False)
+        Pausable.__init__(self, paused = paused, meta_settings = True, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        Fees.__init__(self, fees_to = administrator, meta_settings = True)
+        Moderation.__init__(self, meta_settings = True)
+        AllowedPlaceTokens.__init__(self)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description)
 

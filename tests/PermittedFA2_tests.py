@@ -1,15 +1,16 @@
 import smartpy as sp
 
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
+tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+
 
 class PermittedFA2Test(
-    admin_mixin.Administrable,
+    Administrable,
     permitted_fa2.PermittedFA2,
     sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         permitted_fa2.PermittedFA2.__init__(self)
 
     # test helpers

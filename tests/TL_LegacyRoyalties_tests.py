@@ -1,7 +1,7 @@
 import smartpy as sp
 
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
@@ -10,7 +10,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 
 class tokenNoRoyalties(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
     FA2.BurnFungible,
@@ -25,7 +25,7 @@ class tokenNoRoyalties(
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=False,
             allow_mint_existing=False
         )
-        admin_mixin.Administrable.__init__(self, admin)
+        Administrable.__init__(self, admin)
 
 
 @sp.add_test(name = "TL_LegacyRoyalties_tests", profile = True)

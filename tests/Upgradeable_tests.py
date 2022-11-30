@@ -1,18 +1,18 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
 
 
 class UpgradeableTest(
-    admin_mixin.Administrable,
+    Administrable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator):
         self.init_storage(
             counter = sp.int(0)
         )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self)
 
     @sp.entry_point(lazify = True)
@@ -36,14 +36,14 @@ def another_entry_update(self, params):
 
 
 class UpgradeableTestFail(
-    admin_mixin.Administrable,
+    Administrable,
     upgradeable_mixin.Upgradeable,
     sp.Contract):
     def __init__(self, administrator):
         self.init_storage(
             counter = sp.int(0)
         )
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         upgradeable_mixin.Upgradeable.__init__(self)
 
     @sp.entry_point(lazify = False)

@@ -1,12 +1,13 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
-fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Whitelist = sp.io.import_script_from_url("file:contracts/Whitelist.py").Whitelist
+Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
+PermittedFA2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py").PermittedFA2
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # TODO: test royalties for item token
@@ -22,13 +23,13 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
 class TL_Dutch(
-    admin_mixin.Administrable,
-    pause_mixin.Pausable,
-    whitelist_mixin.Whitelist,
-    fees_mixin.Fees,
-    mod_mixin.Moderation,
-    upgradeable_mixin.Upgradeable,
-    permitted_fa2.PermittedFA2,
+    Administrable,
+    Pausable,
+    Whitelist,
+    Fees,
+    Moderation,
+    Upgradeable,
+    PermittedFA2,
     sp.Contract):
     """A simple dutch auction.
     
@@ -60,17 +61,17 @@ class TL_Dutch(
             auctions = sp.big_map(tkey=sp.TNat, tvalue=TL_Dutch.AUCTION_TYPE)
         )
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self)
-        whitelist_mixin.Whitelist.__init__(self)
-        fees_mixin.Fees.__init__(self, fees_to = administrator)
-        mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
+        Administrable.__init__(self, administrator = administrator)
+        Pausable.__init__(self)
+        Whitelist.__init__(self)
+        Fees.__init__(self, fees_to = administrator)
+        Moderation.__init__(self, moderation_contract = administrator)
 
         default_permitted = { places_contract : sp.record(
             swap_allowed = True,
             royalties_kind = sp.variant("none", sp.unit) )}
-        permitted_fa2.PermittedFA2.__init__(self, default_permitted = default_permitted)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        PermittedFA2.__init__(self, default_permitted = default_permitted)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description, version)
 

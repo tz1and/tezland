@@ -2,11 +2,11 @@ from dataclasses import replace
 import types
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 class FA2ProxyBase(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
     FA2.BurnFungible,
@@ -30,7 +30,7 @@ class FA2ProxyBase(
             allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
-        admin_mixin.Administrable.__init__(self, admin)
+        Administrable.__init__(self, admin)
 
         self.update_initial_storage(parent = parent)
 

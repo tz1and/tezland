@@ -1,14 +1,15 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation_v2.py")
 
+
 class ModerationTest(
-    admin_mixin.Administrable,
+    Administrable,
     mod_mixin.Moderation,
     sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         mod_mixin.Moderation.__init__(self)
 
 

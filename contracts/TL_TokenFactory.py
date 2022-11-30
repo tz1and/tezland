@@ -1,13 +1,14 @@
 from importlib.metadata import metadata
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 # TODO: figure out if entrypoints should be lazy!!!!
@@ -19,7 +20,7 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 #
 # The template FA2 contract.
 class tz1andCollection(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
     FA2.BurnFungible,
@@ -38,16 +39,16 @@ class tz1andCollection(
             allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
-        admin_mixin.Administrable.__init__(self, admin, include_views = False)
+        Administrable.__init__(self, admin, include_views = False)
 
 #
 # TokenFactory contract.
 # NOTE: should be pausable for code updates.
 class TL_TokenFactory(
-    admin_mixin.Administrable,
-    contract_metadata_mixin.ContractMetadata,
-    pause_mixin.Pausable,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    ContractMetadata,
+    Pausable,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, minter, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -70,10 +71,10 @@ class TL_TokenFactory(
             ("minter", sp.TAddress, None)
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
-        pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator, include_views = False)
+        Pausable.__init__(self, meta_settings = True, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
 

@@ -6,14 +6,15 @@
 
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
+PermittedFA2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py").PermittedFA2
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -242,12 +243,12 @@ class Permission_param:
 # The World contract.
 # NOTE: should be pausable for code updates and because other item fa2 tokens are out of our control.
 class TL_World(
-    admin_mixin.Administrable,
-    pause_mixin.Pausable,
-    fees_mixin.Fees,
-    mod_mixin.Moderation,
-    permitted_fa2.PermittedFA2,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    Pausable,
+    Fees,
+    Moderation,
+    PermittedFA2,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description, version="1.0.0", exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -275,12 +276,12 @@ class TL_World(
             places = self.place_store_map.make()
         )
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
-        pause_mixin.Pausable.__init__(self)
-        fees_mixin.Fees.__init__(self, fees_to = administrator)
-        mod_mixin.Moderation.__init__(self, moderation_contract = administrator)
-        permitted_fa2.PermittedFA2.__init__(self)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator)
+        Pausable.__init__(self)
+        Fees.__init__(self, fees_to = administrator)
+        Moderation.__init__(self, moderation_contract = administrator)
+        PermittedFA2.__init__(self)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description, version)
 

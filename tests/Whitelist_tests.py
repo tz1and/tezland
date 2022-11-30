@@ -1,15 +1,15 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 whitelist_mixin = sp.io.import_script_from_url("file:contracts/Whitelist.py")
 
 
 class WhitelistTests(
-    admin_mixin.Administrable,
+    Administrable,
     whitelist_mixin.Whitelist,
     sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         whitelist_mixin.Whitelist.__init__(self)
 
     @sp.entry_point

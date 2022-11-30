@@ -6,14 +6,15 @@
 
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
+PermittedFA2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py").PermittedFA2
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+
 world_types = sp.io.import_script_from_url("file:contracts/TL_World.py") 
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-fees_mixin = sp.io.import_script_from_url("file:contracts/Fees.py")
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
 utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
@@ -148,10 +149,10 @@ t_votes = sp.TMap(sp.TAddress, sp.TBool)
 # maybe even fixed election periods?
 # and an emergency vote of confidence to remove/block someone from acting until resolved
 class DistrictDAO(
-    admin_mixin.Administrable,
-    pause_mixin.Pausable,
-    upgradeable_mixin.Upgradeable,
-    contract_metadata_mixin.ContractMetadata,
+    Administrable,
+    Pausable,
+    Upgradeable,
+    ContractMetadata,
     sp.Contract):
     def __init__(self, administrator, world_contract, items_contract, places_contract, dao_contract, district_number, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -171,10 +172,10 @@ class DistrictDAO(
             proposal_counter = 0
         )
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
-        pause_mixin.Pausable.__init__(self, include_views = False)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator, include_views = False)
+        Pausable.__init__(self, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata(district_number)
 

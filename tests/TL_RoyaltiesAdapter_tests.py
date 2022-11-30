@@ -3,7 +3,6 @@ import smartpy as sp
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 

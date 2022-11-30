@@ -1,14 +1,15 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
-fa2_admin = sp.io.import_script_from_url("file:contracts/FA2_Administration.py")
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
+FA2_Administration = sp.io.import_script_from_url("file:contracts/FA2_Administration.py").FA2_Administration
+Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+
+token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
+utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 
 
 # TODO: decide laziness of entrypoints...
@@ -19,11 +20,11 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 # Minter contract.
 # NOTE: should be pausable for code updates.
 class TL_Minter_v2(
-    admin_mixin.Administrable,
-    contract_metadata_mixin.ContractMetadata,
-    pause_mixin.Pausable,
-    fa2_admin.FA2_Administration,
-    upgradeable_mixin.Upgradeable,
+    Administrable,
+    ContractMetadata,
+    Pausable,
+    FA2_Administration,
+    Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
@@ -37,11 +38,11 @@ class TL_Minter_v2(
             ("registry", sp.TAddress, None)
         ]
 
-        admin_mixin.Administrable.__init__(self, administrator = administrator, include_views = False)
-        pause_mixin.Pausable.__init__(self, meta_settings = True, include_views = False)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        fa2_admin.FA2_Administration.__init__(self)
-        upgradeable_mixin.Upgradeable.__init__(self)
+        Administrable.__init__(self, administrator = administrator, include_views = False)
+        Pausable.__init__(self, meta_settings = True, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        FA2_Administration.__init__(self)
+        Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
 

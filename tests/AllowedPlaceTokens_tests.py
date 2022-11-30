@@ -1,15 +1,16 @@
 import smartpy as sp
 
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
+tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+
 
 class AllowedPlaceTokensTest(
-    admin_mixin.Administrable,
+    Administrable,
     allowed_place_tokens.AllowedPlaceTokens,
     sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         allowed_place_tokens.AllowedPlaceTokens.__init__(self)
 
     # test helpers

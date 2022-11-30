@@ -1,15 +1,15 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
 
 
 class PausableTest(
-    admin_mixin.Administrable,
+    Administrable,
     pause_mixin.Pausable,
     sp.Contract):
     def __init__(self, administrator):
-        admin_mixin.Administrable.__init__(self, administrator = administrator)
+        Administrable.__init__(self, administrator = administrator)
         pause_mixin.Pausable.__init__(self)
 
     @sp.entry_point

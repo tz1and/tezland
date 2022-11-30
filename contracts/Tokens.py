@@ -1,11 +1,11 @@
 import smartpy as sp
 
+Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
 
 class tz1andPlaces(
-    admin_mixin.Administrable,
+    Administrable,
     FA2_legacy.ChangeMetadata,
     FA2_legacy.MintNft,
     FA2_legacy.OnchainviewCountTokens,
@@ -19,10 +19,10 @@ class tz1andPlaces(
             name="tz1and Places", description="tz1and Place FA2 Tokens.",
             policy=FA2_legacy.PauseTransfer(FA2_legacy.OwnerOrOperatorAdhocTransfer())
         )
-        admin_mixin.Administrable.__init__(self, admin)
+        Administrable.__init__(self, admin)
 
 class tz1andItems(
-    admin_mixin.Administrable,
+    Administrable,
     FA2_legacy.ChangeMetadata,
     FA2_legacy.MintFungible,
     FA2_legacy.BurnFungible,
@@ -39,10 +39,10 @@ class tz1andItems(
             allow_mint_existing=False
         )
         FA2_legacy.Royalties.__init__(self)
-        admin_mixin.Administrable.__init__(self, admin)
+        Administrable.__init__(self, admin)
 
 class tz1andDAO(
-    admin_mixin.Administrable,
+    Administrable,
     FA2_legacy.ChangeMetadata,
     FA2_legacy.MintSingleAsset,
     FA2_legacy.Fa2SingleAsset,
@@ -54,14 +54,14 @@ class tz1andDAO(
             self, metadata=metadata,
             name="tz1and DAO", description="tz1and DAO FA2 Tokens."
         )
-        admin_mixin.Administrable.__init__(self, admin)
+        Administrable.__init__(self, admin)
 
 # V2
 
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 
 class tz1andInteriors(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintNft,
     FA2.OnchainviewCountTokens,
@@ -75,10 +75,10 @@ class tz1andInteriors(
             name="tz1and Interiors", description="tz1and Interior FA2 Tokens.",
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
-        admin_mixin.Administrable.__init__(self, admin, include_views = False)
+        Administrable.__init__(self, admin, include_views = False)
 
 class tz1andPlaces_v2(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintNft,
     FA2.OnchainviewCountTokens,
@@ -92,10 +92,10 @@ class tz1andPlaces_v2(
             name="tz1and Places", description="tz1and Place FA2 Tokens (v2).",
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
-        admin_mixin.Administrable.__init__(self, admin, include_views = False)
+        Administrable.__init__(self, admin, include_views = False)
 
 class tz1andItems_v2(
-    admin_mixin.Administrable,
+    Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
     FA2.BurnFungible,
@@ -112,4 +112,4 @@ class tz1andItems_v2(
             allow_mint_existing=False
         )
         FA2.Royalties.__init__(self)
-        admin_mixin.Administrable.__init__(self, admin, include_views = False)
+        Administrable.__init__(self, admin, include_views = False)
