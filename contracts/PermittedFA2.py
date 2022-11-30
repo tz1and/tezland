@@ -1,10 +1,11 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+
 
 # TODO: is_fa2_permitted/get_fa2_permitted is probably not needed? maybe for interop...
 # TODO: test getRoyaltiesForPermittedFA2
+
 
 royaltiesKindVariantType = sp.TVariant(
     none = sp.TUnit,

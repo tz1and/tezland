@@ -3,6 +3,7 @@ import smartpy as sp
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
 
+
 class tz1andPlaces(
     admin_mixin.Administrable,
     FA2_legacy.ChangeMetadata,

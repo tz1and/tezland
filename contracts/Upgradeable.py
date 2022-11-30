@@ -1,7 +1,7 @@
 import smartpy as sp
 
-
 # TODO: update_ep variant layout?
+
 
 # Mixins required: Administrable
 class Upgradeable:

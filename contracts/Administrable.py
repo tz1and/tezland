@@ -1,5 +1,6 @@
 import smartpy as sp
 
+
 class Administrable:
     def __init__(self, administrator, include_views = True):
         # TODO: figure out how to init the type in subclasses

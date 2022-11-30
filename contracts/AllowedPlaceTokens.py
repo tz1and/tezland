@@ -1,7 +1,5 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
-
 
 allowedPlaceLimitsType = sp.TRecord(
     chunk_limit = sp.TNat,
