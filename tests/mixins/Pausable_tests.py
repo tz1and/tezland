@@ -1,6 +1,7 @@
 import smartpy as sp
 
 Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 pause_mixin = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py")
 
 
@@ -27,6 +28,16 @@ class PausableTest(
             sp.verify(False, "error")
 
 
+class PausableTestMetaSettings(
+    PausableTest,
+    MetaSettings):
+    def __init__(self, administrator):
+        self.available_settings = []
+
+        PausableTest.__init__(self, administrator = administrator)
+        MetaSettings.__init__(self)
+
+
 @sp.add_test(name = "Pausable_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -50,49 +61,65 @@ def test():
     scenario.verify(pausable.data.paused == False)
 
     scenario.h3("set_paused")
-    pausable.set_paused(True).run(sender = bob, valid = False)
-    pausable.set_paused(True).run(sender = alice, valid = False)
-    pausable.set_paused(True).run(sender = admin)
 
-    scenario.verify(pausable.data.paused == True)
+    # No permissions to anyone but admin
+    for acc in [alice, bob, admin]:
+        pausable.set_paused(True).run(
+            sender = acc,
+            valid = (True if acc is admin else False),
+            exception = (None if acc is admin else "ONLY_ADMIN"))
 
-    pausable.set_paused(False).run(sender = bob, valid = False)
-    pausable.set_paused(False).run(sender = alice, valid = False)
+        if acc is admin: scenario.verify(pausable.data.paused == True)
+
     pausable.set_paused(False).run(sender = admin)
-
     scenario.verify(pausable.data.paused == False)
 
     scenario.h3("testOnlyUnpaused")
-    pausable.testOnlyUnpaused().run(sender = bob)
-    pausable.testOnlyUnpaused().run(sender = alice)
-    pausable.testOnlyUnpaused().run(sender = admin)
+
+    for acc in [alice, bob, admin]:
+        pausable.testOnlyUnpaused().run(sender = acc)
 
     pausable.set_paused(True).run(sender = admin)
 
-    pausable.testOnlyUnpaused().run(sender = bob, valid = False)
-    pausable.testOnlyUnpaused().run(sender = alice, valid = False)
-    pausable.testOnlyUnpaused().run(sender = admin, valid = False)
+    for acc in [alice, bob, admin]:
+        pausable.testOnlyUnpaused().run(sender = acc, valid = False)
 
     scenario.h3("testOnlyPaused")
-    pausable.testOnlyPaused().run(sender = bob)
-    pausable.testOnlyPaused().run(sender = alice)
-    pausable.testOnlyPaused().run(sender = admin)
+
+    for acc in [alice, bob, admin]:
+        pausable.testOnlyPaused().run(sender = acc)
 
     pausable.set_paused(False).run(sender = admin)
 
-    pausable.testOnlyPaused().run(sender = bob, valid = False)
-    pausable.testOnlyPaused().run(sender = alice, valid = False)
-    pausable.testOnlyPaused().run(sender = admin, valid = False)
+    for acc in [alice, bob, admin]:
+        pausable.testOnlyPaused().run(sender = acc, valid = False)
 
     scenario.h3("testIsPaused")
-    pausable.testIsPaused(True).run(sender = bob, valid = False)
-    pausable.testIsPaused(True).run(sender = alice, valid = False)
-    pausable.testIsPaused(True).run(sender = admin, valid = False)
-    pausable.testIsPaused(False).run(sender = alice)
-    pausable.testIsPaused(False).run(sender = bob)
-    pausable.testIsPaused(False).run(sender = admin)
+    for acc in [alice, bob, admin]:
+        pausable.testIsPaused(True).run(sender = acc, valid = False)
+        pausable.testIsPaused(False).run(sender = acc)
 
     scenario.h3("is_paused view")
     scenario.verify(pausable.is_paused() == False)
     pausable.set_paused(True).run(sender = admin)
     scenario.verify(pausable.is_paused() == True)
+
+    # test meta settings
+    scenario.h2("Test Pausable - MetaSettings")
+
+    scenario.h3("Contract origination")
+    pausable_meta = PausableTestMetaSettings(admin.address)
+    scenario += pausable_meta
+
+    scenario.verify(pausable_meta.data.paused == False)
+
+    scenario.h3("update_settings")
+
+    # No permissions to anyone but admin
+    for acc in [alice, bob, admin]:
+        pausable_meta.update_settings([sp.variant("paused", True)]).run(
+            sender = acc,
+            valid = (True if acc is admin else False),
+            exception = (None if acc is admin else "ONLY_ADMIN"))
+
+        if acc is admin: scenario.verify(pausable_meta.data.paused == True)

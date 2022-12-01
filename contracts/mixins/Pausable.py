@@ -3,16 +3,21 @@ import smartpy as sp
 
 # Mixins required: Administrable
 class Pausable:
-    def __init__(self, paused = False, meta_settings = False, include_views = True):
+    def __init__(self, paused = False, include_views = True):
         self.update_initial_storage(
             paused = paused
         )
 
-        if meta_settings:
+        if hasattr(self, 'available_settings'):
             self.available_settings.append(
                 ("paused", sp.TBool, None)
             )
-            setattr(self, "set_paused", sp.entry_point(None, None))
+        else:
+            def set_paused(self, new_paused):
+                self.onlyAdministrator()
+                self.data.paused = new_paused
+            
+            self.set_paused = sp.entry_point(set_paused)
 
         if include_views:
             def is_paused(self):
@@ -28,8 +33,3 @@ class Pausable:
 
     def onlyPaused(self):
         sp.verify(self.isPaused() == True, 'ONLY_PAUSED')
-
-    @sp.entry_point
-    def set_paused(self, new_paused):
-        self.onlyAdministrator()
-        self.data.paused = new_paused
