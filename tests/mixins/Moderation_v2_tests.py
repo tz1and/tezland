@@ -15,15 +15,12 @@ class ModerationTest(
 
 
 class ModerationTestMetaSettings(
-    Administrable,
-    mod_mixin.Moderation,
-    MetaSettings,
-    sp.Contract):
+    ModerationTest,
+    MetaSettings):
     def __init__(self, administrator):
         self.available_settings = []
 
-        Administrable.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self)
+        ModerationTest.__init__(self, administrator = administrator)
         MetaSettings.__init__(self)
 
 

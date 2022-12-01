@@ -15,15 +15,12 @@ class ContractMetadataTest(
 
 
 class ContractMetadataTestMetaSettings(
-    Administrable,
-    contract_metadata_mixin.ContractMetadata,
-    MetaSettings,
-    sp.Contract):
+    ContractMetadataTest,
+    MetaSettings):
     def __init__(self, administrator, metadata):
         self.available_settings = []
 
-        Administrable.__init__(self, administrator = administrator)
-        contract_metadata_mixin.ContractMetadata.__init__(self, metadata = metadata)
+        ContractMetadataTest.__init__(self, administrator = administrator, metadata = metadata)
         MetaSettings.__init__(self)
 
 

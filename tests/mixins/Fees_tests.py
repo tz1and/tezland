@@ -15,15 +15,12 @@ class FeesTest(
 
 
 class FeesTestMetaSettings(
-    Administrable,
-    fees_mixin.Fees,
-    MetaSettings,
-    sp.Contract):
+    FeesTest,
+    MetaSettings):
     def __init__(self, administrator, fees_to):
         self.available_settings = []
 
-        Administrable.__init__(self, administrator = administrator)
-        fees_mixin.Fees.__init__(self, fees_to = fees_to)
+        FeesTest.__init__(self, administrator = administrator, fees_to = fees_to)
         MetaSettings.__init__(self)
 
 
