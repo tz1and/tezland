@@ -14,7 +14,7 @@ class Upgradeable:
                 self.upgradeable_entrypoints.append(attr.message.fname)
 
         # if there are any, add the update ep
-        if len(self.upgradeable_entrypoints) > 0:
+        if self.upgradeable_entrypoints:
             #print(f'{self.__class__.__name__}: {self.upgradeable_entrypoints}')
             def update_ep(self, params):
                 # Build a variant from upgradeable_entrypoints.
@@ -29,3 +29,4 @@ class Upgradeable:
                             sp.set_entry_point(entrypoint, params.new_code)
 
             self.update_ep = sp.entry_point(update_ep, lazify=False)
+        else: print("\x1b[33;20mWARNING: Upgradeable used but upgradeable_entrypoints is empty!")
