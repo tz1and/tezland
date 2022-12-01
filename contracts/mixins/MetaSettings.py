@@ -7,8 +7,6 @@ class MetaSettings:
     def __init__(self):
         if not hasattr(self, 'available_settings'):
             raise Exception("ERROR: MetaSettings.available_settings not set!")
-            # NOTE: could also be a warnig and then we set it.
-            #self.available_settings = []
 
         if self.available_settings:
             def update_settings(self, params):
@@ -29,3 +27,4 @@ class MetaSettings:
                                 setattr(self.data, setting[0], value)
 
             self.update_settings = sp.entry_point(update_settings, lazify=True)
+        else: print("\x1b[33;20mWARNING: MetaSettings used but available_settings is empty!")
