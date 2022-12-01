@@ -35,22 +35,6 @@ def another_entry_update(self, params):
     self.data.counter = params.val
 
 
-class UpgradeableTestFail(
-    Administrable,
-    upgradeable_mixin.Upgradeable,
-    sp.Contract):
-    def __init__(self, administrator):
-        self.init_storage(
-            counter = sp.int(0)
-        )
-        Administrable.__init__(self, administrator = administrator)
-        upgradeable_mixin.Upgradeable.__init__(self)
-
-    @sp.entry_point(lazify = False)
-    def unlazy_entry(self, params):
-        sp.set_type(params.val, sp.TInt)
-        self.data.counter += params.val
-
 @sp.add_test(name = "Upgradeable_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -87,12 +71,3 @@ def test():
 
     upgrade.another_entry(val = sp.int(1337)).run(sender = alice)
     scenario.verify(upgrade.data.counter == sp.int(1337))
-
-    # test contract without lazy eps
-    upgrade_fail = UpgradeableTestFail(admin.address)
-    scenario += upgrade_fail
-
-    scenario.verify_equal(upgrade_fail.upgradeable_entrypoints, [])
-
-    # TODO: somehow figure out if the update_ep entry point exists. it shouldn't.
-    #scenario.verify(sp.contract_entrypoint_map(upgrade_fail).contains(sp.contract_entrypoint_id(upgrade_fail, "unlazy_entry")))
