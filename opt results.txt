@@ -1,0 +1,137 @@
+# LegacyRoyalties
+########################
+
+Storage: 	
+	110 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	2666 Bytes
+Combined: 	
+	2936 Bytes
+
+
+Storage: 	
+	104 Bytes
+Big map originations (4): 	
+	128 Bytes
+Code: 	
+	2414 Bytes
+Combined: 	
+	2646 Bytes
+
+
+# TokenRegistry
+########################
+
+Storage: 	
+	110 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	2666 Bytes
+Combined: 	
+	2936 Bytes
+
+
+Storage: 	
+	104 Bytes
+Big map originations (4): 	
+	128 Bytes
+Code: 	
+	2414 Bytes
+Combined: 	
+	2646 Bytes
+
+
+# World v2
+#########################
+
+Storage:
+	10108 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8461 Bytes
+Combined: 	
+	18729 Bytes
+
+
+Storage: 	
+	10098 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8461 Bytes
+Combined: 	
+	18719 Bytes
+
+
+Storage: 	
+	9968 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8461 Bytes
+Combined: 	
+	18589 Bytes
+
+
+Storage: 	
+	10493 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8346 Bytes
+Combined: 	
+	18999 Bytes
+
+
+Storage: 	
+	10804 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8350 Bytes
+Combined: 	
+	19314 Bytes
+
+
+Storage: 	
+	10804 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8232 Bytes
+Combined: 	
+	19196 Bytes
+
+
+Storage: 	
+	10804 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8194 Bytes
+Combined: 	
+	19158 Bytes
+
+
+Storage: 	
+	10157 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8251 Bytes
+Combined: 	
+	18568 Bytes
+
+
+Storage: 	
+	10157 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18472 Bytes
