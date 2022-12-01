@@ -1,6 +1,6 @@
 import smartpy as sp
 
-admin_mixin = sp.io.import_script_from_url("file:contracts/Administrable.py")
+admin_mixin = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py")
 
 
 class AdministrableTest(admin_mixin.Administrable, sp.Contract):

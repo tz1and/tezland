@@ -6,19 +6,19 @@
 
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/Moderation_v2.py").Moderation
-AllowedPlaceTokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py").AllowedPlaceTokens
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation_v2.py").Moderation
+AllowedPlaceTokens = sp.io.import_script_from_url("file:contracts/mixins/AllowedPlaceTokens.py").AllowedPlaceTokens
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Now:
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
@@ -38,6 +38,8 @@ utils = sp.io.import_script_from_url("file:contracts/Utils.py")
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount!
+# TODO: THRESHOLD_ADDRESS = sp.address("tz3jfebmewtfXYD1Xef34TwrfMg2rrrw6oum") - Address > threshold address. To tell if contract.
+# TODO: market blacklist on tokens? view into blacklist contract.
 
 
 

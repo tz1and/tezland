@@ -1,6 +1,6 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
 FA2 = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 #########

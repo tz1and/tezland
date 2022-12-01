@@ -9,7 +9,7 @@ royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_Roy
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 world_upgrade = sp.io.import_script_from_url("file:contracts/upgrades/TL_World_v1_1.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 @sp.add_test(name = "TL_World_v1_1_tests", profile = True)

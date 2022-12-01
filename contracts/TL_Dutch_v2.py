@@ -1,15 +1,15 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
-FA2PermissionsAndWhitelist = sp.io.import_script_from_url("file:contracts/FA2PermissionsAndWhitelist.py").FA2PermissionsAndWhitelist
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
+FA2PermissionsAndWhitelist = sp.io.import_script_from_url("file:contracts/mixins/FA2PermissionsAndWhitelist.py").FA2PermissionsAndWhitelist
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # TODO: document reasoning for not limiting bids on secondary disable

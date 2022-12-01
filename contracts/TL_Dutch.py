@@ -1,14 +1,14 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-Whitelist = sp.io.import_script_from_url("file:contracts/Whitelist.py").Whitelist
-Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
-PermittedFA2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py").PermittedFA2
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+Whitelist = sp.io.import_script_from_url("file:contracts/mixins/Whitelist.py").Whitelist
+Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
+PermittedFA2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py").PermittedFA2
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # TODO: test royalties for item token
 # TODO: document reasoning for not limiting bids on secondary disable

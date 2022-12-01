@@ -1,7 +1,7 @@
 import smartpy as sp
 
 dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 

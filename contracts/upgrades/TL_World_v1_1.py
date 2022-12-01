@@ -3,7 +3,7 @@ import smartpy as sp
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 class TL_World_v1_1(world_contract.TL_World):

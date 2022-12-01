@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-upgradeable_mixin = sp.io.import_script_from_url("file:contracts/Upgradeable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+upgradeable_mixin = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py")
 
 
 class UpgradeableTest(

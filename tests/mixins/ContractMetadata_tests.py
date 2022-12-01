@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/ContractMetadata.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+contract_metadata_mixin = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py")
 
 
 class ContractMetadataTest(

@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-mod_mixin = sp.io.import_script_from_url("file:contracts/Moderation.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+mod_mixin = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py")
 
 
 class ModerationTest(

@@ -1,13 +1,13 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-#Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
-BasicPermissions = sp.io.import_script_from_url("file:contracts/BasicPermissions.py").BasicPermissions
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+#Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
+BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py").BasicPermissions
 
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # TODO: t_royalties_signed: decide if data should be packed or not.

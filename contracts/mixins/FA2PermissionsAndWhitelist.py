@@ -1,6 +1,6 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # TODO: get_fa2_permitted is probably not needed? maybe for interop...

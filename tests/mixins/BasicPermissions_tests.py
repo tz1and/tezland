@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/BasicPermissions.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py")
 
 
 class BasicPermissionsTest(

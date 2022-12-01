@@ -1,6 +1,6 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # Mixins required: Administrable

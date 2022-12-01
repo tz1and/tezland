@@ -1,14 +1,14 @@
 from importlib.metadata import metadata
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/ContractMetadata.py").ContractMetadata
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # TODO: figure out if entrypoints should be lazy!!!!

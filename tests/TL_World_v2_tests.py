@@ -7,8 +7,8 @@ legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_Lega
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-#merkle_tree = sp.io.import_script_from_url("file:contracts/MerkleTree.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+#merkle_tree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Some frequently used forwarded types
 PermissionParams = places_contract.PermissionParams

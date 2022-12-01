@@ -6,15 +6,15 @@
 
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/Moderation.py").Moderation
-PermittedFA2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py").PermittedFA2
-Upgradeable = sp.io.import_script_from_url("file:contracts/Upgradeable.py").Upgradeable
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
+Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
+Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
+PermittedFA2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py").PermittedFA2
+Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/Utils.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.

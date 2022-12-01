@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-pause_mixin = sp.io.import_script_from_url("file:contracts/Pausable.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+pause_mixin = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py")
 
 
 class PausableTest(

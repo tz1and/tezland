@@ -48,7 +48,7 @@ const config: SmartpyNodeDevConfig = {
     },
     smartpy: {
         exclude_tests: new Set(["DistrictDAO", "FA2_proxy"]),
-        test_dirs: new Set(['./tests/legacy', './tests/upgrades', './tests'])
+        test_dirs: new Set(['./tests/legacy', './tests/mixins', './tests/upgrades', './tests'])
     }
 }
 export default config;

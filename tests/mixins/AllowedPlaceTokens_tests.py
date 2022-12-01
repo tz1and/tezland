@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-allowed_place_tokens = sp.io.import_script_from_url("file:contracts/AllowedPlaceTokens.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+allowed_place_tokens = sp.io.import_script_from_url("file:contracts/mixins/AllowedPlaceTokens.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
 

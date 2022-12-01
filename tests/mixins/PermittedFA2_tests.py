@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/Administrable.py").Administrable
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/PermittedFA2.py")
+Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+permitted_fa2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
 
