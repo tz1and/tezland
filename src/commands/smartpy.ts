@@ -11,11 +11,12 @@ const test_out_dir = "./tests/test_output"
 const CHECK_MARK = "\u2713"
 const CROSS_MARK = "\u2717"
 
-export function test(contract_names: string[]) {
+export function test(contract_names: string[], dir?: string) {
     if(contract_names.length > 0)
         contract_names.forEach(contract_name => test_single('./tests', contract_name));
     else {
-        for (const test_dir of config.smartpy.test_dirs) {
+        const test_dirs = dir ? new Set([dir]) : config.smartpy.test_dirs;
+        for (const test_dir of test_dirs) {
             console.log(`\nIn dir: ${test_dir}`)
             fs.readdirSync(test_dir).forEach(file => {
                 if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))

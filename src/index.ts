@@ -72,9 +72,10 @@ program
     .command('test')
     .alias('t')
     .description('Runs tests.')
+    .option('-d, --dir [dir]', 'dir to run tests in (optional)')
     .argument('[contract_names...]', 'names of contracts (optional)')
-    .action((contract_names: string[]) => {
-        smartpy.test(contract_names);
+    .action((contract_names, options) => {
+        smartpy.test(contract_names, options.dir);
     });
 
 //
