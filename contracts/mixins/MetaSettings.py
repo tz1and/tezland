@@ -7,7 +7,7 @@ class MetaSettings:
     before Upgradeable, in order to work correctly."""
     def __init__(self, lazy_ep = True):
         if not hasattr(self, 'available_settings'):
-            raise Exception("ERROR: MetaSettings.available_settings not set!")
+            raise Exception(f"ERROR: MetaSettings.available_settings not set in {self.__class__.__name__}!")
 
         if self.available_settings:
             def update_settings(self, params):
@@ -28,4 +28,4 @@ class MetaSettings:
                                 setattr(self.data, setting[0], value)
 
             self.update_settings = sp.entry_point(update_settings, lazify=lazy_ep)
-        else: print("\x1b[33;20mWARNING: MetaSettings used but available_settings is empty!\x1b[0m")
+        else: print(f"\x1b[33;20mWARNING: MetaSettings used in {self.__class__.__name__} but available_settings is empty!\x1b[0m")
