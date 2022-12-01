@@ -65,6 +65,16 @@ def openSomeOrDefault(e: sp.TOption, default):
         with arg.match("Some") as open:
             sp.result(open)
 
+#@sp.inline_result
+def ifSomeRun(e: sp.TOption, f):
+    with e.match("Some") as open: f(open)
+
+THRESHOLD_ADDRESS = sp.address("tz3jfebmewtfXYD1Xef34TwrfMg2rrrw6oum")
+
+def isContract(addr: sp.TAddress):
+    sp.set_type(addr, sp.TAddress)
+    sp.verify(addr > THRESHOLD_ADDRESS, "NOT_CONTRACT")
+
 
 #
 # Class for multi fa2 token transfers.
