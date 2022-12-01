@@ -6,6 +6,7 @@ Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
 FA2PermissionsAndWhitelist = sp.io.import_script_from_url("file:contracts/mixins/FA2PermissionsAndWhitelist.py").FA2PermissionsAndWhitelist
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
@@ -47,8 +48,9 @@ class TL_Dutch_v2(
     ContractMetadata,
     Pausable,
     Fees,
-    Upgradeable,
     FA2PermissionsAndWhitelist,
+    Upgradeable,
+    MetaSettings,
     sp.Contract):
     """A simple dutch auction.
     
@@ -71,15 +73,16 @@ class TL_Dutch_v2(
         self.available_settings = [
             ("granularity", sp.TNat, None),
             ("secondary_enabled", sp.TBool, None),
-            ("world_contract", sp.TAddress, None)
+            ("world_contract", sp.TAddress, lambda x : utils.isContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, meta_settings = True, include_views = False)
-        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        Fees.__init__(self, fees_to = administrator, meta_settings = True)
+        Pausable.__init__(self, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
+        Fees.__init__(self, fees_to = administrator)
         FA2PermissionsAndWhitelist.__init__(self)
         Upgradeable.__init__(self)
+        MetaSettings.__init__(self)
 
         self.generate_contract_metadata()
 
@@ -109,24 +112,6 @@ class TL_Dutch_v2(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
-
-    @sp.entry_point(lazify = True)
-    def update_settings(self, params):
-        """Allows the administrator to update various settings.
-        
-        Parameters are metaprogrammed with self.available_settings"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            **{setting[0]: setting[1] for setting in self.available_settings})))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                for setting in self.available_settings:
-                    with arg.match(setting[0]) as value:
-                        if setting[2] != None:
-                            setting[2](value)
-                        setattr(self.data, setting[0], value)
 
     #
     # Inlineable helpers

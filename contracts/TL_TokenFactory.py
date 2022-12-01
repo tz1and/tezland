@@ -5,6 +5,7 @@ Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrabl
 Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
@@ -48,6 +49,7 @@ class TL_TokenFactory(
     Administrable,
     ContractMetadata,
     Pausable,
+    MetaSettings,
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, minter, metadata, exception_optimization_level="default-line"):
@@ -67,16 +69,18 @@ class TL_TokenFactory(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, None),
-            ("minter", sp.TAddress, None)
+            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
+            ("minter", sp.TAddress, lambda x : utils.isContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, meta_settings = True, include_views = False)
-        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        Pausable.__init__(self, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
+        MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
+
 
     def generate_contract_metadata(self):
         """Generate a metadata json file with all the contract's offchain views."""
@@ -104,26 +108,6 @@ class TL_TokenFactory(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
-    #
-    # Admin-only entry points
-    #
-    @sp.entry_point(lazify = True)
-    def update_settings(self, params):
-        """Allows the administrator to update various settings.
-        
-        Parameters are metaprogrammed with self.available_settings"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            **{setting[0]: setting[1] for setting in self.available_settings})))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                for setting in self.available_settings:
-                    with arg.match(setting[0]) as value:
-                        if setting[2] != None:
-                            setting[2](value)
-                        setattr(self.data, setting[0], value)
 
     #
     # Public entry points

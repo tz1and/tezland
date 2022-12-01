@@ -3,7 +3,7 @@ import smartpy as sp
 Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
 Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
 Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
-FA2_Administration = sp.io.import_script_from_url("file:contracts/FA2_Administration.py").FA2_Administration
+FA2_Administration = sp.io.import_script_from_url("file:contracts/mixins/FA2_Administration.py").FA2_Administration
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")

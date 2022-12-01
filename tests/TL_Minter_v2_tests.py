@@ -52,6 +52,19 @@ def test():
     minter.accept_fa2_administrator([items_tokens.address, items_tokens_legacy.address]).run(sender = admin)
 
 
+    scenario.h2("update_settings")
+    scenario.h3("registry")
+
+    # failure cases.
+    for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
+        sender, exception = t
+        minter.update_settings([sp.variant("registry", bob.address)]).run(sender = sender, valid = False, exception = exception)
+
+    minter.update_settings([sp.variant("registry", minter.address)]).run(sender = admin)
+    scenario.verify(minter.data.registry == minter.address)
+    minter.update_settings([sp.variant("registry", registry.address)]).run(sender = admin)
+    scenario.verify(minter.data.registry == registry.address)
+
     #
     # test public collections (v1)
     #

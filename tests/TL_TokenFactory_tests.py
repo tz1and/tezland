@@ -5,12 +5,12 @@ token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenR
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
+
 @sp.add_test(name = "TL_TokenFactory_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
-    royalties_key = sp.test_account("Royalties")
     collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
 
@@ -50,28 +50,26 @@ def test():
     # minter
     scenario.verify(token_factory.data.minter == minter.address)
 
-    token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_factory.update_settings([sp.variant("minter", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
-    
-    # TODO: test failiure of implicit accounts?
-    #token_factory.update_token_registry(bob.address).run(sender=admin, valid=False, exception="ONLY_ADMIN")
+    # test minter setting failiure cases
+    for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
+        sender, exception = t
+        token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=sender, valid=False, exception=exception)
 
-    token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.minter == alice.address)
+    token_factory.update_settings([sp.variant("minter", token_factory.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.minter == token_factory.address)
     token_factory.update_settings([sp.variant("minter", minter.address)]).run(sender=admin)
     scenario.verify(token_factory.data.minter == minter.address)
 
     # registry
     scenario.verify(token_factory.data.registry == registry.address)
 
-    token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
-    token_factory.update_settings([sp.variant("registry", bob.address)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
-    
-    # TODO: test failiure of implicit accounts?
-    #token_factory.update_token_registry(bob.address).run(sender=admin, valid=False, exception="ONLY_ADMIN")
+    # test registry setting failiure cases
+    for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
+        sender, exception = t
+        token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=sender, valid=False, exception=exception)
 
-    token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.registry == alice.address)
+    token_factory.update_settings([sp.variant("registry", token_factory.address)]).run(sender=admin)
+    scenario.verify(token_factory.data.registry == token_factory.address)
     token_factory.update_settings([sp.variant("registry", registry.address)]).run(sender=admin)
     scenario.verify(token_factory.data.registry == registry.address)
 

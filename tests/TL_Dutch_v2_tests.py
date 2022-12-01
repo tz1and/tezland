@@ -556,15 +556,39 @@ def test():
     scenario.verify(scenario.compute(dutch.get_auction_price(current_auction_key), now=auction_start_time.add_minutes(90)) == sp.tez(20))
 
     #
+    # update world_contract
+    #
+    scenario.h3("update world_contract")
+
+    # check default
+    scenario.verify(dutch.data.world_contract == world.address)
+
+    # failure cases.
+    for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
+        sender, exception = t
+        dutch.update_settings([sp.variant("world_contract", bob.address)]).run(sender = sender, valid = False, exception = exception)
+
+    dutch.update_settings([sp.variant("world_contract", minter.address)]).run(sender = admin)
+    scenario.verify(dutch.data.world_contract == minter.address)
+    dutch.update_settings([sp.variant("world_contract", world.address)]).run(sender = admin)
+    scenario.verify(dutch.data.world_contract == world.address)
+
+    #
     # update granularity
     #
     scenario.h3("update granularity")
-    
-    dutch.update_settings([sp.variant("granularity", 35)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    dutch.update_settings([sp.variant("granularity", 250)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
+
+    # check default
     scenario.verify(dutch.data.granularity == sp.nat(60))
-    dutch.update_settings([sp.variant("granularity", 45)]).run(sender = admin)
-    scenario.verify(dutch.data.granularity == sp.nat(45))
+
+    # no permission for anyone but admin
+    for acc in [alice, bob, admin]:
+        dutch.update_settings([sp.variant("granularity", 35)]).run(
+            sender = acc,
+            valid = (True if acc is admin else False),
+            exception = (None if acc is admin else "ONLY_ADMIN"))
+
+        if acc is admin: scenario.verify(dutch.data.granularity == sp.nat(35))
 
     scenario.table_of_contents()
 
@@ -572,11 +596,7 @@ def test():
     # test paused
     #
     scenario.h3("pausing")
-    scenario.verify(dutch.data.paused == False)
-    dutch.update_settings([sp.variant("paused", True)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    dutch.update_settings([sp.variant("paused", True)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     dutch.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    scenario.verify(dutch.data.paused == True)
 
     dutch.bid(auction_key = current_auction_key, ext = sp.none).run(sender = alice, amount = sp.mutez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_UNPAUSED")
 
@@ -594,10 +614,7 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         ext = sp.none).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
 
-    dutch.update_settings([sp.variant("paused", False)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
-    dutch.update_settings([sp.variant("paused", False)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     dutch.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    scenario.verify(dutch.data.paused == False)
 
     dutch.cancel(auction_key = current_auction_key, ext = sp.none).run(sender = alice)
 

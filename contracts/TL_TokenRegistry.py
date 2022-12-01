@@ -5,6 +5,7 @@ Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pau
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py").BasicPermissions
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 #MerkleTree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
@@ -133,6 +134,7 @@ class TL_TokenRegistry(
     ContractMetadata,
     BasicPermissions,
     Pausable,
+    MetaSettings,
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, collections_public_key, metadata, exception_optimization_level="default-line"):
@@ -152,12 +154,14 @@ class TL_TokenRegistry(
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, meta_settings = True, include_views = False)
-        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        Pausable.__init__(self, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
         BasicPermissions.__init__(self, lazy_ep = True)
+        MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
+
 
     def generate_contract_metadata(self):
         """Generate a metadata json file with all the contract's offchain views."""
@@ -185,6 +189,7 @@ class TL_TokenRegistry(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
+
     #
     # Some inline helpers
     #
@@ -195,26 +200,6 @@ class TL_TokenRegistry(
         # CHeck owner.
         sp.verify(the_collection.ownership.open_some().owner == sp.sender, "ONLY_OWNER")
 
-    #
-    # Admin and permitted entry points
-    #
-    @sp.entry_point(lazify = True)
-    def update_settings(self, params):
-        """Allows the administrator to update various settings.
-        
-        Parameters are metaprogrammed with self.available_settings"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            **{setting[0]: setting[1] for setting in self.available_settings})))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                for setting in self.available_settings:
-                    with arg.match(setting[0]) as value:
-                        if setting[2] != None:
-                            setting[2](value)
-                        setattr(self.data, setting[0], value)
 
     #
     # Mixed admin, permitted and user.

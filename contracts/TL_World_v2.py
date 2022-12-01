@@ -13,6 +13,7 @@ Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation_v2.p
 AllowedPlaceTokens = sp.io.import_script_from_url("file:contracts/mixins/AllowedPlaceTokens.py").AllowedPlaceTokens
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
@@ -470,6 +471,7 @@ class TL_World_v2(
     Fees,
     Moderation,
     AllowedPlaceTokens,
+    MetaSettings,
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, royalties_adapter, paused, items_tokens, metadata,
@@ -505,18 +507,19 @@ class TL_World_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, None),
-            ("royalties_adapter", sp.TAddress, None),
-            ("migration_from", sp.TOption(sp.TAddress), None),
+            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
+            ("royalties_adapter", sp.TAddress, lambda x : utils.isContract(x)),
+            ("migration_from", sp.TOption(sp.TAddress), lambda x : utils.ifSomeRun(x, lambda y: utils.isContract(y))),
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, paused = paused, meta_settings = True, include_views = False)
-        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
-        Fees.__init__(self, fees_to = administrator, meta_settings = True)
-        Moderation.__init__(self, meta_settings = True)
+        Pausable.__init__(self, paused = paused, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
+        Fees.__init__(self, fees_to = administrator)
+        Moderation.__init__(self)
         AllowedPlaceTokens.__init__(self)
+        MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
         self.generate_contract_metadata(name, description)
@@ -546,25 +549,6 @@ class TL_World_v2(
                 offchain_views.append(attr)
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
-
-
-    @sp.entry_point(lazify = True)
-    def update_settings(self, params):
-        """Allows the administrator to update various settings.
-        
-        Parameters are metaprogrammed with self.available_settings"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            **{setting[0]: setting[1] for setting in self.available_settings})))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                for setting in self.available_settings:
-                    with arg.match(setting[0]) as value:
-                        if setting[2] != None:
-                            setting[2](value)
-                        setattr(self.data, setting[0], value)
 
 
     #

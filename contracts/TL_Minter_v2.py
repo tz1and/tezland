@@ -2,9 +2,10 @@ import smartpy as sp
 
 Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
 Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-FA2_Administration = sp.io.import_script_from_url("file:contracts/FA2_Administration.py").FA2_Administration
+FA2_Administration = sp.io.import_script_from_url("file:contracts/mixins/FA2_Administration.py").FA2_Administration
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
+MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
@@ -24,6 +25,7 @@ class TL_Minter_v2(
     ContractMetadata,
     Pausable,
     FA2_Administration,
+    MetaSettings,
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, metadata, exception_optimization_level="default-line"):
@@ -35,16 +37,18 @@ class TL_Minter_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, None)
+            ("registry", sp.TAddress, lambda x : utils.isContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, meta_settings = True, include_views = False)
-        ContractMetadata.__init__(self, metadata = metadata, meta_settings = True)
+        Pausable.__init__(self, include_views = False)
+        ContractMetadata.__init__(self, metadata = metadata)
         FA2_Administration.__init__(self)
+        MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
         self.generate_contract_metadata()
+
 
     def generate_contract_metadata(self):
         """Generate a metadata json file with all the contract's offchain views."""
@@ -72,11 +76,13 @@ class TL_Minter_v2(
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
 
+
     #
     # Some constants
     #
     MAX_ROYALTIES = sp.nat(250)
     MAX_CONTRIBUTORS = sp.nat(3)
+
 
     #
     # Some inline helpers
@@ -90,6 +96,7 @@ class TL_Minter_v2(
             ), token_registry_contract.t_ownership_check),
             t = token_registry_contract.t_ownership_result).open_some() == sp.bounded("owner"), "ONLY_OWNER")
 
+
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
         # call registry view to check owner or collaborator.
         sp.compute(sp.view("is_private_owner_or_collab", self.data.registry,
@@ -99,12 +106,14 @@ class TL_Minter_v2(
             ), token_registry_contract.t_ownership_check),
             t = token_registry_contract.t_ownership_result).open_some())
 
+
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
         sp.verify(sp.view("get_collection_info", self.data.registry,
             sp.set_type_expr(collection, sp.TAddress),
             t = token_registry_contract.collectionType).open_some()
             .collection_type == token_registry_contract.collectionPublic, "NOT_PUBLIC")
+
 
     #
     # Admin-only entry points
@@ -123,6 +132,7 @@ class TL_Minter_v2(
                 
             sp.transfer(contract_item.value, sp.mutez(0), set_paused_handle)
 
+
     @sp.entry_point
     def clear_adhoc_operators_fa2(self, params):
         """The admin can clear adhoc ops for item collections."""
@@ -138,23 +148,6 @@ class TL_Minter_v2(
             sp.transfer(sp.variant("clear_adhoc_operators", sp.unit),
                 sp.mutez(0), update_adhoc_operators_handle)
 
-    @sp.entry_point(lazify = True)
-    def update_settings(self, params):
-        """Allows the administrator to update various settings.
-        
-        Parameters are metaprogrammed with self.available_settings"""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            **{setting[0]: setting[1] for setting in self.available_settings})))
-
-        self.onlyAdministrator()
-
-        with sp.for_("update", params) as update:
-            with update.match_cases() as arg:
-                for setting in self.available_settings:
-                    with arg.match(setting[0]) as value:
-                        if setting[2] != None:
-                            setting[2](value)
-                        setattr(self.data, setting[0], value)
 
     #
     # Public entry points
@@ -190,6 +183,7 @@ class TL_Minter_v2(
             )],
             params.collection)
 
+
     @sp.entry_point(lazify = True)
     def mint_public(self, params):
         """Minting items in a public collection"""
@@ -218,6 +212,7 @@ class TL_Minter_v2(
             )],
             params.collection)
 
+
     #
     # Private entry points
     #
@@ -234,6 +229,7 @@ class TL_Minter_v2(
         utils.validate_ipfs_uri(params.metadata_uri)
 
         utils.contract_set_metadata(params.collection, params.metadata_uri)
+
 
     @sp.entry_point(lazify = True)
     def mint_private(self, params):
