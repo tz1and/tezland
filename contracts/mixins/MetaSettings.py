@@ -5,7 +5,7 @@ import smartpy as sp
 class MetaSettings:
     """IMPORTANT: Must be initialised after all eps using meta settings but
     before Upgradeable, in order to work correctly."""
-    def __init__(self):
+    def __init__(self, lazy_ep = True):
         if not hasattr(self, 'available_settings'):
             raise Exception("ERROR: MetaSettings.available_settings not set!")
 
@@ -27,5 +27,5 @@ class MetaSettings:
                                     setting[2](value)
                                 setattr(self.data, setting[0], value)
 
-            self.update_settings = sp.entry_point(update_settings, lazify=True)
+            self.update_settings = sp.entry_point(update_settings, lazify=lazy_ep)
         else: print("\x1b[33;20mWARNING: MetaSettings used but available_settings is empty!\x1b[0m")
