@@ -29,4 +29,4 @@ class Upgradeable:
                             sp.set_entry_point(entrypoint, params.new_code)
 
             self.update_ep = sp.entry_point(update_ep, lazify=False)
-        else: print("\x1b[33;20mWARNING: Upgradeable used but upgradeable_entrypoints is empty!")
+        else: print("\x1b[33;20mWARNING: Upgradeable used but upgradeable_entrypoints is empty!\x1b[0m")
