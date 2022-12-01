@@ -56,4 +56,4 @@ def test():
             exception=(None if acc is admin else "ONLY_ADMIN"))
 
     # Make sure the lambda ran.
-    sp.verify(admin_lambda.data.test == sp.nat(20))
+    scenario.verify(admin_lambda.data.test == sp.nat(20))
