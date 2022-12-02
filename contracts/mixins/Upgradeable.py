@@ -5,6 +5,7 @@ import smartpy as sp
 
 # Mixins required: Administrable
 class Upgradeable:
+    """IMPORTANT: Must be initialised last, in order to work correctly."""
     def __init__(self):
         # get lazy entry points
         self.upgradeable_entrypoints = []
