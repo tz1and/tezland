@@ -1,8 +1,8 @@
 import smartpy as sp
 
 dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 
 
 class TL_Dutch_v1_1(dutch_contract.TL_Dutch):
@@ -32,7 +32,7 @@ class TL_Dutch_v1_1(dutch_contract.TL_Dutch):
             sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # transfer token back to auction owner.
-        utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
+        fa2_utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
         del self.data.auctions[params.auction_id]
 

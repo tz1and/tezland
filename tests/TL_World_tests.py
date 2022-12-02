@@ -3,6 +3,7 @@ import smartpy as sp
 minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
@@ -72,7 +73,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
+            balances.value[curr] = fa2_utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)

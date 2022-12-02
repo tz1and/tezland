@@ -1,12 +1,12 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+AddressSet = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").AddressSet
 
 
 # Mixins required: Administrable
 class Whitelist:
     def __init__(self):
-        self.address_set = utils.AddressSet()
+        self.address_set = AddressSet()
         self.update_initial_storage(
             whitelist_enabled = True, # enabled by default
             whitelist = self.address_set.make(), # administrator doesn't need to be whitelisted

@@ -1,6 +1,6 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+GenericMap = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").GenericMap
 
 
 # TODO: get_fa2_permitted is probably not needed? maybe for interop...
@@ -13,7 +13,7 @@ permittedFA2MapValueType = sp.TRecord(
 
 #
 # Map of permitted FA2 tokens for 'other' type.
-class PermittedFA2Map(utils.GenericMap):
+class PermittedFA2Map(GenericMap):
     def __init__(self) -> None:
         super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED", big_map=False)
 
@@ -24,7 +24,7 @@ t_whitelist_key = sp.TRecord(
     user = sp.TAddress
 ).layout(("fa2", "user"))
 
-class FA2WhitelistMap(utils.GenericMap):
+class FA2WhitelistMap(GenericMap):
     def __init__(self) -> None:
         super().__init__(t_whitelist_key, sp.TUnit, default_value=sp.unit, get_error="NOT_WHITELISTED")
 

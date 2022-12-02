@@ -226,9 +226,9 @@ class TL_Minter_v2(
 
         self.onlyUnpaused()
         self.onlyOwnerPrivate(params.collection, sp.sender)
-        utils.validate_ipfs_uri(params.metadata_uri)
+        utils.validateIpfsUri(params.metadata_uri)
 
-        utils.contract_set_metadata(params.collection, params.metadata_uri)
+        utils.contractSetMetadata(params.collection, params.metadata_uri)
 
 
     @sp.entry_point(lazify = True)

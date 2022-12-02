@@ -119,7 +119,7 @@ class TL_TokenFactory(
 
         self.onlyUnpaused()
 
-        utils.validate_ipfs_uri(metadata_uri)
+        utils.validateIpfsUri(metadata_uri)
 
         # Originate FA2
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(

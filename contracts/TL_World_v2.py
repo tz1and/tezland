@@ -19,6 +19,8 @@ registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistr
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+token_transfer_utils = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py")
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Now:
@@ -693,7 +695,7 @@ class TL_World_v2(
         this_place = PlaceStorage(self.data.places, params.place_key, True)
 
         # Our token transfer map.
-        transferMap = utils.FA2TokenTransferMap()
+        transferMap = token_transfer_utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
         registry_contract.checkRegistered(
@@ -840,7 +842,7 @@ class TL_World_v2(
                     sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Token transfer map.
-        transferMap = utils.FA2TokenTransferMap()
+        transferMap = token_transfer_utils.FA2TokenTransferMap()
 
         # Remove items.
         with sp.for_("chunk_item", params.remove_map.items()) as chunk_item:
@@ -891,7 +893,7 @@ class TL_World_v2(
         sp.set_type(primary, sp.TBool)
 
         # Collect amounts to send in a map.
-        sendMap = utils.TokenSendMap()
+        sendMap = token_transfer_utils.TokenSendMap()
 
         # First, we take our fees are in permille.
         fees_amount = sp.compute(sp.split_tokens(rate, self.data.fees, sp.nat(1000)))
@@ -992,7 +994,7 @@ class TL_World_v2(
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
                 
                 # Transfer item to buyer.
-                utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
+                fa2_utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.amount > 1):

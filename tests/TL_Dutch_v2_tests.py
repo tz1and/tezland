@@ -9,6 +9,7 @@ royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_Roy
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
+
 @sp.add_test(name = "TL_Dutch_v2_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")

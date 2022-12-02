@@ -3,7 +3,7 @@ import smartpy as sp
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
 worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+FA2TokenTransferMapSingle = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py").FA2TokenTransferMapSingle
 
 
 class TL_World_v1_1(world_contract.TL_World):
@@ -59,7 +59,7 @@ class TL_World_v1_1(world_contract.TL_World):
 
                 # Our token transfer map.
                 # Since it's all the same token, we can have a single map.
-                transferMap = utils.FA2TokenTransferMapSingle(self.data.items_contract)
+                transferMap = FA2TokenTransferMapSingle(self.data.items_contract)
 
                 # Fill migration map with items from storage
                 with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:

@@ -8,6 +8,7 @@ royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_Roy
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 #merkle_tree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py")
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Some frequently used forwarded types
@@ -179,7 +180,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = utils.fa2_get_balance(curr.fa2, curr.token_id, utils.openSomeOrDefault(curr.owner, params.place_owner))
+            balances.value[curr] = fa2_utils.fa2_get_balance(curr.fa2, curr.token_id, utils.openSomeOrDefault(curr.owner, params.place_owner))
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -191,7 +192,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = utils.fa2_get_balance(curr.fa2, curr.token_id, params.owner)
+            balances.value[curr] = fa2_utils.fa2_get_balance(curr.fa2, curr.token_id, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -1331,17 +1332,13 @@ def test():
             self.init_storage(world = world)
 
         @sp.entry_point
-        def migrate(self, place_key, item_map, props):
+        def migrate(self, params):
+            sp.set_type(params, places_contract.migrationType)
             migration_handle = sp.contract(
                 t=places_contract.migrationType,
                 address=self.data.world,
                 entry_point='migration').open_some()
-            sp.transfer(sp.record(
-                place_key=place_key,
-                item_map=item_map,
-                props = props,
-                ext = sp.none
-            ), sp.mutez(0), migration_handle)
+            sp.transfer(params, sp.mutez(0), migration_handle)
 
     migration_test = MigrationTest(world.address)
     scenario += migration_test

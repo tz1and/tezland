@@ -7,7 +7,16 @@ FA2_Administration = sp.io.import_script_from_url("file:contracts/mixins/FA2_Adm
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+
+
+def fa2_nft_mint(batch, contract):
+    sp.set_type(batch, FA2_legacy.t_mint_nft_batch)
+    sp.set_type(contract, sp.TAddress)
+    c = sp.contract(
+        FA2_legacy.t_mint_nft_batch,
+        contract,
+        entry_point='mint').open_some()
+    sp.transfer(batch, sp.mutez(0), c)
 
 
 #
@@ -102,7 +111,7 @@ class TL_Minter(
         self.onlyAdministrator()
         self.onlyUnpaused()
 
-        utils.fa2_nft_mint(
+        fa2_nft_mint(
             params,
             self.data.places_contract
         )

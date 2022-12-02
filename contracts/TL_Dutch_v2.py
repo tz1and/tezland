@@ -10,6 +10,9 @@ MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.
 
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+GenericMap = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").GenericMap
+token_transfer_utils = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py")
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
@@ -36,7 +39,7 @@ t_auction = sp.TRecord(
 
 #
 # Lazy map of auctions.
-class AuctionMap(utils.GenericMap):
+class AuctionMap(GenericMap):
     def __init__(self) -> None:
         super().__init__(t_auction_key, t_auction, default_value=None, get_error="AUCTION_NOT_FOUND")
 
@@ -160,10 +163,10 @@ class TL_Dutch_v2(
         sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
-        sp.verify(utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
+        sp.verify(fa2_utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
 
         # Make sure auction contract is operator of token.
-        sp.verify(utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
+        sp.verify(fa2_utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
 
         # Create auction.
         self.auction_map.add(self.data.auctions, params.auction_key, params.auction)
@@ -198,7 +201,7 @@ class TL_Dutch_v2(
         sp.set_type(owner, sp.TAddress)
 
         # Collect amounts to send in a map.
-        sendMap = utils.TokenSendMap()
+        sendMap = token_transfer_utils.TokenSendMap()
 
         # Send back overpay, if there was any.
         overpay = amount_sent - ask_price
@@ -289,13 +292,13 @@ class TL_Dutch_v2(
         self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
         # Transfer place from owner to this contract.
-        utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
+        fa2_utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
 
         # Reset the value_to property in world.
         self.reset_value_to_in_world(params.auction_key.fa2, params.auction_key.token_id)
 
         # Transfer place from this contract to buyer.
-        utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
+        fa2_utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
 
         # After transfer, remove own operator rights for token.
         self.remove_operator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)

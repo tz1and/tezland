@@ -8,6 +8,7 @@ Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py")
 PermittedFA2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py").PermittedFA2
 Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
 
+fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # TODO: test royalties for item token
@@ -161,7 +162,7 @@ class TL_Dutch(
             (params.start_price >= params.end_price), message = "INVALID_PARAM")
 
         # call fa2_balance or is_operator to avoid burning gas on bigmap insert.
-        sp.verify(utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
+        sp.verify(fa2_utils.fa2_get_balance(params.fa2, params.token_id, sp.sender) > 0, message = "NOT_OWNER")
 
         # Create auction
         self.data.auctions[self.data.auction_id] = sp.record(
@@ -177,7 +178,7 @@ class TL_Dutch(
         self.data.auction_id += 1
 
         # Transfer token (place)
-        utils.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
+        fa2_utils.fa2_transfer(params.fa2, sp.sender, sp.self_address, params.token_id, 1)
 
 
     @sp.entry_point(lazify = True)
@@ -200,7 +201,7 @@ class TL_Dutch(
         sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
 
         # transfer token back to auction owner.
-        utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
+        fa2_utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)
 
         del self.data.auctions[params.auction_id]
 
@@ -271,10 +272,10 @@ class TL_Dutch(
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
-            utils.send_if_value(send.key, send.value)
+            utils.sendIfValue(send.key, send.value)
 
         # Transfer item to buyer.
-        utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
+        fa2_utils.fa2_transfer(the_auction.value.fa2, sp.self_address, sp.sender, the_auction.value.token_id, 1)
 
         # If it was a whitelist required auction, remove from whitelist.
         with sp.if_(the_auction.value.owner == self.data.administrator):
