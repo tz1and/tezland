@@ -18,10 +18,12 @@ export function test(contract_names: string[], dir?: string) {
         const test_dirs = dir ? new Set([dir]) : config.smartpy.test_dirs;
         for (const test_dir of test_dirs) {
             console.log(`\nIn dir: ${test_dir}`)
-            fs.readdirSync(test_dir).forEach(file => {
-                if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))
-                    test_single(test_dir, file.slice(0, -9));
-            });
+            if (fs.existsSync(test_dir) && fs.lstatSync(test_dir).isDirectory())
+                fs.readdirSync(test_dir).forEach(file => {
+                    if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))
+                        test_single(test_dir, file.slice(0, -9));
+                });
+            else console.warn(kleur.red(`'${test_dir}' does not exist or is not a directory.`));
         }
     }
 
