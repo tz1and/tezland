@@ -1326,12 +1326,32 @@ def test():
     #
     scenario.h2("migration")
 
-    # Set migration contract to be admin address.
-    world.update_settings([sp.variant("migration_from", sp.some(admin.address))]).run(sender = admin)
+    class MigrationTest(sp.Contract):
+        def __init__(self, world):
+            self.init_storage(world = world)
+
+        @sp.entry_point
+        def migrate(self, place_key, item_map, props):
+            migration_handle = sp.contract(
+                t=places_contract.migrationType,
+                address=self.data.world,
+                entry_point='migration').open_some()
+            sp.transfer(sp.record(
+                place_key=place_key,
+                item_map=item_map,
+                props = props,
+                ext = sp.none
+            ), sp.mutez(0), migration_handle)
+
+    migration_test = MigrationTest(world.address)
+    scenario += migration_test
+
+    # Set migration contract to be migration test contract.
+    world.update_settings([sp.variant("migration_from", sp.some(migration_test.address))]).run(sender = admin)
     world.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 2, chunk_item_limit = 4)})])).run(sender = admin)
 
     # Invalid migration - place not not empty.
-    world.migration(
+    migration_test.migrate(
         place_key=place_bob,
         # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
         item_map = {
@@ -1346,7 +1366,7 @@ def test():
     ).run(sender=admin, valid=False, exception="MIGRATION_PLACE_NOT_EMPTY")
 
     # Invalid migration - chunk limit.
-    world.migration(
+    migration_test.migrate(
         place_key=place_carol,
         # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
         item_map = {
@@ -1361,7 +1381,7 @@ def test():
     ).run(sender=admin, valid=False, exception="CHUNK_LIMIT")
 
     # Valid migration.
-    world.migration(
+    migration_test.migrate(
         place_key=place_carol,
         # For migration from v1 we basically need the same data as a chunk but with a list as the leaf.
         item_map = {
