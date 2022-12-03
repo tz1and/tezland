@@ -1,3 +1,4 @@
+#
 # LegacyRoyalties
 ########################
 
@@ -21,29 +22,21 @@ Combined:
 	2646 Bytes
 
 
+#
 # TokenRegistry
 ########################
 
 Storage: 	
-	110 Bytes
+	2756 Bytes
 Big map originations (5): 	
 	160 Bytes
 Code: 	
-	2666 Bytes
+	4033 Bytes
 Combined: 	
-	2936 Bytes
+	6949 Bytes
 
 
-Storage: 	
-	104 Bytes
-Big map originations (4): 	
-	128 Bytes
-Code: 	
-	2414 Bytes
-Combined: 	
-	2646 Bytes
-
-
+#
 # World v2
 #########################
 
@@ -135,3 +128,67 @@ Code:
 	8155 Bytes
 Combined: 	
 	18472 Bytes
+
+
+Storage: 	
+	10279 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18594 Bytes
+
+
+Storage: 	
+	10552 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18867 Bytes
+
+
+#
+# Minter v2
+######################
+
+Storage: 	
+	2288 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2680 Bytes
+Combined: 	
+	5032 Bytes
+
+
+Storage: 	
+	2823 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2539 Bytes
+Combined: 	
+	5426 Bytes
+
+
+Storage: 	
+	2715 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2352 Bytes
+Combined: 	
+	5131 Bytes
+
+
+Storage: 	
+	3013 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2111 Bytes
+Combined: 	
+	5188 Bytes
