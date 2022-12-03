@@ -23,10 +23,11 @@ t_public_key_item = sp.TRecord(
     key = sp.TKey
 ).layout(("owner", "key"))
 
-t_manage_public_keys = sp.TList(sp.TVariant(
-    add = sp.TMap(sp.TString, sp.TKey),
-    remove = sp.TSet(sp.TString)
-).layout(("add", "remove")))
+t_manage_registry = sp.TList(sp.TVariant(
+    add_keys = sp.TMap(sp.TString, sp.TKey),
+    remove_keys = sp.TSet(sp.TString),
+    remove_royalties = sp.TMap(sp.TAddress, sp.TSet(sp.TOption(sp.TNat)))
+).layout(("add_keys", ("remove_keys", "remove_royalties"))))
 
 t_token_key_opt = sp.TRecord(
     fa2 = sp.TAddress,
@@ -45,8 +46,6 @@ t_royalties_offchain = sp.TRecord(
     # TODO: prob want to define royalties here directly.
     token_royalties = FA2.t_royalties_interop
 ).layout(("token_key", "token_royalties"))
-
-t_remove_royalties_params = sp.TMap(sp.TAddress, sp.TSet(sp.TOption(sp.TNat)))
 
 t_add_royalties_params = sp.TMap(
     sp.TString, # private key id
@@ -134,39 +133,31 @@ class TL_LegacyRoyalties(
     # Admin and permitted entry points
     #
     @sp.entry_point(lazify = False)
-    def manage_public_keys(self, params):
+    def manage_registry(self, params):
         """Admin or permitted can add/remove public keys"""
-        sp.set_type(params, t_manage_public_keys)
+        sp.set_type(params, t_manage_registry)
 
         #self.onlyUnpaused()
         self.onlyAdministratorOrPermitted()
 
         with sp.for_("upd", params) as upd:
             with upd.match_cases() as arg:
-                with arg.match("add") as add:
-                    with sp.for_("add_item", add.items()) as add_item:
+                with arg.match("add_keys") as add_keys:
+                    with sp.for_("add_item", add_keys.items()) as add_item:
                         self.data.public_keys[add_item.key] = sp.record(owner=sp.sender, key=add_item.value)
 
-                with arg.match("remove") as remove:
-                    with sp.for_("id", remove.elements()) as id:
+                with arg.match("remove_keys") as remove_keys:
+                    with sp.for_("id", remove_keys.elements()) as id:
                         # check owner or admin
                         with sp.if_(self.isAdministrator(sp.sender) | (self.data.public_keys.get(id, message="UNKNOWN_KEY").owner == sp.sender)):
                             del self.data.public_keys[id]
                         with sp.else_():
                             sp.failwith("NOT_KEY_OWNER_OR_ADMIN")
 
-
-    @sp.entry_point(lazify = False)
-    def remove_royalties(self, params):
-        """Admin or permitted can remove royalties"""
-        sp.set_type(params, t_remove_royalties_params)
-
-        #self.onlyUnpaused()
-        self.onlyAdministratorOrPermitted()
-
-        with sp.for_("fa2_item", params.items()) as fa2_item:
-            with sp.for_("token_id", fa2_item.value.elements()) as token_id:
-                del self.data.royalties[sp.record(fa2=fa2_item.key, id=token_id)]
+                with arg.match("remove_royalties") as remove_royalties:
+                    with sp.for_("fa2_item", remove_royalties.items()) as fa2_item:
+                        with sp.for_("token_id", fa2_item.value.elements()) as token_id:
+                            del self.data.royalties[sp.record(fa2=fa2_item.key, id=token_id)]
 
 
     #

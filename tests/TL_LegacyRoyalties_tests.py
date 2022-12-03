@@ -66,16 +66,16 @@ def test():
     scenario += legacy_royalties
 
     # Managing keys
-    scenario.h2("manage_public_keys")
-    legacy_royalties.manage_public_keys([sp.variant("add", {
+    scenario.h2("manage_registry: keys")
+    legacy_royalties.manage_registry([sp.variant("add_keys", {
         "key1": royalties_key1.public_key
     })]).run(sender=admin)
     scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=admin.address, key=royalties_key1.public_key))
 
-    legacy_royalties.manage_public_keys([sp.variant("remove", sp.set(["key1"]))]).run(sender=admin)
+    legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key1"]))]).run(sender=admin)
     scenario.verify(~legacy_royalties.data.public_keys.contains("key1"))
 
-    legacy_royalties.manage_public_keys([sp.variant("add", {
+    legacy_royalties.manage_registry([sp.variant("add_keys", {
         "key1": royalties_key1.public_key,
         "key2": royalties_key2.public_key
     })]).run(sender=admin)
@@ -83,10 +83,10 @@ def test():
     scenario.verify(legacy_royalties.data.public_keys.get("key2") == sp.record(owner=admin.address, key=royalties_key2.public_key))
 
     # no permission
-    legacy_royalties.manage_public_keys([sp.variant("add", {
+    legacy_royalties.manage_registry([sp.variant("add_keys", {
         "key_invalid": royalties_key_invalid.public_key
     })]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
-    legacy_royalties.manage_public_keys([sp.variant("remove", sp.set(["key_invalid"]))]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key_invalid"]))]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
 
     # Update settings
     scenario.h2("update_settings")
@@ -164,14 +164,14 @@ def test():
         sp.record(signature=royalties_global_signed_invalid, offchain_royalties=offchain_royalties_global)
     ]}).run(sender=bob, valid=False, exception="INVALID_SIGNATURE")
 
-    scenario.h2("remove_royalties")
+    scenario.h2("manage_registry: remove royalties")
 
     remove_unique = {items_tokens.address: sp.set([sp.some(10)])}
     remove_global = {pfp_tokens.address: sp.set([sp.none])}
-    legacy_royalties.remove_royalties(remove_unique).run(sender=bob, valid=False, exception="NOT_PERMITTED")
-    legacy_royalties.remove_royalties(remove_unique).run(sender=alice, valid=False, exception="NOT_PERMITTED")
-    legacy_royalties.remove_royalties(remove_unique).run(sender=admin)
-    legacy_royalties.remove_royalties(remove_global).run(sender=admin)
+    legacy_royalties.manage_registry([sp.variant("remove_royalties", remove_unique)]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.manage_registry([sp.variant("remove_royalties", remove_unique)]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
+    legacy_royalties.manage_registry([sp.variant("remove_royalties", remove_unique)]).run(sender=admin)
+    legacy_royalties.manage_registry([sp.variant("remove_royalties", remove_global)]).run(sender=admin)
     scenario.verify(~legacy_royalties.data.royalties.contains(offchain_royalties_unique.token_key))
     scenario.verify(~legacy_royalties.data.royalties.contains(offchain_royalties_global.token_key))
 
