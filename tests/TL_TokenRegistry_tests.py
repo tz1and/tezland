@@ -61,7 +61,9 @@ def test():
 
     # set items_tokens administrator to minter contract
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
+    minter.token_administration([
+            sp.variant("accept_fa2_administrator", sp.set([items_tokens.address]))
+    ]).run(sender = admin)
 
     # test public collections
     scenario.h2("Public Collections")

@@ -5,6 +5,7 @@ token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFa
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
+royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 #merkle_tree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py")
@@ -19,6 +20,7 @@ PermissionParams = places_contract.PermissionParams
 # TODO: test chunk limits
 # TODO: test chunks
 # TODO: test place keys?
+# TODO: test v2 items.
 # TODO: test registry and collections.
 # TODO: test placing items with collection merkle proof.
 # TODO: test getting items with royalties merkle proof.
@@ -251,6 +253,12 @@ def test():
         admin = admin.address)
     scenario += items_tokens
 
+    scenario.h2("Items v2")
+    items_tokens_v2 = tokens.tz1andItems_v2(
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += items_tokens_v2
+
     items_utils = FA2_utils()
     scenario += items_utils
 
@@ -270,9 +278,13 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
-    scenario.h2("RoyaltiesAdapter")
+    scenario.h3("RoyaltiesAdapters")
+    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+        legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += royalties_adapter_legacy
+
     royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
-        registry.address, legacy_royalties.address,
+        registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 
@@ -309,35 +321,46 @@ def test():
     scenario.h2("preparation")
 
     scenario.h3("transfer/register/mint items tokens in minter")
-    items_tokens.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1})]).run(sender = admin)
+    items_tokens_v2.transfer_administrator(minter.address).run(sender = admin)
+    minter.token_administration([
+            sp.variant("accept_fa2_administrator", sp.set([items_tokens_v2.address]))
+    ]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1, items_tokens_v2.address: 2})]).run(sender = admin)
 
-    # mint some item tokens for testing
-    scenario.h3("minting items")
-    minter.mint_public_v1(collection = items_tokens.address,
+    # mint some v1 item tokens for testing
+    scenario.h3("minting items v1")
+    items_tokens.mint([sp.record(
         to_ = bob.address,
         amount = 14,
-        royalties = 250,
-        contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
+        token = sp.variant("new", sp.record(
+            metadata = {"": sp.utils.bytes_of_string("test_metadata")},
+            royalties = sp.record(
+                royalties = 250,
+                contributors = [ sp.record(address=alice.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ])))
+    )]).run(sender = admin)
 
-    minter.mint_public_v1(collection = items_tokens.address,
+    items_tokens.mint([sp.record(
         to_ = alice.address,
         amount = 25,
-        royalties = 250,
-        contributors = [
-            sp.record(address=alice.address, relative_royalties=sp.nat(400), role=sp.variant("minter", sp.unit)),
-            sp.record(address=bob.address, relative_royalties=sp.nat(300), role=sp.variant("creator", sp.unit)),
-            sp.record(address=bob.address, relative_royalties=sp.nat(300), role=sp.variant("creator", sp.unit)), ],
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
+        token = sp.variant("new", sp.record(
+            metadata = {"": sp.utils.bytes_of_string("test_metadata")},
+            royalties = sp.record(
+                royalties = 250,
+                contributors = [
+                    sp.record(address=alice.address, relative_royalties=sp.nat(400), role=sp.variant("minter", sp.unit)),
+                    sp.record(address=bob.address, relative_royalties=sp.nat(300), role=sp.variant("creator", sp.unit)),
+                    sp.record(address=bob.address, relative_royalties=sp.nat(300), role=sp.variant("creator", sp.unit)), ])))
+    )]).run(sender = admin)
 
-    minter.mint_public_v1(collection = items_tokens.address,
+    items_tokens.mint([sp.record(
         to_ = admin.address,
         amount = 1000,
-        royalties = 250,
-        contributors = [ sp.record(address=carol.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ],
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice)
+        token = sp.variant("new", sp.record(
+            metadata = {"": sp.utils.bytes_of_string("test_metadata")},
+            royalties = sp.record(
+                royalties = 250,
+                contributors = [ sp.record(address=carol.address, relative_royalties=sp.nat(1000), role=sp.variant("minter", sp.unit)) ])))
+    )]).run(sender = admin)
 
     item_bob = sp.nat(0)
     item_alice = sp.nat(1)

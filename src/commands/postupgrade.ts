@@ -12,7 +12,7 @@ import { sleep } from "./DeployBase";
 
 export default class PostUpgrade extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
-        console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
+        console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
         console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
         console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
@@ -26,6 +26,10 @@ export default class PostUpgrade extends PostDeployBase {
   tezlandItems:
     address: ${contracts.get("items_FA2_contract")!.address}
     typename: tezlandFA2Fungible
+
+  tezlandItemsV2:
+    address: ${contracts.get("items_v2_FA2_contract")!.address}
+    typename: tezlandFA2FungibleV2
 
   tezlandPlaces:
     address: ${contracts.get("places_FA2_contract")!.address}
@@ -76,7 +80,7 @@ export default class PostUpgrade extends PostDeployBase {
     typename: tezlandRegistry\n`);
     }
 
-    private async mintNewItem_v1(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
+    private async mintNewItem_legacy(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
         assert(this.accountAddress);
 
         // Create item metadata and upload it
@@ -89,12 +93,38 @@ export default class PostUpgrade extends PostDeployBase {
 
         batch.with([{
             kind: OpKind.TRANSACTION,
-            ...Minter_contract.methodsObject.mint_public_v1({
+            ...collection_contract.methodsObject.mint([{
+                to_: this.accountAddress,
+                amount: amount,
+                token: {
+                    new: {
+                        metadata: { "": char2Bytes(item_metadata_url) },
+                        royalties: {
+                            royalties: 250,
+                            contributors: contributors
+                        }
+                    }
+                },
+            }]).toTransferParams()
+        }]);
+    }
+
+    private async mintNewItem_public(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
+        assert(this.accountAddress);
+
+        // Create item metadata and upload it
+        const item_metadata_url = await ipfs.upload_item_metadata(Minter_contract.address, model_path, polygonCount, this.isSandboxNet);
+        console.log(`item token metadata: ${item_metadata_url}`);
+
+        const shares = { [this.accountAddress]: 250 }
+
+        batch.with([{
+            kind: OpKind.TRANSACTION,
+            ...Minter_contract.methodsObject.mint_public({
                 collection: collection_contract.address,
                 to_: this.accountAddress,
                 amount: amount,
-                royalties: 250,
-                contributors: contributors,
+                royalties: shares,
                 metadata: Buffer.from(item_metadata_url, 'utf8').toString('hex')
             }).toTransferParams()
         }]);
@@ -355,6 +385,8 @@ export default class PostUpgrade extends PostDeployBase {
         assert(this.tezos);
         //assert(this.accountAddress);
 
+        // TODO: PostDeployContracts should be a class with a get that can throw.
+
         /**
          * Some types and functions for gas tests and resutls
          */
@@ -364,7 +396,7 @@ export default class PostUpgrade extends PostDeployBase {
         }
 
         type GasResultsRows = {
-            [id: string]: GasResultRow;
+            [id: string]: GasResultRow | undefined;
         }
 
         type GasResultsTable = {
@@ -383,18 +415,29 @@ export default class PostUpgrade extends PostDeployBase {
             gas_results: GasResultsTable,
             task_name: string,
             f: () => Promise<TransactionWalletOperation | BatchWalletOperation>) => {
-            gas_results.rows[task_name] = await this.feesToObject(await this.run_op_task(task_name, f));
+            try {
+                const op = await this.run_op_task(task_name, f);
+                gas_results.rows[task_name] = await this.feesToObject(op);
+            } catch(error) {
+                console.log(kleur.red(">> Failed:\n"));
+                console.dir(error, {depth: null});
+                console.log();
+                gas_results.rows[task_name] = undefined;
+            }
         }
 
         console.log(kleur.bgGreen("Running gas test suite"));
 
         {
             const mint_batch = this.tezos.wallet.batch();
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_legacy('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
             // Mint some places in new place contract
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
             // TODO: TEMP: FIXME: Mint some places in old place contract
+            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
             this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
             const mint_batch_op = await mint_batch.send();
@@ -403,9 +446,20 @@ export default class PostUpgrade extends PostDeployBase {
 
         let gas_results = addGasResultsTable({ name: "FA2", rows: {} });
 
-        // set operator
-        await runTaskAndAddGasResults(gas_results, "update_operators", () => {
+        // set operator (v1)
+        await runTaskAndAddGasResults(gas_results, "update_operators (v1)", () => {
             return contracts.get("items_FA2_contract")!.methods.update_operators([{
+                add_operator: {
+                    owner: this.accountAddress,
+                    operator: contracts.get("World_v2_contract")!.address,
+                    token_id: 0
+                }
+            }]).send()
+        });
+
+        // set operator (v2)
+        await runTaskAndAddGasResults(gas_results, "update_operators (v2)", () => {
+            return contracts.get("items_v2_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
                     operator: contracts.get("World_v2_contract")!.address,
@@ -418,6 +472,10 @@ export default class PostUpgrade extends PostDeployBase {
         //const placeKey0Chunk0 = { place_key: placeKey0, chunk_id: 0 };
         const placeKey1 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 };
         //const placeKey1Chunk0 = { place_key: placeKey1, chunk_id: 0 };
+        const placeKey2 = { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 2 };
+        //const placeKey2Chunk0 = { place_key: placeKey1, chunk_id: 0 };
+
+        const defaultRate = 1000000;
 
         gas_results = addGasResultsTable({ name: "World", rows: {} });
 
@@ -425,25 +483,39 @@ export default class PostUpgrade extends PostDeployBase {
          * World
          */
         // place one item to make sure storage is set.
-        let map_one_item: MichelsonMap<number, MichelsonMap<any, unknown>>;
+        let map_place_one_item: MichelsonMap<number, MichelsonMap<any, unknown>>;
         await runTaskAndAddGasResults(gas_results, "create place 0 (item)", () => {
-            map_one_item = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            map_place_one_item = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
-            map_one_item.set(0, map_one_item_issuer);
+            map_place_one_item.set(0, map_one_item_issuer);
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                place_key: placeKey0, place_item_map: map_one_item
+                place_key: placeKey0, place_item_map: map_place_one_item
             }).send();
         });
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
         await runTaskAndAddGasResults(gas_results, "create place 1 (item)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                place_key: placeKey1, place_item_map: map_one_item
+                place_key: placeKey1, place_item_map: map_place_one_item
+            }).send();
+        });
+
+        await runTaskAndAddGasResults(gas_results, "create place 2 (item v2)", () => {
+            const map_place_one_item_v2 = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_v2_FA2_contract")!.address]: [
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                ]
+            }));
+            map_place_one_item_v2.set(0, map_one_item_issuer);
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: placeKey2, place_item_map: map_place_one_item_v2
             }).send();
         });
 
@@ -480,7 +552,7 @@ export default class PostUpgrade extends PostDeployBase {
         // place one item
         await runTaskAndAddGasResults(gas_results, "place_items (1)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
-                place_key: placeKey0, place_item_map: map_one_item
+                place_key: placeKey0, place_item_map: map_place_one_item
             }).send();
         });
 
@@ -490,16 +562,16 @@ export default class PostUpgrade extends PostDeployBase {
             const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             map_ten_items.set(0, map_ten_items_issuer);
@@ -514,7 +586,7 @@ export default class PostUpgrade extends PostDeployBase {
             const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             map_one_item_multiple_chunks.set(0, map_one_item_issuer);
@@ -530,16 +602,16 @@ export default class PostUpgrade extends PostDeployBase {
             const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
                 [contracts.get("items_FA2_contract")!.address]: [
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
-                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 0, amount: 1, rate: defaultRate, data: "01800040520000baa6c9c2460a4000", primary: false } }
                 ]
             }));
             map_ten_items.set(0, map_ten_items_issuer);
@@ -719,10 +791,17 @@ export default class PostUpgrade extends PostDeployBase {
             }]).send();
         });
 
-        // get item
-        await runTaskAndAddGasResults(gas_results, "get_item", () => {
+        // get item (v1)
+        await runTaskAndAddGasResults(gas_results, "get_item (v1)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.get_item({
                 place_key: placeKey0, chunk_id: 0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 22
+            }).send({ mutez: true, amount: 1000000 });
+        });
+
+        // get item (v2)
+        await runTaskAndAddGasResults(gas_results, "get_item (v2)", () => {
+            return contracts.get("World_v2_contract")!.methodsObject.get_item({
+                place_key: placeKey2, chunk_id: 0, issuer: this.accountAddress, fa2: contracts.get("items_v2_FA2_contract")!.address, item_id: 0
             }).send({ mutez: true, amount: 1000000 });
         });
 
@@ -926,8 +1005,8 @@ export default class PostUpgrade extends PostDeployBase {
         // mint again
         await runTaskAndAddGasResults(gas_results, "mint some (2)", async () => {
             const mint_batch2 = this.tezos!.wallet.batch();
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
-            await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+            await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
+            await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
             return mint_batch2.send();
         });
 
@@ -986,7 +1065,10 @@ export default class PostUpgrade extends PostDeployBase {
             console.log(kleur.blue(table.name));
             for (const row_key of Object.keys(table.rows)) {
                 const row = table.rows[row_key];
-                console.log(`${(row_key + ":").padEnd(32)}storage: ${row.storage}, gas: ${row.fee}`);
+                if(row)
+                    console.log(`${(row_key + ":").padEnd(32)}storage: ${row.storage}, gas: ${row.fee}`);
+                else
+                    console.log(`${(row_key + ":").padEnd(32)}` + kleur.red("failed!"));
             }
             //console.table(table.rows);
         }
@@ -998,7 +1080,7 @@ export default class PostUpgrade extends PostDeployBase {
         console.log(kleur.bgGreen("Single Place stress test: " + token_id));
 
         const mint_batch = this.tezos.wallet.batch();
-        await this.mintNewItem_v1('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
+        await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
         this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();

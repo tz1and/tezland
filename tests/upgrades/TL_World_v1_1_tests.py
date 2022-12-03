@@ -6,6 +6,7 @@ token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFa
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
+royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
 places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 world_upgrade = sp.io.import_script_from_url("file:contracts/upgrades/TL_World_v1_1.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
@@ -158,9 +159,13 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
-    scenario.h2("RoyaltiesAdapter")
+    scenario.h3("RoyaltiesAdapters")
+    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+        legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += royalties_adapter_legacy
+
     royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
-        registry.address, legacy_royalties.address,
+        registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 

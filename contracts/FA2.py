@@ -1140,10 +1140,10 @@ class OnchainviewCountTokens:
 #########
 
 # Getting royalties
-def get_token_royalties(fa2, token_id):
+def get_token_royalties(fa2, token_id, message = None):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
-        t = t_royalties_interop).open_some()
+        t = t_royalties_interop).open_some(message)
 
 # Get owner
 def fa2_nft_get_owner(fa2, token_id):

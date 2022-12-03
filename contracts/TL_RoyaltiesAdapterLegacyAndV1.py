@@ -22,18 +22,16 @@ def getTokenRoyalties(royalties_adaper: sp.TAddress, fa2: sp.TAddress, token_id:
 
 #
 # Royalties adapter contract.
-class TL_RoyaltiesAdapter(sp.Contract):
-    def __init__(self, registry, v1_and_legacy_adapter, metadata, exception_optimization_level="default-line"):
+class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
+    def __init__(self, legacy_royalties, metadata, exception_optimization_level="default-line"):
 
         self.add_flag("exceptions", exception_optimization_level)
         #self.add_flag("erase-comments")
 
-        registry = sp.set_type_expr(registry, sp.TAddress)
-        v1_and_legacy_adapter = sp.set_type_expr(v1_and_legacy_adapter, sp.TAddress)
+        legacy_royalties = sp.set_type_expr(legacy_royalties, sp.TAddress)
 
         self.init_storage(
-            registry = registry,
-            v1_and_legacy_adapter = v1_and_legacy_adapter
+            legacy_royalties = legacy_royalties
         )
 
         self.generate_contract_metadata()
@@ -42,7 +40,7 @@ class TL_RoyaltiesAdapter(sp.Contract):
     def generate_contract_metadata(self):
         """Generate a metadata json file with all the contract's offchain views."""
         metadata_base = {
-            "name": 'tz1and RoyaltiesAdapter',
+            "name": 'tz1and RoyaltiesAdapterLegacyAndV1',
             "description": 'tz1and royalties adapter',
             "version": "1.0.0",
             "interfaces": ["TZIP-016"],
@@ -74,16 +72,29 @@ class TL_RoyaltiesAdapter(sp.Contract):
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, params):
         """Gets token royalties and/or validate signed royalties."""
-        sp.set_type(params, legacy_royalties_contract.t_token_key)
+        sp.set_type(params, sp.TRecord(
+            token_key = legacy_royalties_contract.t_token_key,
+            royalties_type = sp.TNat))
 
-        royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", self.data.registry,
-            params.fa2, t = registry_contract.t_get_royalties_type_result).open_some(sp.unit))
+        # Type 1 = tz1and v1 royalties.
+        with sp.if_(params.royalties_type == 1):
+            # Convert V1 royalties to V2.
+            royalties = sp.compute(FA2_legacy.get_token_royalties(params.token_key.fa2, params.token_key.id))
+            royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = {}), FA2.t_royalties_interop)
 
-        with sp.if_(royalties_type.value == 2):
-            # Just return V2 royalties.
-            sp.result(FA2.get_token_royalties(params.fa2, params.id, sp.unit))
+            with sp.for_("contributor", royalties.contributors) as contributor:
+                existing_share = royalties_v2.value.shares.get(contributor.address, sp.nat(0))
+                new_share = existing_share + (contributor.relative_royalties * royalties.royalties / 1000)
+                royalties_v2.value.shares[contributor.address] = new_share
+
+            sp.result(royalties_v2.value)
         with sp.else_():
-            # Call the V1 and legacy adapter.
-            sp.result(sp.view("get_token_royalties", self.data.v1_and_legacy_adapter,
-                sp.record(token_key = params, royalties_type = royalties_type.value),
-                t = FA2.t_royalties_interop).open_some(sp.unit))
+            # Type 0 = Registry does not know about this token's royalties.
+            with sp.if_(params.royalties_type == 0):
+                # Get royalties from legacy royalties contract.
+                # TODO: layer adapters for other tokens!
+                # + If it's not 1st class tokens - call another adapter?
+                sp.result(sp.view("get_token_royalties", self.data.legacy_royalties,
+                    params.token_key, t = FA2.t_royalties_interop).open_some())
+            with sp.else_():
+                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")

@@ -129,7 +129,7 @@ export default class Upgrade extends PostUpgrade {
         let Minter_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
             places_v2_FA2_contract: ContractAbstraction<Wallet>,
-            RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
+            items_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
             const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
 
@@ -153,45 +153,74 @@ export default class Upgrade extends PostUpgrade {
             ]);
             tezland_batch.addToBatch("FA2_Places_v2");
 
-            await this.compile_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
-                `registry = sp.address("${Registry_contract.address}")`,
-                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
+            await this.compile_contract("FA2_Items_v2", "Tokens", "tz1andItems_v2", [
+                `admin = sp.address("${this.accountAddress}")`
             ]);
-            tezland_batch.addToBatch("TL_RoyaltiesAdapter");
+            tezland_batch.addToBatch("FA2_Items_v2");
 
-            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract, RoyaltiesAdapter_contract] = await tezland_batch.deployBatch();
+            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract, items_v2_FA2_contract] = await tezland_batch.deployBatch();
 
             if (!minterV2WasDeployed) {
                 // Set the minter as the token administrator
                 await this.run_op_task("Setting minter as token admin...", async () => {
                     return this.tezos!.wallet.batch().with([
-                        // Transfer items admin from minter v1 to minter v2
-                        // Transfer places admin back to admin wallet
+                        // Transfer items and place admin from minter v1 to admin wallet.
                         {
                             kind: OpKind.TRANSACTION,
                             ...tezlandMinter.methods.transfer_fa2_administrator([
-                                {fa2: tezlandItems.address, proposed_fa2_administrator: Minter_v2_contract.address},
+                                {fa2: tezlandItems.address, proposed_fa2_administrator: this.accountAddress},
                                 {fa2: tezlandPlaces.address, proposed_fa2_administrator: this.accountAddress},
                             ]).toTransferParams()
                         },
-                        // accept items admin in minter v2
+                        // Transfer items v2 admin to minter v2
                         {
                             kind: OpKind.TRANSACTION,
-                            ...Minter_v2_contract.methods.accept_fa2_administrator([tezlandItems.address]).toTransferParams()
+                            ...items_v2_FA2_contract.methods.transfer_administrator(Minter_v2_contract.address).toTransferParams()
                         },
-                        // add items as public collection to minter v2
+                        // accept v2 items admin in minter v2
                         {
                             kind: OpKind.TRANSACTION,
-                            ...Registry_contract.methods.manage_collections([{add_public: { [tezlandItems.address]: 1 }}]).toTransferParams()
+                            ...Minter_v2_contract.methods.token_administration([{accept_fa2_administrator: [items_v2_FA2_contract.address]}]).toTransferParams()
+                        },
+                        // add items and items v2 as public collection to minter v2
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Registry_contract.methods.manage_collections([{
+                                add_public: {
+                                    [tezlandItems.address]: 1,
+                                    [items_v2_FA2_contract.address]: 2
+                                }
+                            }]).toTransferParams()
                         },
                         // accept places admin from wallet
                         {
                             kind: OpKind.TRANSACTION,
                             ...tezlandPlaces.methods.accept_administrator().toTransferParams()
+                        },
+                        // accept items admin from wallet
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...tezlandItems.methods.accept_administrator().toTransferParams()
                         }
                     ]).send();
                 });
             }
+        }
+
+        // Royalties adapters
+        let RoyaltiesAdapterLegacyAndV1_contract: ContractAbstraction<Wallet>,
+            RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
+        {
+            await this.compile_contract("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
+                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
+            ]);
+            RoyaltiesAdapterLegacyAndV1_contract = await this.deploy_contract("TL_RoyaltiesAdapterLegacyAndV1");
+
+            await this.compile_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
+                `registry = sp.address("${Registry_contract.address}")`,
+                `v1_and_legacy_adapter = sp.address("${RoyaltiesAdapterLegacyAndV1_contract.address}")`
+            ]);
+            RoyaltiesAdapter_contract = await this.deploy_contract("TL_RoyaltiesAdapter");
         }
 
         //
@@ -371,6 +400,7 @@ export default class Upgrade extends PostUpgrade {
         //
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
             items_FA2_contract: tezlandItems,
+            items_v2_FA2_contract: items_v2_FA2_contract,
             places_FA2_contract: tezlandPlaces,
             places_v2_FA2_contract: places_v2_FA2_contract,
             interiors_FA2_contract: interiors_FA2_contract,

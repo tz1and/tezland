@@ -6,6 +6,7 @@ token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFa
 token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
+royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
 world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
 tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
 
@@ -56,9 +57,13 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
-    scenario.h2("RoyaltiesAdapter")
+    scenario.h3("RoyaltiesAdapters")
+    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+        legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+    scenario += royalties_adapter_legacy
+
     royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
-        registry.address, legacy_royalties.address,
+        registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 
@@ -84,7 +89,9 @@ def test():
     registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
 
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
-    minter.accept_fa2_administrator([items_tokens.address]).run(sender = admin)
+    minter.token_administration([
+            sp.variant("accept_fa2_administrator", sp.set([items_tokens.address]))
+    ]).run(sender = admin)
 
     world.set_allowed_place_token(sp.list([
         sp.variant("add", {
