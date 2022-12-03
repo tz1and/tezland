@@ -204,7 +204,7 @@ def test():
     registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     scenario.h4("add public collection")
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV1})]).run(sender = admin)
 
     scenario.h4("add allowed place token")
     world_v2.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 6, chunk_item_limit = 2)})])).run(sender = admin)
