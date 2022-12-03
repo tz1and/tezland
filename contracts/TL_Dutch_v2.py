@@ -248,11 +248,11 @@ class TL_Dutch_v2(
         set_props_args = sp.set_type_expr(sp.record(
             place_key = sp.record(fa2 = token_contract, id = token_id),
             updates = [sp.variant("value_to", sp.none)],
-            ext = sp.none), world_contract.setPlacePropsType)
+            ext = sp.none), world_contract.updatePlacePropsType)
 
         # Call token contract to add operators.
         world_handle = sp.contract(
-            world_contract.setPlacePropsType,
+            world_contract.updatePlacePropsType,
             self.data.world_contract,
             entry_point='update_place_props').open_some()
         sp.transfer(set_props_args, sp.mutez(0), world_handle)

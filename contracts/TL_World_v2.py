@@ -361,11 +361,29 @@ migrationType = sp.TRecord(
 ).layout(("place_key", ("item_map", ("props", "ext"))))
 
 # Types for place, get, update, remove entry points.
-setPlacePropsType = sp.TRecord(
+updatePlacePropsType = sp.TRecord(
     place_key = placeKeyType,
     updates = sp.TList(setPlacePropsVariantType),
     ext = extensionArgType
 ).layout(("place_key", ("updates", "ext")))
+
+placeItemsType = sp.TRecord(
+    place_key = placeKeyType,
+    place_item_map = sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))),
+    ext = extensionArgType
+).layout(("place_key", ("place_item_map", "ext")))
+
+setItemDataType = sp.TRecord(
+    place_key = placeKeyType,
+    update_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType)))),
+    ext = extensionArgType
+).layout(("place_key", ("update_map", "ext")))
+
+removeItemsType = sp.TRecord(
+    place_key = placeKeyType,
+    remove_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
+    ext = extensionArgType
+).layout(("place_key", ("remove_map", "ext")))
 
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
@@ -615,7 +633,7 @@ class TL_World_v2(
 
     @sp.entry_point(lazify = True)
     def update_place_props(self, params):
-        sp.set_type(params, setPlacePropsType)
+        sp.set_type(params, updatePlacePropsType)
 
         self.onlyUnpaused()
 
@@ -661,11 +679,7 @@ class TL_World_v2(
 
     @sp.entry_point(lazify = True)
     def place_items(self, params):
-        sp.set_type(params, sp.TRecord(
-            place_key = placeKeyType,
-            place_item_map = sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(extensibleVariantItemType)))),
-            ext = extensionArgType
-        ).layout(("place_key", ("place_item_map", "ext"))))
+        sp.set_type(params, placeItemsType)
 
         self.onlyUnpaused()
 
@@ -763,11 +777,7 @@ class TL_World_v2(
 
     @sp.entry_point(lazify = True)
     def set_item_data(self, params):
-        sp.set_type(params, sp.TRecord(
-            place_key = placeKeyType,
-            update_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TList(updateItemListType)))),
-            ext = extensionArgType
-        ).layout(("place_key", ("update_map", "ext"))))
+        sp.set_type(params, setItemDataType)
 
         self.onlyUnpaused()
 
@@ -820,11 +830,7 @@ class TL_World_v2(
 
     @sp.entry_point(lazify = True)
     def remove_items(self, params):
-        sp.set_type(params, sp.TRecord(
-            place_key = placeKeyType,
-            remove_map = sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
-            ext = extensionArgType
-        ).layout(("place_key", ("remove_map", "ext"))))
+        sp.set_type(params, removeItemsType)
 
         self.onlyUnpaused()
 
