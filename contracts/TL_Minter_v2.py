@@ -127,7 +127,8 @@ class TL_Minter_v2(
             update_private_metadata = sp.TMap(sp.TAddress, sp.TBytes), # contract to metadata uri as bytes
             clear_adhoc_operators = sp.TSet(sp.TAddress), # set of contracts
             pause = sp.TMap(sp.TAddress, sp.TBool) # contract to new paused state
-        )))
+        ).layout(("transfer_fa2_administrator", ("accept_fa2_administrator",
+            ("update_private_metadata", ("clear_adhoc_operators", "pause")))))))
 
         with sp.for_("task", params) as task:
             with task.match_cases() as arg:

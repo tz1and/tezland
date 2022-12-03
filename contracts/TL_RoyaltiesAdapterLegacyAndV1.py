@@ -74,7 +74,8 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
         """Gets token royalties and/or validate signed royalties."""
         sp.set_type(params, sp.TRecord(
             token_key = legacy_royalties_contract.t_token_key,
-            royalties_type = sp.TNat))
+            royalties_type = sp.TNat
+        ).layout(("token_key", "royalties_type")))
 
         # Type 1 = tz1and v1 royalties.
         with sp.if_(params.royalties_type == 1):

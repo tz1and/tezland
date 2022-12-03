@@ -3,11 +3,6 @@ import smartpy as sp
 
 class Administrable:
     def __init__(self, administrator, include_views = True):
-        # TODO: figure out how to init the type in subclasses
-        #self.init_type(sp.TRecord(
-        #    administrator = sp.TAddress,
-        #    proposed_administrator = sp.TOption(sp.TAddress)
-        #))
         self.update_initial_storage(
             administrator = administrator,
             proposed_administrator = sp.none
