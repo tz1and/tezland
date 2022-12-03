@@ -3,9 +3,6 @@ import smartpy as sp
 GenericMap = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").GenericMap
 
 
-# TODO: get_fa2_permitted is probably not needed? maybe for interop...
-
-
 permittedFA2MapValueType = sp.TRecord(
     whitelist_enabled = sp.TBool, # If the token is whitelisted.
     whitelist_admin = sp.TAddress, # The account that is the whitelist admin

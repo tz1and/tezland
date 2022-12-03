@@ -6,12 +6,9 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
-# TODO: layer adapters for other tokens!
-
-
 t_get_token_royalties_type = sp.TRecord(
     token_key = legacy_royalties_contract.t_token_key,
-    royalties_type = sp.TNat
+    royalties_type = registry_contract.t_royalties_bounded
 ).layout(("token_key", "royalties_type"))
 
 
@@ -81,7 +78,7 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
         sp.set_type(params, t_get_token_royalties_type)
 
         # Type 1 = tz1and v1 royalties.
-        with sp.if_(params.royalties_type == 1):
+        with sp.if_(params.royalties_type == registry_contract.royaltiesTz1andV1):
             # Convert V1 royalties to V2.
             royalties = sp.compute(FA2_legacy.get_token_royalties(params.token_key.fa2, params.token_key.id))
             royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = {}), FA2.t_royalties_interop)
@@ -94,10 +91,8 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
             sp.result(royalties_v2.value)
         with sp.else_():
             # Type 0 = Registry does not know about this token's royalties.
-            with sp.if_(params.royalties_type == 0):
+            with sp.if_(params.royalties_type == registry_contract.royaltiesLegacy):
                 # Get royalties from legacy royalties contract.
-                # TODO: layer adapters for other tokens!
-                # + If it's not 1st class tokens - call another adapter?
                 sp.result(sp.view("get_token_royalties", self.data.legacy_royalties,
                     params.token_key, t = FA2.t_royalties_interop).open_some())
             with sp.else_():

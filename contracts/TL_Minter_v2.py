@@ -12,8 +12,7 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
-# TODO: decide laziness of entrypoints...
-# TODO: test update_settings
+# TODO: test update_settings: registry, max_contributors, max_royalties
 
 #
 # Minter contract.
@@ -30,11 +29,15 @@ class TL_Minter_v2(
         self.add_flag("erase-comments")
 
         self.init_storage(
-            registry = registry
+            registry = registry,
+            max_contributors = sp.nat(3),
+            max_royalties = sp.nat(250)
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.isContract(x))
+            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
+            ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), "PARAM_ERROR")),
+            ("max_royalties", sp.TNat, None)
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
@@ -71,13 +74,6 @@ class TL_Minter_v2(
                 offchain_views.append(attr)
         metadata_base["views"] = offchain_views
         self.init_metadata("metadata_base", metadata_base)
-
-
-    #
-    # Some constants
-    #
-    MAX_ROYALTIES = sp.nat(250)
-    MAX_CONTRIBUTORS = sp.nat(3)
 
 
     #
@@ -219,7 +215,7 @@ class TL_Minter_v2(
 
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        FA2.validateRoyalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+        FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(
@@ -251,7 +247,7 @@ class TL_Minter_v2(
 
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
 
-        FA2.validateRoyalties(params.royalties, self.MAX_ROYALTIES, self.MAX_CONTRIBUTORS)
+        FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(

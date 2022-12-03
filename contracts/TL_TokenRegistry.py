@@ -6,33 +6,31 @@ Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py").BasicPermissions
 MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
-
-#MerkleTree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py").MerkleTree
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
-
-# TODO: decide laziness of entrypoints...
-# TODO: test update_settings
-
-
-# Know royalties types:
-# 0 - legacy royalties
-# 1 - tz1and V1
-# 2 - tz1and V2
 
 ownershipInfo = sp.TOption(sp.TRecord(
     owner = sp.TAddress,
     proposed_owner = sp.TOption(sp.TAddress),
 ).layout(("owner", "proposed_owner")))
 
+# Know royalties types for bounded type
+royaltiesLegacy   = sp.bounded(sp.nat(0))
+royaltiesTz1andV1 = sp.bounded(sp.nat(1))
+royaltiesTz1andV2 = sp.bounded(sp.nat(2))
+
+t_royalties_bounded = sp.TBounded([0, 1, 2], sp.TNat)
+
 # Collection types for bouded type.
-collectionPrivate   = sp.bounded(sp.nat(0))
-collectionPublic    = sp.bounded(sp.nat(1))
-collectionTrusted   = sp.bounded(sp.nat(2))
+collectionPrivate = sp.bounded(sp.nat(0))
+collectionPublic  = sp.bounded(sp.nat(1))
+collectionTrusted = sp.bounded(sp.nat(2))
+
+t_collection_bounded = sp.TBounded([0, 1, 2], sp.TNat)
 
 collectionType = sp.TRecord(
-    royalties_type = sp.TNat,
-    collection_type = sp.TBounded([0, 1, 2], sp.TNat),
+    royalties_type = t_royalties_bounded,
+    collection_type = t_collection_bounded,
     ownership = ownershipInfo
 ).layout(("royalties_type", ("collection_type", "ownership")))
 
@@ -41,12 +39,12 @@ collectionMapLiteral = sp.big_map(tkey = sp.TAddress, tvalue = collectionType)
 manageCollectionVariant = sp.TVariant(
     add_private = sp.TMap(sp.TAddress, sp.TRecord(
         owner = sp.TAddress,
-        royalties_type = sp.TNat
+        royalties_type = t_royalties_bounded
     ).layout(("owner", "royalties_type"))),
-    add_public = sp.TMap(sp.TAddress, sp.TNat),
+    add_public = sp.TMap(sp.TAddress, t_royalties_bounded),
     add_trusted = sp.TMap(sp.TAddress, sp.TRecord(
         signature = sp.TSignature,
-        royalties_type = sp.TNat
+        royalties_type = t_royalties_bounded
     ).layout(("signature", "royalties_type"))),
     remove = sp.TSet(sp.TAddress)
 ).layout(("add_private", ("add_public", ("add_trusted", "remove"))))
@@ -78,8 +76,6 @@ t_ownership_result = sp.TBounded(["owner", "collaborator"], sp.TString)
 t_registry_param = sp.TSet(sp.TAddress)
 t_registry_result = sp.TSet(sp.TAddress)
 
-t_get_royalties_type_result = sp.TNat
-
 #
 # Collections "Trusted" - signed offchain.
 #
@@ -87,7 +83,7 @@ t_get_royalties_type_result = sp.TNat
 # Don't need the address here, because it's the map key map.
 t_collection_sign = sp.TRecord(
     collection=sp.TAddress,
-    royalties_type=sp.TNat
+    royalties_type=t_royalties_bounded
 ).layout(("collection", "royalties_type"))
 
 
@@ -362,7 +358,7 @@ class TL_TokenRegistry(
         Throws INVALID_COLLECTION if not a valid collection."""
         sp.set_type(contract, sp.TAddress)
 
-        with sp.set_result_type(sp.TNat):
+        with sp.set_result_type(t_royalties_bounded):
             sp.result(self.data.collections.get(contract, message="INVALID_COLLECTION").royalties_type)
 
 

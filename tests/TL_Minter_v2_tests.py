@@ -68,7 +68,7 @@ def test():
     # test Item minting
     scenario.h3("mint_public")
 
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
 
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
@@ -108,7 +108,7 @@ def test():
     # test Item minting
     scenario.h3("mint_private")
 
-    manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = 2)}
+    manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = token_registry_contract.royaltiesTz1andV2)}
     manager_collaborators_params = {items_tokens.address: sp.set([alice.address])}
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
@@ -286,10 +286,10 @@ def test():
     items_tokens_private.transfer_administrator(minter.address).run(sender = admin)
     minter.token_administration([sp.variant("accept_fa2_administrator", sp.set([items_tokens_private.address]))]).run(sender = admin)
 
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
 
     registry.manage_collections([sp.variant("add_private", {
-        items_tokens_private.address: sp.record(owner = bob.address, royalties_type = 2)
+        items_tokens_private.address: sp.record(owner = bob.address, royalties_type = token_registry_contract.royaltiesTz1andV2)
     })]).run(sender = admin)
 
     scenario.h3("valid royalties")

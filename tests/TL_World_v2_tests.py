@@ -325,7 +325,10 @@ def test():
     minter.token_administration([
         sp.variant("accept_fa2_administrator", sp.set([items_tokens_v2.address]))
     ]).run(sender = admin)
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1, items_tokens_v2.address: 2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {
+        items_tokens.address: token_registry_contract.royaltiesTz1andV1,
+        items_tokens_v2.address: token_registry_contract.royaltiesTz1andV2
+    })]).run(sender = admin)
 
     # mint some v1 item tokens for testing
     scenario.h3("minting items v1")

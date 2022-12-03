@@ -69,13 +69,13 @@ def test():
     scenario.h2("Public Collections")
 
     signed_collection = token_registry_contract.signCollection(
-        sp.record(collection = items_tokens.address, royalties_type = 1),
+        sp.record(collection = items_tokens.address, royalties_type = token_registry_contract.royaltiesTz1andV1),
         collections_key.secret_key
     )
 
-    manage_public_params = { items_tokens.address: 1 }
-    manage_private_params = { items_tokens.address: sp.record(owner = bob.address, royalties_type = 1) }
-    manage_trusted_params = { items_tokens.address: sp.record(signature = signed_collection, royalties_type = 1) }
+    manage_public_params = { items_tokens.address: token_registry_contract.royaltiesTz1andV1 }
+    manage_private_params = { items_tokens.address: sp.record(owner = bob.address, royalties_type = token_registry_contract.royaltiesTz1andV1) }
+    manage_trusted_params = { items_tokens.address: sp.record(signature = signed_collection, royalties_type = token_registry_contract.royaltiesTz1andV1) }
 
     # test adding public collections
     scenario.h3("manage_collection public")
@@ -223,7 +223,7 @@ def test():
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
     scenario.verify_equal(registry.is_registered(is_reg_param), is_reg_param)
     scenario.verify_equal(registry.get_collection_info(items_tokens.address).collection_type, token_registry_contract.collectionPrivate)
-    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), 1)
+    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), token_registry_contract.royaltiesTz1andV1)
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify_equal(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address)), sp.bounded("owner"))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
@@ -239,7 +239,7 @@ def test():
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = admin)
     scenario.verify_equal(registry.is_registered(is_reg_param), is_reg_param)
     scenario.verify_equal(registry.get_collection_info(items_tokens.address).collection_type, token_registry_contract.collectionPublic)
-    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), 1)
+    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), token_registry_contract.royaltiesTz1andV1)
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address))))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
@@ -253,7 +253,7 @@ def test():
     registry.manage_collections([sp.variant("add_trusted", manage_trusted_params)]).run(sender = bob)
     scenario.verify_equal(registry.is_registered(is_reg_param), is_reg_param)
     scenario.verify_equal(registry.get_collection_info(items_tokens.address).collection_type, token_registry_contract.collectionTrusted)
-    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), 1)
+    scenario.verify_equal(registry.get_royalties_type(items_tokens.address), token_registry_contract.royaltiesTz1andV1)
     scenario.verify(~sp.is_failing(registry.check_registered(is_reg_param)))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=bob.address, collection=items_tokens.address))))
     scenario.verify(sp.is_failing(registry.is_private_owner_or_collab(sp.record(address=alice.address, collection=items_tokens.address))))
@@ -274,17 +274,17 @@ def test():
     scenario.h2("Test signed royalties and collections")
 
     # Collections
-    collection_signed_valid1 = token_registry_contract.signCollection(sp.record(collection=items_tokens.address, royalties_type=1), collections_key.secret_key)
-    manage_trusted_valid1 = { items_tokens.address: sp.record(signature = collection_signed_valid1, royalties_type = 1) }
+    collection_signed_valid1 = token_registry_contract.signCollection(sp.record(collection=items_tokens.address, royalties_type=token_registry_contract.royaltiesTz1andV1), collections_key.secret_key)
+    manage_trusted_valid1 = { items_tokens.address: sp.record(signature = collection_signed_valid1, royalties_type = token_registry_contract.royaltiesTz1andV1) }
 
-    collection_signed_valid2 = token_registry_contract.signCollection(sp.record(collection=items_tokens_v2.address, royalties_type=2), collections_key.secret_key)
-    manage_trusted_valid2 = { items_tokens_v2.address: sp.record(signature = collection_signed_valid2, royalties_type = 2) }
+    collection_signed_valid2 = token_registry_contract.signCollection(sp.record(collection=items_tokens_v2.address, royalties_type=token_registry_contract.royaltiesTz1andV2), collections_key.secret_key)
+    manage_trusted_valid2 = { items_tokens_v2.address: sp.record(signature = collection_signed_valid2, royalties_type = token_registry_contract.royaltiesTz1andV2) }
 
-    collection_signed_valid3 = token_registry_contract.signCollection(sp.record(collection=other_tokens.address, royalties_type=0), collections_key.secret_key)
-    manage_trusted_valid3 = { other_tokens.address: sp.record(signature = collection_signed_valid3, royalties_type = 0) }
+    collection_signed_valid3 = token_registry_contract.signCollection(sp.record(collection=other_tokens.address, royalties_type=token_registry_contract.royaltiesLegacy), collections_key.secret_key)
+    manage_trusted_valid3 = { other_tokens.address: sp.record(signature = collection_signed_valid3, royalties_type = token_registry_contract.royaltiesLegacy) }
 
-    collection_signed_invalid = token_registry_contract.signCollection(sp.record(collection=minter.address, royalties_type=0), royalties_key.secret_key)
-    manage_trusted_invalid = { minter.address: sp.record(signature = collection_signed_invalid, royalties_type = 0) }
+    collection_signed_invalid = token_registry_contract.signCollection(sp.record(collection=minter.address, royalties_type=token_registry_contract.royaltiesLegacy), royalties_key.secret_key)
+    manage_trusted_invalid = { minter.address: sp.record(signature = collection_signed_invalid, royalties_type = token_registry_contract.royaltiesLegacy) }
 
     registry.manage_collections([sp.variant("add_trusted", manage_trusted_valid1)]).run(sender = bob)
     registry.manage_collections([sp.variant("add_trusted", manage_trusted_valid2)]).run(sender = bob)

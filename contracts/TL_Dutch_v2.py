@@ -17,6 +17,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # TODO: document reasoning for not limiting bids on secondary disable
+# TODO: private lambda to shrink view? getAuctionPriceInline
 
 
 # Optional ext argument type.

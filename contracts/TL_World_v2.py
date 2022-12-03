@@ -25,8 +25,6 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Now:
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
-# TODO: gas optimisations!
-# TODO: FA2 origination is too large! try and optimise
 # TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
 # TODO: so many empty FAILWITHs. Optimise... What still can be.
 # TODO: special permission for sending items to place? Might be good.
@@ -45,15 +43,9 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: market blacklist on tokens? view into blacklist contract.
 
 
-
-# maybe?
-# TODO: add a limit on place props data len and item data len. Potential gaslock.
-
 # Other
 # TODO: think of some more tests for permission.
-# TODO: DAO token drop with merkle tree based on: https://github.com/AnshuJalan/token-drop-template
-#       + Add a pause function and an expiration date for the drop.
-#       + https://github.com/teia-community/teia-smart-contracts/blob/main/python/contracts/daoTokenDrop.py
+# TODO: DAO token drop with signed drops. Based on collections or royalties. Sign, record if paid.
 # TODO: sorting out the splitting of dao and team (probably with a proxy contract)
 # TODO: proxy contract will also be some kind of multisig for all the only-admin things (pausing operation)
 # TODO: research storage deserialisation limits

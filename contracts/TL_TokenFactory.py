@@ -12,11 +12,10 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
-# TODO: figure out if entrypoints should be lazy!!!!
 # TODO: figure out if we *need* FA2.PauseTransfer()
-# It might be good to have, simply for security reasons...
-# Then again, if the FA2 is borked, pausing is destructive to value as well.
-# But one could migrate to another FA2 before all value is lost. So maybe worth it...
+# + It might be good to have, simply for security reasons...
+#   Then again, if the FA2 is borked, pausing is destructive to value as well.
+#   But one could migrate to another FA2 before all value is lost. So maybe worth it...
 
 #
 # The template FA2 contract.
@@ -147,6 +146,6 @@ class TL_TokenFactory(
             sp.variant("add_private", {
                 originated_token: sp.record(
                     owner = sp.sender,
-                    royalties_type = 2
+                    royalties_type = token_registry_contract.royaltiesTz1andV2
                 )}
             )], sp.mutez(0), manage_collections_handle)

@@ -11,9 +11,6 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
-# TODO: t_royalties_signed: decide if data should be packed or not.
-# TODO: should we use sets in eps supposed to be called from other contracts?
-
 #
 # Trusted Royalties - signed offchain.
 #
@@ -43,7 +40,8 @@ t_token_key = sp.TRecord(
 # Offchain royalties type
 t_royalties_offchain = sp.TRecord(
     token_key = t_token_key_opt,
-    # TODO: prob want to define royalties here directly.
+    # NOTE: Royalties come from FA2, but maybe we
+    # can define the types in their own header.
     token_royalties = FA2.t_royalties_interop
 ).layout(("token_key", "token_royalties"))
 

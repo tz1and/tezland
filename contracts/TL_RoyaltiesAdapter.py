@@ -8,6 +8,7 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
 # TODO: layer adapters for other tokens!
+# TODO: test adapters
 
 
 def getTokenRoyalties(royalties_adaper: sp.TAddress, fa2: sp.TAddress, token_id: sp.TNat):
@@ -78,9 +79,9 @@ class TL_RoyaltiesAdapter(sp.Contract):
         sp.set_type(params, legacy_royalties_contract.t_token_key)
 
         royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", self.data.registry,
-            params.fa2, t = registry_contract.t_get_royalties_type_result).open_some(sp.unit))
+            params.fa2, t = registry_contract.t_royalties_bounded).open_some(sp.unit))
 
-        with sp.if_(royalties_type.value == 2):
+        with sp.if_(royalties_type.value == registry_contract.royaltiesTz1andV2):
             # Just return V2 royalties.
             sp.result(FA2.get_token_royalties(params.fa2, params.id, sp.unit))
         with sp.else_():

@@ -86,7 +86,7 @@ def test():
 
     scenario.h3("registry permissions for factory, etc")
     registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: 2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
 
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.token_administration([
