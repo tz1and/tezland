@@ -22,6 +22,16 @@ Combined:
 	2646 Bytes
 
 
+Storage: 	
+	104 Bytes
+Big map originations (4): 	
+	128 Bytes
+Code: 	
+	2337 Bytes
+Combined: 	
+	2569 Bytes
+
+
 #
 # TokenRegistry
 ########################
