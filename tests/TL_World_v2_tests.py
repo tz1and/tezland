@@ -323,7 +323,7 @@ def test():
     scenario.h3("transfer/register/mint items tokens in minter")
     items_tokens_v2.transfer_administrator(minter.address).run(sender = admin)
     minter.token_administration([
-            sp.variant("accept_fa2_administrator", sp.set([items_tokens_v2.address]))
+        sp.variant("accept_fa2_administrator", sp.set([items_tokens_v2.address]))
     ]).run(sender = admin)
     registry.manage_collections([sp.variant("add_public", {items_tokens.address: 1, items_tokens_v2.address: 2})]).run(sender = admin)
 
