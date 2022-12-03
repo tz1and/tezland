@@ -2,6 +2,7 @@ import smartpy as sp
 
 registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
+royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
@@ -85,5 +86,7 @@ class TL_RoyaltiesAdapter(sp.Contract):
         with sp.else_():
             # Call the V1 and legacy adapter.
             sp.result(sp.view("get_token_royalties", self.data.v1_and_legacy_adapter,
-                sp.record(token_key = params, royalties_type = royalties_type.value),
+                sp.set_type_expr(
+                    sp.record(token_key = params, royalties_type = royalties_type.value),
+                    royalties_adapter_legacy_contract.t_get_token_royalties_type),
                 t = FA2.t_royalties_interop).open_some(sp.unit))

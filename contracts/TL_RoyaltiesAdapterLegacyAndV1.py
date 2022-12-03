@@ -9,6 +9,12 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: layer adapters for other tokens!
 
 
+t_get_token_royalties_type = sp.TRecord(
+    token_key = legacy_royalties_contract.t_token_key,
+    royalties_type = sp.TNat
+).layout(("token_key", "royalties_type"))
+
+
 def getTokenRoyalties(royalties_adaper: sp.TAddress, fa2: sp.TAddress, token_id: sp.TNat):
     sp.set_type(royalties_adaper, sp.TAddress)
     sp.set_type(fa2, sp.TAddress)
@@ -72,10 +78,7 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
     @sp.onchain_view(pure=True)
     def get_token_royalties(self, params):
         """Gets token royalties and/or validate signed royalties."""
-        sp.set_type(params, sp.TRecord(
-            token_key = legacy_royalties_contract.t_token_key,
-            royalties_type = sp.TNat
-        ).layout(("token_key", "royalties_type")))
+        sp.set_type(params, t_get_token_royalties_type)
 
         # Type 1 = tz1and v1 royalties.
         with sp.if_(params.royalties_type == 1):
