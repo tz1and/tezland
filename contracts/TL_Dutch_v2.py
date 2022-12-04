@@ -221,7 +221,7 @@ class TL_Dutch_v2(
         sendMap.transfer()
 
 
-    def remove_operator(self, token_contract, token_id, owner):
+    def removeOperator(self, token_contract, token_id, owner):
         sp.set_type(token_contract, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
         sp.set_type(owner, sp.TAddress)
@@ -241,7 +241,7 @@ class TL_Dutch_v2(
             sp.mutez(0), token_handle)
 
 
-    def reset_value_to_in_world(self, token_contract, token_id):
+    def resetValueToInWorld(self, token_contract, token_id):
         sp.set_type(token_contract, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
 
@@ -258,6 +258,18 @@ class TL_Dutch_v2(
             entry_point='update_place_props').open_some()
         sp.transfer(set_props_args, sp.mutez(0), world_handle)
 
+    
+    def validatePlaceSequenceHash(self, token_contract, token_id, expected_hash):
+        current_hash = sp.sha3(sp.pack(sp.view("get_place_seqnum", self.data.world_contract,
+            sp.set_type_expr(
+                sp.record(fa2 = token_contract, id = token_id),
+                world_contract.placeKeyType),
+            t = world_contract.seqNumResultType).open_some()))
+        #sp.trace("current, expected:")
+        #sp.trace(current_hash)
+        #sp.trace(expected_hash)
+        sp.verify(current_hash == expected_hash, "NOT_EXPECTED_SEQ_HASH")
+
 
     @sp.entry_point(lazify = True)
     def bid(self, params):
@@ -268,8 +280,9 @@ class TL_Dutch_v2(
         """
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
+            seq_hash = sp.TBytes,
             ext = extensionArgType
-        ).layout(("auction_key", "ext")))
+        ).layout(("auction_key", ("seq_hash", "ext"))))
 
         self.onlyUnpaused()
 
@@ -289,20 +302,23 @@ class TL_Dutch_v2(
         # check if correct value was sent. probably best to send back overpay instead of cancel.
         sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
 
+        # validate sequence hash, to prevent front-running.
+        self.validatePlaceSequenceHash(params.auction_key.fa2, params.auction_key.token_id, params.seq_hash)
+
         # Send fees, etc, if any.
         self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
         # Transfer place from owner to this contract.
         fa2_utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
 
-        # Reset the value_to property in world.
-        self.reset_value_to_in_world(params.auction_key.fa2, params.auction_key.token_id)
+        # Reset the place's value_to property.
+        self.resetValueToInWorld(params.auction_key.fa2, params.auction_key.token_id)
 
         # Transfer place from this contract to buyer.
         fa2_utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
 
         # After transfer, remove own operator rights for token.
-        self.remove_operator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)
+        self.removeOperator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)
 
         # If it was a whitelist required auction, remove from whitelist.
         with sp.if_(params.auction_key.owner == fa2_props.whitelist_admin):

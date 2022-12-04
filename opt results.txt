@@ -1,4 +1,18 @@
 #
+# Dutch v2
+########################
+
+Storage: 	
+	4524 Bytes
+Big map originations (4): 	
+	128 Bytes
+Code: 	
+	4821 Bytes
+Combined: 	
+	9473 Bytes
+
+
+#
 # LegacyRoyalties
 ########################
 

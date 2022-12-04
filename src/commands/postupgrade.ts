@@ -1,13 +1,15 @@
 import assert from "assert";
 import PostDeployBase, { PostDeployContracts } from "./PostDeployBase";
 import * as ipfs from '../ipfs'
-import { ContractAbstraction, ContractMethodObject, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
+import { ContractAbstraction, ContractMethodObject, MichelCodecPacker, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
 import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
-import { OperationContentsAndResultTransaction, OperationResultOrigination } from '@taquito/rpc';
+import { OperationContentsAndResultTransaction, OperationResultOrigination, MichelsonV1Expression } from '@taquito/rpc';
+import { Schema } from '@taquito/michelson-encoder';
 import { char2Bytes } from '@taquito/utils'
 import kleur from "kleur";
 import config from "../user.config";
 import { sleep } from "./DeployBase";
+import { SHA3 } from 'sha3';
 
 
 export default class PostUpgrade extends PostDeployBase {
@@ -210,6 +212,36 @@ export default class PostUpgrade extends PostDeployBase {
         }
     }
 
+    private async getHashedPlaceSeq(contracts: PostDeployContracts, place_key: any) {
+        // Place seq type type:
+        // (pair (bytes %place_seq) (map %chunk_seqs nat bytes))
+
+        // Type as michelson expression
+        const placeSeqStorageType: MichelsonV1Expression = {
+            prim: 'pair',
+            args: [
+                { prim: 'bytes', annots: [ '%place_seq' ] },
+                { prim: 'map', args: [ { prim: 'nat' }, { prim: 'bytes' } ], annots: [ '%chunk_seqs' ] }
+            ]
+        };
+
+        // Get place seq.
+        const place_seq = await contracts.get("World_v2_contract")!.contractViews.get_place_seqnum(
+            place_key
+        ).executeView({viewCaller: this.accountAddress!});
+
+        // Encode result as a michelson expression.
+        const storageSchema = new Schema(placeSeqStorageType);
+        const placeSeqDataMichelson = storageSchema.Encode(place_seq);
+
+        // Pack encoded michelson data.
+        const packer = new MichelCodecPacker();
+        const packedPlaceSeq = await packer.packData({ data: placeSeqDataMichelson, type: placeSeqStorageType });
+
+        // Return hash.
+        return new SHA3(256).update(packedPlaceSeq.packed, 'hex').digest('hex');
+    }
+
     protected async deployDevWorld(contracts: PostDeployContracts) {
         console.log(kleur.bgGreen("Deploying dev world"));
 
@@ -360,13 +392,18 @@ export default class PostUpgrade extends PostDeployBase {
             }).send();
         });
 
-        await this.run_op_task("Bid on auction Place #0", () => {
+        await this.run_op_task("Bid on auction Place #0", async () => {
+            const chunkSeqHash = await this.getHashedPlaceSeq(contracts, {
+                fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0
+            });
+
             return contracts.get("Dutch_v2_contract")!.methodsObject.bid({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
                     owner: this.accountAddress
-                }
+                },
+                seq_hash: chunkSeqHash
             }).send({amount: 200000, mutez: true});
         });
 
@@ -847,13 +884,18 @@ export default class PostUpgrade extends PostDeployBase {
 
         await sleep(config.sandbox.blockTime * 1000);
 
-        await runTaskAndAddGasResults(gas_results, "bid", () => {
+        await runTaskAndAddGasResults(gas_results, "bid", async () => {
+            const chunkSeqHash = await this.getHashedPlaceSeq(contracts, {
+                fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0
+            });
+
             return contracts.get("Dutch_v2_contract")!.methodsObject.bid({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
                     token_id: 0,
                     owner: this.accountAddress
-                }
+                },
+                seq_hash: chunkSeqHash
             }).send({amount: 200000, mutez: true});
         });
 

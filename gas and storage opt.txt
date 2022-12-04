@@ -1057,3 +1057,61 @@ update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
 Factory
 create_token:                   storage: 1.160000, gas: 0.001299
 mint_private (2):               storage: 0.164500, gas: 0.002745
+
+
+Dutch place seq changes
+---------------------------------
+FA2
+update_operators (v1):          storage: 0.016750, gas: 0.000561
+update_operators (v2):          storage: 0.016750, gas: 0.000561
+
+World
+create place 0 (item):          storage: 0.082750, gas: 0.001707
+create place 1 (item):          storage: 0.072750, gas: 0.001730
+create place 2 (item v2):       storage: 0.089500, gas: 0.001702
+update_place_props:             storage: 0.000000, gas: 0.000928
+
+World place_items
+place_items (1):                storage: 0.010250, gas: 0.001778
+place_items (10):               storage: 0.102500, gas: 0.002153
+place_items chunks (2x1):       storage: 0.058000, gas: 0.001950
+place_items chunks (2x10):      storage: 0.205000, gas: 0.002724
+
+World set_item_data
+set_item_data (1):              storage: 0.000000, gas: 0.001069
+set_item_data (10):             storage: 0.000000, gas: 0.001287
+set_item_data chunks (2x1):     storage: 0.000000, gas: 0.001288
+set_item_data chunks (2x10):    storage: 0.000000, gas: 0.001723
+
+World remove_items
+remove_items (1):               storage: 0.000000, gas: 0.001416
+remove_items (10):              storage: 0.000000, gas: 0.001424
+remove_items chunks (2x1):      storage: 0.000000, gas: 0.001597
+remove_items chunks (2x10):     storage: 0.000000, gas: 0.001612
+
+World set_permissions
+set_permissions:                storage: 0.000000, gas: 0.000669
+get_item (v1):                  storage: 0.000000, gas: 0.002162
+get_item (v2):                  storage: 0.000000, gas: 0.001981
+
+Auctions
+create_auction:                 storage: 0.000000, gas: 0.001714
+bid:                            storage: 0.000000, gas: 0.002733
+cancel:                         storage: 0.000000, gas: 0.000621
+
+Adhoc Operators
+update_operators (100):         storage: 1.675000, gas: 0.011919
+transfer:                       storage: 0.016750, gas: 0.000676
+update_adhoc_operators:         storage: 0.009250, gas: 0.000501
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+transfer (100 adhoc):           storage: 0.000000, gas: 0.000706
+update_adhoc_operators (reset): storage: 0.000000, gas: 0.000509
+transfer (reset):               storage: 0.000000, gas: 0.000706
+
+Mint
+mint some (2):                  storage: 0.147750, gas: 0.002506
+update_adhoc_operators (100):   storage: 0.000000, gas: 0.005119
+
+Factory
+create_token:                   storage: 1.160000, gas: 0.001299
+mint_private (2):               storage: 0.164500, gas: 0.002748

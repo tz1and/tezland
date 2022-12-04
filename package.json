@@ -24,6 +24,7 @@
     "kleur": "^4.1.4",
     "nft.storage": "^7.0.0",
     "prompt": "^1.2.1",
+    "sha3": "^2.1.4",
     "ts-node": "^10.7.0"
   },
   "devDependencies": {
