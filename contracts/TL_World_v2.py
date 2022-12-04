@@ -38,9 +38,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
-# TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount!
-# TODO: THRESHOLD_ADDRESS = sp.address("tz3jfebmewtfXYD1Xef34TwrfMg2rrrw6oum") - Address > threshold address. To tell if contract.
-# TODO: market blacklist on tokens? view into blacklist contract.
+# TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount! also check amount after subtraction is 0!
 
 
 # Other
@@ -54,6 +52,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # Some notes:
+# - maketet blacklist adds about 200 gas to token transfers. not sure if worth it.
 # - use abs instead sp.as_nat if unchecked. as_nat will throw on negative numbers, abs won't - but make smaller code.
 # - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
 # - Item data is stored in half floats, usually, there are two formats as of now
@@ -915,8 +914,11 @@ class TL_World_v2(
             total_royalties.value += share_mutez
 
         # Send rest of the value to seller. Should throw if royalties total > rate.
-        left_amount = sp.sub_mutez(value_after_fees, total_royalties.value).open_some("ROYALTIES_ERROR")
+        left_amount = sp.compute(sp.sub_mutez(value_after_fees, total_royalties.value).open_some("ROYALTIES_ERROR"))
         sendMap.add(issuer_or_place_owner, left_amount)
+
+        # Make sure it all adds up correctly!
+        sp.verify((fees_amount + total_royalties.value + left_amount) == rate, "ROYALTIES_ERROR")
 
         # Transfer.
         sendMap.transfer()
