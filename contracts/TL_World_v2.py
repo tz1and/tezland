@@ -29,9 +29,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: so many empty FAILWITHs. Optimise... What still can be.
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrValueToOrPlaceOwnerInline, etc. to make sure they work correctly in all combinations.
-# TODO: test collecting royalties from LegacyRoyalties contract!
-# TODO: test set_props value_to
-# TODO: test value_to place setting.
+# TODO: test collecting royalties from LegacyRoyalties contract! could also just test this in adapter tests.
 # TODO: decide if auction contract should hold places and instead set value_to!!!!!!!
 # TODO: add views option to mixins to allow not including views.
 # TODO: don't deploy factory in upgrade, this feature comes later!
@@ -40,7 +38,8 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
 # TODO: Don't use GenericMap or AddressSet...
-# TODO: FA2 views should fail with sp.unit!!!!!
+# TODO: go over records again, find where we can use map/set
+# TODO: LOOK AT MINTER SIZE INCREASE!!!
 
 
 # Other

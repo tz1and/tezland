@@ -22,8 +22,8 @@ PermissionParams = places_contract.PermissionParams
 # TODO: test place keys?
 # TODO: test v2 items.
 # TODO: test registry and collections.
-# TODO: test placing items with collection merkle proof.
-# TODO: test getting items with royalties merkle proof.
+# TODO: test placing items with signed registry.
+# TODO: test getting items with signed royalties.
 # TODO: test place owned items.
 # TODO: token amounts calc probably still wrong in some cases (place owned items).
 
@@ -740,6 +740,9 @@ def test():
     # set place props
     #
     scenario.h2("Set place props")
+
+    scenario.h3("add_props/del_props")
+
     valid_place_props = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFFFF')})]
     other_valid_place_props_2 = [sp.variant("add_props", {sp.bytes("0xf1"): sp.utils.bytes_of_string("blablablabla")})]
     world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = bob)
@@ -753,6 +756,15 @@ def test():
     world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = alice, valid = False, exception = "NO_PERMISSION")
     world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", sp.set([sp.bytes("0xf1")]))], ext = sp.none).run(sender = bob)
     scenario.verify(~world.data.places[place_bob].props.contains(sp.bytes("0xf1")))
+
+    scenario.h3("value_to")
+
+    scenario.verify(world.data.places[place_bob].value_to == sp.none)
+    world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.some(alice.address))], ext = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].value_to == alice.address)
+    world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.none)], ext = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].value_to == sp.none)
+    
 
     #
     # set_item_data
