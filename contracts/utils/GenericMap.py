@@ -25,7 +25,7 @@ class GenericMap:
             if self.default_value is not None:
                 map[key] = self.default_value
             else:
-                sp.failwith("NO_DEFAULT_VALUE")
+                raise Exception("NO_DEFAULT_VALUE")
         else:
             map[key] = value
 
@@ -35,8 +35,8 @@ class GenericMap:
     def contains(self, map, key):
         return map.contains(key)
 
-    def get(self, map, key):
-        return map.get(key, message=self.get_error)
+    def get(self, map, key, message=None):
+        return map.get(key, message=(message if (message is not None) else self.get_error))
 
 class AddressSet(GenericMap):
     """Lazy set of addresses."""

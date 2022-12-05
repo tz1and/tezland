@@ -80,36 +80,19 @@ class TL_Minter_v2(
     # Some inline helpers
     #
     def onlyOwnerPrivate(self, collection, address):
-        # call registry view to check owner.
-        sp.verify(sp.view("is_private_owner_or_collab", self.data.registry,
-            sp.set_type_expr(sp.record(
-                collection = collection,
-                address = address
-            ), token_registry_contract.t_ownership_check),
-            t = token_registry_contract.t_ownership_result) == sp.some(sp.bounded("owner")), "ONLY_OWNER")
+        sp.verify(token_registry_contract.isPrivateOwnerOrCollab( self.data.registry, collection, address,
+            utils.eifInTests(None, "NOT_OWNER_OR_COLLABORATOR")) == sp.bounded("owner"), "ONLY_OWNER")
 
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
-        # call registry view to check owner or collaborator.
-        sp.compute(sp.view("is_private_owner_or_collab", self.data.registry,
-            sp.set_type_expr(sp.record(
-                collection = collection,
-                address = address
-            ), token_registry_contract.t_ownership_check),
-            t = token_registry_contract.t_ownership_result).open_some())
+        sp.compute(token_registry_contract.isPrivateOwnerOrCollab( self.data.registry, collection, address,
+            utils.eifInTests(None, "NOT_OWNER_OR_COLLABORATOR")))
 
-
-    def getCollectionInfo(self, collection):
-        # call registry view to check if public collection.
-        return sp.view("get_collection_info", self.data.registry,
-            sp.set_type_expr(collection, sp.TAddress),
-            t = token_registry_contract.collectionType).open_some()
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
-        sp.verify(
-            self.getCollectionInfo(collection).collection_type == token_registry_contract.collectionPublic,
-            "NOT_PUBLIC")
+        sp.verify(token_registry_contract.getCollectionInfo(self.data.registry, collection,
+            utils.eifInTests(None, "INVALID_COLLECTION")).collection_type == token_registry_contract.collectionPublic, "NOT_PUBLIC")
 
 
     #

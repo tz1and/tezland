@@ -53,12 +53,8 @@ t_add_royalties_params = sp.TMap(
     ).layout(("signature", "offchain_royalties"))))
 
 
-def signRoyalties(royalties, private_key):
-    royalties = sp.set_type_expr(royalties, t_royalties_offchain)
-    # Gives: Type format error atom secret_key
-    #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
-
-    packed_royalties = sp.pack(royalties)
+def signRoyalties(royalties: sp.TRecord, private_key: sp.TSecretKey):
+    packed_royalties = sp.pack(sp.set_type_expr(royalties, t_royalties_offchain))
 
     signature = sp.make_signature(
         private_key,
@@ -68,11 +64,10 @@ def signRoyalties(royalties, private_key):
     return signature
 
 
-def getRoyalties(legacy_royalties: sp.TAddress, token_key: sp.TRecord):
-    sp.set_type(legacy_royalties, sp.TAddress)
-    sp.set_type(token_key, t_token_key)
-    return sp.compute(sp.view("get_royalties", legacy_royalties,
-        token_key, t = FA2.t_royalties_interop).open_some())
+def getRoyalties(legacy_royalties: sp.TAddress, token_key: sp.TRecord, message = None):
+    return sp.view("get_royalties", legacy_royalties,
+        sp.set_type_expr(token_key, t_token_key),
+        t = FA2.t_royalties_interop).open_some(message)
 
 
 #
@@ -199,7 +194,8 @@ class TL_LegacyRoyalties(
         sp.set_type(token_key, t_token_key)
         sp.result(utils.openSomeOrDefault(
             self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
-            self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none), message="UNKNOWN_ROYALTIES")))
+            self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none),
+                message=utils.eifInTests("UNKNOWN_ROYALTIES", sp.unit))))
 
 
     @sp.onchain_view(pure=True)

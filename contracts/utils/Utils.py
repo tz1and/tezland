@@ -59,3 +59,13 @@ def contractSetMetadata(contract, metadata_uri):
         contract,
         entry_point='set_metadata').open_some()
     sp.transfer(sp.big_map({"": metadata_uri}), sp.mutez(0), set_metadata_handle)
+
+# Metaprogramming stuff
+def eifInTests(a, b):
+    """Returns `a` if in a test scenario, otherwise `b`."""
+    if sp.window.activeScenario:
+        #print(f"In test scenario, returning {a}")
+        return a
+    else:
+        #print(f"Not a test scenario, returning {b}")
+        return b

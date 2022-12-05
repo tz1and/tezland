@@ -374,7 +374,7 @@ class TL_Dutch_v2(
     def get_auction_price(self, auction_key):
         """Returns the current price of an auction."""
         sp.set_type(auction_key, t_auction_key)
-        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, auction_key))
+        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, auction_key, sp.unit))
         sp.result(self.getAuctionPriceInline(the_auction.value))
 
     @sp.onchain_view(pure=True)

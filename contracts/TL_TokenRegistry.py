@@ -102,24 +102,37 @@ def signCollection(collection_sign, private_key):
     return signature
 
 
-def isRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
-    sp.set_type(token_registry_contract, sp.TAddress)
-    sp.set_type(fa2_set, sp.TSet(sp.TAddress))
-    return sp.compute(sp.view("is_registered", token_registry_contract,
-        sp.set_type_expr(
-            fa2_set,
-            t_registry_param),
-        t = t_registry_result).open_some())
+def getRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet, message = None):
+    return sp.view("get_registered", token_registry_contract,
+        sp.set_type_expr(fa2_set, t_registry_param),
+        t = t_registry_result).open_some(message)
 
 
-def checkRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet):
-    sp.set_type(token_registry_contract, sp.TAddress)
-    sp.set_type(fa2_set, sp.TSet(sp.TAddress))
-    sp.compute(sp.view("check_registered", token_registry_contract,
-        sp.set_type_expr(
-            fa2_set,
-            t_registry_param),
-        t = sp.TUnit).open_some())
+def onlyRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet, message = None):
+    return sp.view("only_registered", token_registry_contract,
+        sp.set_type_expr(fa2_set, t_registry_param),
+        t = sp.TUnit).open_some(message)
+
+
+def getRoyaltiesType(token_registry_contract: sp.TAddress, fa2: sp.TAddress, message = None):
+    return sp.view("get_royalties_type", token_registry_contract,
+        sp.set_type_expr(fa2, sp.TAddress),
+        t = t_royalties_bounded).open_some(message)
+
+
+def getCollectionInfo(token_registry_contract: sp.TAddress, fa2: sp.TAddress, message = None):
+    return sp.view("get_collection_info", token_registry_contract,
+        sp.set_type_expr(fa2, sp.TAddress),
+        t = collectionType).open_some(message)
+
+
+def isPrivateOwnerOrCollab(token_registry_contract: sp.TAddress, collection: sp.TAddress, address: sp.TAddress, message = None):
+    return sp.view("is_private_owner_or_collab", token_registry_contract,
+        sp.set_type_expr(sp.record(
+            collection = collection,
+            address = address
+        ), t_ownership_check),
+        t = t_ownership_result).open_some(message)
 
 
 #
@@ -325,7 +338,7 @@ class TL_TokenRegistry(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def is_registered(self, contract_set):
+    def get_registered(self, contract_set):
         """Returns set of collections that are registered.
         
         Existance in set = inclusion."""
@@ -340,14 +353,14 @@ class TL_TokenRegistry(
 
 
     @sp.onchain_view(pure=True)
-    def check_registered(self, contract_set):
-        """Fails with TOKEN_NOT_REGISTERED if any of the contracts aren't.
+    def only_registered(self, contract_set):
+        """Fails if any of the contracts in `contract_set` aren't registered.
         Otherwise just returns unit."""
         sp.set_type(contract_set, t_registry_param)
 
         with sp.for_("contract", contract_set.elements()) as contract:
             with sp.if_(~self.data.collections.contains(contract)):
-                sp.failwith("TOKEN_NOT_REGISTERED")
+                sp.failwith(utils.eifInTests("TOKEN_NOT_REGISTERED", sp.unit))
         sp.result(sp.unit)
 
 
@@ -359,7 +372,8 @@ class TL_TokenRegistry(
         sp.set_type(contract, sp.TAddress)
 
         with sp.set_result_type(t_royalties_bounded):
-            sp.result(self.data.collections.get(contract, message="INVALID_COLLECTION").royalties_type)
+            sp.result(self.data.collections.get(contract,
+                message=utils.eifInTests("INVALID_COLLECTION", sp.unit)).royalties_type)
 
 
     @sp.onchain_view(pure=True)
@@ -370,7 +384,8 @@ class TL_TokenRegistry(
         sp.set_type(contract, sp.TAddress)
 
         with sp.set_result_type(collectionType):
-            sp.result(self.data.collections.get(contract, message="INVALID_COLLECTION"))
+            sp.result(self.data.collections.get(contract,
+                message=utils.eifInTests("INVALID_COLLECTION", sp.unit)))
 
 
     @sp.onchain_view(pure=True)
@@ -384,8 +399,10 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_ownership_result):
             # Get private collection params.
-            the_collection = sp.compute(self.data.collections.get(params.collection, message = "INVALID_COLLECTION"))
-            sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+            the_collection = sp.compute(self.data.collections.get(params.collection,
+                message = utils.eifInTests("INVALID_COLLECTION", sp.unit)))
+            sp.verify(the_collection.collection_type == collectionPrivate,
+                utils.eifInTests("NOT_PRIVATE", sp.unit))
 
             # Return "owner" if owner.
             with sp.if_(the_collection.ownership.open_some().owner == params.address):
@@ -395,7 +412,7 @@ class TL_TokenRegistry(
                 with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
                     sp.result(sp.bounded("collaborator"))
                 with sp.else_():
-                    sp.failwith("NOT_OWNER_OR_COLLABORATOR")
+                    sp.failwith(utils.eifInTests("NOT_OWNER_OR_COLLABORATOR", sp.unit))
 
 
     @sp.onchain_view(pure=True)

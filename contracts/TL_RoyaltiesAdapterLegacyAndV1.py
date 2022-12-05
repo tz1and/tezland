@@ -4,6 +4,7 @@ registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistr
 legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 t_get_royalties_type = sp.TRecord(
@@ -12,13 +13,10 @@ t_get_royalties_type = sp.TRecord(
 ).layout(("token_key", "royalties_type"))
 
 
-def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord, royalties_type: sp.TBounded):
-    sp.set_type(royalties_adaper, sp.TAddress)
-    sp.set_type(token_key, legacy_royalties_contract.t_token_key)
-    sp.set_type(royalties_type, registry_contract.t_royalties_bounded)
-    return sp.compute(sp.view("get_royalties", royalties_adaper,
+def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord, royalties_type: sp.TBounded, message = None):
+    return sp.view("get_royalties", royalties_adaper,
         sp.set_type_expr(sp.record(token_key = token_key, royalties_type = royalties_type), t_get_royalties_type),
-        t = FA2.t_royalties_interop).open_some())
+        t = FA2.t_royalties_interop).open_some(message)
 
 
 #
@@ -78,7 +76,7 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
         # Type 1 = tz1and v1 royalties.
         with sp.if_(params.royalties_type == registry_contract.royaltiesTz1andV1):
             # Convert V1 royalties to V2.
-            royalties = sp.compute(FA2_legacy.getRoyalties(params.token_key.fa2, params.token_key.id))
+            royalties = sp.compute(FA2_legacy.getRoyalties(params.token_key.fa2, params.token_key.id, sp.unit))
             royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = {}), FA2.t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
@@ -91,6 +89,6 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
             # Type 0 = Registry does not know about this token's royalties.
             with sp.if_(params.royalties_type == registry_contract.royaltiesLegacy):
                 # Get royalties from legacy royalties contract.
-                sp.result(legacy_royalties_contract.getRoyalties(self.data.legacy_royalties, params.token_key))
+                sp.result(legacy_royalties_contract.getRoyalties(self.data.legacy_royalties, params.token_key, sp.unit))
             with sp.else_():
-                sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
+                sp.failwith(sp.unit)

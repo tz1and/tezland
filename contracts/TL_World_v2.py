@@ -38,8 +38,9 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
-# TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount! also check amount after subtraction is 0!
-# TODO: rename v2 roylaties view to get_royalties!
+# TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
+# TODO: Don't use GenericMap or AddressSet...
+# TODO: FA2 views should fail with sp.unit!!!!!
 
 
 # Other
@@ -53,6 +54,8 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
 # Some notes:
+# - views should fail with sp.unit! view utils may fail with message.
+#   + In views calling views: message = sp.unit. Views throwing: message eifInTests("MESSAGE", sp.unit). Calling views in EPS: eifInTests(None, "MESSAGE").
 # - maketet blacklist adds about 200 gas to token transfers. not sure if worth it.
 # - use abs instead sp.as_nat if unchecked. as_nat will throw on negative numbers, abs won't - but make smaller code.
 # - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
@@ -704,9 +707,8 @@ class TL_World_v2(
         transferMap = token_transfer_utils.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        registry_contract.checkRegistered(
-            self.data.registry,
-            fa2_set.value)
+        sp.compute(registry_contract.onlyRegistered(self.data.registry, fa2_set.value,
+            utils.eifInTests(None, "TOKEN_NOT_REGISTERED")))
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -988,8 +990,9 @@ class TL_World_v2(
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = royalties_adapter_contract.getRoyalties(
-                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id))
+                    item_royalty_info = sp.compute(royalties_adapter_contract.getRoyalties(
+                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id),
+                        utils.eifInTests(None, "NO_ROYALTIES")))
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1065,9 +1068,8 @@ class TL_World_v2(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            registry_contract.checkRegistered(
-                self.data.registry,
-                fa2_set.value)
+            sp.compute(registry_contract.onlyRegistered(self.data.registry, fa2_set.value,
+                utils.eifInTests(None, "TOKEN_NOT_REGISTERED")))
 
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
