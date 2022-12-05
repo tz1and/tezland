@@ -35,7 +35,7 @@ class TL_Minter_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
+            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
             ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), "PARAM_ERROR")),
             ("max_royalties", sp.TNat, None)
         ]
@@ -86,7 +86,7 @@ class TL_Minter_v2(
                 collection = collection,
                 address = address
             ), token_registry_contract.t_ownership_check),
-            t = token_registry_contract.t_ownership_result).open_some() == sp.bounded("owner"), "ONLY_OWNER")
+            t = token_registry_contract.t_ownership_result) == sp.some(sp.bounded("owner")), "ONLY_OWNER")
 
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):

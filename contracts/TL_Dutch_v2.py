@@ -77,7 +77,7 @@ class TL_Dutch_v2(
         self.available_settings = [
             ("granularity", sp.TNat, None),
             ("secondary_enabled", sp.TBool, None),
-            ("world_contract", sp.TAddress, lambda x : utils.isContract(x))
+            ("world_contract", sp.TAddress, lambda x : utils.onlyContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)

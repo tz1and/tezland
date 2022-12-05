@@ -39,6 +39,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: IMPORTANT: get_item NEEDS to make sure final amount == sp.amount! also check amount after subtraction is 0!
+# TODO: rename v2 roylaties view to get_royalties!
 
 
 # Other
@@ -518,9 +519,9 @@ class TL_World_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
-            ("royalties_adapter", sp.TAddress, lambda x : utils.isContract(x)),
-            ("migration_from", sp.TOption(sp.TAddress), lambda x : utils.ifSomeRun(x, lambda y: utils.isContract(y))),
+            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
+            ("royalties_adapter", sp.TAddress, lambda x : utils.onlyContract(x)),
+            ("migration_from", sp.TOption(sp.TAddress), lambda x : utils.ifSomeRun(x, lambda y: utils.onlyContract(y))),
             ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 

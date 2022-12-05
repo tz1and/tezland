@@ -6,7 +6,7 @@ import smartpy as sp
 #
 
 def isPowerOfTwoMinusOne(x):
-    """Returns true if x is power of 2 - 1"""
+    """Returns expression that evaluates to true if x is power of 2 - 1"""
     return ((x + 1) & x) == sp.nat(0)
 
 def sendIfValue(to, amount):
@@ -16,7 +16,7 @@ def sendIfValue(to, amount):
 
 @sp.inline_result
 def openSomeOrDefault(e: sp.TOption, default):
-    """If option `e` is some, return it's value, else return `default`."""
+    """If option `e` is some, return its value, else return `default`."""
     with e.match_cases() as arg:
         with arg.match("None"):
             sp.result(default)
@@ -31,18 +31,23 @@ def ifSomeRun(e: sp.TOption, f):
 #CONTRACT_ADDRESS_HIGH = sp.address("KT1XvNYseNDJJ6Kw27qhSEDF8ys8JhDopzfG")
 
 def isContract(addr: sp.TAddress):
-    """Throws if `addr` is a contract address."""
-    sp.set_type(addr, sp.TAddress)
-    #sp.verify((addr >= CONTRACT_ADDRESS_LOW), "NOT_CONTRACT") # & (addr <= CONTRACT_ADDRESS_HIGH) - prob best not to.
-    # In a packed address, the 7th byte is 0x01 for originated accounts
-    # and 0x00 for implicit accounts. The 8th byte is the curve. FYI.
-    sp.verify(sp.slice(sp.pack(addr), 6, 1) == sp.some(sp.bytes("0x01")), "NOT_CONTRACT")
+    """Returns expression that checks if `addr` is a contract address.
 
-def validateIpfsUri(metadata_uri):
-    """Validate IPFS Uri."""
-    # Basic validation of the metadata, try to make sure it's a somewhat valid ipfs URI.
-    # Ipfs cid v0 + proto is 53 chars.
-    sp.verify((sp.slice(metadata_uri, 0, 7).open_some("INVALID_METADATA") == sp.utils.bytes_of_string("ipfs://"))
+    In a packed address, the 7th byte is 0x01 for originated accounts
+    and 0x00 for implicit accounts. The 8th byte is the curve. FYI."""
+    return sp.slice(sp.pack(sp.set_type_expr(addr, sp.TAddress)), 6, 1) == sp.some(sp.bytes("0x01"))
+
+def onlyContract(addr: sp.TAddress):
+    """Fails with NOT_CONTRACT if `addr` is not a contract address."""
+    #sp.verify((addr >= CONTRACT_ADDRESS_LOW), "NOT_CONTRACT") # & (addr <= CONTRACT_ADDRESS_HIGH) - prob best not to.
+    sp.verify(isContract(addr), "NOT_CONTRACT")
+
+def validateIpfsUri(metadata_uri: sp.TBytes):
+    """Validate IPFS Uri.
+
+    Basic validation, try to make sure it's a somewhat valid ipfs URI.
+    Ipfs cid v0 + proto is 53 chars."""
+    sp.verify((sp.slice(metadata_uri, 0, 7) == sp.some(sp.utils.bytes_of_string("ipfs://")))
         & (sp.len(metadata_uri) >= sp.nat(53)), "INVALID_METADATA")
 
 def contractSetMetadata(contract, metadata_uri):

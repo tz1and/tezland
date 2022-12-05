@@ -68,8 +68,8 @@ class TL_TokenFactory(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.isContract(x)),
-            ("minter", sp.TAddress, lambda x : utils.isContract(x))
+            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
+            ("minter", sp.TAddress, lambda x : utils.onlyContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
