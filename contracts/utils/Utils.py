@@ -27,12 +27,16 @@ def ifSomeRun(e: sp.TOption, f):
     """If option `e` is some, execute function `f`."""
     with e.match("Some") as open: f(open)
 
-THRESHOLD_ADDRESS = sp.address("tz3jfebmewtfXYD1Xef34TwrfMg2rrrw6oum")
+#CONTRACT_ADDRESS_LOW = sp.address("KT18amZmM5W7qDWVt2pH6uj7sCEd3kbzLrHT")
+#CONTRACT_ADDRESS_HIGH = sp.address("KT1XvNYseNDJJ6Kw27qhSEDF8ys8JhDopzfG")
 
 def isContract(addr: sp.TAddress):
     """Throws if `addr` is a contract address."""
     sp.set_type(addr, sp.TAddress)
-    sp.verify(addr > THRESHOLD_ADDRESS, "NOT_CONTRACT")
+    #sp.verify((addr >= CONTRACT_ADDRESS_LOW), "NOT_CONTRACT") # & (addr <= CONTRACT_ADDRESS_HIGH) - prob best not to.
+    # In a packed address, the 7th byte is 0x01 for originated accounts
+    # and 0x00 for implicit accounts. The 8th byte is the curve. FYI.
+    sp.verify(sp.slice(sp.pack(addr), 6, 1) == sp.some(sp.bytes("0x01")), "NOT_CONTRACT")
 
 def validateIpfsUri(metadata_uri):
     """Validate IPFS Uri."""
