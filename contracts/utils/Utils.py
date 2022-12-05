@@ -35,11 +35,11 @@ def isContract(addr: sp.TAddress):
 
     In a packed address, the 7th byte is 0x01 for originated accounts
     and 0x00 for implicit accounts. The 8th byte is the curve. FYI."""
+    #return (addr >= CONTRACT_ADDRESS_LOW) & (addr <= CONTRACT_ADDRESS_HIGH) # prob best not to.
     return sp.slice(sp.pack(sp.set_type_expr(addr, sp.TAddress)), 6, 1) == sp.some(sp.bytes("0x01"))
 
 def onlyContract(addr: sp.TAddress):
     """Fails with NOT_CONTRACT if `addr` is not a contract address."""
-    #sp.verify((addr >= CONTRACT_ADDRESS_LOW), "NOT_CONTRACT") # & (addr <= CONTRACT_ADDRESS_HIGH) - prob best not to.
     sp.verify(isContract(addr), "NOT_CONTRACT")
 
 def validateIpfsUri(metadata_uri: sp.TBytes):
