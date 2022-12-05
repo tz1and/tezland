@@ -131,13 +131,13 @@ def test():
         fa2=pfp_tokens.address,
     )
 
-    royalties_unique_signed_valid1 = legacy_royalties_contract.sign_royalties(offchain_royalties_unique, royalties_key1.secret_key)
-    royalties_unique_signed_valid2 = legacy_royalties_contract.sign_royalties(offchain_royalties_unique, royalties_key2.secret_key)
-    royalties_unique_signed_invalid = legacy_royalties_contract.sign_royalties(offchain_royalties_unique, royalties_key_invalid.secret_key)
+    royalties_unique_signed_valid1 = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key1.secret_key)
+    royalties_unique_signed_valid2 = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key2.secret_key)
+    royalties_unique_signed_invalid = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key_invalid.secret_key)
 
-    royalties_global_signed_valid1 = legacy_royalties_contract.sign_royalties(offchain_royalties_global, royalties_key1.secret_key)
-    royalties_global_signed_valid2 = legacy_royalties_contract.sign_royalties(offchain_royalties_global, royalties_key2.secret_key)
-    royalties_global_signed_invalid = legacy_royalties_contract.sign_royalties(offchain_royalties_global, royalties_key_invalid.secret_key)
+    royalties_global_signed_valid1 = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key1.secret_key)
+    royalties_global_signed_valid2 = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key2.secret_key)
+    royalties_global_signed_invalid = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key_invalid.secret_key)
 
     legacy_royalties.add_royalties({
         "key1": [
@@ -189,33 +189,33 @@ def test():
     scenario.verify(~sp.is_failing(get_public_keys))
     scenario.verify_equal(get_public_keys, sp.map({"key1": royalties_key1.public_key}))
 
-    scenario.h3("get_token_royalties_batch")
+    scenario.h3("get_royalties_batch")
     legacy_royalties.add_royalties({"key2": [
         sp.record(signature=royalties_unique_signed_valid2, offchain_royalties=offchain_royalties_unique),
         sp.record(signature=royalties_global_signed_valid2, offchain_royalties=offchain_royalties_global)
     ]}).run(sender=bob)
 
-    get_royalties = legacy_royalties.get_token_royalties_batch(sp.set([token_key_unique, token_key_global]))
+    get_royalties = legacy_royalties.get_royalties_batch(sp.set([token_key_unique, token_key_global]))
     scenario.show(get_royalties)
     scenario.verify_equal(get_royalties, sp.map({
         token_key_unique: offchain_royalties_unique.token_royalties,
         token_key_global: offchain_royalties_global.token_royalties}))
 
     # includes unknown royalties
-    get_royalties = legacy_royalties.get_token_royalties_batch(sp.set([token_key_unique, sp.record(fa2=items_tokens.address, id=10000234)]))
+    get_royalties = legacy_royalties.get_royalties_batch(sp.set([token_key_unique, sp.record(fa2=items_tokens.address, id=10000234)]))
     scenario.show(get_royalties)
     scenario.verify(~sp.is_failing(get_royalties))
     scenario.verify_equal(get_royalties, sp.map({token_key_unique: offchain_royalties_unique.token_royalties}))
 
-    scenario.h3("get_token_royalties")
+    scenario.h3("get_royalties")
 
     # unique
-    get_royalties = legacy_royalties.get_token_royalties(token_key_unique)
+    get_royalties = legacy_royalties.get_royalties(token_key_unique)
     scenario.show(get_royalties)
     scenario.verify_equal(get_royalties, offchain_royalties_unique.token_royalties)
 
     # global
-    get_royalties = legacy_royalties.get_token_royalties(token_key_global)
+    get_royalties = legacy_royalties.get_royalties(token_key_global)
     scenario.show(get_royalties)
     scenario.verify_equal(get_royalties, offchain_royalties_global.token_royalties)
 

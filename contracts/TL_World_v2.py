@@ -988,8 +988,8 @@ class TL_World_v2(
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = royalties_adapter_contract.getTokenRoyalties(
-                        self.data.royalties_adapter, params.fa2, the_item.value.token_id)
+                    item_royalty_info = royalties_adapter_contract.getRoyalties(
+                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id))
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)

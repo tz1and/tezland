@@ -6,20 +6,18 @@ FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
 FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 
 
-t_get_token_royalties_type = sp.TRecord(
+t_get_royalties_type = sp.TRecord(
     token_key = legacy_royalties_contract.t_token_key,
     royalties_type = registry_contract.t_royalties_bounded
 ).layout(("token_key", "royalties_type"))
 
 
-def getTokenRoyalties(royalties_adaper: sp.TAddress, fa2: sp.TAddress, token_id: sp.TNat):
+def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord, royalties_type: sp.TBounded):
     sp.set_type(royalties_adaper, sp.TAddress)
-    sp.set_type(fa2, sp.TAddress)
-    sp.set_type(token_id, sp.TNat)
-    return sp.compute(sp.view("get_token_royalties", royalties_adaper,
-        sp.set_type_expr(
-            sp.record(fa2=fa2, id=token_id),
-            legacy_royalties_contract.t_token_key),
+    sp.set_type(token_key, legacy_royalties_contract.t_token_key)
+    sp.set_type(royalties_type, registry_contract.t_royalties_bounded)
+    return sp.compute(sp.view("get_royalties", royalties_adaper,
+        sp.set_type_expr(sp.record(token_key = token_key, royalties_type = royalties_type), t_get_royalties_type),
         t = FA2.t_royalties_interop).open_some())
 
 
@@ -73,14 +71,14 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
 
 
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, params):
+    def get_royalties(self, params):
         """Gets token royalties and/or validate signed royalties."""
-        sp.set_type(params, t_get_token_royalties_type)
+        sp.set_type(params, t_get_royalties_type)
 
         # Type 1 = tz1and v1 royalties.
         with sp.if_(params.royalties_type == registry_contract.royaltiesTz1andV1):
             # Convert V1 royalties to V2.
-            royalties = sp.compute(FA2_legacy.get_token_royalties(params.token_key.fa2, params.token_key.id))
+            royalties = sp.compute(FA2_legacy.getRoyalties(params.token_key.fa2, params.token_key.id))
             royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = {}), FA2.t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
@@ -93,7 +91,6 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
             # Type 0 = Registry does not know about this token's royalties.
             with sp.if_(params.royalties_type == registry_contract.royaltiesLegacy):
                 # Get royalties from legacy royalties contract.
-                sp.result(sp.view("get_token_royalties", self.data.legacy_royalties,
-                    params.token_key, t = FA2.t_royalties_interop).open_some())
+                sp.result(legacy_royalties_contract.getRoyalties(self.data.legacy_royalties, params.token_key))
             with sp.else_():
                 sp.failwith("ROYALTIES_NOT_IMPLEMENTED")

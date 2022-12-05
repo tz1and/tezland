@@ -1266,7 +1266,7 @@ class OnchainviewCountTokens:
 #########
 
 # Getting royalties
-def get_token_royalties(fa2, token_id):
+def getRoyalties(fa2, token_id):
     return sp.view("get_token_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
         t = t_royalties).open_some()

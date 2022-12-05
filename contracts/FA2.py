@@ -1173,7 +1173,7 @@ class Royalties:
             raise Exception("Royalties not enabled on base")
 
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, token_id):
+    def get_royalties(self, token_id):
         """Returns the token royalties information, including total shares."""
         sp.set_type(token_id, sp.TNat)
 
@@ -1197,8 +1197,8 @@ class OnchainviewCountTokens:
 #########
 
 # Getting royalties
-def get_token_royalties(fa2, token_id, message = None):
-    return sp.view("get_token_royalties", fa2,
+def getRoyalties(fa2, token_id, message = None):
+    return sp.view("get_royalties", fa2,
         sp.set_type_expr(token_id, sp.TNat),
         t = t_royalties_interop).open_some(message)
 

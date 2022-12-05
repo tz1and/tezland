@@ -53,7 +53,7 @@ t_add_royalties_params = sp.TMap(
     ).layout(("signature", "offchain_royalties"))))
 
 
-def sign_royalties(royalties, private_key):
+def signRoyalties(royalties, private_key):
     royalties = sp.set_type_expr(royalties, t_royalties_offchain)
     # Gives: Type format error atom secret_key
     #private_key = sp.set_type_expr(private_key, sp.TSecretKey)
@@ -66,6 +66,13 @@ def sign_royalties(royalties, private_key):
         message_format = 'Raw')
 
     return signature
+
+
+def getRoyalties(legacy_royalties: sp.TAddress, token_key: sp.TRecord):
+    sp.set_type(legacy_royalties, sp.TAddress)
+    sp.set_type(token_key, t_token_key)
+    return sp.compute(sp.view("get_royalties", legacy_royalties,
+        token_key, t = FA2.t_royalties_interop).open_some())
 
 
 #
@@ -183,7 +190,7 @@ class TL_LegacyRoyalties(
     # Views
     #
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, token_key):
+    def get_royalties(self, token_key):
         """Returns royalties, if known.
 
         First checks unique royalties, then global (id some or none).
@@ -196,7 +203,7 @@ class TL_LegacyRoyalties(
 
 
     @sp.onchain_view(pure=True)
-    def get_token_royalties_batch(self, token_keys):
+    def get_royalties_batch(self, token_keys):
         """Returns batch of royalties, if known.
 
         First checks unique royalties, then global (id some or none).

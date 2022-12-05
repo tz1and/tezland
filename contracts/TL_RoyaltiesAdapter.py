@@ -11,15 +11,11 @@ FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
 # TODO: test adapters
 
 
-def getTokenRoyalties(royalties_adaper: sp.TAddress, fa2: sp.TAddress, token_id: sp.TNat):
+def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord):
     sp.set_type(royalties_adaper, sp.TAddress)
-    sp.set_type(fa2, sp.TAddress)
-    sp.set_type(token_id, sp.TNat)
-    return sp.compute(sp.view("get_token_royalties", royalties_adaper,
-        sp.set_type_expr(
-            sp.record(fa2=fa2, id=token_id),
-            legacy_royalties_contract.t_token_key),
-        t = FA2.t_royalties_interop).open_some())
+    sp.set_type(token_key, legacy_royalties_contract.t_token_key)
+    return sp.compute(sp.view("get_royalties", royalties_adaper,
+        token_key, t = FA2.t_royalties_interop).open_some())
 
 
 #
@@ -74,20 +70,17 @@ class TL_RoyaltiesAdapter(sp.Contract):
 
 
     @sp.onchain_view(pure=True)
-    def get_token_royalties(self, params):
+    def get_royalties(self, token_key):
         """Gets token royalties and/or validate signed royalties."""
-        sp.set_type(params, legacy_royalties_contract.t_token_key)
+        sp.set_type(token_key, legacy_royalties_contract.t_token_key)
 
         royalties_type = sp.local("royalties_type", sp.view("get_royalties_type", self.data.registry,
-            params.fa2, t = registry_contract.t_royalties_bounded).open_some(sp.unit))
+            token_key.fa2, t = registry_contract.t_royalties_bounded).open_some(sp.unit))
 
         with sp.if_(royalties_type.value == registry_contract.royaltiesTz1andV2):
             # Just return V2 royalties.
-            sp.result(FA2.get_token_royalties(params.fa2, params.id, sp.unit))
+            sp.result(FA2.getRoyalties(token_key.fa2, token_key.id, sp.unit))
         with sp.else_():
             # Call the V1 and legacy adapter.
-            sp.result(sp.view("get_token_royalties", self.data.v1_and_legacy_adapter,
-                sp.set_type_expr(
-                    sp.record(token_key = params, royalties_type = royalties_type.value),
-                    royalties_adapter_legacy_contract.t_get_token_royalties_type),
-                t = FA2.t_royalties_interop).open_some(sp.unit))
+            sp.result(royalties_adapter_legacy_contract.getRoyalties(self.data.v1_and_legacy_adapter,
+                token_key, royalties_type.value))
