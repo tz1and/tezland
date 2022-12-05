@@ -60,13 +60,3 @@ def contractSetMetadata(contract, metadata_uri):
         contract,
         entry_point='set_metadata').open_some()
     sp.transfer(sp.big_map({"": metadata_uri}), sp.mutez(0), set_metadata_handle)
-
-# Metaprogramming stuff
-def viewExceptionOrUnit(message):
-    """Returns `message` if compiling tests, sp.unit otherwise."""
-    if environ.get("SMARTPY_NODE_DEV") == "test":
-        #print(f"In test scenario, failing with {message}")
-        return message
-
-    #print(f"In test scenario, failing with sp.unit")
-    return sp.unit

@@ -6,7 +6,7 @@ Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py
 ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
 BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py").BasicPermissions
 MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+env_utils = sp.io.import_script_from_url("file:contracts/utils/EnvUtils.py")
 
 
 ownershipInfo = sp.TOption(sp.TRecord(
@@ -360,7 +360,7 @@ class TL_TokenRegistry(
 
         with sp.for_("contract", contract_set.elements()) as contract:
             with sp.if_(~self.data.collections.contains(contract)):
-                sp.failwith(utils.viewExceptionOrUnit("TOKEN_NOT_REGISTERED"))
+                sp.failwith(env_utils.viewExceptionOrUnit("TOKEN_NOT_REGISTERED"))
         sp.result(sp.unit)
 
 
@@ -373,7 +373,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_royalties_bounded):
             sp.result(self.data.collections.get(contract,
-                message=utils.viewExceptionOrUnit("INVALID_COLLECTION")).royalties_type)
+                message=env_utils.viewExceptionOrUnit("INVALID_COLLECTION")).royalties_type)
 
 
     @sp.onchain_view(pure=True)
@@ -385,7 +385,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(collectionType):
             sp.result(self.data.collections.get(contract,
-                message=utils.viewExceptionOrUnit("INVALID_COLLECTION")))
+                message=env_utils.viewExceptionOrUnit("INVALID_COLLECTION")))
 
 
     @sp.onchain_view(pure=True)
@@ -400,9 +400,9 @@ class TL_TokenRegistry(
         with sp.set_result_type(t_ownership_result):
             # Get private collection params.
             the_collection = sp.compute(self.data.collections.get(params.collection,
-                message = utils.viewExceptionOrUnit("INVALID_COLLECTION")))
+                message = env_utils.viewExceptionOrUnit("INVALID_COLLECTION")))
             sp.verify(the_collection.collection_type == collectionPrivate,
-                utils.viewExceptionOrUnit("NOT_PRIVATE"))
+                env_utils.viewExceptionOrUnit("NOT_PRIVATE"))
 
             # Return "owner" if owner.
             with sp.if_(the_collection.ownership.open_some(sp.unit).owner == params.address):
@@ -412,7 +412,7 @@ class TL_TokenRegistry(
                 with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
                     sp.result(sp.bounded("collaborator"))
                 with sp.else_():
-                    sp.failwith(utils.viewExceptionOrUnit("NOT_OWNER_OR_COLLABORATOR"))
+                    sp.failwith(env_utils.viewExceptionOrUnit("NOT_OWNER_OR_COLLABORATOR"))
 
 
     @sp.onchain_view(pure=True)

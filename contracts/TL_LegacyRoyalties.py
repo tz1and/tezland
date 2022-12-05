@@ -8,6 +8,7 @@ BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPerm
 MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
 FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+env_utils = sp.io.import_script_from_url("file:contracts/utils/EnvUtils.py")
 utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 
@@ -195,7 +196,7 @@ class TL_LegacyRoyalties(
         sp.result(utils.openSomeOrDefault(
             self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
             self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none),
-                message=utils.viewExceptionOrUnit("UNKNOWN_ROYALTIES"))))
+                message=env_utils.viewExceptionOrUnit("UNKNOWN_ROYALTIES"))))
 
 
     @sp.onchain_view(pure=True)
