@@ -1799,5 +1799,5 @@ def test_royalties(nft_contract, fungible_contract):
             )
 
         # Make sure onchain view fails on unknown
-        sp.verify(sp.is_failing(c1.get_royalties(100)))
-        sp.verify(sp.is_failing(c2.get_royalties(100)))
+        sc.verify(sp.is_failing(c1.get_royalties(100)))
+        sc.verify(sp.is_failing(c2.get_royalties(100)))
