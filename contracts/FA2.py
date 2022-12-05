@@ -600,12 +600,12 @@ class Common(sp.Contract):
                 ("owner", "token_id")
             ),
         )
-        sp.result(self.balance_(params.owner, params.token_id))
+        sp.result(self.balance_(params.owner, params.token_id, sp.unit))
 
     @sp.onchain_view(pure=True)
     def total_supply(self, params):
         """Return the total number of tokens for the given `token_id`."""
-        sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
+        sp.result(sp.set_type_expr(self.supply_(params.token_id, sp.unit), sp.TNat))
 
 
 ################
@@ -670,13 +670,13 @@ class Fa2Nft(Common):
                 )
         return (ledger, token_extra_dict, token_metadata_dict)
 
-    def balance_(self, owner, token_id):
+    def balance_(self, owner, token_id, message="FA2_TOKEN_UNDEFINED"):
         return sp.eif(
-            self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED") == owner,
+            self.data.ledger.get(token_id, message = message) == owner,
             sp.nat(1), sp.nat(0))
 
-    def supply_(self, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+    def supply_(self, token_id, message="FA2_TOKEN_UNDEFINED"):
+        sp.verify(self.is_defined(token_id), message)
         return sp.nat(1)
 
     def transfer_tx_(self, from_, tx):
@@ -694,7 +694,7 @@ class Fa2Nft(Common):
         
         Return the owner for the given `token_id`."""
         sp.result(sp.set_type_expr(
-            self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED"),
+            self.data.ledger.get(token_id, message = sp.unit),
             sp.TAddress))
 
 
@@ -768,12 +768,12 @@ class Fa2Fungible(Common):
             token_extra_dict[token_id].supply += amount
         return (ledger, token_extra_dict, token_metadata_dict)
 
-    def balance_(self, owner, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+    def balance_(self, owner, token_id, message="FA2_TOKEN_UNDEFINED"):
+        sp.verify(self.is_defined(token_id), message)
         return self.data.ledger.get((owner, token_id), sp.nat(0))
 
-    def supply_(self, token_id):
-        return self.data.token_extra.get(token_id, message = "FA2_TOKEN_UNDEFINED").supply
+    def supply_(self, token_id, message="FA2_TOKEN_UNDEFINED"):
+        return self.data.token_extra.get(token_id, message = message).supply
 
     def transfer_tx_(self, from_, tx):
         from_ = sp.compute((from_, tx.token_id))
@@ -844,8 +844,8 @@ class Fa2SingleAsset(Common):
     def is_defined(self, token_id):
         return token_id == 0
 
-    def balance_(self, owner, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+    def balance_(self, owner, token_id, message="FA2_TOKEN_UNDEFINED"):
+        sp.verify(self.is_defined(token_id), message)
         return self.data.ledger.get(owner, sp.nat(0))
 
     def transfer_tx_(self, from_, tx):
@@ -862,8 +862,8 @@ class Fa2SingleAsset(Common):
         to_ = tx.to_
         self.data.ledger[to_] = self.data.ledger.get(to_, sp.nat(0)) + tx.amount
 
-    def supply_(self, token_id):
-        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+    def supply_(self, token_id, message="FA2_TOKEN_UNDEFINED"):
+        sp.verify(self.is_defined(token_id), message)
         return self.data.supply
 
 
