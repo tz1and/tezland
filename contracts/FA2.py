@@ -1174,13 +1174,14 @@ class Royalties:
 
     @sp.onchain_view(pure=True)
     def get_royalties(self, token_id):
-        """Returns the token royalties information, including total shares."""
+        """Returns the token royalties information, including total shares.
+
+        Fails if unknown royalties."""
         sp.set_type(token_id, sp.TNat)
 
         with sp.set_result_type(t_royalties_interop):
-            sp.result(sp.record(
-                total=1000,
-                shares=self.data.token_extra.get(token_id, self.token_extra_default).royalty_info))
+            sp.result(sp.record(total=1000,
+                shares=self.data.token_extra.get(token_id, message=sp.unit).royalty_info))
 
 
 class OnchainviewCountTokens:

@@ -1797,3 +1797,7 @@ def test_royalties(nft_contract, fungible_contract):
             sc.verify_equal(
                 sp.record(total=1000, shares=royalties), c2.get_royalties(abs(c2.data.last_token_id - 1))
             )
+
+        # Make sure onchain view fails on unknown
+        sp.verify(sp.is_failing(c1.get_royalties(100)))
+        sp.verify(sp.is_failing(c2.get_royalties(100)))
