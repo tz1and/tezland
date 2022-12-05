@@ -46,6 +46,16 @@ Combined:
 	2569 Bytes
 
 
+Storage: 	
+	104 Bytes
+Big map originations (4): 	
+	128 Bytes
+Code: 	
+	2301 Bytes
+Combined: 	
+	2533 Bytes
+
+
 #
 # TokenRegistry
 ########################
@@ -58,6 +68,16 @@ Code:
 	4033 Bytes
 Combined: 	
 	6949 Bytes
+
+
+Storage: 	
+	2756 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	3876 Bytes
+Combined: 	
+	6792 Bytes
 
 
 #
@@ -174,6 +194,46 @@ Combined:
 	18867 Bytes
 
 
+Storage: 	
+	10616 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18931 Bytes
+
+
+Storage: 	
+	10564 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18879 Bytes
+
+
+Storage: 	
+	10556 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18871 Bytes
+
+
+Storage: 	
+	10615 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	8155 Bytes
+Combined: 	
+	18930 Bytes
+
+
 #
 # Minter v2
 ######################
@@ -216,3 +276,55 @@ Code:
 	2111 Bytes
 Combined: 	
 	5188 Bytes
+
+
+Storage: 	
+	3172 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2370 Bytes
+Combined: 	
+	5606 Bytes
+
+
+Storage: 	
+	3246 Bytes
+Big map originations (2): 	
+	64 Bytes
+Code: 	
+	2370 Bytes
+Combined: 	
+	5680 Bytes
+
+
+#
+# RoyaltiesAdapter
+#######################
+
+
+Storage: 	
+	84 Bytes
+Code: 	
+	415 Bytes
+
+
+Storage: 	
+	84 Bytes
+Code: 	
+	411 Bytes
+
+
+layer 2
+
+
+Storage: 	
+	41 Bytes
+Code: 	
+	696 Bytes
+
+
+Storage: 	
+	41 Bytes
+Code: 	
+	654 Bytes
