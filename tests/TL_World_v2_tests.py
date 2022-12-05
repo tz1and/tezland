@@ -761,7 +761,7 @@ def test():
 
     scenario.verify(world.data.places[place_bob].value_to == sp.none)
     world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.some(alice.address))], ext = sp.none).run(sender = bob)
-    scenario.verify(world.data.places[place_bob].value_to == alice.address)
+    scenario.verify(world.data.places[place_bob].value_to == sp.some(alice.address))
     world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.none)], ext = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].value_to == sp.none)
     
