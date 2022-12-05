@@ -265,9 +265,6 @@ class TL_Dutch_v2(
                 sp.record(fa2 = token_contract, id = token_id),
                 world_contract.placeKeyType),
             t = world_contract.seqNumResultType).open_some()))
-        #sp.trace("current, expected:")
-        #sp.trace(current_hash)
-        #sp.trace(expected_hash)
         sp.verify(current_hash == expected_hash, "NOT_EXPECTED_SEQ_HASH")
 
 
