@@ -42,7 +42,7 @@ export function test_single(dir: string, contract_name: string) {
         // Build artifact directory.
         const contract_in = `${dir}/${contract_name}_tests.py`
 
-        child.execSync(`${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
+        child.execSync(`SMARTPY_NODE_DEV=test ${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
 
         console.log(kleur.green(`${CHECK_MARK} Tests for '${contract_name}' succeeded`))
 
@@ -75,7 +75,7 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(`SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
     console.log(`Extracting metadata ...`)
 
@@ -114,7 +114,7 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(`SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
     console.log(`Extracting Michelson contract and storage ...`)
 
@@ -169,7 +169,7 @@ def upgrade():
 
     const contract_in = `${target_out_dir}/${target_name}_upgrade.py`
 
-    child.execSync(`${SMART_PY_CLI} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
+    child.execSync(`SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
 
     console.log(`Extracting entry point map from output ...`)
 
