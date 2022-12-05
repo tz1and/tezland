@@ -195,7 +195,7 @@ class TL_LegacyRoyalties(
         sp.result(utils.openSomeOrDefault(
             self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
             self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none),
-                message=utils.eifInTests("UNKNOWN_ROYALTIES", sp.unit))))
+                message=utils.viewExceptionOrUnit("UNKNOWN_ROYALTIES"))))
 
 
     @sp.onchain_view(pure=True)

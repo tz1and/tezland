@@ -360,7 +360,7 @@ class TL_TokenRegistry(
 
         with sp.for_("contract", contract_set.elements()) as contract:
             with sp.if_(~self.data.collections.contains(contract)):
-                sp.failwith(utils.eifInTests("TOKEN_NOT_REGISTERED", sp.unit))
+                sp.failwith(utils.viewExceptionOrUnit("TOKEN_NOT_REGISTERED"))
         sp.result(sp.unit)
 
 
@@ -373,7 +373,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_royalties_bounded):
             sp.result(self.data.collections.get(contract,
-                message=utils.eifInTests("INVALID_COLLECTION", sp.unit)).royalties_type)
+                message=utils.viewExceptionOrUnit("INVALID_COLLECTION")).royalties_type)
 
 
     @sp.onchain_view(pure=True)
@@ -385,7 +385,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(collectionType):
             sp.result(self.data.collections.get(contract,
-                message=utils.eifInTests("INVALID_COLLECTION", sp.unit)))
+                message=utils.viewExceptionOrUnit("INVALID_COLLECTION")))
 
 
     @sp.onchain_view(pure=True)
@@ -400,19 +400,19 @@ class TL_TokenRegistry(
         with sp.set_result_type(t_ownership_result):
             # Get private collection params.
             the_collection = sp.compute(self.data.collections.get(params.collection,
-                message = utils.eifInTests("INVALID_COLLECTION", sp.unit)))
+                message = utils.viewExceptionOrUnit("INVALID_COLLECTION")))
             sp.verify(the_collection.collection_type == collectionPrivate,
-                utils.eifInTests("NOT_PRIVATE", sp.unit))
+                utils.viewExceptionOrUnit("NOT_PRIVATE"))
 
             # Return "owner" if owner.
-            with sp.if_(the_collection.ownership.open_some().owner == params.address):
+            with sp.if_(the_collection.ownership.open_some(sp.unit).owner == params.address):
                 sp.result(sp.bounded("owner"))
             with sp.else_():
                 # Return "collaborator" if collaborator.
                 with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
                     sp.result(sp.bounded("collaborator"))
                 with sp.else_():
-                    sp.failwith(utils.eifInTests("NOT_OWNER_OR_COLLABORATOR", sp.unit))
+                    sp.failwith(utils.viewExceptionOrUnit("NOT_OWNER_OR_COLLABORATOR"))
 
 
     @sp.onchain_view(pure=True)

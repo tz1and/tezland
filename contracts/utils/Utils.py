@@ -1,3 +1,4 @@
+from os import environ
 import smartpy as sp
 
 
@@ -61,11 +62,11 @@ def contractSetMetadata(contract, metadata_uri):
     sp.transfer(sp.big_map({"": metadata_uri}), sp.mutez(0), set_metadata_handle)
 
 # Metaprogramming stuff
-def eifInTests(a, b):
-    """Returns `a` if in a test scenario, otherwise `b`."""
-    if sp.window.activeScenario:
-        #print(f"In test scenario, returning {a}")
-        return a
-    else:
-        #print(f"Not a test scenario, returning {b}")
-        return b
+def viewExceptionOrUnit(message):
+    """Returns `message` if compiling tests, sp.unit otherwise."""
+    if environ.get("SMARTPY_NODE_DEV") == "test":
+        #print(f"In test scenario, failing with {message}")
+        return message
+
+    #print(f"In test scenario, failing with sp.unit")
+    return sp.unit
