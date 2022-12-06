@@ -1,8 +1,7 @@
 import smartpy as sp
 
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts import FA2
+from contracts.utils import Utils, FA2Utils
 
 
 #
@@ -36,7 +35,7 @@ class FA2TokenTransferMap:
         with sp.for_("transfer_item", self.internal_map.value.items()) as transfer_item:
             with sp.if_(sp.len(transfer_item.value) > 0):
                 # NOTE: use rev_values to avoid reversing list.
-                fa2_utils.fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.rev_values())
+                FA2Utils.fa2_transfer_multi(transfer_item.key, from_, transfer_item.value.rev_values())
 
     def trace(self):
         sp.trace(self.internal_map.value)
@@ -64,7 +63,7 @@ class FA2TokenTransferMapSingle:
 
         with sp.if_(sp.len(self.internal_map.value) > 0):
             # NOTE: use rev_values to avoid reversing list.
-            fa2_utils.fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.rev_values())
+            FA2Utils.fa2_transfer_multi(self.internal_fa2, from_, self.internal_map.value.rev_values())
 
     def trace(self):
         sp.trace(self.internal_map.value)
@@ -84,7 +83,7 @@ class TokenSendMap:
 
     def transfer(self):
         with sp.for_("send", self.internal_map.value.items()) as send:
-            utils.sendIfValue(send.key, send.value)
+            Utils.sendIfValue(send.key, send.value)
 
     def trace(self):
         sp.trace(self.internal_map.value)

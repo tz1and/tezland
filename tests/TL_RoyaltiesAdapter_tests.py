@@ -1,10 +1,6 @@
 import smartpy as sp
 
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, FA2
 
 
 # TODO: test permissions!!!
@@ -31,21 +27,21 @@ def test():
     scenario.h1("Create test env")
 
     scenario.h2("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
+    registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
     scenario.h2("LegacyRoyalties")
-    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+    legacy_royalties = TL_LegacyRoyalties.TL_LegacyRoyalties(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
     scenario.h1("Test RoyaltiesAdapters")
-    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+    royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
         legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter_legacy
 
-    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+    royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
         registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter

@@ -1,12 +1,12 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
-FA2_Administration = sp.io.import_script_from_url("file:contracts/mixins/FA2_Administration.py").FA2_Administration
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Moderation import Moderation
+from contracts.mixins.FA2_Administration import FA2_Administration
+from contracts.mixins.Upgradeable import Upgradeable
 
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+from contracts.legacy import FA2_legacy
 
 
 def fa2_nft_mint(batch, contract):

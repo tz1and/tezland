@@ -1,6 +1,6 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
+from contracts.mixins.Administrable import Administrable
 
 
 # TODO: add tests!

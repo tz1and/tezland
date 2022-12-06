@@ -1,17 +1,17 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
-mod_mixin = sp.io.import_script_from_url("file:contracts/mixins/Moderation_v2.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.MetaSettings import MetaSettings
+from contracts.mixins import Moderation_v2
 
 
 class ModerationTest(
     Administrable,
-    mod_mixin.Moderation,
+    Moderation_v2.Moderation,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        mod_mixin.Moderation.__init__(self)
+        Moderation_v2.Moderation.__init__(self)
 
 
 class ModerationTestMetaSettings(

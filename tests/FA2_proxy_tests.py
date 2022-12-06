@@ -1,6 +1,6 @@
 import smartpy as sp
 
-FA2_proxy = sp.io.import_script_from_url("file:contracts/FA2_proxy.py")
+from contracts import FA2_proxy
 
 
 @sp.add_test(name = "FA2_proxy_tests", profile = True)

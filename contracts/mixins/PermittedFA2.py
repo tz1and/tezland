@@ -1,6 +1,6 @@
 import smartpy as sp
 
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+from contracts.legacy import FA2_legacy
 
 
 # NOTE: deprecated for now.

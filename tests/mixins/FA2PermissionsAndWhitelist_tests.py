@@ -1,17 +1,17 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-permitted_fa2 = sp.io.import_script_from_url("file:contracts/mixins/FA2PermissionsAndWhitelist.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins import FA2PermissionsAndWhitelist
+from contracts import Tokens
 
 
 class FA2PermissionsAndWhitelistTest(
     Administrable,
-    permitted_fa2.FA2PermissionsAndWhitelist,
+    FA2PermissionsAndWhitelist.FA2PermissionsAndWhitelist,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        permitted_fa2.FA2PermissionsAndWhitelist.__init__(self)
+        FA2PermissionsAndWhitelist.FA2PermissionsAndWhitelist.__init__(self)
 
     # test helpers
     @sp.entry_point
@@ -56,7 +56,7 @@ def test():
     scenario += permitted
 
     scenario.h4("some other FA2 token")
-    other_token = tokens.tz1andPlaces_v2(
+    other_token = Tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token

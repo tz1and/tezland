@@ -1,19 +1,15 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
-FA2PermissionsAndWhitelist = sp.io.import_script_from_url("file:contracts/mixins/FA2PermissionsAndWhitelist.py").FA2PermissionsAndWhitelist
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Fees import Fees
+from contracts.mixins.FA2PermissionsAndWhitelist import FA2PermissionsAndWhitelist
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.MetaSettings import MetaSettings
 
-world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-GenericMap = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").GenericMap
-token_transfer_utils = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_World_v2, FA2
+from contracts.utils import GenericMap, TokenTransfer, FA2Utils, Utils
 
 
 # TODO: document reasoning for not limiting bids on secondary disable
@@ -40,7 +36,7 @@ t_auction = sp.TRecord(
 
 #
 # Lazy map of auctions.
-class AuctionMap(GenericMap):
+class AuctionMap(GenericMap.GenericMap):
     def __init__(self) -> None:
         super().__init__(t_auction_key, t_auction, default_value=None, get_error="AUCTION_NOT_FOUND")
 
@@ -77,7 +73,7 @@ class TL_Dutch_v2(
         self.available_settings = [
             ("granularity", sp.TNat, None),
             ("secondary_enabled", sp.TBool, None),
-            ("world_contract", sp.TAddress, lambda x : utils.onlyContract(x))
+            ("world_contract", sp.TAddress, lambda x : Utils.onlyContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
@@ -164,10 +160,10 @@ class TL_Dutch_v2(
         sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
-        sp.verify(fa2_utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
+        sp.verify(FA2Utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
 
         # Make sure auction contract is operator of token.
-        sp.verify(fa2_utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
+        sp.verify(FA2Utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
 
         # Create auction.
         self.auction_map.add(self.data.auctions, params.auction_key, params.auction)
@@ -202,7 +198,7 @@ class TL_Dutch_v2(
         sp.set_type(owner, sp.TAddress)
 
         # Collect amounts to send in a map.
-        sendMap = token_transfer_utils.TokenSendMap()
+        sendMap = TokenTransfer.TokenSendMap()
 
         # Send back overpay, if there was any.
         overpay = amount_sent - ask_price
@@ -249,11 +245,11 @@ class TL_Dutch_v2(
         set_props_args = sp.set_type_expr(sp.record(
             place_key = sp.record(fa2 = token_contract, id = token_id),
             updates = [sp.variant("value_to", sp.none)],
-            ext = sp.none), world_contract.updatePlacePropsType)
+            ext = sp.none), TL_World_v2.updatePlacePropsType)
 
         # Call token contract to add operators.
         world_handle = sp.contract(
-            world_contract.updatePlacePropsType,
+            TL_World_v2.updatePlacePropsType,
             self.data.world_contract,
             entry_point='update_place_props').open_some()
         sp.transfer(set_props_args, sp.mutez(0), world_handle)
@@ -263,8 +259,8 @@ class TL_Dutch_v2(
         current_hash = sp.sha3(sp.pack(sp.view("get_place_seqnum", self.data.world_contract,
             sp.set_type_expr(
                 sp.record(fa2 = token_contract, id = token_id),
-                world_contract.placeKeyType),
-            t = world_contract.seqNumResultType).open_some()))
+                TL_World_v2.placeKeyType),
+            t = TL_World_v2.seqNumResultType).open_some()))
         sp.verify(current_hash == expected_hash, "NOT_EXPECTED_SEQ_HASH")
 
 
@@ -306,13 +302,13 @@ class TL_Dutch_v2(
         self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
         # Transfer place from owner to this contract.
-        fa2_utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
+        FA2Utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
 
         # Reset the place's value_to property.
         self.resetValueToInWorld(params.auction_key.fa2, params.auction_key.token_id)
 
         # Transfer place from this contract to buyer.
-        fa2_utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
+        FA2Utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
 
         # After transfer, remove own operator rights for token.
         self.removeOperator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)

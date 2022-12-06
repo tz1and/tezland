@@ -6,22 +6,18 @@
 
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation_v2.py").Moderation
-AllowedPlaceTokens = sp.io.import_script_from_url("file:contracts/mixins/AllowedPlaceTokens.py").AllowedPlaceTokens
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
 
-registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-token_transfer_utils = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Fees import Fees
+from contracts.mixins.Moderation_v2 import Moderation
+from contracts.mixins.AllowedPlaceTokens import AllowedPlaceTokens
+from contracts.mixins.MetaSettings import MetaSettings
+from contracts import TL_TokenRegistry, TL_RoyaltiesAdapter, FA2
+from contracts.utils import TokenTransfer, FA2Utils, Utils
+
 
 # Now:
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
@@ -521,10 +517,10 @@ class TL_World_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
-            ("royalties_adapter", sp.TAddress, lambda x : utils.onlyContract(x)),
-            ("migration_from", sp.TOption(sp.TAddress), lambda x : utils.ifSomeRun(x, lambda y: utils.onlyContract(y))),
-            ("max_permission", sp.TNat, lambda x: sp.verify(utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
+            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("royalties_adapter", sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("migration_from", sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y))),
+            ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
@@ -703,10 +699,10 @@ class TL_World_v2(
         this_place = PlaceStorage(self.data.places, params.place_key, True)
 
         # Our token transfer map.
-        transferMap = token_transfer_utils.FA2TokenTransferMap()
+        transferMap = TokenTransfer.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        sp.compute(registry_contract.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
+        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -840,7 +836,7 @@ class TL_World_v2(
                     sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
 
         # Token transfer map.
-        transferMap = token_transfer_utils.FA2TokenTransferMap()
+        transferMap = TokenTransfer.FA2TokenTransferMap()
 
         # Remove items.
         with sp.for_("chunk_item", params.remove_map.items()) as chunk_item:
@@ -850,7 +846,7 @@ class TL_World_v2(
             this_chunk = ChunkStorage(self.data.chunks, chunk_key)
 
             with sp.for_("issuer_item", chunk_item.value.items()) as issuer_item:
-                item_owner = utils.openSomeOrDefault(issuer_item.key, owner)
+                item_owner = Utils.openSomeOrDefault(issuer_item.key, owner)
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     # Get item store - must exist.
@@ -891,7 +887,7 @@ class TL_World_v2(
         sp.set_type(primary, sp.TBool)
 
         # Collect amounts to send in a map.
-        sendMap = token_transfer_utils.TokenSendMap()
+        sendMap = TokenTransfer.TokenSendMap()
 
         # First, we take our fees are in permille.
         fees_amount = sp.compute(sp.split_tokens(rate, self.data.fees, sp.nat(1000)))
@@ -988,14 +984,14 @@ class TL_World_v2(
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
-                    item_royalty_info = sp.compute(royalties_adapter_contract.getRoyalties(
+                    item_royalty_info = sp.compute(TL_RoyaltiesAdapter.getRoyalties(
                         self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id), "NO_ROYALTIES"))
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
                 
                 # Transfer item to buyer.
-                fa2_utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
+                FA2Utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.amount > 1):
@@ -1065,7 +1061,7 @@ class TL_World_v2(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            sp.compute(registry_contract.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
+            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
 
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
@@ -1139,7 +1135,7 @@ class TL_World_v2(
                 place = self.data.places.get(params.place_key, placeStorageDefault),
                 chunks = {}))
 
-            with sp.for_("chunk_id", utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
+            with sp.for_("chunk_id", Utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
                 this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = params.place_key, chunk_id = chunk_id))
                 with this_chunk_opt.match("Some") as this_chunk:
                     res.value.chunks[chunk_id] = this_chunk

@@ -1,15 +1,14 @@
 from importlib.metadata import metadata
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.MetaSettings import MetaSettings
 
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_TokenRegistry, FA2
+from contracts.utils import Utils
 
 
 # TODO: figure out if we *need* FA2.PauseTransfer()
@@ -68,8 +67,8 @@ class TL_TokenFactory(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
-            ("minter", sp.TAddress, lambda x : utils.onlyContract(x))
+            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("minter", sp.TAddress, lambda x : Utils.onlyContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
@@ -118,7 +117,7 @@ class TL_TokenFactory(
 
         self.onlyUnpaused()
 
-        utils.validateIpfsUri(metadata_uri)
+        Utils.validateIpfsUri(metadata_uri)
 
         # Originate FA2
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
@@ -138,7 +137,7 @@ class TL_TokenFactory(
 
         # Add private collection in token registry
         manage_collections_handle = sp.contract(
-            token_registry_contract.t_manage_collections,
+            TL_TokenRegistry.t_manage_collections,
             self.data.registry, 
             entry_point = "manage_collections").open_some()
 
@@ -146,6 +145,6 @@ class TL_TokenFactory(
             sp.variant("add_private", {
                 originated_token: sp.record(
                     owner = sp.sender,
-                    royalties_type = token_registry_contract.royaltiesTz1andV2
+                    royalties_type = TL_TokenRegistry.royaltiesTz1andV2
                 )}
             )], sp.mutez(0), manage_collections_handle)

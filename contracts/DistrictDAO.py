@@ -6,16 +6,16 @@
 
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
-PermittedFA2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py").PermittedFA2
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Fees import Fees
+from contracts.mixins.Moderation_v2 import Moderation
+from contracts.mixins.PermittedFA2 import PermittedFA2
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.ContractMetadata import ContractMetadata
 
-world_types = sp.io.import_script_from_url("file:contracts/TL_World.py") 
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_World_v2
+from contracts.utils import Utils
 
 
 class Error_message:
@@ -92,15 +92,15 @@ t_collect_items = sp.TList(sp.TRecord(
     lot_id = sp.TNat,
     item_id = sp.TNat,
     issuer = sp.TAddress,
-    extension = world_types.extensionArgType,
+    extension = TL_World_v2.extensionArgType,
     amount = sp.TMutez
 ).layout(("lot_id", ("item_id", ("issuer", ("extension", "amount"))))))
 
 t_swap_items = sp.TRecord(
     lot_id = sp.TNat,
     owner = sp.TOption(sp.TAddress),
-    item_list = sp.TList(world_types.placeItemListType),
-    extension = world_types.extensionArgType
+    item_list = sp.TList(TL_World_v2.placeItemListType),
+    extension = TL_World_v2.extensionArgType
 ).layout(("lot_id", ("owner", ("item_list", "extension"))))
 
 t_proposal_kind = sp.TVariant(
@@ -159,7 +159,7 @@ class DistrictDAO(
         self.add_flag("erase-comments")
         
         self.error_message = Error_message()
-        self.permission_param = world_types.Permission_param()
+        self.permission_param = TL_World_v2.Permission_param()
         self.init_storage(
             world_contract = world_contract,
             items_contract = items_contract,
@@ -225,8 +225,8 @@ class DistrictDAO(
         t_set_place_props = sp.TRecord(
             lot_id =  sp.TNat,
             owner =  sp.TOption(sp.TAddress),
-            props =  world_types.placePropsType,
-            extension = world_types.extensionArgType
+            props =  TL_World_v2.placePropsType,
+            extension = TL_World_v2.extensionArgType
         ).layout(("lot_id", ("owner", ("props", "extension"))))
         sp.set_type(params, t_set_place_props)
 
@@ -254,7 +254,7 @@ class DistrictDAO(
             lot_id = sp.TNat,
             item_id = sp.TNat,
             issuer = sp.TAddress,
-            extension = world_types.extensionArgType
+            extension = TL_World_v2.extensionArgType
         ).layout(("lot_id", ("item_id", ("issuer", "extension"))))
         sp.set_type(params, t_get_item)
 
@@ -296,8 +296,8 @@ class DistrictDAO(
         t_place_items = sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            item_list = sp.TList(world_types.placeItemListType),
-            extension = world_types.extensionArgType
+            item_list = sp.TList(TL_World_v2.placeItemListType),
+            extension = TL_World_v2.extensionArgType
         ).layout(("lot_id", ("owner", ("item_list", "extension"))))
         sp.set_type(params, t_place_items)
 
@@ -317,8 +317,8 @@ class DistrictDAO(
         t_set_item_data = sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            update_map = sp.TMap(sp.TAddress, sp.TList(world_types.updateItemListType)),
-            extension = world_types.extensionArgType
+            update_map = sp.TMap(sp.TAddress, sp.TList(TL_World_v2.updateItemListType)),
+            extension = TL_World_v2.extensionArgType
         ).layout(("lot_id", ("owner", ("update_map", "extension"))))
         sp.set_type(params, t_set_item_data)
 
@@ -339,7 +339,7 @@ class DistrictDAO(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
             remove_map = sp.TMap(sp.TAddress, sp.TList(sp.TNat)),
-            extension = world_types.extensionArgType
+            extension = TL_World_v2.extensionArgType
         ).layout(("lot_id", ("owner", ("remove_map", "extension"))))
         sp.set_type(params, t_remove_items)
 

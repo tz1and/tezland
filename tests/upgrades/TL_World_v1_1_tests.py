@@ -1,16 +1,8 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-minter_v2_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
-token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-world_upgrade = sp.io.import_script_from_url("file:contracts/upgrades/TL_World_v1_1.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_Minter, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
+from contracts.upgrades import TL_World_v1_1
+from contracts.utils import Utils
 
 
 @sp.add_test(name = "TL_World_v1_1_tests", profile = True)
@@ -35,36 +27,36 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("items")
-    items_tokens = tokens.tz1andItems(
+    items_tokens = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
     scenario.h2("places legacy")
-    places_tokens_legacy = tokens.tz1andPlaces(
+    places_tokens_legacy = Tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens_legacy
 
     scenario.h2("places")
-    places_tokens = tokens.tz1andPlaces_v2(
+    places_tokens = Tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens_legacy.address,
+    minter = TL_Minter.TL_Minter(admin.address, items_tokens.address, places_tokens_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h2("dao")
-    dao_token = tokens.tz1andDAO(
+    dao_token = Tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = tokens.tz1andItems(
+    other_token = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -150,44 +142,44 @@ def test():
     scenario.h2("Originate contracts")
 
     scenario.h3("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
+    registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
     scenario.h3("LegacyRoyalties")
-    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+    legacy_royalties = TL_LegacyRoyalties.TL_LegacyRoyalties(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
     scenario.h3("RoyaltiesAdapters")
-    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+    royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
         legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter_legacy
 
-    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+    royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
         registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 
     scenario.h3("Minter v2")
-    minter_v2 = minter_v2_contract.TL_Minter_v2(admin.address, registry.address,
+    minter_v2 = TL_Minter_v2.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter_v2
 
     scenario.h3("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter_v2.address,
+    token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter_v2.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h3("World v2")
-    world_v2 = places_contract.TL_World_v2(admin.address, registry.address, royalties_adapter.address, True, items_tokens.address,
+    world_v2 = TL_World_v2.TL_World_v2(admin.address, registry.address, royalties_adapter.address, True, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
         debug_asserts = True)
     scenario += world_v2
 
     scenario.h3("Originate World v1 contract")
-    world = world_upgrade.TL_World_v1_1(admin.address, items_tokens.address, places_tokens_legacy.address, dao_token.address,
+    world = TL_World_v1_1.TL_World_v1_1(admin.address, items_tokens.address, places_tokens_legacy.address, dao_token.address,
         world_v2.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
@@ -204,7 +196,7 @@ def test():
     registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     scenario.h4("add public collection")
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV1})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: TL_TokenRegistry.royaltiesTz1andV1})]).run(sender = admin)
 
     scenario.h4("add allowed place token")
     world_v2.set_allowed_place_token(sp.list([sp.variant("add", {places_tokens.address: sp.record(chunk_limit = 6, chunk_item_limit = 2)})])).run(sender = admin)

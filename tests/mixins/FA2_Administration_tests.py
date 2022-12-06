@@ -1,17 +1,17 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-fa2_admin = sp.io.import_script_from_url("file:contracts/mixins/FA2_Administration.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins import FA2_Administration
+from contracts import Tokens
 
 
 class FA2_AdministrationTest(
     Administrable,
-    fa2_admin.FA2_Administration,
+    FA2_Administration.FA2_Administration,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        fa2_admin.FA2_Administration.__init__(self)
+        FA2_Administration.FA2_Administration.__init__(self)
 
 
 @sp.add_test(name = "FA2_Administration_tests", profile = True)
@@ -32,7 +32,7 @@ def test():
 
     scenario.h3("Contract origination")
     # create token for testing
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = Tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens

@@ -1,17 +1,17 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
-fees_mixin = sp.io.import_script_from_url("file:contracts/mixins/Fees.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.MetaSettings import MetaSettings
+from contracts.mixins import Fees
 
 
 class FeesTest(
     Administrable,
-    fees_mixin.Fees,
+    Fees.Fees,
     sp.Contract):
     def __init__(self, administrator, fees_to):
         Administrable.__init__(self, administrator = administrator)
-        fees_mixin.Fees.__init__(self, fees_to = fees_to)
+        Fees.Fees.__init__(self, fees_to = fees_to)
 
 
 class FeesTestMetaSettings(

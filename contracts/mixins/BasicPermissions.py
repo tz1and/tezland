@@ -1,6 +1,6 @@
 import smartpy as sp
 
-AddressSet = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").AddressSet
+from contracts.utils import GenericMap
 
 
 # Mixins required: Administrable
@@ -10,7 +10,7 @@ class BasicPermissions:
     Requires the `Administrable` mixin.
     """
     def __init__(self, default_permitted_accounts = {}, lazy_ep = False):
-        self.address_set = AddressSet()
+        self.address_set = GenericMap.AddressSet()
 
         self.update_initial_storage(
             permitted_accounts = self.address_set.make(default_permitted_accounts) # accounts permitted

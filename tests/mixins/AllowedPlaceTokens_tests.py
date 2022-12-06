@@ -1,17 +1,17 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-allowed_place_tokens = sp.io.import_script_from_url("file:contracts/mixins/AllowedPlaceTokens.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins import AllowedPlaceTokens
+from contracts import Tokens
 
 
 class AllowedPlaceTokensTest(
     Administrable,
-    allowed_place_tokens.AllowedPlaceTokens,
+    AllowedPlaceTokens.AllowedPlaceTokens,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        allowed_place_tokens.AllowedPlaceTokens.__init__(self)
+        AllowedPlaceTokens.AllowedPlaceTokens.__init__(self)
 
     # test helpers
     @sp.entry_point
@@ -25,7 +25,7 @@ class AllowedPlaceTokensTest(
 
     @sp.entry_point
     def testGetAllowedPlaceTokenLimits(self, params):
-        sp.set_type(params, sp.TRecord(fa2 = sp.TAddress, expected = allowed_place_tokens.allowedPlaceLimitsType))
+        sp.set_type(params, sp.TRecord(fa2 = sp.TAddress, expected = AllowedPlaceTokens.allowedPlaceLimitsType))
         sp.verify(self.getAllowedPlaceTokenLimits(params.fa2) == params.expected, "unexpected result")
 
 
@@ -52,7 +52,7 @@ def test():
     scenario += allowedPlaceTokens
 
     scenario.h4("some other FA2 token")
-    other_token = tokens.tz1andItems(
+    other_token = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token

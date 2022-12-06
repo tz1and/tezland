@@ -1,14 +1,6 @@
 import smartpy as sp
 
-dutch_contract = sp.io.import_script_from_url("file:contracts/TL_Dutch_v2.py")
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
-token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
-world_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts import TL_Dutch_v2, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
 
 
 @sp.add_test(name = "TL_Dutch_v2_tests", profile = True)
@@ -32,61 +24,61 @@ def test():
     scenario.h2("Create test env")
 
     scenario.h3("Tokens")
-    items_tokens = tokens.tz1andItems_v2(
+    items_tokens = Tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
-    places_tokens = tokens.tz1andPlaces_v2(
+    places_tokens = Tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
-    interiors_tokens = tokens.tz1andInteriors(
+    interiors_tokens = Tokens.tz1andInteriors(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += interiors_tokens
 
     scenario.h3("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
+    registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
     scenario.h3("LegacyRoyalties")
-    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+    legacy_royalties = TL_LegacyRoyalties.TL_LegacyRoyalties(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
     scenario.h3("RoyaltiesAdapters")
-    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+    royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
         legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter_legacy
 
-    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+    royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
         registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 
     scenario.h3("Minter v2")
-    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
+    minter = TL_Minter_v2.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h3("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter.address,
+    token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 
     scenario.h2("World v2")
-    world = world_contract.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
+    world = TL_World_v2.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
         debug_asserts = True)
     scenario += world
 
     scenario.h3("registry permissions for factory, etc")
     registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: TL_TokenRegistry.royaltiesTz1andV2})]).run(sender = admin)
 
     items_tokens.transfer_administrator(minter.address).run(sender = admin)
     minter.token_administration([
@@ -155,7 +147,7 @@ def test():
 
     # create places contract
     scenario.h3("Originate dutch contract")
-    dutch = dutch_contract.TL_Dutch_v2(admin.address, world.address,
+    dutch = TL_Dutch_v2.TL_Dutch_v2(admin.address, world.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 

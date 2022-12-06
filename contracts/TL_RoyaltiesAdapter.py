@@ -1,11 +1,6 @@
 import smartpy as sp
 
-registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapterLegacyAndV1, FA2
 
 
 # TODO: layer adapters for other tokens!
@@ -14,7 +9,7 @@ utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord, message = None):
     return sp.view("get_royalties", royalties_adaper,
-        sp.set_type_expr(token_key, legacy_royalties_contract.t_token_key),
+        sp.set_type_expr(token_key, TL_LegacyRoyalties.t_token_key),
         t = FA2.t_royalties_interop).open_some(message)
 
 
@@ -72,14 +67,14 @@ class TL_RoyaltiesAdapter(sp.Contract):
     @sp.onchain_view(pure=True)
     def get_royalties(self, token_key):
         """Gets token royalties and/or validate signed royalties."""
-        sp.set_type(token_key, legacy_royalties_contract.t_token_key)
+        sp.set_type(token_key, TL_LegacyRoyalties.t_token_key)
 
-        royalties_type = sp.compute(registry_contract.getRoyaltiesType(self.data.registry, token_key.fa2, sp.unit))
+        royalties_type = sp.compute(TL_TokenRegistry.getRoyaltiesType(self.data.registry, token_key.fa2, sp.unit))
 
-        with sp.if_(royalties_type == registry_contract.royaltiesTz1andV2):
+        with sp.if_(royalties_type == TL_TokenRegistry.royaltiesTz1andV2):
             # Just return V2 royalties.
             sp.result(FA2.getRoyalties(token_key.fa2, token_key.id, sp.unit))
         with sp.else_():
             # Call the V1 and legacy adapter.
-            sp.result(royalties_adapter_legacy_contract.getRoyalties(self.data.v1_and_legacy_adapter,
-                token_key, royalties_type, sp.unit))
+            sp.result(TL_RoyaltiesAdapterLegacyAndV1.getRoyalties(self.data.v1_and_legacy_adapter,
+                token_key, royalties_type).open_some(sp.unit))

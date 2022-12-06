@@ -2,8 +2,9 @@ from dataclasses import replace
 import types
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts.mixins.Administrable import Administrable
+from contracts import FA2
+
 
 class FA2ProxyBase(
     Administrable,

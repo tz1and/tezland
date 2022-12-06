@@ -1,19 +1,10 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
-token_factory_contract = sp.io.import_script_from_url("file:contracts/TL_TokenFactory.py")
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-royalties_adapter_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapter.py")
-royalties_adapter_legacy_contract = sp.io.import_script_from_url("file:contracts/TL_RoyaltiesAdapterLegacyAndV1.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-#merkle_tree = sp.io.import_script_from_url("file:contracts/utils/MerkleTree.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
+from contracts.utils import FA2Utils, Utils
 
 # Some frequently used forwarded types
-PermissionParams = places_contract.PermissionParams
+PermissionParams = TL_World_v2.PermissionParams
 
 
 # TODO: test royalties, fees, issuer being paid, lol
@@ -43,7 +34,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def token_amounts(self, params):
-        sp.set_type(params.token_map, sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))))
+        sp.set_type(params.token_map, sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(TL_World_v2.extensibleVariantItemType)))))
         sp.set_type(params.issuer, sp.TAddress)
 
         token_amts = sp.local("token_amts", sp.set_type_expr({}, self.t_token_balance_map))
@@ -60,7 +51,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def get_chunk_next_ids(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
 
@@ -78,9 +69,9 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def check_chunk_next_ids_valid(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.prev_next_ids, sp.TMap(sp.TNat, sp.TNat))
-        sp.set_type(params.place_items_map, sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))))
+        sp.set_type(params.place_items_map, sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(TL_World_v2.extensibleVariantItemType)))))
         sp.set_type(params.world, sp.TAddress)
 
         per_chunk_item_add_count = sp.local("per_chunk_item_add_count", sp.map(tkey=sp.TNat, tvalue=sp.TNat))
@@ -104,7 +95,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def get_chunk_counters(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
 
@@ -117,7 +108,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def check_chunk_counters_increased(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.prev_chunk_counters, sp.TMap(sp.TNat, sp.TNat))
         sp.set_type(params.world, sp.TAddress)
 
@@ -133,7 +124,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def remove_token_amounts_in_storage(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
         sp.set_type(params.remove_map, sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))))
@@ -156,7 +147,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def all_token_amounts_in_storage(self, params):
-        sp.set_type(params.place_key, places_contract.placeKeyType)
+        sp.set_type(params.place_key, TL_World_v2.placeKeyType)
         sp.set_type(params.chunk_ids, sp.TSet(sp.TNat))
         sp.set_type(params.world, sp.TAddress)
 
@@ -182,7 +173,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = fa2_utils.fa2_get_balance(curr.fa2, curr.token_id, utils.openSomeOrDefault(curr.owner, params.place_owner))
+            balances.value[curr] = FA2Utils.fa2_get_balance(curr.fa2, curr.token_id, Utils.openSomeOrDefault(curr.owner, params.place_owner))
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -194,7 +185,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.set_type_expr({}, self.t_token_balance_map))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = fa2_utils.fa2_get_balance(curr.fa2, curr.token_id, params.owner)
+            balances.value[curr] = FA2Utils.fa2_get_balance(curr.fa2, curr.token_id, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -221,8 +212,8 @@ class FA2_utils(sp.Contract):
         return sp.view("get_place_data", world,
             sp.set_type_expr(
                 sp.record(place_key = place_key, chunk_ids = sp.some(chunk_ids)),
-                places_contract.placeDataParam),
-            t = places_contract.placeDataResultType).open_some()
+                TL_World_v2.placeDataParam),
+            t = TL_World_v2.placeDataResultType).open_some()
 
 
 
@@ -248,13 +239,13 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("Items v1")
-    items_tokens = tokens.tz1andItems(
+    items_tokens = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
     scenario.h2("Items v2")
-    items_tokens_v2 = tokens.tz1andItems_v2(
+    items_tokens_v2 = Tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens_v2
@@ -263,38 +254,38 @@ def test():
     scenario += items_utils
 
     scenario.h2("Places v2")
-    places_tokens = tokens.tz1andPlaces_v2(
+    places_tokens = Tokens.tz1andPlaces_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("TokenRegistry")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
+    registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
     scenario.h2("LegacyRoyalties")
-    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+    legacy_royalties = TL_LegacyRoyalties.TL_LegacyRoyalties(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
     scenario.h3("RoyaltiesAdapters")
-    royalties_adapter_legacy = royalties_adapter_legacy_contract.TL_RoyaltiesAdapterLegacyAndV1(
+    royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
         legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter_legacy
 
-    royalties_adapter = royalties_adapter_contract.TL_RoyaltiesAdapter(
+    royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
         registry.address, royalties_adapter_legacy.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter
 
     scenario.h2("Minter v2")
-    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
+    minter = TL_Minter_v2.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h2("TokenFactory")
-    token_factory = token_factory_contract.TL_TokenFactory(admin.address, registry.address, minter.address,
+    token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
@@ -303,13 +294,13 @@ def test():
     registry.manage_permissions([sp.variant("add_permissions", sp.set([token_factory.address]))]).run(sender=admin)
 
     scenario.h2("dao")
-    dao_token = tokens.tz1andDAO(
+    dao_token = Tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = tokens.tz1andItems(
+    other_token = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -326,8 +317,8 @@ def test():
         sp.variant("accept_fa2_administrator", sp.set([items_tokens_v2.address]))
     ]).run(sender = admin)
     registry.manage_collections([sp.variant("add_public", {
-        items_tokens.address: token_registry_contract.royaltiesTz1andV1,
-        items_tokens_v2.address: token_registry_contract.royaltiesTz1andV2
+        items_tokens.address: TL_TokenRegistry.royaltiesTz1andV1,
+        items_tokens_v2.address: TL_TokenRegistry.royaltiesTz1andV2
     })]).run(sender = admin)
 
     # mint some v1 item tokens for testing
@@ -422,7 +413,7 @@ def test():
     #
     scenario.h2("Originate World contract")
     def createWorldContract(debug_asserts: bool):
-        return places_contract.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
+        return TL_World_v2.TL_World_v2(admin.address, registry.address, royalties_adapter.address, False, items_tokens.address,
             metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing",
             debug_asserts = debug_asserts)
 
@@ -465,14 +456,14 @@ def test():
     position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
     # utility function for getting last placed item id.
-    def last_placed_item_id(chunk_key: places_contract.chunkPlaceKeyType, last_index = 1):
+    def last_placed_item_id(chunk_key: TL_World_v2.chunkPlaceKeyType, last_index = 1):
         return scenario.compute(sp.as_nat(world.data.chunks.get(chunk_key).next_id - last_index))
 
     # utility function for checking correctness of placing item using the FA2_utils contract
     # TODO: also check item id is in map now
     def place_items(
-        place_key: places_contract.placeKeyType,
-        token_arr: sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(places_contract.extensibleVariantItemType)))),
+        place_key: TL_World_v2.placeKeyType,
+        token_arr: sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(TL_World_v2.extensibleVariantItemType)))),
         sender: sp.TestAccount,
         valid: bool = True,
         message: str = None):
@@ -504,7 +495,7 @@ def test():
     # utility function for checking correctness of getting item using the FA2_utils contract
     # TODO: also check item in map changed
     def get_item(
-        chunk_key: places_contract.chunkPlaceKeyType,
+        chunk_key: TL_World_v2.chunkPlaceKeyType,
         item_id: sp.TNat,
         issuer: sp.TOption(sp.TAddress),
         fa2: sp.TAddress,
@@ -520,7 +511,7 @@ def test():
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
 
-        prev_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=places_contract.chunkStorageDefault).counter)
+        prev_counter = scenario.compute(world.data.chunks.get(chunk_key, default_value=TL_World_v2.chunkStorageDefault).counter)
         world.get_item(
             place_key = chunk_key.place_key,
             chunk_id = chunk_key.chunk_id,
@@ -544,7 +535,7 @@ def test():
     # utility function for checking correctness of removing items using the FA2_utils contract
     # TODO: make sure item is not in map
     def remove_items(
-        place_key: places_contract.placeKeyType,
+        place_key: TL_World_v2.placeKeyType,
         remove_map: sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
         sender: sp.TestAccount,
         valid: bool = True,
@@ -833,7 +824,7 @@ def test():
     scenario.h2("Settings")
 
     scenario.h3("update max_permission")
-    scenario.verify(world.data.max_permission == places_contract.permissionFull)
+    scenario.verify(world.data.max_permission == TL_World_v2.permissionFull)
     world.update_settings([sp.variant("max_permission", 127)]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("max_permission", 96)]).run(sender = admin, valid = False, exception="PARAM_ERROR")
     world.update_settings([sp.variant("max_permission", 127)]).run(sender = admin)
@@ -1015,7 +1006,7 @@ def test():
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
     ]}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
@@ -1037,12 +1028,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionFull
+            perm = TL_World_v2.permissionFull
         ))
     ]).run(sender=bob, valid=True)
 
     # alice can now place/remove items in bobs place, set props and set item data
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionFull)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionFull)
 
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
@@ -1076,12 +1067,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionPlaceItems
+            perm = TL_World_v2.permissionPlaceItems
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now place items in bobs place, but can't set props or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionPlaceItems)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionPlaceItems)
     
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
@@ -1119,12 +1110,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionModifyAll
+            perm = TL_World_v2.permissionModifyAll
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, but can't set props or place or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionModifyAll)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionModifyAll)
     
     # can't place items
     place_items(place_bob, {0: {False: {items_tokens.address: [
@@ -1157,12 +1148,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionProps
+            perm = TL_World_v2.permissionProps
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, but can't set props or place or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionProps)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionProps)
     
     # can't place items
     place_items(place_bob, {0: {False: {items_tokens.address: [
@@ -1194,12 +1185,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionPlaceItems | places_contract.permissionProps
+            perm = TL_World_v2.permissionPlaceItems | TL_World_v2.permissionProps
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, and can place items, but can't set props
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionPlaceItems | places_contract.permissionProps)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionPlaceItems | TL_World_v2.permissionProps)
     
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
@@ -1236,7 +1227,7 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = places_contract.permissionNone
+            perm = TL_World_v2.permissionNone
         ))
     ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
 
@@ -1246,11 +1237,11 @@ def test():
             owner = alice.address,
             permittee = bob.address,
             place_key = place_alice,
-            perm = places_contract.permissionFull
+            perm = TL_World_v2.permissionFull
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_alice, permittee=bob.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_alice, permittee=bob.address)) == TL_World_v2.permissionNone)
 
     # bob is not allowed to place items in alices place.
     place_items(place_alice, {0: {False: {items_tokens.address: [
@@ -1271,21 +1262,21 @@ def test():
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
     ]}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionNone)
 
     # and also alice will not have persmissions on carols place
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
     ]}}}, sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionNone)
 
     # neither will bob
     place_items(place_bob, {0: {False: {items_tokens.address: [
         sp.variant("item", sp.record(amount=1, token_id=item_bob, rate=sp.tez(1), data=position, primary = False))
     ]}}}, sender=bob, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=bob.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=bob.address)) == TL_World_v2.permissionNone)
 
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
@@ -1307,7 +1298,7 @@ def test():
         ))
     ]).run(sender=bob, valid=True)
 
-    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionNone)
 
     #
     # test some swapping edge cases
@@ -1371,9 +1362,9 @@ def test():
 
         @sp.entry_point
         def migrate(self, params):
-            sp.set_type(params, places_contract.migrationType)
+            sp.set_type(params, TL_World_v2.migrationType)
             migration_handle = sp.contract(
-                t=places_contract.migrationType,
+                t=TL_World_v2.migrationType,
                 address=self.data.world,
                 entry_point='migration').open_some()
             sp.transfer(params, sp.mutez(0), migration_handle)
@@ -1464,7 +1455,7 @@ def test():
     scenario.verify(world.data.chunks[place_carol_chunk_1].storage.contains(sp.some(admin.address)))
 
     scenario.h3("tokens in storage after migration")
-    # NOTE: Migration ep doesn't actually transfer tokens. It's expected the other side does it.
+    # NOTE: Migration ep doesn't actually transfer Tokens. It's expected the other side does it.
     token_amounts = scenario.compute(items_utils.all_token_amounts_in_storage(
         sp.record(world = world.address, place_key = place_carol_chunk_0.place_key, chunk_ids = sp.set([place_carol_chunk_0.chunk_id, place_carol_chunk_1.chunk_id]))))
     scenario.show(token_amounts)

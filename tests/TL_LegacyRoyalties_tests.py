@@ -1,8 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-legacy_royalties_contract = sp.io.import_script_from_url("file:contracts/TL_LegacyRoyalties.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts.mixins.Administrable import Administrable
+from contracts import TL_LegacyRoyalties, FA2
 
 
 # TODO: test permissions!!!
@@ -61,7 +60,7 @@ def test():
 
     # create registry contract
     scenario.h1("Test LegacyRoyalties")
-    legacy_royalties = legacy_royalties_contract.TL_LegacyRoyalties(admin.address,
+    legacy_royalties = TL_LegacyRoyalties.TL_LegacyRoyalties(admin.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
@@ -107,7 +106,7 @@ def test():
             shares={
                 bob.address: 200,
                 alice.address: 200 })
-    ), legacy_royalties_contract.t_royalties_offchain)
+    ), TL_LegacyRoyalties.t_royalties_offchain)
 
     offchain_royalties_global = sp.set_type_expr(sp.record(
         token_key=sp.record(
@@ -119,7 +118,7 @@ def test():
             shares={
                 bob.address: 200,
                 alice.address: 200 })
-    ), legacy_royalties_contract.t_royalties_offchain)
+    ), TL_LegacyRoyalties.t_royalties_offchain)
 
     token_key_unique=sp.record(
         id=10,
@@ -131,13 +130,13 @@ def test():
         fa2=pfp_tokens.address,
     )
 
-    royalties_unique_signed_valid1 = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key1.secret_key)
-    royalties_unique_signed_valid2 = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key2.secret_key)
-    royalties_unique_signed_invalid = legacy_royalties_contract.signRoyalties(offchain_royalties_unique, royalties_key_invalid.secret_key)
+    royalties_unique_signed_valid1 = TL_LegacyRoyalties.signRoyalties(offchain_royalties_unique, royalties_key1.secret_key)
+    royalties_unique_signed_valid2 = TL_LegacyRoyalties.signRoyalties(offchain_royalties_unique, royalties_key2.secret_key)
+    royalties_unique_signed_invalid = TL_LegacyRoyalties.signRoyalties(offchain_royalties_unique, royalties_key_invalid.secret_key)
 
-    royalties_global_signed_valid1 = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key1.secret_key)
-    royalties_global_signed_valid2 = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key2.secret_key)
-    royalties_global_signed_invalid = legacy_royalties_contract.signRoyalties(offchain_royalties_global, royalties_key_invalid.secret_key)
+    royalties_global_signed_valid1 = TL_LegacyRoyalties.signRoyalties(offchain_royalties_global, royalties_key1.secret_key)
+    royalties_global_signed_valid2 = TL_LegacyRoyalties.signRoyalties(offchain_royalties_global, royalties_key2.secret_key)
+    royalties_global_signed_invalid = TL_LegacyRoyalties.signRoyalties(offchain_royalties_global, royalties_key_invalid.secret_key)
 
     legacy_royalties.add_royalties({
         "key1": [

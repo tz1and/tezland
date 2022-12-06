@@ -1,10 +1,7 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_Minter, TL_World, Tokens
+from contracts.utils import FA2Utils, Utils
 
 
 # TODO: test royalties, fees, issuer being paid, lol
@@ -22,7 +19,7 @@ class FA2_utils(sp.Contract):
 
     @sp.onchain_view(pure=True)
     def token_amounts(self, params):
-        sp.set_type(params, sp.TList(t=places_contract.placeItemListType))
+        sp.set_type(params, sp.TList(t=TL_World.placeItemListType))
         token_amts = sp.local("token_amts", sp.map(tkey=sp.TNat, tvalue=sp.TRecord(amount=sp.TNat, fa2=sp.TAddress)))
         with sp.for_("curr", params) as curr:
             with curr.match_cases() as arg:
@@ -73,7 +70,7 @@ class FA2_utils(sp.Contract):
 
         balances = sp.local("balances", sp.map(tkey = sp.TNat, tvalue = sp.TNat))
         with sp.for_("curr", params.tokens.keys()) as curr:
-            balances.value[curr] = fa2_utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
+            balances.value[curr] = FA2Utils.fa2_get_balance(params.tokens[curr].fa2, curr, params.owner)
         
         #sp.trace(balances.value)
         sp.result(balances.value)
@@ -101,7 +98,7 @@ class FA2_utils(sp.Contract):
             sp.set_type_expr(
                 lot_id,
                 sp.TNat),
-            t = places_contract.placeStorageType).open_some()
+            t = TL_World.placeStorageType).open_some()
 
 
 
@@ -125,7 +122,7 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("items")
-    items_tokens = tokens.tz1andItems(
+    items_tokens = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
@@ -134,24 +131,24 @@ def test():
     scenario += items_utils
 
     scenario.h2("places")
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = Tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+    minter = TL_Minter.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h2("dao")
-    dao_token = tokens.tz1andDAO(
+    dao_token = Tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = tokens.tz1andItems(
+    other_token = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -203,7 +200,7 @@ def test():
     # create World contract
     #
     scenario.h2("Originate World contract")
-    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
+    world = TL_World.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
@@ -238,7 +235,7 @@ def test():
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
-        prev_next_id = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).next_id)
+        prev_next_id = scenario.compute(world.data.places.get(lot_id, default_value=TL_World.placeStorageDefault).next_id)
         world.place_items(lot_id = lot_id, owner = lot_owner, item_list = token_arr, extension = sp.none).run(sender = sender, valid = valid, exception = message)
     
         if valid == True:
@@ -261,7 +258,7 @@ def test():
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
     
-        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).interaction_counter)
+        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=TL_World.placeStorageDefault).interaction_counter)
         world.get_item(lot_id = lot_id, item_id = item_id, issuer = issuer, extension = sp.none).run(sender = sender, amount = amount, valid = valid, exception = message, now = now)
     
         if valid == True:
@@ -284,7 +281,7 @@ def test():
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = sender.address)))
             balances_world_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, owner = world.address)))
         
-        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=places_contract.placeStorageDefault).interaction_counter)
+        prev_interaction_counter = scenario.compute(world.data.places.get(lot_id, default_value=TL_World.placeStorageDefault).interaction_counter)
         world.remove_items(lot_id = lot_id, owner = lot_owner, remove_map = remove_map, extension = sp.none).run(sender = sender, valid = valid, exception = message)
         
         if valid == True:
@@ -464,7 +461,7 @@ def test():
     world.update_item_limit(128).run(sender = admin)
     scenario.verify(world.data.item_limit == 128)
 
-    scenario.verify(world.data.max_permission == places_contract.permissionFull)
+    scenario.verify(world.data.max_permission == TL_World.permissionFull)
     world.update_max_permission(127).run(sender = bob, valid = False)
     world.update_max_permission(96).run(sender = admin, valid = False, exception="PARAM_ERROR")
     world.update_max_permission(127).run(sender = admin)
@@ -574,7 +571,7 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
     world.set_place_props(lot_id=place_bob, owner=sp.some(bob.address), props=valid_place_props, extension = sp.none).run(sender=alice, valid=False, exception="NO_PERMISSION")
@@ -591,12 +588,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionFull
+            perm = TL_World.permissionFull
         ))
     ]).run(sender=bob, valid=True)
 
     # alice can now place/remove items in bobs place, set props and set item data
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionFull)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionFull)
 
     # get bobs last item to make sure alice can remove
     bobs_last_item = scenario.compute(sp.as_nat(world.data.places[place_bob].next_id - 1))
@@ -633,12 +630,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionPlaceItems
+            perm = TL_World.permissionPlaceItems
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now place items in bobs place, but can't set props or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionPlaceItems)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionPlaceItems)
     
     place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
@@ -676,12 +673,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionModifyAll
+            perm = TL_World.permissionModifyAll
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, but can't set props or place or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionModifyAll)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionModifyAll)
     
     # can't place items
     place_items(place_bob, [
@@ -713,12 +710,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionProps
+            perm = TL_World.permissionProps
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, but can't set props or place or remove bobs items
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionProps)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionProps)
     
     # can't place items
     place_items(place_bob, [
@@ -750,12 +747,12 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionPlaceItems | places_contract.permissionProps
+            perm = TL_World.permissionPlaceItems | TL_World.permissionProps
         ))
     ]).run(sender=bob, valid=True)
     
     # alice can now modify items in bobs place, and can place items, but can't set props
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionPlaceItems | places_contract.permissionProps)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionPlaceItems | TL_World.permissionProps)
     
     place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
@@ -791,7 +788,7 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             token_id = place_bob,
-            perm = places_contract.permissionNone
+            perm = TL_World.permissionNone
         ))
     ]).run(sender=bob, valid=False, exception="PARAM_ERROR")
 
@@ -801,11 +798,11 @@ def test():
             owner = alice.address,
             permittee = bob.address,
             token_id = place_alice,
-            perm = places_contract.permissionFull
+            perm = TL_World.permissionFull
         ))
     ]).run(sender=bob, valid=False, exception="NOT_OWNER")
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_alice, owner=sp.some(alice.address), permittee=bob.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_alice, owner=sp.some(alice.address), permittee=bob.address)) == TL_World.permissionNone)
 
     # bob is not allowed to place items in alices place.
     place_items(place_alice, [
@@ -826,21 +823,21 @@ def test():
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(bob.address), sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionNone)
 
     # and also alice will not have persmissions on carols place
     place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=2, token_id=item_alice, mutez_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(carol.address), sender=alice, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=alice.address)) == TL_World.permissionNone)
 
     # neither will bob
     place_items(place_bob, [
         sp.variant("item", sp.record(token_amount=1, token_id=item_bob, mutez_per_token=sp.tez(1), item_data=position))
     ], lot_owner=sp.some(carol.address), sender=bob, valid=False, message="NO_PERMISSION")
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=bob.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(carol.address), permittee=bob.address)) == TL_World.permissionNone)
 
     scenario.h3("Invalid remove permission")
     # alice cant remove own permission to bobs (now not owned) place
@@ -862,7 +859,7 @@ def test():
         ))
     ]).run(sender=bob, valid=True)
 
-    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == places_contract.permissionNone)
+    scenario.verify(world.get_permissions(sp.record(lot_id=place_bob, owner=sp.some(bob.address), permittee=alice.address)) == TL_World.permissionNone)
 
     #
     # test some swapping edge cases

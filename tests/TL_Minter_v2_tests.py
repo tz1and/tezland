@@ -1,8 +1,6 @@
 import smartpy as sp
 
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter_v2.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts import TL_TokenRegistry, TL_Minter_v2, Tokens
 
 
 @sp.add_test(name = "TL_Minter_v2_tests", profile = True)
@@ -25,19 +23,19 @@ def test():
     scenario.h1("Create test env")
 
     scenario.h2("tokens")
-    items_tokens = tokens.tz1andItems_v2(
+    items_tokens = Tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
     # create registry contract
     scenario.h1("Test Minter")
-    registry = token_registry_contract.TL_TokenRegistry(admin.address, collections_key.public_key,
+    registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += registry
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter_v2(admin.address, registry.address,
+    minter = TL_Minter_v2.TL_Minter_v2(admin.address, registry.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -68,7 +66,7 @@ def test():
     # test Item minting
     scenario.h3("mint_public")
 
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: TL_TokenRegistry.royaltiesTz1andV2})]).run(sender = admin)
 
     minter.mint_public(collection = minter.address,
         to_ = bob.address,
@@ -108,7 +106,7 @@ def test():
     # test Item minting
     scenario.h3("mint_private")
 
-    manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = token_registry_contract.royaltiesTz1andV2)}
+    manage_private_params = {items_tokens.address: sp.record(owner = bob.address, royalties_type = TL_TokenRegistry.royaltiesTz1andV2)}
     manager_collaborators_params = {items_tokens.address: sp.set([alice.address])}
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
@@ -278,7 +276,7 @@ def test():
     scenario.h2("test royalties")
 
     # add a v2 collection for private minting
-    items_tokens_private = tokens.tz1andItems_v2(
+    items_tokens_private = Tokens.tz1andItems_v2(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens_private
@@ -286,10 +284,10 @@ def test():
     items_tokens_private.transfer_administrator(minter.address).run(sender = admin)
     minter.token_administration([sp.variant("accept_fa2_administrator", sp.set([items_tokens_private.address]))]).run(sender = admin)
 
-    registry.manage_collections([sp.variant("add_public", {items_tokens.address: token_registry_contract.royaltiesTz1andV2})]).run(sender = admin)
+    registry.manage_collections([sp.variant("add_public", {items_tokens.address: TL_TokenRegistry.royaltiesTz1andV2})]).run(sender = admin)
 
     registry.manage_collections([sp.variant("add_private", {
-        items_tokens_private.address: sp.record(owner = bob.address, royalties_type = token_registry_contract.royaltiesTz1andV2)
+        items_tokens_private.address: sp.record(owner = bob.address, royalties_type = TL_TokenRegistry.royaltiesTz1andV2)
     })]).run(sender = admin)
 
     scenario.h3("valid royalties")

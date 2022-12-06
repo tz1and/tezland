@@ -1,15 +1,14 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.MetaSettings import MetaSettings
 
-token_registry_contract = sp.io.import_script_from_url("file:contracts/TL_TokenRegistry.py")
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_TokenRegistry, FA2
+from contracts.legacy import FA2_legacy
+from contracts.utils import Utils
 
 
 # TODO: test update_settings: registry, max_contributors, max_royalties
@@ -35,7 +34,7 @@ class TL_Minter_v2(
         )
 
         self.available_settings = [
-            ("registry", sp.TAddress, lambda x : utils.onlyContract(x)),
+            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), "PARAM_ERROR")),
             ("max_royalties", sp.TNat, None)
         ]
@@ -80,19 +79,19 @@ class TL_Minter_v2(
     # Some inline helpers
     #
     def onlyOwnerPrivate(self, collection, address):
-        sp.verify(token_registry_contract.isPrivateOwnerOrCollab(self.data.registry, collection, address,
+        sp.verify(TL_TokenRegistry.isPrivateOwnerOrCollab(self.data.registry, collection, address,
             "NOT_OWNER_OR_COLLABORATOR") == sp.bounded("owner"), "ONLY_OWNER")
 
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
-        sp.compute(token_registry_contract.isPrivateOwnerOrCollab(self.data.registry, collection, address,
+        sp.compute(TL_TokenRegistry.isPrivateOwnerOrCollab(self.data.registry, collection, address,
             "NOT_OWNER_OR_COLLABORATOR"))
 
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
-        sp.verify(token_registry_contract.getCollectionInfo(self.data.registry, collection,
-            "INVALID_COLLECTION").collection_type == token_registry_contract.collectionPublic, "NOT_PUBLIC")
+        sp.verify(TL_TokenRegistry.getCollectionInfo(self.data.registry, collection,
+            "INVALID_COLLECTION").collection_type == TL_TokenRegistry.collectionPublic, "NOT_PUBLIC")
 
 
     #
@@ -174,9 +173,9 @@ class TL_Minter_v2(
                     with sp.for_("contract_item", update_private_metadata.items()) as contract_item:
                         # Must be private owner.
                         self.onlyOwnerPrivate(contract_item.key, sp.sender)
-                        utils.validateIpfsUri(contract_item.value)
+                        Utils.validateIpfsUri(contract_item.value)
 
-                        utils.contractSetMetadata(contract_item.key, contract_item.value)
+                        Utils.contractSetMetadata(contract_item.key, contract_item.value)
 
 
     #

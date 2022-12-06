@@ -1,7 +1,7 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.legacy import FA2_legacy
 
 
 class tz1andPlaces(
@@ -58,7 +58,8 @@ class tz1andDAO(
 
 # V2
 
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts import FA2
+
 
 class tz1andInteriors(
     Administrable,

@@ -1,10 +1,7 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py") # TODO: use v2 minter in tests
-district_contract = sp.io.import_script_from_url("file:contracts/DistrictDAO.py")
-places_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import TL_Minter, DistrictDAO, TL_World_v2, Tokens
+from contracts.utils import Utils
 
 
 # TODO: test royalties, fees, issuer being paid, lol
@@ -30,30 +27,30 @@ def test():
     #
     scenario.h1("Create test env")
     scenario.h2("items")
-    items_tokens = tokens.tz1andItems(
+    items_tokens = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
     scenario.h2("places")
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = Tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("minter")
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+    minter = TL_Minter.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
     scenario.h2("dao")
-    dao_token = tokens.tz1andDAO(
+    dao_token = Tokens.tz1andDAO(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += dao_token
 
     scenario.h2("some other FA2 token")
-    other_token = tokens.tz1andItems(
+    other_token = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += other_token
@@ -104,7 +101,7 @@ def test():
 
     # create World contract
     scenario.h2("world")
-    world = places_contract.TL_World(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
+    world = TL_World_v2.TL_World_v2(admin.address, items_tokens.address, places_tokens.address, dao_token.address,
         metadata = sp.utils.metadata_of_url("https://example.com"), name = "Test World", description = "A world for testing")
     scenario += world
 
@@ -115,7 +112,7 @@ def test():
 
     scenario.h2("Originate DistrictDAO contract")
     #world_contract, items_contract, places_contract, dao_contract, metadata, district_number
-    dao = district_contract.DistrictDAO(admin.address, world.address, items_tokens.address, places_tokens.address, dao_token.address, 1,
+    dao = DistrictDAO.DistrictDAO(admin.address, world.address, items_tokens.address, places_tokens.address, dao_token.address, 1,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dao
 

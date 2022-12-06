@@ -1,6 +1,6 @@
 import smartpy as sp
 
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
+from contracts import FA2
 
 
 #

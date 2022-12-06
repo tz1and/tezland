@@ -1,15 +1,12 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-#Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
-ContractMetadata = sp.io.import_script_from_url("file:contracts/mixins/ContractMetadata.py").ContractMetadata
-BasicPermissions = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py").BasicPermissions
-MetaSettings = sp.io.import_script_from_url("file:contracts/mixins/MetaSettings.py").MetaSettings
-
-FA2 = sp.io.import_script_from_url("file:contracts/FA2.py")
-env_utils = sp.io.import_script_from_url("file:contracts/utils/EnvUtils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
+from contracts import FA2
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.BasicPermissions import BasicPermissions
+from contracts.mixins.MetaSettings import MetaSettings
+from contracts.utils import Utils, EnvUtils
 
 
 #
@@ -54,21 +51,20 @@ t_add_royalties_params = sp.TMap(
     ).layout(("signature", "offchain_royalties"))))
 
 
-def signRoyalties(royalties: sp.TRecord, private_key: sp.TSecretKey):
-    packed_royalties = sp.pack(sp.set_type_expr(royalties, t_royalties_offchain))
-
+def signRoyalties(royalties, private_key) -> sp.Expr:
     signature = sp.make_signature(
         private_key,
-        packed_royalties,
+        sp.pack(sp.set_type_expr(royalties, t_royalties_offchain)),
         message_format = 'Raw')
 
     return signature
 
 
-def getRoyalties(legacy_royalties: sp.TAddress, token_key: sp.TRecord, message = None):
-    return sp.view("get_royalties", legacy_royalties,
+@EnvUtils.view_helper
+def getRoyalties(legacy_royalties, token_key) -> sp.Expr:
+    return sp.view("get_royalties", sp.set_type_expr(legacy_royalties, sp.TAddress),
         sp.set_type_expr(token_key, t_token_key),
-        t = FA2.t_royalties_interop).open_some(message)
+        t = FA2.t_royalties_interop)
 
 
 #
@@ -193,10 +189,10 @@ class TL_LegacyRoyalties(
         
         Fails if unknown."""
         sp.set_type(token_key, t_token_key)
-        sp.result(utils.openSomeOrDefault(
+        sp.result(Utils.openSomeOrDefault(
             self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
             self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none),
-                message=env_utils.viewExceptionOrUnit("UNKNOWN_ROYALTIES"))))
+                message=EnvUtils.viewExceptionOrUnit("UNKNOWN_ROYALTIES"))))
 
 
     @sp.onchain_view(pure=True)

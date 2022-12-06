@@ -1,6 +1,6 @@
 import smartpy as sp
 
-AddressSet = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").AddressSet
+from contracts.utils.GenericMap import AddressSet
 
 
 # Mixins required: Administrable

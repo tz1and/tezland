@@ -1,16 +1,16 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-whitelist_mixin = sp.io.import_script_from_url("file:contracts/mixins/Whitelist.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins import Whitelist
 
 
 class WhitelistTests(
     Administrable,
-    whitelist_mixin.Whitelist,
+    Whitelist.Whitelist,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        whitelist_mixin.Whitelist.__init__(self)
+        Whitelist.Whitelist.__init__(self)
 
     @sp.entry_point
     def testIsWhitelisted(self, whitelisted):

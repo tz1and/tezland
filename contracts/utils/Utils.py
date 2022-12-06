@@ -1,4 +1,3 @@
-from os import environ
 import smartpy as sp
 
 
@@ -10,7 +9,7 @@ import smartpy as sp
 #CONTRACT_ADDRESS_HIGH = sp.address("KT1XvNYseNDJJ6Kw27qhSEDF8ys8JhDopzfG")
 
 
-def isPowerOfTwoMinusOne(x):
+def isPowerOfTwoMinusOne(x) -> sp.Expr:
     """Returns expression that evaluates to true if x is power of 2 - 1"""
     return ((x + 1) & x) == sp.nat(0)
 
@@ -22,7 +21,7 @@ def sendIfValue(to, amount):
 
 
 @sp.inline_result
-def openSomeOrDefault(e: sp.TOption, default):
+def openSomeOrDefault(e, default) -> sp.Expr:
     """If option `e` is some, return its value, else return `default`."""
     with e.match_cases() as arg:
         with arg.match("None"):
@@ -31,12 +30,12 @@ def openSomeOrDefault(e: sp.TOption, default):
             sp.result(open)
 
 
-def ifSomeRun(e: sp.TOption, f):
+def ifSomeRun(e, f) -> sp.Expr:
     """If option `e` is some, execute function `f`."""
     with e.match("Some") as open: f(open)
 
 
-def isContract(addr: sp.TAddress):
+def isContract(addr) -> sp.Expr:
     """Returns expression that checks if `addr` is a contract address.
 
     In a packed address, the 7th byte is 0x01 for originated accounts
@@ -45,18 +44,18 @@ def isContract(addr: sp.TAddress):
     return sp.slice(sp.pack(sp.set_type_expr(addr, sp.TAddress)), 6, 1) == sp.some(sp.bytes("0x01"))
 
 
-def onlyContract(addr: sp.TAddress):
+def onlyContract(addr):
     """Fails with NOT_CONTRACT if `addr` is not a contract address."""
     sp.verify(isContract(addr), "NOT_CONTRACT")
 
 
-def validateIpfsUri(metadata_uri: sp.TBytes):
+def validateIpfsUri(metadata_uri):
     """Validate IPFS Uri.
 
     Basic validation, try to make sure it's a somewhat valid ipfs URI.
     Ipfs cid v0 + proto is 53 chars."""
-    sp.verify((sp.slice(metadata_uri, 0, 7) == sp.some(sp.utils.bytes_of_string("ipfs://")))
-        & (sp.len(metadata_uri) >= sp.nat(53)), "INVALID_METADATA")
+    sp.verify((sp.slice(sp.set_type_expr(metadata_uri, sp.TBytes), 0, 7) == sp.some(sp.utils.bytes_of_string("ipfs://")))
+        & (sp.len(sp.set_type_expr(metadata_uri, sp.TBytes)) >= sp.nat(53)), "INVALID_METADATA")
 
 
 def contractSetMetadata(contract, metadata_uri):

@@ -1,31 +1,29 @@
 import smartpy as sp
 
-world_contract = sp.io.import_script_from_url("file:contracts/TL_World.py")
-worldv2_contract = sp.io.import_script_from_url("file:contracts/TL_World_v2.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-FA2TokenTransferMapSingle = sp.io.import_script_from_url("file:contracts/utils/TokenTransfer.py").FA2TokenTransferMapSingle
+from contracts import TL_World, TL_World_v2
+from contracts.utils import TokenTransfer
 
 
-class TL_World_v1_1(world_contract.TL_World):
+class TL_World_v1_1(TL_World.TL_World):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, world_v2_contract, world_v2_place_contract,
         metadata, name="tz1and World (deprecated)", description="tz1and Virtual World", version="1.1.0"):
 
         self.migrate_to_contract = sp.set_type_expr(world_v2_contract, sp.TAddress)
         self.new_place_tokens_contract = sp.set_type_expr(world_v2_place_contract, sp.TAddress)
 
-        world_contract.TL_World.__init__(self, administrator,
+        TL_World.TL_World.__init__(self, administrator,
             items_contract, places_contract, dao_contract, metadata,
             name, description, version)
 
     def send_migration(self, migration_to_contract, migration_map, place_props, lot_id):
         sp.set_type(migration_to_contract, sp.TAddress)
-        sp.set_type(migration_map, worldv2_contract.migrationItemMapType)
-        sp.set_type(place_props, worldv2_contract.placePropsType)
+        sp.set_type(migration_map, TL_World_v2.migrationItemMapType)
+        sp.set_type(place_props, TL_World_v2.placePropsType)
         sp.set_type(lot_id, sp.TNat)
 
         # Call v2 migration ep.
         migration_handle = sp.contract(
-            worldv2_contract.migrationType,
+            TL_World_v2.migrationType,
             migration_to_contract,
             entry_point='migration').open_some()
         sp.transfer(sp.record(
@@ -42,8 +40,8 @@ class TL_World_v1_1(world_contract.TL_World):
         sp.set_type(params, sp.TRecord(
             lot_id = sp.TNat,
             owner = sp.TOption(sp.TAddress),
-            update_map = sp.TMap(sp.TAddress, sp.TList(world_contract.updateItemListType)),
-            extension = world_contract.extensionArgType
+            update_map = sp.TMap(sp.TAddress, sp.TList(TL_World.updateItemListType)),
+            extension = TL_World.extensionArgType
         ).layout(("lot_id", ("owner", ("update_map", "extension")))))
 
         self.onlyAdministrator()
@@ -53,13 +51,13 @@ class TL_World_v1_1(world_contract.TL_World):
         # Do nothing for empty places.
         with this_place_opt.match("Some") as this_place:
             # Only migrate place has items or the props have been changed.
-            with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, worldv2_contract.defaultPlaceProps)):
+            with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, TL_World_v2.defaultPlaceProps)):
                 # The record of items to migrate to v2.
-                migration_map = sp.local("migration_map", {}, worldv2_contract.migrationItemMapType)
+                migration_map = sp.local("migration_map", {}, TL_World_v2.migrationItemMapType)
 
                 # Our token transfer map.
                 # Since it's all the same token, we can have a single map.
-                transferMap = FA2TokenTransferMapSingle(self.data.items_contract)
+                transferMap = TokenTransfer.FA2TokenTransferMapSingle(self.data.items_contract)
 
                 # Fill migration map with items from storage
                 with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
@@ -105,7 +103,7 @@ class TL_World_v1_1(world_contract.TL_World):
             lot_id = sp.TNat,
             item_id = sp.TNat,
             issuer = sp.TAddress,
-            extension = world_contract.extensionArgType
+            extension = TL_World.extensionArgType
         ).layout(("lot_id", ("item_id", ("issuer", "extension")))))
 
         self.onlyAdministrator()

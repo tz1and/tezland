@@ -1,14 +1,14 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-FA2 = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.legacy import FA2_legacy as FA2
 
 #########
 # Tests #
 #########
 
 if "templates" not in __name__:
-    TESTS = sp.io.import_script_from_url("file:tests/lib/FA2_legacy_test_lib.py")
+    from tests.lib import FA2_legacy_test_lib as TESTS
 
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")

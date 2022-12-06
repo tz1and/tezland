@@ -1,8 +1,7 @@
 import smartpy as sp
 
-dutch_contract = sp.io.import_script_from_url("file:contracts/upgrades/TL_Dutch_v1_1.py")
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-tokens = sp.io.import_script_from_url("file:contracts/Tokens.py")
+from contracts.upgrades import TL_Dutch_v1_1
+from contracts import TL_Minter, Tokens
 
 
 @sp.add_test(name = "TL_Dutch_v1_1_tests", profile = True)
@@ -22,17 +21,17 @@ def test():
 
     # create a FA2 and minter contract for testing
     scenario.h2("Create test env")
-    items_tokens = tokens.tz1andItems(
+    items_tokens = Tokens.tz1andItems(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
 
-    places_tokens = tokens.tz1andPlaces(
+    places_tokens = Tokens.tz1andPlaces(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += places_tokens
 
-    minter = minter_contract.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
+    minter = TL_Minter.TL_Minter(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
@@ -70,7 +69,7 @@ def test():
 
     # create places contract
     scenario.h3("Originate dutch contract")
-    dutch = dutch_contract.TL_Dutch_v1_1(admin.address, items_tokens.address, places_tokens.address,
+    dutch = TL_Dutch_v1_1.TL_Dutch_v1_1(admin.address, items_tokens.address, places_tokens.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += dutch
 

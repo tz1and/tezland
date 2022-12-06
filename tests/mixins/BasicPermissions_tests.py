@@ -1,16 +1,16 @@
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-basic_permissions_mixin = sp.io.import_script_from_url("file:contracts/mixins/BasicPermissions.py")
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins import BasicPermissions
 
 
 class BasicPermissionsTest(
     Administrable,
-    basic_permissions_mixin.BasicPermissions,
+    BasicPermissions.BasicPermissions,
     sp.Contract):
     def __init__(self, administrator):
         Administrable.__init__(self, administrator = administrator)
-        basic_permissions_mixin.BasicPermissions.__init__(self)
+        BasicPermissions.BasicPermissions.__init__(self)
 
     # TODO: test inline helpers
 

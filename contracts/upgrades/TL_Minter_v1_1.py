@@ -1,14 +1,14 @@
 import smartpy as sp
 
-minter_contract = sp.io.import_script_from_url("file:contracts/TL_Minter.py")
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
+from contracts import TL_Minter
+from contracts.legacy import FA2_legacy
 
 
-class TL_Minter_v1_1(minter_contract.TL_Minter):
+class TL_Minter_v1_1(TL_Minter.TL_Minter):
     def __init__(self, administrator, items_contract, places_contract, metadata,
         name="tz1and Minter (deprecated)", description="tz1and Items and Places minter", version="1.1.0"):
 
-        minter_contract.TL_Minter.__init__(self, administrator,
+        TL_Minter.TL_Minter.__init__(self, administrator,
             items_contract, places_contract, metadata, name, description, version)
 
     @sp.entry_point(lazify = True)

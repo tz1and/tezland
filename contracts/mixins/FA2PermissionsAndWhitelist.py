@@ -1,7 +1,6 @@
 import smartpy as sp
 
-GenericMap = sp.io.import_script_from_url("file:contracts/utils/GenericMap.py").GenericMap
-env_utils = sp.io.import_script_from_url("file:contracts/utils/EnvUtils.py")
+from contracts.utils import GenericMap, EnvUtils
 
 
 permittedFA2MapValueType = sp.TRecord(
@@ -11,7 +10,7 @@ permittedFA2MapValueType = sp.TRecord(
 
 #
 # Map of permitted FA2 tokens for 'other' type.
-class PermittedFA2Map(GenericMap):
+class PermittedFA2Map(GenericMap.GenericMap):
     def __init__(self) -> None:
         super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED", big_map=False)
 
@@ -22,7 +21,7 @@ t_whitelist_key = sp.TRecord(
     user = sp.TAddress
 ).layout(("fa2", "user"))
 
-class FA2WhitelistMap(GenericMap):
+class FA2WhitelistMap(GenericMap.GenericMap):
     def __init__(self) -> None:
         super().__init__(t_whitelist_key, sp.TUnit, default_value=sp.unit, get_error="NOT_WHITELISTED")
 
@@ -132,7 +131,7 @@ class FA2PermissionsAndWhitelist:
     def get_fa2_permitted(self, fa2):
         """Returns permitted fa2 props."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2, env_utils.viewExceptionOrUnit("TOKEN_NOT_PERMITTED")))
+        sp.result(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2, EnvUtils.viewExceptionOrUnit("TOKEN_NOT_PERMITTED")))
 
 
     @sp.onchain_view(pure=True)

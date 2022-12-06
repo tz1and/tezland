@@ -6,16 +6,15 @@
 
 import smartpy as sp
 
-Administrable = sp.io.import_script_from_url("file:contracts/mixins/Administrable.py").Administrable
-Pausable = sp.io.import_script_from_url("file:contracts/mixins/Pausable.py").Pausable
-Fees = sp.io.import_script_from_url("file:contracts/mixins/Fees.py").Fees
-Moderation = sp.io.import_script_from_url("file:contracts/mixins/Moderation.py").Moderation
-PermittedFA2 = sp.io.import_script_from_url("file:contracts/mixins/PermittedFA2.py").PermittedFA2
-Upgradeable = sp.io.import_script_from_url("file:contracts/mixins/Upgradeable.py").Upgradeable
+from contracts.mixins.Administrable import Administrable
+from contracts.mixins.Upgradeable import Upgradeable
+from contracts.mixins.Pausable import Pausable
+from contracts.mixins.Fees import Fees
+from contracts.mixins.Moderation import Moderation
+from contracts.mixins.PermittedFA2 import PermittedFA2
+from contracts.legacy import FA2_legacy
+from contracts.utils import FA2Utils, Utils
 
-FA2_legacy = sp.io.import_script_from_url("file:contracts/legacy/FA2_legacy.py")
-fa2_utils = sp.io.import_script_from_url("file:contracts/utils/FA2Utils.py")
-utils = sp.io.import_script_from_url("file:contracts/utils/Utils.py")
 
 # Probably kinda urgent:
 # TODO: add a limit on place props data len and item data len. Potential gaslock.
@@ -326,7 +325,7 @@ class TL_World(
     def update_max_permission(self, max_permission):
         sp.set_type(max_permission, sp.TNat)
         self.onlyAdministrator()
-        sp.verify(utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
+        sp.verify(Utils.isPowerOfTwoMinusOne(max_permission), message=self.error_message.parameter_error())
         self.data.max_permission = max_permission
 
 
@@ -375,11 +374,11 @@ class TL_World(
         permission = sp.local("permission", permissionNone)
 
         # If permittee is the owner, he has full permission.
-        with sp.if_(fa2_utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0):
+        with sp.if_(FA2Utils.fa2_get_balance(self.data.places_contract, lot_id, permittee) > 0):
             permission.value = self.data.max_permission
         with sp.else_():
             # otherwise, make sure the purpoted owner is actually the owner and permissions are set.
-            with sp.if_(owner.is_some() & (fa2_utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0)):
+            with sp.if_(owner.is_some() & (FA2Utils.fa2_get_balance(self.data.places_contract, lot_id, owner.open_some()) > 0)):
                 permission.value = sp.compute(self.permission_map.get_octal(self.data.permissions,
                     owner.open_some(),
                     permittee,
@@ -482,7 +481,7 @@ class TL_World(
                         sp.verify((other.token_amount == sp.nat(1)) & (other.mutez_per_token == sp.tez(0)), message = self.error_message.parameter_error())
 
                     # Transfer external token to this contract. Only support 1 token per placement. No swaps.
-                    fa2_utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, other.token_amount)
+                    FA2Utils.fa2_transfer(other.fa2, sp.sender, sp.self_address, other.token_id, other.token_amount)
 
                     # Add item to storage.
                     item_store[this_place.next_id] = sp.variant("other", sp.record(
@@ -502,7 +501,7 @@ class TL_World(
 
         # only transfer if list has items
         with sp.if_(sp.len(transferMap.value) > 0):
-            fa2_utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
+            FA2Utils.fa2_transfer_multi(self.data.items_contract, sp.sender, transferMap.value.values())
 
 
     @sp.entry_point(lazify = True)
@@ -599,7 +598,7 @@ class TL_World(
 
                     with arg.match("other") as the_other:
                         # transfer external token back to the issuer. Only support 1 token.
-                        fa2_utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, the_other.item_amount)
+                        FA2Utils.fa2_transfer(the_other.fa2, sp.self_address, issuer, the_other.token_id, the_other.item_amount)
 
                     # Nothing to do here with ext items. Just remove them.
                 
@@ -614,7 +613,7 @@ class TL_World(
 
         # Only transfer if transfer map has items.
         with sp.if_(sp.len(transferMap.value) > 0):
-            fa2_utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
+            FA2Utils.fa2_transfer_multi(self.data.items_contract, sp.self_address, transferMap.value.values())
 
 
     # Inline function for sending royalties, fees, etc
@@ -653,7 +652,7 @@ class TL_World(
 
         # Transfer.
         with sp.for_("send", send_map.value.items()) as send:
-            utils.sendIfValue(send.key, send.value)
+            Utils.sendIfValue(send.key, send.value)
 
 
     @sp.entry_point(lazify = True)
@@ -693,7 +692,7 @@ class TL_World(
                     self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
-                fa2_utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
+                FA2Utils.fa2_transfer(self.data.items_contract, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.item_amount > 1):
@@ -720,7 +719,7 @@ class TL_World(
                     self.sendValueRoyaltiesFeesInline(sp.record(mutez_per_item=the_item.value.mutez_per_item, issuer=params.issuer, item_royalty_info=item_royalty_info))
                 
                 # Transfer item to buyer.
-                fa2_utils.fa2_transfer(the_item.value.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
+                FA2Utils.fa2_transfer(the_item.value.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
                 
                 # Reduce the item count in storage or remove it.
                 with sp.if_(the_item.value.item_amount > 1):
