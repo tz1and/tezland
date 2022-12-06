@@ -67,8 +67,7 @@ def test():
 
     signed_collection = TL_TokenRegistry.signCollection(
         sp.record(collection = items_tokens.address, royalties_type = TL_TokenRegistry.royaltiesTz1andV1),
-        collections_key.secret_key
-    )
+        collections_key.secret_key)
 
     manage_public_params = { items_tokens.address: TL_TokenRegistry.royaltiesTz1andV1 }
     manage_private_params = { items_tokens.address: sp.record(owner = bob.address, royalties_type = TL_TokenRegistry.royaltiesTz1andV1) }

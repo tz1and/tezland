@@ -1183,7 +1183,7 @@ class Royalties:
 
         with sp.set_result_type(t_royalties_interop):
             sp.result(sp.record(total=1000,
-                shares=self.data.token_extra.get(token_id, message=sp.unit).royalty_info))
+                shares=self.data.token_extra.get(token_id, message="TOKEN_UNDEFINED").royalty_info))
 
 
 class OnchainviewCountTokens:
