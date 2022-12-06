@@ -56,22 +56,25 @@ def test():
 
     scenario.h3("isContract")
 
-    utils.testIsContract(address=bob.address, expected=False).run(sender=admin)
-    utils.testIsContract(address=utils.address, expected=True).run(sender=admin)
-    utils.testIsContract(address=sp.address("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU"), expected=False).run(sender=admin)
-    utils.testIsContract(address=sp.address("tz28KEfLTo3wg2wGyJZMjC1MaDA1q68s6tz5"), expected=False).run(sender=admin)
-    utils.testIsContract(address=sp.address("tz3LL3cfMfBV4fPaPZdcj9TjPa3XbvLiXw9V"), expected=False).run(sender=admin)
-    utils.testIsContract(address=sp.address("KT1WmMn55RjXwk5Xb4YE6asjy5BvMiEsB6nA"), expected=True).run(sender=admin)
+    addresses_validity = [
+        (bob.address, False),
+        (utils.address, True),
+        (sp.address("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU"), False),
+        (sp.address("tz28KEfLTo3wg2wGyJZMjC1MaDA1q68s6tz5"), False),
+        (sp.address("tz3LL3cfMfBV4fPaPZdcj9TjPa3XbvLiXw9V"), False),
+        #(sp.address("tz4aL3Z372duFfPawg2wG9TjPa3XbvLiXw9V"), False) # Some day...
+        (sp.address("KT1WmMn55RjXwk5Xb4YE6asjy5BvMiEsB6nA"), True),
+    ]
+
+    for t in addresses_validity:
+        addr, valid = t
+        utils.testIsContract(address=addr, expected=valid).run(sender=admin)
 
     scenario.h3("onlyContract")
 
-    utils.testOnlyContract(bob.address).run(sender=admin, valid=False, exception="NOT_CONTRACT")
-    utils.testOnlyContract(utils.address).run(sender=admin)
-    utils.testOnlyContract(sp.address("tz1Ke2h7sDdakHJQh8WX4Z372du1KChsksyU")).run(sender=admin, valid=False, exception="NOT_CONTRACT")
-    utils.testOnlyContract(sp.address("tz28KEfLTo3wg2wGyJZMjC1MaDA1q68s6tz5")).run(sender=admin, valid=False, exception="NOT_CONTRACT")
-    utils.testOnlyContract(sp.address("tz3LL3cfMfBV4fPaPZdcj9TjPa3XbvLiXw9V")).run(sender=admin, valid=False, exception="NOT_CONTRACT")
-    #utils.testOnlyContract(sp.address("tz4aL3Z372duFfPawg2wG9TjPa3XbvLiXw9V")).run(sender=admin, valid=False, exception="NOT_CONTRACT") # Some day....
-    utils.testOnlyContract(sp.address("KT1WmMn55RjXwk5Xb4YE6asjy5BvMiEsB6nA")).run(sender=admin)
+    for t in addresses_validity:
+        addr, valid = t
+        utils.testOnlyContract(addr).run(sender=admin, valid=valid, exception=(None if valid else "NOT_CONTRACT"))
 
     scenario.h3("testOpenSomeOrDefault")
 
@@ -84,24 +87,26 @@ def test():
 
     scenario.h3("testValidateIpfsUri")
 
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("")).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("https://newtoken.com")).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("ipfs://newtoken.com")).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn")).run(sender=admin, valid=False, exception="INVALID_METADATA")
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")).run(sender=admin)
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("ipfs://bafkreicce3xlhin5oyconwqyqxp2pf7fzxf27i77iuh4xiwebvtf3ffqym")).run(sender=admin)
-    utils.testValidateIpfsUri(sp.utils.bytes_of_string("ipfs://bafkreibunhe5632xyodlx7r52kzf7aleeh3ttfrodjpowxnjbrxnsgy36u/metadata.json")).run(sender=admin)
+    ipfs_uri_validity = [
+        ("", False),
+        ("https://newtoken.com", False),
+        ("ipfs://newtoken.com", False),
+        ("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMn", False),
+        ("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR", True),
+        ("ipfs://bafkreicce3xlhin5oyconwqyqxp2pf7fzxf27i77iuh4xiwebvtf3ffqym", True),
+        ("ipfs://bafkreibunhe5632xyodlx7r52kzf7aleeh3ttfrodjpowxnjbrxnsgy36u/metadata.json", True),
+    ]
+
+    for t in ipfs_uri_validity:
+        uri, valid = t
+        utils.testValidateIpfsUri(sp.utils.bytes_of_string(uri)).run(sender=admin, valid=valid, exception=(None if valid else "INVALID_METADATA"))
 
     scenario.h3("testIsPowerOfTwoMinusOne")
 
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(10), expected=False).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(8), expected=False).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(16), expected=False).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(1048576), expected=False).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(3), expected=True).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(7), expected=True).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(63), expected=True).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(127), expected=True).run(sender=admin)
-    utils.testIsPowerOfTwoMinusOne(value=sp.nat(1048575), expected=True).run(sender=admin)
+    for x in [10, 8, 16, 1048576]:
+        utils.testIsPowerOfTwoMinusOne(value=sp.nat(x), expected=False).run(sender=admin)
+    
+    for x in [3, 7, 63, 127, 1048575]:
+        utils.testIsPowerOfTwoMinusOne(value=sp.nat(x), expected=True).run(sender=admin)
 
     # TODO: sendIfValue
