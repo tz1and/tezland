@@ -56,14 +56,3 @@ def validateIpfsUri(metadata_uri):
     Ipfs cid v0 + proto is 53 chars."""
     sp.verify((sp.slice(sp.set_type_expr(metadata_uri, sp.TBytes), 0, 7) == sp.some(sp.utils.bytes_of_string("ipfs://")))
         & (sp.len(sp.set_type_expr(metadata_uri, sp.TBytes)) >= sp.nat(53)), "INVALID_METADATA")
-
-
-def contractSetMetadata(contract, metadata_uri):
-    """ContractMetadata set_metadata."""
-    sp.set_type(contract, sp.TAddress)
-    sp.set_type(metadata_uri, sp.TBytes)
-    set_metadata_handle = sp.contract(
-        sp.TBigMap(sp.TString, sp.TBytes),
-        contract,
-        entry_point='set_metadata').open_some()
-    sp.transfer(sp.big_map({"": metadata_uri}), sp.mutez(0), set_metadata_handle)

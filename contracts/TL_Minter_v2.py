@@ -3,7 +3,7 @@ import smartpy as sp
 from contracts.mixins.Administrable import Administrable
 from contracts.mixins.Pausable import Pausable
 from contracts.mixins.Upgradeable import Upgradeable
-from contracts.mixins.ContractMetadata import ContractMetadata
+from contracts.mixins.ContractMetadata import ContractMetadata, contractSetMetadata
 from contracts.mixins.MetaSettings import MetaSettings
 
 from contracts import TL_TokenRegistry, FA2
@@ -175,7 +175,7 @@ class TL_Minter_v2(
                         self.onlyOwnerPrivate(contract_item.key, sp.sender)
                         Utils.validateIpfsUri(contract_item.value)
 
-                        Utils.contractSetMetadata(contract_item.key, contract_item.value)
+                        contractSetMetadata(contract_item.key, contract_item.value)
 
 
     #
