@@ -85,13 +85,13 @@ class TL_Minter_v2(
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
         sp.compute(TL_TokenRegistry.isPrivateOwnerOrCollab(self.data.registry, collection, address)
-            .open_some("NOT_OWNER_OR_COLLABORATOR"))
+            .open_some())
 
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
         sp.verify(TL_TokenRegistry.getCollectionInfo(self.data.registry, collection)
-            .open_some("INVALID_COLLECTION").collection_type == TL_TokenRegistry.collectionPublic, "NOT_PUBLIC")
+            .open_some().collection_type == TL_TokenRegistry.collectionPublic, "NOT_PUBLIC")
 
 
     #

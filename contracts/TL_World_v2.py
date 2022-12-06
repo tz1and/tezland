@@ -49,8 +49,6 @@ from contracts.utils import TokenTransfer, FA2Utils, Utils
 
 
 # Some notes:
-# - views should fail with sp.unit! view helpers may fail with message.
-#   + In views calling views: message = sp.unit. Views throwing: message = utils.viewExceptionOrUnit("MESSAGE"). Calling views in EPS: message = "MESSAGE".
 # - maketet blacklist adds about 200 gas to token transfers. not sure if worth it.
 # - use abs instead sp.as_nat if unchecked. as_nat will throw on negative numbers, abs won't - but make smaller code.
 # - every upgradeable_mixin entrypoint has an arg of extensionArgType. Can be used for merkle proof royalties, for example.
@@ -702,7 +700,7 @@ class TL_World_v2(
         transferMap = TokenTransfer.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some("TOKEN_NOT_REGISTERED"))
+        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some())
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -985,7 +983,7 @@ class TL_World_v2(
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(TL_RoyaltiesAdapter.getRoyalties(
-                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some("NO_ROYALTIES"))
+                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some())
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1061,7 +1059,7 @@ class TL_World_v2(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some("TOKEN_NOT_REGISTERED"))
+            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some())
 
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)
