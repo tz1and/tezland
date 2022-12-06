@@ -101,7 +101,7 @@ class PermittedFA2:
         with fa2_props.royalties_kind.match_cases() as arg:
             #with arg.match("none"): # none is implied to return default royalty info
             with arg.match("tz1and"):
-                token_royalty_info.value = FA2_legacy.getRoyalties(auction_fa2, token_id)
+                token_royalty_info.value = FA2_legacy.getRoyalties(auction_fa2, token_id).open_some()
             with arg.match("combined"):
                 sp.failwith("ROYALTIES_NOT_IMPLEMENTED")
             with arg.match("versum"):
