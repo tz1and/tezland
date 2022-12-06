@@ -608,7 +608,7 @@ class TL_World_v2(
 
         # NOTE: no need to check if place contract is allowed in this world.
 
-        place_owner = sp.local("place_owner", FA2.fa2_nft_get_owner(place_key.fa2, place_key.id))
+        place_owner = sp.local("place_owner", FA2.getOwner(place_key.fa2, place_key.id).open_some())
 
         # If permittee is the owner, he has full permission.
         with sp.if_(place_owner.value == permittee):
@@ -702,7 +702,7 @@ class TL_World_v2(
         transferMap = TokenTransfer.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
+        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some("TOKEN_NOT_REGISTERED"))
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -933,7 +933,7 @@ class TL_World_v2(
             with arg.match("None", "issuer_none"):
                 with value_to.match_cases() as arg:
                     with arg.match("None", "value_to_none"):
-                        sp.result(FA2.fa2_nft_get_owner(place_key.fa2, place_key.id))
+                        sp.result(FA2.getOwner(place_key.fa2, place_key.id).open_some())
                     with arg.match("Some") as open:
                         sp.result(open)
 
@@ -985,7 +985,7 @@ class TL_World_v2(
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(TL_RoyaltiesAdapter.getRoyalties(
-                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id), "NO_ROYALTIES"))
+                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some("NO_ROYALTIES"))
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1061,7 +1061,7 @@ class TL_World_v2(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value, "TOKEN_NOT_REGISTERED"))
+            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some("TOKEN_NOT_REGISTERED"))
 
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)

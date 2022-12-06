@@ -8,6 +8,8 @@ Multiple mixins and several standard [policies](https://gitlab.com/tezos/tzip/-/
 import smartpy as sp
 import types
 
+from contracts.utils import EnvUtils
+
 
 #########
 # Types #
@@ -1198,18 +1200,18 @@ class OnchainviewCountTokens:
 #########
 
 # Getting royalties
-def getRoyalties(fa2, token_id, message = None):
-    return sp.view("get_royalties", fa2,
+@EnvUtils.view_helper
+def getRoyalties(fa2, token_id) -> sp.Expr:
+    return sp.view("get_royalties", sp.set_type_expr(fa2, sp.TAddress),
         sp.set_type_expr(token_id, sp.TNat),
-        t = t_royalties_interop).open_some(message)
+        t = t_royalties_interop)
 
 # Get owner
-def fa2_nft_get_owner(fa2, token_id):
-    return sp.view("get_owner", fa2,
-        sp.set_type_expr(
-            token_id,
-            sp.TNat),
-        t = sp.TAddress).open_some()
+@EnvUtils.view_helper
+def getOwner(fa2, token_id) -> sp.Expr:
+    return sp.view("get_owner", sp.set_type_expr(fa2, sp.TAddress),
+        sp.set_type_expr(token_id, sp.TNat),
+        t = sp.TAddress)
 
 # Validating royalties
 def validateRoyalties(royalties, max_royalties, max_contributors):

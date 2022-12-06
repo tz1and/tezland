@@ -103,37 +103,42 @@ def signCollection(collection_sign, private_key):
     return signature
 
 
-def getRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet, message = None):
-    return sp.view("get_registered", token_registry_contract,
+@EnvUtils.view_helper
+def getRegistered(token_registry, fa2_set) -> sp.Expr:
+    return sp.view("get_registered", sp.set_type_expr(token_registry, sp.TAddress),
         sp.set_type_expr(fa2_set, t_registry_param),
-        t = t_registry_result).open_some(message)
+        t = t_registry_result)
 
 
-def onlyRegistered(token_registry_contract: sp.TAddress, fa2_set: sp.TSet, message = None):
-    return sp.view("only_registered", token_registry_contract,
+@EnvUtils.view_helper
+def onlyRegistered(token_registry, fa2_set) -> sp.Expr:
+    return sp.view("only_registered", sp.set_type_expr(token_registry, sp.TAddress),
         sp.set_type_expr(fa2_set, t_registry_param),
-        t = sp.TUnit).open_some(message)
+        t = sp.TUnit)
 
 
-def getRoyaltiesType(token_registry_contract: sp.TAddress, fa2: sp.TAddress, message = None):
-    return sp.view("get_royalties_type", token_registry_contract,
+@EnvUtils.view_helper
+def getRoyaltiesType(token_registry, fa2) -> sp.Expr:
+    return sp.view("get_royalties_type", sp.set_type_expr(token_registry, sp.TAddress),
         sp.set_type_expr(fa2, sp.TAddress),
-        t = t_royalties_bounded).open_some(message)
+        t = t_royalties_bounded)
 
 
-def getCollectionInfo(token_registry_contract: sp.TAddress, fa2: sp.TAddress, message = None):
-    return sp.view("get_collection_info", token_registry_contract,
+@EnvUtils.view_helper
+def getCollectionInfo(token_registry, fa2) -> sp.Expr:
+    return sp.view("get_collection_info", sp.set_type_expr(token_registry, sp.TAddress),
         sp.set_type_expr(fa2, sp.TAddress),
-        t = collectionType).open_some(message)
+        t = collectionType)
 
 
-def isPrivateOwnerOrCollab(token_registry_contract: sp.TAddress, collection: sp.TAddress, address: sp.TAddress, message = None):
-    return sp.view("is_private_owner_or_collab", token_registry_contract,
+@EnvUtils.view_helper
+def isPrivateOwnerOrCollab(token_registry, collection, address) -> sp.Expr:
+    return sp.view("is_private_owner_or_collab", sp.set_type_expr(token_registry, sp.TAddress),
         sp.set_type_expr(sp.record(
             collection = collection,
             address = address
         ), t_ownership_check),
-        t = t_ownership_result).open_some(message)
+        t = t_ownership_result)
 
 
 #

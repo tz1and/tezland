@@ -1,16 +1,18 @@
 import smartpy as sp
 
 from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapterLegacyAndV1, FA2
+from contracts.utils import EnvUtils
 
 
 # TODO: layer adapters for other tokens!
 # TODO: test adapters
 
 
-def getRoyalties(royalties_adaper: sp.TAddress, token_key: sp.TRecord, message = None):
-    return sp.view("get_royalties", royalties_adaper,
+@EnvUtils.view_helper
+def getRoyalties(royalties_adaper, token_key) -> sp.Expr:
+    return sp.view("get_royalties", sp.set_type_expr(royalties_adaper, sp.TAddress),
         sp.set_type_expr(token_key, TL_LegacyRoyalties.t_token_key),
-        t = FA2.t_royalties_interop).open_some(message)
+        t = FA2.t_royalties_interop)
 
 
 #
@@ -69,11 +71,11 @@ class TL_RoyaltiesAdapter(sp.Contract):
         """Gets token royalties and/or validate signed royalties."""
         sp.set_type(token_key, TL_LegacyRoyalties.t_token_key)
 
-        royalties_type = sp.compute(TL_TokenRegistry.getRoyaltiesType(self.data.registry, token_key.fa2, sp.unit))
+        royalties_type = sp.compute(TL_TokenRegistry.getRoyaltiesType(self.data.registry, token_key.fa2).open_some(sp.unit))
 
         with sp.if_(royalties_type == TL_TokenRegistry.royaltiesTz1andV2):
             # Just return V2 royalties.
-            sp.result(FA2.getRoyalties(token_key.fa2, token_key.id, sp.unit))
+            sp.result(FA2.getRoyalties(token_key.fa2, token_key.id).open_some(sp.unit))
         with sp.else_():
             # Call the V1 and legacy adapter.
             sp.result(TL_RoyaltiesAdapterLegacyAndV1.getRoyalties(self.data.v1_and_legacy_adapter,

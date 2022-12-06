@@ -75,7 +75,7 @@ class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
         # Type 1 = tz1and v1 royalties.
         with sp.if_(params.royalties_type == TL_TokenRegistry.royaltiesTz1andV1):
             # Convert V1 royalties to V2.
-            royalties = sp.compute(FA2_legacy.getRoyalties(params.token_key.fa2, params.token_key.id, sp.unit))
+            royalties = sp.compute(FA2_legacy.getRoyalties(params.token_key.fa2, params.token_key.id).open_some(sp.unit))
             royalties_v2 = sp.local("royalties_v2", sp.record(total = 1000, shares = {}), FA2.t_royalties_interop)
 
             with sp.for_("contributor", royalties.contributors) as contributor:
