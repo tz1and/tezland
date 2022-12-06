@@ -90,6 +90,17 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
     console.log()
 }
 
+function optimise(target_name: string, file_in: string, file_out: string): string {
+    if (false) {
+        console.log(`Optimising ${target_name}`)
+
+        child.execSync(`./bin/morley.sh optimize --contract ${file_in} -o ${file_out}`, {stdio: 'inherit'})
+        return file_out;
+    }
+
+    return file_in;
+}
+
 export function compile_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[]): void {
     console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
 
@@ -116,11 +127,14 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 
     child.execSync(`PYTHONPATH=./ SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
+    const contract_compiled = `${target_name}/step_000_cont_0_contract.json`
+    //const contract_optimized = `${target_name}/step_000_cont_0_contract_opt.tz`
+    //const final_contract = optimise(target_name, contract_compiled, contract_optimized);
+
     console.log(`Extracting Michelson contract and storage ...`)
 
     const contract_out = `${target_name}.json`
     const storage_out = `${target_name}_storage.json`
-    const contract_compiled = `${target_name}/step_000_cont_0_contract.json`
     const storage_compiled = `${target_name}/step_000_cont_0_storage.json`
 
     fs.copyFileSync(`${tmp_out_dir}/${contract_compiled}`, `./build/${contract_out}`)

@@ -199,6 +199,7 @@ export default class DeployBase {
         fs.copyFileSync(codePath, `${this.deploymentsDir}/${contractFile}`);
         fs.copyFileSync(initPath, `${this.deploymentsDir}/${storageFile}`);
 
+        //const codeTz = fs.readFileSync(codePath, { encoding: 'utf-8' });
         const codeJson = JSON.parse(fs.readFileSync(codePath, { encoding: 'utf-8' }));
         const initJson = JSON.parse(fs.readFileSync(initPath, { encoding: 'utf-8' }));
 
