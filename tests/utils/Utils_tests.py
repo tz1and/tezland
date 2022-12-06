@@ -23,7 +23,7 @@ class UtilsTest(sp.Contract):
     @sp.entry_point
     def testIfSomeRun(self):
         Utils.ifSomeRun(sp.some(sp.nat(10)), lambda x: sp.verify(x == sp.nat(10)))
-        Utils.ifSomeRun(sp.none, lambda x: sp.verify(False))
+        Utils.ifSomeRun(sp.set_type_expr(sp.none, sp.TOption(sp.TNat)), lambda x: sp.verify(False))
 
     @sp.entry_point
     def testValidateIpfsUri(self, uri):
