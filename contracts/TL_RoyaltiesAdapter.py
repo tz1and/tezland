@@ -4,10 +4,6 @@ from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapterL
 from contracts.utils import EnvUtils
 
 
-# TODO: layer adapters for other tokens!
-# TODO: test adapters
-
-
 @EnvUtils.view_helper
 def getRoyalties(royalties_adaper, token_key) -> sp.Expr:
     return sp.view("get_royalties", sp.set_type_expr(royalties_adaper, sp.TAddress),
