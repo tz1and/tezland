@@ -1,14 +1,15 @@
 import smartpy as sp
 
-from contracts.mixins.Administrable import Administrable
-from contracts.mixins.Pausable import Pausable
+from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
+from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from contracts.mixins.Whitelist import Whitelist
 from contracts.mixins.Fees import Fees
 from contracts.mixins.Moderation import Moderation
 from contracts.mixins.PermittedFA2 import PermittedFA2
-from contracts.mixins.Upgradeable import Upgradeable
 
-from contracts.utils import FA2Utils, Utils
+from contracts.utils import FA2Utils
+from tezosbuilders_contracts_smartpy.utils import Utils
 
 
 # TODO: test royalties for item token

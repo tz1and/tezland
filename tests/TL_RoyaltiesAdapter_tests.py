@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, FA2, Tokens
+from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, Tokens
 
 
 class RoyaltiesAdapterTest(sp.Contract):

@@ -1,7 +1,6 @@
 import smartpy as sp
 
 from contracts import TL_Minter, DistrictDAO, TL_World_v2, Tokens
-from contracts.utils import Utils
 
 
 # TODO: test royalties, fees, issuer being paid, lol

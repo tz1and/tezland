@@ -1,7 +1,8 @@
 import smartpy as sp
 
 from contracts import TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
-from contracts.utils import FA2Utils, Utils
+from contracts.utils import FA2Utils
+from tezosbuilders_contracts_smartpy.utils import Utils
 
 # Some frequently used forwarded types
 PermissionParams = TL_World_v2.PermissionParams

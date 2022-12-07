@@ -6,6 +6,8 @@ import config from '../user.config';
 // Expected location of SmartPy CLI.
 const SMART_PY_INSTALL_DIR = "./bin/smartpy"
 const SMART_PY_CLI = SMART_PY_INSTALL_DIR + "/SmartPy.sh"
+type SmartPyTask = "compile" | "test"
+const smartPyCli = (task: SmartPyTask) => `source .venv/bin/activate && PYTHONPATH="./" SMARTPY_NODE_DEV=${task} ${SMART_PY_CLI}`
 const test_out_dir = "./tests/test_output"
 
 const CHECK_MARK = "\u2713"
@@ -42,7 +44,7 @@ export function test_single(dir: string, contract_name: string) {
         // Build artifact directory.
         const contract_in = `${dir}/${contract_name}_tests.py`
 
-        child.execSync(`PYTHONPATH=./ SMARTPY_NODE_DEV=test ${SMART_PY_CLI} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
+        child.execSync(`${smartPyCli("test")} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
 
         console.log(kleur.green(`${CHECK_MARK} Tests for '${contract_name}' succeeded`))
 
@@ -75,7 +77,7 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`PYTHONPATH=./ SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(`${smartPyCli("compile")} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
     console.log(`Extracting metadata ...`)
 
@@ -125,7 +127,7 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`PYTHONPATH=./ SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(`${smartPyCli("compile")} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
 
     const contract_compiled = `${target_name}/step_000_cont_0_contract.json`
     //const contract_optimized = `${target_name}/step_000_cont_0_contract_opt.tz`
@@ -183,7 +185,7 @@ def upgrade():
 
     const contract_in = `${target_out_dir}/${target_name}_upgrade.py`
 
-    child.execSync(`PYTHONPATH=./ SMARTPY_NODE_DEV=compile ${SMART_PY_CLI} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
+    child.execSync(`${smartPyCli("compile")} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
 
     console.log(`Extracting entry point map from output ...`)
 

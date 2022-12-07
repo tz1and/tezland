@@ -1,14 +1,14 @@
 from importlib.metadata import metadata
 import smartpy as sp
 
-from contracts.mixins.Administrable import Administrable
-from contracts.mixins.Pausable import Pausable
-from contracts.mixins.ContractMetadata import ContractMetadata
-from contracts.mixins.Upgradeable import Upgradeable
-from contracts.mixins.MetaSettings import MetaSettings
+from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
+from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
+from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 
 from contracts import TL_TokenRegistry, FA2
-from contracts.utils import Utils
+from tezosbuilders_contracts_smartpy.utils import Utils
 
 
 # TODO: figure out if we *need* FA2.PauseTransfer()

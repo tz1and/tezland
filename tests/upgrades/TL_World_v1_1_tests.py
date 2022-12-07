@@ -2,7 +2,6 @@ import smartpy as sp
 
 from contracts import TL_Minter, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
 from contracts.upgrades import TL_World_v1_1
-from contracts.utils import Utils
 
 
 @sp.add_test(name = "TL_World_v1_1_tests", profile = True)

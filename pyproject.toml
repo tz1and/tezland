@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "tezland"
+version = "0.1.0"
+description = ""
+authors = ["852Kerfunkle <852Kerfunkle@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+tezosbuilders-contracts-smartpy = { git = "https://github.com/tezosbuilders/contracts-smartpy.git", branch = "main" }

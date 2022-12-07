@@ -1,10 +1,10 @@
 import smartpy as sp
 
-from contracts.mixins.Administrable import Administrable
-from contracts.mixins.Pausable import Pausable
+from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
+from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from contracts.mixins.Moderation import Moderation
 from contracts.mixins.FA2_Administration import FA2_Administration
-from contracts.mixins.Upgradeable import Upgradeable
 
 from contracts.legacy import FA2_legacy
 

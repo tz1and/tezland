@@ -1,7 +1,7 @@
 import smartpy as sp
 
-from contracts.mixins.Administrable import Administrable
-from contracts.mixins.MetaSettings import MetaSettings
+from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins import Moderation_v2
 
 

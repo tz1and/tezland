@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts.utils import Utils
+from tezosbuilders_contracts_smartpy.utils import Utils
 
 
 # Mixins required: Administrable

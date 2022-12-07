@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_TokenFactory, TL_TokenRegistry, TL_Minter_v2, Tokens
+from contracts import TL_TokenFactory, TL_TokenRegistry, TL_Minter_v2
 
 
 @sp.add_test(name = "TL_TokenFactory_tests", profile = True)
