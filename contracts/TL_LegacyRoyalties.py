@@ -80,7 +80,7 @@ class TL_LegacyRoyalties(
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
 
         self.add_flag("exceptions", exception_optimization_level)
-        #self.add_flag("erase-comments")
+        self.add_flag("erase-comments")
 
         self.init_storage(
             public_keys = sp.big_map(tkey=sp.TString, tvalue=t_public_key_item),

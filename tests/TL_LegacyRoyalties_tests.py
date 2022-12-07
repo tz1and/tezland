@@ -4,10 +4,6 @@ from contracts.mixins.Administrable import Administrable
 from contracts import TL_LegacyRoyalties, FA2
 
 
-# TODO: test permissions!!!
-# TODO: test removing keys not owned.
-
-
 class tokenNoRoyalties(
     Administrable,
     FA2.ChangeMetadata,
@@ -32,6 +28,7 @@ def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
+    carol   = sp.test_account("Carol")
     royalties_key1 = sp.test_account("Royalties 1")
     royalties_key2 = sp.test_account("Royalties 2")
     royalties_key_invalid = sp.test_account("Royalties Invalid")
@@ -66,14 +63,51 @@ def test():
 
     # Managing keys
     scenario.h2("manage_registry: keys")
-    legacy_royalties.manage_registry([sp.variant("add_keys", {
-        "key1": royalties_key1.public_key
-    })]).run(sender=admin)
-    scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=admin.address, key=royalties_key1.public_key))
 
-    legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key1"]))]).run(sender=admin)
-    scenario.verify(~legacy_royalties.data.public_keys.contains("key1"))
+    # Add permission only for admin
+    for acc in [alice, bob, carol, admin]:
+        legacy_royalties.manage_registry([sp.variant("add_keys", {
+            "key1": royalties_key1.public_key})]).run(
+                sender=acc,
+                valid=(True if acc is admin else False),
+                exception=(None if acc is admin else "NOT_PERMITTED"))
+        
+        if acc is admin:
+            scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=admin.address, key=royalties_key1.public_key))
 
+    # Remove permission only for admin
+    for acc in [alice, bob, carol, admin]:
+        legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key1"]))]).run(
+            sender=acc,
+            valid=(True if acc is admin else False),
+            exception=(None if acc is admin else "NOT_PERMITTED"))
+
+        if acc is admin: scenario.verify(~legacy_royalties.data.public_keys.contains("key1"))
+
+    # Give permission for carol
+    legacy_royalties.manage_permissions([sp.variant("add_permissions", sp.set([carol.address]))]).run(sender=admin)
+
+    # Add permission for carol
+    for acc in [alice, bob, carol]:
+        legacy_royalties.manage_registry([sp.variant("add_keys", {
+            "key1": royalties_key1.public_key})]).run(
+                sender=acc,
+                valid=(True if acc is carol else False),
+                exception=(None if acc is carol else "NOT_PERMITTED"))
+        
+        if acc is carol:
+            scenario.verify(legacy_royalties.data.public_keys.get("key1") == sp.record(owner=carol.address, key=royalties_key1.public_key))
+
+    # Remove permission only for carol
+    for acc in [alice, bob, carol]:
+        legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key1"]))]).run(
+            sender=acc,
+            valid=(True if acc is carol else False),
+            exception=(None if acc is carol else "NOT_PERMITTED"))
+
+        if acc is carol: scenario.verify(~legacy_royalties.data.public_keys.contains("key1"))
+
+    # Add some more keys for further testing
     legacy_royalties.manage_registry([sp.variant("add_keys", {
         "key1": royalties_key1.public_key,
         "key2": royalties_key2.public_key
@@ -86,11 +120,6 @@ def test():
         "key_invalid": royalties_key_invalid.public_key
     })]).run(sender=bob, valid=False, exception="NOT_PERMITTED")
     legacy_royalties.manage_registry([sp.variant("remove_keys", sp.set(["key_invalid"]))]).run(sender=alice, valid=False, exception="NOT_PERMITTED")
-
-    # Update settings
-    scenario.h2("update_settings")
-    #legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
-    #legacy_royalties.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
 
     # Adding royalties
     scenario.h2("add_royalties")
