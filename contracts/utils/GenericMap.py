@@ -3,6 +3,7 @@ import smartpy as sp
 
 #
 # Generic (lazy) map for convenience.
+# NOTE: not really used and discouraged to be used.
 #
 
 class GenericMap:

@@ -36,7 +36,6 @@ from contracts.utils import TokenTransfer, FA2Utils, Utils
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
-# TODO: Don't use GenericMap or AddressSet...
 # TODO: go over records again, find where we can use map/set
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 
