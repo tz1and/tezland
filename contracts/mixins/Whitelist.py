@@ -1,26 +1,23 @@
 import smartpy as sp
 
-from contracts.utils.GenericMap import AddressSet
-
 
 # Mixins required: Administrable
 class Whitelist:
     def __init__(self):
-        self.address_set = AddressSet()
         self.update_initial_storage(
             whitelist_enabled = True, # enabled by default
-            whitelist = self.address_set.make(), # administrator doesn't need to be whitelisted
+            whitelist = sp.big_map(tkey=sp.TAddress, tvalue=sp.TUnit), # administrator doesn't need to be whitelisted
         )
 
     def isWhitelisted(self, address):
         """If an address is whitelisted."""
         address = sp.set_type_expr(address, sp.TAddress)
-        return self.address_set.contains(self.data.whitelist, address)
+        return self.data.whitelist.contains(address)
 
     def onlyWhitelisted(self):
         """Fails if whitelist enabled address is not whitelisted."""
         with sp.if_(self.data.whitelist_enabled):
-            sp.verify(self.address_set.contains(self.data.whitelist, sp.sender), message="ONLY_WHITELISTED")
+            sp.verify(self.data.whitelist.contains(sp.sender), message="ONLY_WHITELISTED")
 
     def onlyAdminIfWhitelistEnabled(self):
         """Fails if whitelist is enabled and sender is not admin."""
@@ -32,7 +29,7 @@ class Whitelist:
         address = sp.set_type_expr(address, sp.TAddress)
         # NOTE: probably ok to skip the check and always remove from whitelist.
         #with sp.if_(self.data.whitelist_enabled):
-        self.address_set.remove(self.data.whitelist, address)
+        del self.data.whitelist[address]
 
     @sp.entry_point
     def manage_whitelist(self, updates):
@@ -47,10 +44,10 @@ class Whitelist:
             with update.match_cases() as arg:
                 with arg.match("whitelist_add") as upd:
                     with sp.for_("addr", upd) as addr:
-                        self.address_set.add(self.data.whitelist, addr)
+                        self.data.whitelist[addr] = sp.unit
                 with arg.match("whitelist_remove") as upd:
                     with sp.for_("addr", upd) as addr:
-                        self.address_set.remove(self.data.whitelist, addr)
+                        del self.data.whitelist[addr]
                 with arg.match("whitelist_enabled") as upd:
                     self.data.whitelist_enabled = upd
 
@@ -58,7 +55,7 @@ class Whitelist:
     def is_whitelisted(self, address):
         """Returns true if an address is whitelisted."""
         sp.set_type(address, sp.TAddress)
-        sp.result(self.address_set.contains(self.data.whitelist, address))
+        sp.result(self.data.whitelist.contains(address))
 
     @sp.onchain_view(pure=True)
     def is_whitelist_enabled(self):
