@@ -1,7 +1,5 @@
 import smartpy as sp
 
-from contracts.utils import GenericMap
-
 
 # Mixins required: Administrable
 class BasicPermissions:
@@ -9,11 +7,11 @@ class BasicPermissions:
 
     Requires the `Administrable` mixin.
     """
-    def __init__(self, default_permitted_accounts = {}, lazy_ep = False):
-        self.address_set = GenericMap.AddressSet()
+    def __init__(self, default_permitted_accounts = sp.big_map({}), lazy_ep = False):
+        default_permitted_accounts = sp.set_type_expr(default_permitted_accounts, sp.TBigMap(sp.TAddress, sp.TUnit))
 
         self.update_initial_storage(
-            permitted_accounts = self.address_set.make(default_permitted_accounts) # accounts permitted
+            permitted_accounts = default_permitted_accounts #sp.big_map(default_permitted_accounts, tkey=sp.TAddress, tvalue=sp.TUnit)
         )
 
         # Admin-only entry point
@@ -31,11 +29,11 @@ class BasicPermissions:
                 with update.match_cases() as arg:
                     with arg.match("add_permissions") as addresses:
                         with sp.for_("address", addresses.elements()) as address:
-                            self.address_set.add(self.data.permitted_accounts, address)
+                            self.data.permitted_accounts[address] = sp.unit
 
                     with arg.match("remove_permissions") as addresses:
                         with sp.for_("address", addresses.elements()) as address:
-                            self.address_set.remove(self.data.permitted_accounts, address)
+                            del self.data.permitted_accounts[address]
 
         self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep)
 
