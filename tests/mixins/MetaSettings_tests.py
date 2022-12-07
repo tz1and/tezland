@@ -54,7 +54,7 @@ def test():
     meta_settings = MetaSettingsTest(admin.address)
     scenario += meta_settings
 
-    # TODO: Check default
+    # Check default
     scenario.verify(meta_settings.data.test_nat == sp.nat(0))
     scenario.verify(meta_settings.data.test_address == admin.address)
 

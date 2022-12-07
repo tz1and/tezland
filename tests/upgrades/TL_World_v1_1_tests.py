@@ -256,7 +256,7 @@ def test():
 
 
     #
-    # TODO: test migrating places that:
+    # test migrating place that:
     scenario.h2("Test migration")
     item_data = sp.bytes("0xFFFFFFFAAFFFFFFFFFFFFCCFFFFFFF")
 
