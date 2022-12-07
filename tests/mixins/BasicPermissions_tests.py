@@ -12,7 +12,13 @@ class BasicPermissionsTest(
         Administrable.__init__(self, administrator = administrator)
         BasicPermissions.BasicPermissions.__init__(self)
 
-    # TODO: test inline helpers
+    @sp.entry_point
+    def testOnlyAdministratorOrPermitted(self):
+        self.onlyAdministratorOrPermitted()
+
+    @sp.entry_point
+    def testOnlyPermitted(self):
+        self.onlyPermitted()
 
 
 @sp.add_test(name = "BasicPermissions_tests", profile = True)
@@ -58,3 +64,29 @@ def test():
     basic_permissions.manage_permissions([sp.variant("remove_permissions", sp.set([bob.address, alice.address]))]).run(sender=admin)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(alice.address) == False)
     scenario.verify(basic_permissions.data.permitted_accounts.contains(bob.address) == False)
+
+    scenario.h3("testOnlyAdministratorOrPermitted")
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testOnlyAdministratorOrPermitted().run(
+            sender=acc,
+            valid=(True if acc is admin else False),
+            exception=(None if acc is admin else "NOT_PERMITTED"))
+
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([alice.address, bob.address]))]).run(sender=admin)
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testOnlyAdministratorOrPermitted().run(sender=acc)
+
+    scenario.h3("testOnlyPermitted")
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testOnlyPermitted().run(
+            sender=acc,
+            valid=(False if acc is admin else True),
+            exception=("NOT_PERMITTED" if acc is admin else None))
+
+    basic_permissions.manage_permissions([sp.variant("remove_permissions", sp.set([alice.address, bob.address]))]).run(sender=admin)
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testOnlyPermitted().run(sender=acc, valid=False, exception="NOT_PERMITTED")
