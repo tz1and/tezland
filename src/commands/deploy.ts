@@ -21,29 +21,23 @@ export default class Deploy extends PostDeploy {
         //
         // Items
         //
-        await this.compile_contract("FA2_Items", "Tokens", "tz1andItems", [
+        await fa2_batch.addToBatch("FA2_Items", "Tokens", "tz1andItems", [
             `admin = sp.address("${this.accountAddress}")`
         ]);
-
-        fa2_batch.addToBatch("FA2_Items");
 
         //
         // Places
         //
-        await this.compile_contract("FA2_Places", "Tokens", "tz1andPlaces", [
+        await fa2_batch.addToBatch("FA2_Places", "Tokens", "tz1andPlaces", [
             `admin = sp.address("${this.accountAddress}")`
         ]);
-
-        fa2_batch.addToBatch("FA2_Places");
 
         //
         // DAO
         //
-        await this.compile_contract("FA2_DAO", "Tokens", "tz1andDAO", [
+        await fa2_batch.addToBatch("FA2_DAO", "Tokens", "tz1andDAO", [
             `admin = sp.address("${this.accountAddress}")`
         ]);
-
-        fa2_batch.addToBatch("FA2_DAO");
 
         // send batch.
         const [items_FA2_contract, places_FA2_contract, dao_FA2_contract] = await fa2_batch.deployBatch();
@@ -72,26 +66,24 @@ export default class Deploy extends PostDeploy {
         const tezland_batch = new DeployContractBatch(this);
 
         // Compile and deploy Minter contract.
-        await this.compile_contract("TL_Minter", "TL_Minter", "TL_Minter", [
+        await tezland_batch.addToBatch("TL_Minter", "TL_Minter", "TL_Minter", [
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`
         ]);
 
-        tezland_batch.addToBatch("TL_Minter");
         //const Minter_contract = await this.deploy_contract("TL_Minter");
 
         //
         // Dutch
         //
         // Compile and deploy Dutch auction contract.
-        await this.compile_contract("TL_Dutch", "TL_Dutch", "TL_Dutch", [
+        await tezland_batch.addToBatch("TL_Dutch", "TL_Dutch", "TL_Dutch", [
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`
         ]);
 
-        tezland_batch.addToBatch("TL_Dutch");
         //const Dutch_contract = await this.deploy_contract("TL_Dutch");
 
         const [Minter_contract, Dutch_contract] = await tezland_batch.deployBatch();
@@ -119,7 +111,7 @@ export default class Deploy extends PostDeploy {
         // World (Marketplaces)
         //
         // Compile and deploy Places contract.
-        await this.compile_contract("TL_World", "TL_World", "TL_World", [
+        const World_contract = await this.deploy_contract("TL_World", "TL_World", "TL_World", [
             `administrator = sp.address("${this.accountAddress}")`,
             `items_contract = sp.address("${items_FA2_contract.address}")`,
             `places_contract = sp.address("${places_FA2_contract.address}")`,
@@ -127,8 +119,6 @@ export default class Deploy extends PostDeploy {
             `name = "tz1and World"`,
             `description = "tz1and Virtual World"`
         ]);
-
-        const World_contract = await this.deploy_contract("TL_World");
 
         //
         // Post deploy

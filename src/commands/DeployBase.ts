@@ -38,19 +38,21 @@ export class DeployContractBatch {
         this.deploy = deploy;
     }
 
-    public addToBatch(contract_name: string) {
+    public async addToBatch(target_name: string, file_name: string, contract_name: string, target_args: string[]) {
         assert(this.deploy.tezos);
 
         // Check if deployment is in project.deployments.json
         // if yes, skip.
-        const existingDeployment = this.deploy.deploymentsReg.getContract(contract_name);
-        this.contractList.push({name: contract_name, address: existingDeployment ? existingDeployment : ''});
+        const existingDeployment = this.deploy.deploymentsReg.getContract(target_name);
+        this.contractList.push({name: target_name, address: existingDeployment ? existingDeployment : ''});
         if(existingDeployment) {
-            console.log(`>> Using existing deployment for '${contract_name}': ${existingDeployment}\n`);
+            console.log(`>> Using existing deployment for '${target_name}': ${existingDeployment}\n`);
             return;
         }
 
-        const { codeJson, initJson } = this.deploy.copyAndReadCode(contract_name);
+        await this.deploy.compile_contract(target_name, file_name, contract_name, target_args);
+
+        const { codeJson, initJson } = this.deploy.copyAndReadCode(target_name);
 
         this.batch.withOrigination({
             code: codeJson,
@@ -95,8 +97,6 @@ export class DeployContractBatch {
 
             this.deploy.deploymentsReg.addContract(contract_name, contract_address);
         }
-
-        console.log();
 
         const contracts = [];
         for (const c of this.contractList)
@@ -193,7 +193,7 @@ export default class DeployBase {
 
     // Compiles metadata, uploads it and then compiles again with metadata set.
     // Note: target_args needs to exclude metadata.
-    protected async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
+    public async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
         var metadata_url;
         if (metadata === undefined) {
             // Compile metadata
@@ -213,18 +213,20 @@ export default class DeployBase {
         smartpy.compile_newtarget(target_name, file_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
     }
 
-    protected async deploy_contract(contract_name: string): Promise<ContractAbstraction<Wallet>> {
+    protected async deploy_contract(target_name: string, file_name: string, contract_name: string, target_args: string[]): Promise<ContractAbstraction<Wallet>> {
         assert(this.tezos);
 
         // Check if deployment is in project.deployments.json
         // if yes, skip.
-        const existingDeployment = this.deploymentsReg.getContract(contract_name);
+        const existingDeployment = this.deploymentsReg.getContract(target_name);
         if(existingDeployment) {
-            console.log(`>> Using existing deployment for '${contract_name}': ${existingDeployment}\n`);
+            console.log(`>> Using existing deployment for '${target_name}': ${existingDeployment}\n`);
             return this.tezos.wallet.at(existingDeployment);
         }
 
-        const { codeJson, initJson } = this.copyAndReadCode(contract_name);
+        await this.compile_contract(target_name, file_name, contract_name, target_args);
+
+        const { codeJson, initJson } = this.copyAndReadCode(target_name);
 
         const orig_op = await this.tezos.contract.originate({
             code: codeJson,
@@ -236,9 +238,9 @@ export default class DeployBase {
         assert(contract_address);
 
         // Write deployment (name, address) to project.deployments.json
-        this.deploymentsReg.addContract(contract_name, contract_address);
+        this.deploymentsReg.addContract(target_name, contract_address);
 
-        console.log(`Successfully deployed contract ${contract_name}`);
+        console.log(`Successfully deployed contract ${target_name}`);
         console.log(`>> Transaction hash: ${orig_op.hash}`);
         console.log(`>> Contract address: ${contract_address}\n`);
 
@@ -267,13 +269,21 @@ export default class DeployBase {
         return `storage: ${res.storage}, gas: ${res.fee}`;
     }
 
+    protected async run_flag_task(flag: string, task: () => Promise<void>) {
+        if (!this.deploymentsReg.getFlag(flag)) {
+            await task();
+            this.deploymentsReg.addFlag(flag, true);
+        }
+        else console.log(`Task "${flag}" already done.\n`);
+    }
+
     protected async run_op_task(
         task_name: string,
-        f: () => Promise<TransactionWalletOperation | BatchWalletOperation>,
+        task: () => Promise<TransactionWalletOperation | BatchWalletOperation>,
         print_fees: boolean = false): Promise<TransactionWalletOperation | BatchWalletOperation>
     {
         console.log(task_name);
-        const operation = await f();
+        const operation = await task();
         await operation.confirmation();
         console.log(kleur.green(">> Done."), `Transaction hash: ${operation.opHash}\n`);
         if (print_fees) console.log(`${task_name}: ${this.feesToString(operation)}`);

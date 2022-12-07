@@ -77,28 +77,30 @@ export default class Upgrade extends PostUpgrade {
         //
         // Pause World v1 and Minter v1 for upgrade.
         //
-        await this.run_op_task("Pausing World v1, Dutch v1 and Minter v1...", async () => {
-            return this.tezos!.wallet.batch().with([
-                // Pause world v1.
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...tezlandWorld.methods.set_paused(true).toTransferParams()
-                },
-                // Pause dutch v1.
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...tezlandDutchAuctions.methods.set_paused(true).toTransferParams()
-                },
-                // Pause minter v1.
-                {
-                    kind: OpKind.TRANSACTION,
-                    ...tezlandMinter.methods.set_paused(true).toTransferParams()
-                }
-            ]).send();
+        await this.run_flag_task("pause_for_v2_upgrade", async () => {
+            await this.run_op_task("Pausing World v1, Dutch v1 and Minter v1...", async () => {
+                return this.tezos!.wallet.batch().with([
+                    // Pause world v1.
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...tezlandWorld.methods.set_paused(true).toTransferParams()
+                    },
+                    // Pause dutch v1.
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...tezlandDutchAuctions.methods.set_paused(true).toTransferParams()
+                    },
+                    // Pause minter v1.
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...tezlandMinter.methods.set_paused(true).toTransferParams()
+                    }
+                ]).send();
+            });
         });
 
         //
-        // Token Registry
+        // Token Registry, Legacy Royalties
         //
         let Registry_contract: ContractAbstraction<Wallet>,
             LegacyRoyalties_contract: ContractAbstraction<Wallet>;
@@ -107,23 +109,21 @@ export default class Upgrade extends PostUpgrade {
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy registry contract.
-            await this.compile_contract("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
+            await tezland_batch.addToBatch("TL_TokenRegistry", "TL_TokenRegistry", "TL_TokenRegistry", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `collections_public_key = sp.key("${await this.getAccountPubkey("collections_signer")}")`
             ]);
-            tezland_batch.addToBatch("TL_TokenRegistry");
 
             // Compile and deploy legacy royalties contract.
-            await this.compile_contract("TL_LegacyRoyalties", "TL_LegacyRoyalties", "TL_LegacyRoyalties", [
+            await tezland_batch.addToBatch("TL_LegacyRoyalties", "TL_LegacyRoyalties", "TL_LegacyRoyalties", [
                 `administrator = sp.address("${this.accountAddress}")`
             ]);
-            tezland_batch.addToBatch("TL_LegacyRoyalties");
 
             [Registry_contract, LegacyRoyalties_contract] = await tezland_batch.deployBatch();
         }
 
         //
-        // Minter v2, Dutch v2, Places v2 and Interiors.
+        // Minter v2, Items v2, Places v2 and Interiors.
         //
         // TODO: deploy places and interiors as paused! Unpause when tzkt shows images and names.
         let Minter_v2_contract: ContractAbstraction<Wallet>,
@@ -131,36 +131,30 @@ export default class Upgrade extends PostUpgrade {
             places_v2_FA2_contract: ContractAbstraction<Wallet>,
             items_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
-            const minterV2WasDeployed = this.deploymentsReg.getContract("TL_Minter_v2");
-
             // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy Minter contract.
-            await this.compile_contract("TL_Minter_v2", "TL_Minter_v2", "TL_Minter_v2", [
+            await tezland_batch.addToBatch("TL_Minter_v2", "TL_Minter_v2", "TL_Minter_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`
             ]);
-            tezland_batch.addToBatch("TL_Minter_v2");
 
-            await this.compile_contract("FA2_Interiors", "Tokens", "tz1andInteriors", [
+            await tezland_batch.addToBatch("FA2_Interiors", "Tokens", "tz1andInteriors", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);
-            tezland_batch.addToBatch("FA2_Interiors");
 
-            await this.compile_contract("FA2_Places_v2", "Tokens", "tz1andPlaces_v2", [
+            await tezland_batch.addToBatch("FA2_Places_v2", "Tokens", "tz1andPlaces_v2", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);
-            tezland_batch.addToBatch("FA2_Places_v2");
 
-            await this.compile_contract("FA2_Items_v2", "Tokens", "tz1andItems_v2", [
+            await tezland_batch.addToBatch("FA2_Items_v2", "Tokens", "tz1andItems_v2", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);
-            tezland_batch.addToBatch("FA2_Items_v2");
 
             [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract, items_v2_FA2_contract] = await tezland_batch.deployBatch();
 
-            if (!minterV2WasDeployed) {
+            await this.run_flag_task("minter_v2_initialised", async () => {
                 // Set the minter as the token administrator
                 await this.run_op_task("Setting minter as token admin...", async () => {
                     return this.tezos!.wallet.batch().with([
@@ -204,23 +198,21 @@ export default class Upgrade extends PostUpgrade {
                         }
                     ]).send();
                 });
-            }
+            });
         }
 
         // Royalties adapters
         let RoyaltiesAdapterLegacyAndV1_contract: ContractAbstraction<Wallet>,
             RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
         {
-            await this.compile_contract("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
+            RoyaltiesAdapterLegacyAndV1_contract = await this.deploy_contract("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
                 `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
             ]);
-            RoyaltiesAdapterLegacyAndV1_contract = await this.deploy_contract("TL_RoyaltiesAdapterLegacyAndV1");
 
-            await this.compile_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
+            RoyaltiesAdapter_contract = await this.deploy_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
                 `registry = sp.address("${Registry_contract.address}")`,
                 `v1_and_legacy_adapter = sp.address("${RoyaltiesAdapterLegacyAndV1_contract.address}")`
             ]);
-            RoyaltiesAdapter_contract = await this.deploy_contract("TL_RoyaltiesAdapter");
         }
 
         //
@@ -228,11 +220,9 @@ export default class Upgrade extends PostUpgrade {
         //
         let World_v2_contract: ContractAbstraction<Wallet>;
         {
-            const worldV2WasDeployed = this.deploymentsReg.getContract("TL_World_v2");
-
             // Compile and deploy Places contract.
             // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
-            await this.compile_contract("TL_World_v2", "TL_World_v2", "TL_World_v2", [
+            World_v2_contract = await this.deploy_contract("TL_World_v2", "TL_World_v2", "TL_World_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
                 `royalties_adapter = sp.address("${RoyaltiesAdapter_contract.address}")`,
@@ -243,9 +233,7 @@ export default class Upgrade extends PostUpgrade {
                 `debug_asserts = ${debug_asserts ? "True" : "False"}`
             ]);
 
-            World_v2_contract = await this.deploy_contract("TL_World_v2");
-
-            if (!worldV2WasDeployed) {
+            await this.run_flag_task("world_v2_initialised", async () => {
                 await this.run_op_task("Set allowed place tokens on world...", async () => {
                     return World_v2_contract.methodsObject.set_allowed_place_token([
                         {
@@ -262,7 +250,7 @@ export default class Upgrade extends PostUpgrade {
                         }
                     ]).send();
                 });
-            }
+            });
         }
 
         //
@@ -272,29 +260,25 @@ export default class Upgrade extends PostUpgrade {
         let Factory_contract: ContractAbstraction<Wallet>,
             Dutch_v2_contract: ContractAbstraction<Wallet>;
         {
-            const factoryWasDeployed = this.deploymentsReg.getContract("TL_TokenFactory");
-
             // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy fa2 factory contract.
-            await this.compile_contract("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
+            await tezland_batch.addToBatch("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
                 `minter = sp.address("${Minter_v2_contract.address}")`
             ]);
-            tezland_batch.addToBatch("TL_TokenFactory");
 
             // Compile and deploy Minter contract.
-            await this.compile_contract("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch_v2", [
+            await tezland_batch.addToBatch("TL_Dutch_v2", "TL_Dutch_v2", "TL_Dutch_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `world_contract = sp.address("${World_v2_contract.address}")`
             ]);
-            tezland_batch.addToBatch("TL_Dutch_v2");
 
             [Factory_contract, Dutch_v2_contract] = await tezland_batch.deployBatch();
 
-            if (!factoryWasDeployed) {
+            await this.run_flag_task("dutch_v2_and_factory_initialised", async () => {
                 await this.run_op_task("Giving registry permissions to factory contract...", async () => {
                     return this.tezos!.wallet.batch().with([
                         {
@@ -313,7 +297,7 @@ export default class Upgrade extends PostUpgrade {
                         }
                     ]).send();
                 });
-            }
+            });
         }
 
         // TODO: move dutch v2 orig here
@@ -321,79 +305,93 @@ export default class Upgrade extends PostUpgrade {
         //
         // Upgrade v1 contracts.
         //
-        const world_v1_1_metadata = await this.upgrade_entrypoint(tezlandWorld,
-            "TL_World_migrate_to_v2", "upgrades/TL_World_v1_1", "TL_World_v1_1",
-            // contract params
-            [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `items_contract = sp.address("${tezlandItems.address}")`,
-                `places_contract = sp.address("${tezlandPlaces.address}")`,
-                `dao_contract = sp.address("${tezlandDAO.address}")`,
-                `world_v2_contract = sp.address("${World_v2_contract.address}")`,
-                `world_v2_place_contract = sp.address("${places_v2_FA2_contract.address}")`
-            ],
-            // entrypoints to upgrade
-            ["set_item_data", "get_item"], true);
+        await this.run_flag_task("world_v1_1_upgraded", async () => {
+            const world_v1_1_metadata = await this.upgrade_entrypoint(tezlandWorld,
+                "TL_World_migrate_to_v2", "upgrades/TL_World_v1_1", "TL_World_v1_1",
+                // contract params
+                [
+                    `administrator = sp.address("${this.accountAddress}")`,
+                    `items_contract = sp.address("${tezlandItems.address}")`,
+                    `places_contract = sp.address("${tezlandPlaces.address}")`,
+                    `dao_contract = sp.address("${tezlandDAO.address}")`,
+                    `world_v2_contract = sp.address("${World_v2_contract.address}")`,
+                    `world_v2_place_contract = sp.address("${places_v2_FA2_contract.address}")`
+                ],
+                // entrypoints to upgrade
+                ["set_item_data", "get_item"], true);
 
-        const minter_v1_1_metadata = await this.upgrade_entrypoint(tezlandMinter,
-            "TL_Minter_deprecate", "upgrades/TL_Minter_v1_1", "TL_Minter_v1_1",
-            // contract params
-            [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `items_contract = sp.address("${tezlandItems.address}")`,
-                `places_contract = sp.address("${tezlandPlaces.address}")`
-            ],
-            // entrypoints to upgrade
-            ["mint_Place"], true);
-
-        const dutch_v1_1_metadata = await this.upgrade_entrypoint(tezlandDutchAuctions,
-            "TL_Dutch_deprecate", "upgrades/TL_Dutch_v1_1", "TL_Dutch_v1_1",
-            // contract params
-            [
-                `administrator = sp.address("${this.accountAddress}")`,
-                `items_contract = sp.address("${tezlandItems.address}")`,
-                `places_contract = sp.address("${tezlandPlaces.address}")`
-            ],
-            // entrypoints to upgrade
-            ["cancel", "bid"], true);
-
-        // TODO: upgrade dutch v1 to be able to cancel auctions and metadata
-
-        // Update metadata on v1 contracts
-        await this.run_op_task("Updating metadata on v1 world contract...", async () => {
-            assert(world_v1_1_metadata);
-            return tezlandWorld.methodsObject.get_item({
-                lot_id: 0,
-                item_id: 0,
-                issuer: this.accountAddress,
-                extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(world_v1_1_metadata) })
-            }).send();
+            // Update metadata on v1 contracts
+            await this.run_op_task("Updating metadata on v1 world contract...", async () => {
+                assert(world_v1_1_metadata);
+                return tezlandWorld.methodsObject.get_item({
+                    lot_id: 0,
+                    item_id: 0,
+                    issuer: this.accountAddress,
+                    extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(world_v1_1_metadata) })
+                }).send();
+            });
         });
 
-        await this.run_op_task("Updating metadata on v1 dutch contract...", async () => {
-            assert(dutch_v1_1_metadata);
-            return tezlandDutchAuctions.methodsObject.bid({
-                auction_id: 0,
-                extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(dutch_v1_1_metadata) })
-            }).send();
+        await this.run_flag_task("minter_v1_1_upgraded", async () => {
+            const minter_v1_1_metadata = await this.upgrade_entrypoint(tezlandMinter,
+                "TL_Minter_deprecate", "upgrades/TL_Minter_v1_1", "TL_Minter_v1_1",
+                // contract params
+                [
+                    `administrator = sp.address("${this.accountAddress}")`,
+                    `items_contract = sp.address("${tezlandItems.address}")`,
+                    `places_contract = sp.address("${tezlandPlaces.address}")`
+                ],
+                // entrypoints to upgrade
+                ["mint_Place"], true);
+
+            await this.run_op_task("Updating metadata on v1 minter contract...", async () => {
+                assert(minter_v1_1_metadata);
+                return tezlandMinter.methodsObject.mint_Place([{
+                    to_: this.accountAddress,
+                    metadata: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(minter_v1_1_metadata) })
+                }]).send();
+            });
         });
 
-        await this.run_op_task("Updating metadata on v1 minter contract...", async () => {
-            assert(minter_v1_1_metadata);
-            return tezlandMinter.methodsObject.mint_Place([{
-                to_: this.accountAddress,
-                metadata: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(minter_v1_1_metadata) })
-            }]).send();
+        await this.run_flag_task("dutch_v1_1_upgraded", async () => {
+            const dutch_v1_1_metadata = await this.upgrade_entrypoint(tezlandDutchAuctions,
+                "TL_Dutch_deprecate", "upgrades/TL_Dutch_v1_1", "TL_Dutch_v1_1",
+                // contract params
+                [
+                    `administrator = sp.address("${this.accountAddress}")`,
+                    `items_contract = sp.address("${tezlandItems.address}")`,
+                    `places_contract = sp.address("${tezlandPlaces.address}")`
+                ],
+                // entrypoints to upgrade
+                ["cancel", "bid"], true);
+
+            await this.run_op_task("Updating metadata on v1 dutch contract...", async () => {
+                assert(dutch_v1_1_metadata);
+                return tezlandDutchAuctions.methodsObject.bid({
+                    auction_id: 0,
+                    extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(dutch_v1_1_metadata) })
+                }).send();
+            });
         });
+
+        //
+        // Run upgrades.
+        //
 
         // Cancel v1 auctions
-        await this.cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions, tezlandPlaces);
+        await this.run_flag_task("auctions_v1_cancelled", async () => {
+            await this.cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions, tezlandPlaces);
+        });
 
         // Re-mint and re-distribute place tokens.
-        await this.reDistributePlaces(places_v2_FA2_contract, tezlandPlaces);
+        await this.run_flag_task("places_redistributed", async () => {
+            await this.reDistributePlaces(places_v2_FA2_contract, tezlandPlaces);
+        });
 
         // Run world migration.
-        await this.migrateWorld(World_v2_contract, tezlandWorld, places_v2_FA2_contract);
+        await this.run_flag_task("world_migrated", async () => {
+            await this.migrateWorld(World_v2_contract, tezlandWorld, places_v2_FA2_contract);
+        });
 
         //
         // Post deploy
