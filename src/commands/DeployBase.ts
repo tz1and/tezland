@@ -169,11 +169,6 @@ export default class DeployBase {
         throw new Error(`Account ${account_name} not defined`);
     }
 
-    /**
-     * TODO: add operations done to deployments file, like "added allowed places"?
-     */
-    /*public addDeployOperation*/
-
     public copyAndReadCode(contract_name: string) {
         const contractFile = `${contract_name}.json`;
         const storageFile = `${contract_name}_storage.json`;

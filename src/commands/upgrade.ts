@@ -72,8 +72,6 @@ export default class Upgrade extends PostUpgrade {
         const tezlandMinter = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_Minter")!);
         const tezlandDutchAuctions = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_Dutch")!);
 
-        // TODO: add task flags to deploy registry. so I can tell if something already happened.
-
         //
         // Pause World v1 and Minter v1 for upgrade.
         //
@@ -254,7 +252,6 @@ export default class Upgrade extends PostUpgrade {
         //
         // Token Factory and Dutch v2
         //
-        // TODO: could probably deploy with world v2.
         let Factory_contract: ContractAbstraction<Wallet>,
             Dutch_v2_contract: ContractAbstraction<Wallet>;
         {
@@ -297,7 +294,7 @@ export default class Upgrade extends PostUpgrade {
             });
         }
 
-        // TODO: move dutch v2 orig here
+        // TODO: deploy dutch separately. might not deploy factory immediately.
 
         //
         // Upgrade v1 contracts.
@@ -441,8 +438,6 @@ export default class Upgrade extends PostUpgrade {
         await this.run_op_task("Cancel V1 auctions and pause V1 place transfers", () => {
             return batch.send();
         });
-
-        // TODO: set auctions cancelled in deploy reg
     }
 
     protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
@@ -471,7 +466,7 @@ export default class Upgrade extends PostUpgrade {
 
         // re-mint and -distribute places in v2.
 
-        // TODO: do in batches of 100 or so. record last id in reg.
+        // TODO: do in batches of 100 or so. record last id in reg?
 
         const mint_batch: any[] = [];
         for (let i = 0; i < num_tokens; ++i) {
@@ -486,8 +481,6 @@ export default class Upgrade extends PostUpgrade {
         await this.run_op_task("Re-mint places", () => {
             return tezlandPlacesV2.methodsObject.mint(mint_batch).send();
         });
-
-        // TODO: set places re-distributed in deploy reg.
     }
 
     protected async migrateWorld(tezlandWorldV2: WalletContract, tezlandWorldV1: WalletContract, tezlandPlacesV2: WalletContract) {
@@ -499,7 +492,7 @@ export default class Upgrade extends PostUpgrade {
 
         const v1worldtorage = (await tezlandWorldV1.storage()) as any;
 
-        // TODO: do in batches of 100 or so. record last id in reg.
+        // TODO: do in batches of 100 or so. record last id in reg?
 
         const batch = this.tezos!.wallet.batch();
         for (let i = 0; i < num_tokens; ++i) {
@@ -528,7 +521,5 @@ export default class Upgrade extends PostUpgrade {
         await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
             return tezlandWorldV2.methods.update_settings([{migration_from: null}, {paused: false}]).send()
         });
-
-        // TODO: set world migrated in deploy reg.
     }
 }

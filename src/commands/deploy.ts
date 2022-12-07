@@ -7,8 +7,6 @@ import config from '../user.config';
 import { DeployMode } from '../config/config';
 
 
-// TODO: finish this stuff!
-// some issues: dependent transactions: setting adming, etc
 export default class Deploy extends PostDeploy {
     protected override async deployDo() {
         assert(this.tezos);

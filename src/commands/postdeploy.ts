@@ -181,8 +181,6 @@ export default class PostDeploy extends PostDeployBase {
                 fa2: contracts.get("places_FA2_contract")!.address
             }).send();
         });
-
-        // TODO: place a few items.
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {
