@@ -3,9 +3,6 @@ import smartpy as sp
 from contracts import TL_TokenRegistry, TL_Minter_v2, Tokens, FA2
 
 
-# TODO: test all the new views
-
-
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
