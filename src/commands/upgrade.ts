@@ -12,11 +12,6 @@ import { DeployMode } from '../config/config';
 
 
 export default class Upgrade extends PostUpgrade {
-    constructor(options: any) {
-        super(options);
-        this.cleanDeploymentsInSandbox = false;
-    }
-
     // Compiles contract, extracts lazy entrypoint code and deploys the updates.
     // Note: target_args needs to exclude metadata.
     private async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string,

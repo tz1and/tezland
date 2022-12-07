@@ -124,13 +124,13 @@ export default class DeployBase {
     public getNetwork(): string { return this.network; }
     public isSandboxNetwork(): boolean { return this.isSandboxNet; }
 
-    constructor(options: any) {
+    constructor(options: any, is_upgrade: boolean = false) {
         // set network to deploy to.
         if(!options.network) this.network = config.defaultNetwork;
         else this.network = options.network;
 
         this.isSandboxNet = this.network === "sandbox";
-        this.cleanDeploymentsInSandbox = true;
+        this.cleanDeploymentsInSandbox = !is_upgrade;
 
         // get and validate network config.
         this.networkConfig = config.networks[this.network];

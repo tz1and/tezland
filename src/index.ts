@@ -99,7 +99,7 @@ program
     .description('Run the upgrade script.')
     .option('-n, --network [network]', 'the network to upgrade on (optional)')
     .action(async (options) => {
-        const upgrade = new Upgrade(options);
+        const upgrade = new Upgrade(options, true);
         await sandbox.startIfNotRunning(upgrade.isSandboxNetwork());
         await upgrade.deploy();
     });
