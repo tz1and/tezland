@@ -30,7 +30,7 @@ class FA2PermissionsAndWhitelistTest(
     @sp.entry_point
     def testRemoveFromFA2Whitelist(self, fa2, user):
         self.removeFromFA2Whitelist(fa2, user)
-        sp.verify(~self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user)))
+        sp.verify(~self.data.whitelist.contains(sp.record(fa2=fa2, user=user)))
 
 
 @sp.add_test(name = "FA2PermissionsAndWhitelist_tests", profile = True)

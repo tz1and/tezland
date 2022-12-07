@@ -1,7 +1,5 @@
 import smartpy as sp
 
-from contracts.utils import GenericMap, EnvUtils
-
 
 permittedFA2MapValueType = sp.TRecord(
     whitelist_enabled = sp.TBool, # If the token is whitelisted.
@@ -9,21 +7,11 @@ permittedFA2MapValueType = sp.TRecord(
 ).layout(("whitelist_enabled", "whitelist_admin"))
 
 #
-# Map of permitted FA2 tokens for 'other' type.
-class PermittedFA2Map(GenericMap.GenericMap):
-    def __init__(self) -> None:
-        super().__init__(sp.TAddress, permittedFA2MapValueType, default_value=None, get_error="TOKEN_NOT_PERMITTED", big_map=False)
-
-#
 # Lazy map of whitelist entries.
 t_whitelist_key = sp.TRecord(
     fa2 = sp.TAddress,
     user = sp.TAddress
 ).layout(("fa2", "user"))
-
-class FA2WhitelistMap(GenericMap.GenericMap):
-    def __init__(self) -> None:
-        super().__init__(t_whitelist_key, sp.TUnit, default_value=sp.unit, get_error="NOT_WHITELISTED")
 
 #
 # Parameters for permitted fa2 management ep.
@@ -44,27 +32,26 @@ class PermittedFA2Params:
 
 # Mixins required: Administrable
 class FA2PermissionsAndWhitelist:
-    def __init__(self, default_permitted = {}):
-        self.permitted_fa2_map = PermittedFA2Map()
-        self.whitelist_map = FA2WhitelistMap()
+    def __init__(self, default_permitted = sp.big_map({})):
+        default_permitted = sp.set_type_expr(default_permitted, sp.TBigMap(sp.TAddress, permittedFA2MapValueType))
 
         self.update_initial_storage(
-            permitted_fa2 = self.permitted_fa2_map.make(default_permitted),
-            whitelist = self.whitelist_map.make()
+            permitted_fa2 = default_permitted,
+            whitelist = sp.big_map(tkey=t_whitelist_key, tvalue=sp.TUnit)
         )
 
 
     def getPermittedFA2Props(self, fa2):
         """Returns permitted props or fails if not permitted"""
         sp.set_type(fa2, sp.TAddress)
-        return sp.compute(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2))
+        return sp.compute(self.data.permitted_fa2.get(fa2, message="TOKEN_NOT_PERMITTED"))
 
 
     def isWhitelistedForFA2(self, fa2, user):
         """If an address is whitelisted."""
         sp.set_type(fa2, sp.TAddress)
         sp.set_type(user, sp.TAddress)
-        return self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user))
+        return self.data.whitelist.contains(sp.record(fa2=fa2, user=user))
 
 
     def onlyWhitelistedForFA2(self, fa2, user):
@@ -74,7 +61,7 @@ class FA2PermissionsAndWhitelist:
         sp.set_type(user, sp.TAddress)
         fa2_props = sp.compute(self.getPermittedFA2Props(fa2))
         with sp.if_(fa2_props.whitelist_enabled):
-            sp.verify(self.whitelist_map.contains(self.data.whitelist, sp.record(fa2=fa2, user=user)), message="ONLY_WHITELISTED")
+            sp.verify(self.data.whitelist.contains(sp.record(fa2=fa2, user=user)), message="ONLY_WHITELISTED")
         return fa2_props
 
 
@@ -85,7 +72,7 @@ class FA2PermissionsAndWhitelist:
         # NOTE: probably ok to skip the check and always remove from whitelist.
         #fa2_props = self.getPermittedFA2Props(fa2)
         #with sp.if_(fa2_props.whitelist_enabled):
-        self.whitelist_map.remove(self.data.whitelist, sp.record(fa2=fa2, user=user))
+        del self.data.whitelist[sp.record(fa2=fa2, user=user)]
 
 
     #
@@ -109,19 +96,19 @@ class FA2PermissionsAndWhitelist:
             with update.match_cases() as arg:
                 with arg.match("add_permitted") as add_permitted:
                     with sp.for_("add_permitted_item", add_permitted.items()) as add_permitted_item:
-                        self.permitted_fa2_map.add(self.data.permitted_fa2, add_permitted_item.key, add_permitted_item.value)
+                        self.data.permitted_fa2[add_permitted_item.key] = add_permitted_item.value
 
                 with arg.match("remove_permitted") as remove_permitted:
                     with sp.for_("remove_permitted_item", remove_permitted.elements()) as remove_permitted_element:
-                        self.permitted_fa2_map.remove(self.data.permitted_fa2, remove_permitted_element)
+                        del self.data.permitted_fa2[remove_permitted_element]
 
                 with arg.match("whitelist_add") as upd:
                     with sp.for_("key", upd) as key:
-                        self.whitelist_map.add(self.data.whitelist, key)
+                        self.data.whitelist[key] = sp.unit
 
                 with arg.match("whitelist_remove") as upd:
                     with sp.for_("key", upd) as key:
-                        self.whitelist_map.remove(self.data.whitelist, key)
+                        del self.data.whitelist[key]
 
 
     #
@@ -131,11 +118,11 @@ class FA2PermissionsAndWhitelist:
     def get_fa2_permitted(self, fa2):
         """Returns permitted fa2 props."""
         sp.set_type(fa2, sp.TAddress)
-        sp.result(self.permitted_fa2_map.get(self.data.permitted_fa2, fa2, "TOKEN_NOT_PERMITTED"))
+        sp.result(self.data.permitted_fa2.get(fa2, message="TOKEN_NOT_PERMITTED"))
 
 
     @sp.onchain_view(pure=True)
     def is_whitelisted(self, key):
         """Returns true if an address is whitelisted."""
         sp.set_type(key, t_whitelist_key)
-        sp.result(self.whitelist_map.contains(self.data.whitelist, key))
+        sp.result(self.data.whitelist.contains(key))
