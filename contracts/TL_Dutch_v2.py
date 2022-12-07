@@ -9,7 +9,7 @@ from contracts.mixins.ContractMetadata import ContractMetadata
 from contracts.mixins.MetaSettings import MetaSettings
 
 from contracts import TL_World_v2, FA2
-from contracts.utils import GenericMap, TokenTransfer, FA2Utils, Utils
+from contracts.utils import TokenTransfer, FA2Utils, Utils
 
 
 # TODO: document reasoning for not limiting bids on secondary disable
@@ -35,12 +35,6 @@ t_auction = sp.TRecord(
 ).layout(("start_price", ("end_price", ("start_time", "end_time"))))
 
 #
-# Lazy map of auctions.
-class AuctionMap(GenericMap.GenericMap):
-    def __init__(self) -> None:
-        super().__init__(t_auction_key, t_auction, default_value=None, get_error="AUCTION_NOT_FOUND")
-
-#
 # Dutch auction contract.
 # NOTE: should be pausable for code updates.
 class TL_Dutch_v2(
@@ -60,14 +54,12 @@ class TL_Dutch_v2(
     def __init__(self, administrator, world_contract, metadata, exception_optimization_level="default-line"):
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
-
-        self.auction_map = AuctionMap()
         
         self.init_storage(
             secondary_enabled = sp.bool(False), # If the secondary market is enabled.
             granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
             world_contract = sp.set_type_expr(world_contract, sp.TAddress), # The world contract. Needed for some things.
-            auctions = self.auction_map.make()
+            auctions = sp.big_map(tkey=t_auction_key, tvalue=t_auction)
         )
 
         self.available_settings = [
@@ -157,7 +149,7 @@ class TL_Dutch_v2(
             (params.auction.start_price >= params.auction.end_price), "INVALID_PARAM")
 
         # Auction can not exist already.
-        sp.verify(~self.auction_map.contains(self.data.auctions, params.auction_key), "AUCTION_EXISTS")
+        sp.verify(~self.data.auctions.contains(params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
         sp.verify(FA2Utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
@@ -166,7 +158,7 @@ class TL_Dutch_v2(
         sp.verify(FA2Utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
 
         # Create auction.
-        self.auction_map.add(self.data.auctions, params.auction_key, params.auction)
+        self.data.auctions[params.auction_key] = params.auction
 
 
     @sp.entry_point(lazify = True)
@@ -184,11 +176,11 @@ class TL_Dutch_v2(
         self.onlyUnpaused()
         # no need to call self.onlyAdminIfWhitelistEnabled()
 
-        sp.verify(self.auction_map.contains(self.data.auctions, params.auction_key), "INVALID_AUCTION")
+        sp.verify(self.data.auctions.contains(params.auction_key), "INVALID_AUCTION")
 
         sp.verify(params.auction_key.owner == sp.sender, "NOT_OWNER")
 
-        self.auction_map.remove(self.data.auctions, params.auction_key)
+        del self.data.auctions[params.auction_key]
 
 
     def sendOverpayValueAndFeesInline(self, amount_sent, ask_price, owner):
@@ -279,7 +271,7 @@ class TL_Dutch_v2(
 
         self.onlyUnpaused()
 
-        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, params.auction_key))
+        the_auction = sp.local("the_auction", self.data.auctions.get(params.auction_key, message="AUCTION_NOT_FOUND"))
 
         # If whitelist is enabled for this token, sender must be whitelisted.
         fa2_props = self.onlyWhitelistedForFA2(params.auction_key.fa2, sp.sender)
@@ -318,7 +310,7 @@ class TL_Dutch_v2(
             self.removeFromFA2Whitelist(params.auction_key.fa2, sp.sender)
 
         # Delete auction.
-        self.auction_map.remove(self.data.auctions, params.auction_key)
+        del self.data.auctions[params.auction_key]
 
 
     # TODO: private lambda to shrink view?
@@ -364,13 +356,13 @@ class TL_Dutch_v2(
     def get_auction(self, auction_key):
         """Returns information about an auction."""
         sp.set_type(auction_key, t_auction_key)
-        sp.result(self.auction_map.get(self.data.auctions, auction_key))
+        sp.result(self.data.auctions.get(auction_key, message="AUCTION_NOT_FOUND"))
 
     @sp.onchain_view(pure=True)
     def get_auction_price(self, auction_key):
         """Returns the current price of an auction."""
         sp.set_type(auction_key, t_auction_key)
-        the_auction = sp.local("the_auction", self.auction_map.get(self.data.auctions, auction_key, sp.unit))
+        the_auction = sp.local("the_auction", self.data.auctions.get(auction_key, message="AUCTION_NOT_FOUND"))
         sp.result(self.getAuctionPriceInline(the_auction.value))
 
     @sp.onchain_view(pure=True)
