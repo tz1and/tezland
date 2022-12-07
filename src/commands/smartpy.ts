@@ -7,8 +7,10 @@ import config from '../user.config';
 const SMART_PY_INSTALL_DIR = "./bin/smartpy"
 const SMART_PY_CLI = SMART_PY_INSTALL_DIR + "/SmartPy.sh"
 type SmartPyTask = "compile" | "test"
-const smartPyCli = (task: SmartPyTask) => `source .venv/bin/activate && PYTHONPATH="./" SMARTPY_NODE_DEV=${task} ${SMART_PY_CLI}`
+const smartPyCli = (task: SmartPyTask, command: string) => `source .venv/bin/activate && PYTHONPATH="./" SMARTPY_NODE_DEV=${task} ${SMART_PY_CLI} ${command}`
 const test_out_dir = "./tests/test_output"
+
+type TestResult = "success" | "failed" | "skipped"
 
 const CHECK_MARK = "\u2713"
 const CROSS_MARK = "\u2717"
@@ -18,24 +20,30 @@ export function test(contract_names: string[], dir?: string) {
         contract_names.forEach(contract_name => test_single('./tests', contract_name));
     else {
         const test_dirs = dir ? new Set([dir]) : config.smartpy.test_dirs;
+        const test_results = new Map<TestResult, number>()
         for (const test_dir of test_dirs) {
             console.log(`\nIn dir: ${test_dir}`)
             if (fs.existsSync(test_dir) && fs.lstatSync(test_dir).isDirectory())
                 fs.readdirSync(test_dir).forEach(file => {
-                    if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py'))
-                        test_single(test_dir, file.slice(0, -9));
+                    if(fs.lstatSync(test_dir + '/' + file).isFile() && file.endsWith('_tests.py')) {
+                        const res = test_single(test_dir, file.slice(0, -9));
+                        test_results.set(res, (test_results.get(res) || 0) + 1);
+                    }
                 });
             else console.warn(kleur.red(`'${test_dir}' does not exist or is not a directory.`));
         }
+        // Print test results
+        console.log();
+        for (const [k,v] of test_results) console.log(`${k}: ${v}`)
     }
 
-    console.log(`Test results are in ${test_out_dir}`)
+    console.log(`\nTest results are in ${test_out_dir}`)
 }
 
-export function test_single(dir: string, contract_name: string) {
+export function test_single(dir: string, contract_name: string): TestResult {
     if (config.smartpy.exclude_tests.has(contract_name)) {
         console.log(kleur.blue(`- Skipping tests for contract '${contract_name}' (excluded in user.config)`));
-        return;
+        return "skipped";
     }
 
     console.log(kleur.yellow(`Running tests for contract '${contract_name}' ...`));
@@ -44,12 +52,14 @@ export function test_single(dir: string, contract_name: string) {
         // Build artifact directory.
         const contract_in = `${dir}/${contract_name}_tests.py`
 
-        child.execSync(`${smartPyCli("test")} test ${contract_in} ${test_out_dir} --html`, {stdio: 'inherit'})
+        child.execSync(smartPyCli("test", `test ${contract_in} ${test_out_dir} --html`), {stdio: 'inherit'})
 
         console.log(kleur.green(`${CHECK_MARK} Tests for '${contract_name}' succeeded`))
 
+        return "success"
     } catch(err) {
         console.log(kleur.red(`${CROSS_MARK} Tests for '${contract_name}' failed: ${err}`))
+        return "failed"
     }
 }
 
@@ -77,7 +87,7 @@ sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_nam
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`${smartPyCli("compile")} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(smartPyCli("compile", `compile ${contract_in} ${tmp_out_dir}`), {stdio: 'inherit'})
 
     console.log(`Extracting metadata ...`)
 
@@ -127,7 +137,7 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 
     const contract_in = `${target_out_dir}/${target_name}_target.py`
 
-    child.execSync(`${smartPyCli("compile")} compile ${contract_in} ${tmp_out_dir}`, {stdio: 'inherit'})
+    child.execSync(smartPyCli("compile", `compile ${contract_in} ${tmp_out_dir}`), {stdio: 'inherit'})
 
     const contract_compiled = `${target_name}/step_000_cont_0_contract.json`
     //const contract_optimized = `${target_name}/step_000_cont_0_contract_opt.tz`
@@ -185,7 +195,7 @@ def upgrade():
 
     const contract_in = `${target_out_dir}/${target_name}_upgrade.py`
 
-    child.execSync(`${smartPyCli("compile")} kind upgrade ${contract_in} ${tmp_out_dir} --html`, {stdio: 'inherit'})
+    child.execSync(smartPyCli("compile", `kind upgrade ${contract_in} ${tmp_out_dir} --html`), {stdio: 'inherit'})
 
     console.log(`Extracting entry point map from output ...`)
 
