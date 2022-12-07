@@ -25,7 +25,10 @@ from contracts.utils import TokenTransfer, FA2Utils, Utils
 # TODO: so many empty FAILWITHs. Optimise... What still can be.
 # TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrValueToOrPlaceOwnerInline, etc. to make sure they work correctly in all combinations.
-# TODO: test collecting royalties from LegacyRoyalties contract! could also just test this in adapter tests.
+# TODO: test royalties:
+#       + V1 royalties
+#       + V2 royalties
+#       + trusted (legacy) royalties
 # TODO: decide if auction contract should hold places and instead set value_to!!!!!!!
 # TODO: add views option to mixins to allow not including views.
 # TODO: don't deploy factory in upgrade, this feature comes later!
@@ -129,19 +132,17 @@ placeKeyType = sp.TRecord(
 ).layout(("fa2", "id"))
 
 placeMapType = sp.TBigMap(placeKeyType, placeStorageType)
-placeMapLiteral = sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
 
 
 class PlaceStorage:
     @staticmethod
     def make():
-        return placeMapLiteral
+        return sp.big_map(tkey=placeKeyType, tvalue=placeStorageType)
 
-    def __init__(self, map: placeMapType, key: placeKeyType, create: bool = False) -> None:
-        sp.set_type(map, placeMapType)
-        sp.set_type(key, placeKeyType)
+    def __init__(self, map, key, create: bool = False):
+        sp.set_type(map, placeMapType) # set_type_expr gives compiler error
         self.data_map = map
-        self.this_place_key = key
+        self.this_place_key = sp.set_type_expr(key, placeKeyType)
         if create is True:
             self.this_place = sp.local("this_place", self.__get_or_default())
         else:
@@ -156,8 +157,8 @@ class PlaceStorage:
     def persist(self):
         self.data_map[self.this_place_key] = self.this_place.value
 
-    def load(self, new_key: placeKeyType, create: bool = False):
-        self.this_place_key = new_key
+    def load(self, new_key, create: bool = False):
+        self.this_place_key = sp.set_type_expr(new_key, placeKeyType)
         if create is True:
             self.this_place.value = self.__get_or_default()
         else:
@@ -196,19 +197,17 @@ placeDataResultType = sp.TRecord(
 ).layout(("place", "chunks"))
 
 chunkMapType = sp.TBigMap(chunkPlaceKeyType, chunkStorageType)
-chunkMapLiteral = sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
 
 
 class ChunkStorage:
     @staticmethod
     def make():
-        return chunkMapLiteral
+        return sp.big_map(tkey=chunkPlaceKeyType, tvalue=chunkStorageType)
 
-    def __init__(self, map: chunkMapType, key: chunkPlaceKeyType, create: bool = False) -> None:
-        sp.set_type(map, chunkMapType)
-        sp.set_type(key, chunkPlaceKeyType)
+    def __init__(self, map, key, create: bool = False):
+        sp.set_type(map, chunkMapType) # set_type_expr gives compiler error
         self.data_map = map
-        self.this_chunk_key = key
+        self.this_chunk_key = sp.set_type_expr(key, chunkPlaceKeyType)
         if create is True:
             self.this_chunk = sp.local("this_chunk", self.__get_or_default())
         else:
@@ -235,8 +234,8 @@ class ChunkStorage:
     #            place.value.chunks.add(self.this_chunk_key.chunk_id)
     #        self.data_map[self.this_chunk_key] = self.this_chunk.value
 
-    def load(self, new_key: chunkPlaceKeyType, create: bool = False):
-        self.this_chunk_key = new_key
+    def load(self, new_key, create: bool = False):
+        self.this_chunk_key = sp.set_type_expr(new_key, chunkPlaceKeyType)
         if create is True:
             self.this_chunk.value = self.__get_or_default()
         else:
@@ -266,12 +265,10 @@ class ItemStorage:
     def make():
         return issuerStoreLiteral
 
-    def __init__(self, chunk_storage: ChunkStorage, issuer: sp.TOption(sp.TAddress), fa2: sp.TAddress, create: bool = False) -> None:
-        sp.set_type(issuer, sp.TOption(sp.TAddress))
-        sp.set_type(fa2, sp.TAddress)
+    def __init__(self, chunk_storage: ChunkStorage, issuer, fa2, create: bool = False):
         self.chunk_storage = chunk_storage
-        self.issuer = issuer
-        self.fa2 = fa2
+        self.issuer = sp.set_type_expr(issuer, sp.TOption(sp.TAddress))
+        self.fa2 = sp.set_type_expr(fa2, sp.TAddress)
         if create is True:
             self.this_issuer_store = sp.local("this_issuer_store", self.__get_or_default_issuer())
             self.this_fa2_store = sp.local("this_fa2_store", self.__get_or_default_fa2())
@@ -306,9 +303,9 @@ class ItemStorage:
         with sp.else_():
             self.chunk_storage.value.storage[self.issuer] = self.this_issuer_store.value
 
-    def load(self, new_issuer: sp.TOption(sp.TAddress), new_fa2: sp.TAddress, create: bool = False):
-        self.issuer = new_issuer
-        self.fa2 = new_fa2
+    def load(self, new_issuer, new_fa2, create: bool = False):
+        self.issuer = sp.set_type_expr(new_issuer, sp.TOption(sp.TAddress))
+        self.fa2 = sp.set_type_expr(new_fa2, sp.TAddress)
         if create is True:
             self.this_issuer_store.value = self.__get_or_default_issuer()
             self.this_fa2_store.value = self.__get_or_default_fa2()

@@ -456,18 +456,12 @@ def test():
     position = sp.bytes("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
 
     # utility function for getting last placed item id.
-    def last_placed_item_id(chunk_key: TL_World_v2.chunkPlaceKeyType, last_index = 1):
+    def last_placed_item_id(chunk_key, last_index = 1):
         return scenario.compute(sp.as_nat(world.data.chunks.get(chunk_key).next_id - last_index))
 
     # utility function for checking correctness of placing item using the FA2_utils contract
     # TODO: also check item id is in map now
-    def place_items(
-        place_key: TL_World_v2.placeKeyType,
-        token_arr: sp.TMap(sp.TNat, sp.TMap(sp.TBool, sp.TMap(sp.TAddress, sp.TList(TL_World_v2.extensibleVariantItemType)))),
-        sender: sp.TestAccount,
-        valid: bool = True,
-        message: str = None):
-
+    def place_items(place_key, token_arr, sender: sp.TestAccount, valid: bool = True, message: str = None):
         if valid == True:
             before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
             tokens_amounts = scenario.compute(items_utils.token_amounts(sp.record(token_map = token_arr, issuer = sender.address)))
@@ -494,17 +488,7 @@ def test():
 
     # utility function for checking correctness of getting item using the FA2_utils contract
     # TODO: also check item in map changed
-    def get_item(
-        chunk_key: TL_World_v2.chunkPlaceKeyType,
-        item_id: sp.TNat,
-        issuer: sp.TOption(sp.TAddress),
-        fa2: sp.TAddress,
-        sender: sp.TestAccount,
-        amount: sp.TMutez,
-        valid: bool = True,
-        message: str = None,
-        now = None):
-
+    def get_item(chunk_key, item_id, issuer, fa2, sender: sp.TestAccount, amount, valid: bool = True, message: str = None, now = None):
         if valid == True:
             before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seqs[chunk_key.chunk_id])
             tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].storage[issuer].get(fa2).get(item_id).open_variant("item").token_id), owner = sp.some(sender.address)) : sp.nat(1)}
@@ -534,13 +518,7 @@ def test():
 
     # utility function for checking correctness of removing items using the FA2_utils contract
     # TODO: make sure item is not in map
-    def remove_items(
-        place_key: TL_World_v2.placeKeyType,
-        remove_map: sp.TMap(sp.TNat, sp.TMap(sp.TOption(sp.TAddress), sp.TMap(sp.TAddress, sp.TSet(sp.TNat)))),
-        sender: sp.TestAccount,
-        valid: bool = True,
-        message: str = None):
-
+    def remove_items(place_key, remove_map, sender: sp.TestAccount, valid: bool = True, message: str = None):
         if valid == True:
             before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
             tokens_amounts = scenario.compute(items_utils.remove_token_amounts_in_storage(
