@@ -105,7 +105,6 @@ export default class Upgrade extends PostUpgrade {
         let Registry_contract: ContractAbstraction<Wallet>,
             LegacyRoyalties_contract: ContractAbstraction<Wallet>;
         {
-            // prepare registry/royalties batch
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy registry contract.
@@ -131,7 +130,6 @@ export default class Upgrade extends PostUpgrade {
             places_v2_FA2_contract: ContractAbstraction<Wallet>,
             items_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
-            // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy Minter contract.
@@ -260,7 +258,6 @@ export default class Upgrade extends PostUpgrade {
         let Factory_contract: ContractAbstraction<Wallet>,
             Dutch_v2_contract: ContractAbstraction<Wallet>;
         {
-            // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);
 
             // Compile and deploy fa2 factory contract.
