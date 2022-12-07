@@ -14,7 +14,7 @@ export default class Deploy extends PostDeploy {
         assert(this.tezos);
 
         // prepare batch
-        const daoWasDeployed = this.getDeployment("FA2_DAO");
+        const daoWasDeployed = this.deploymentsReg.getContract("FA2_DAO");
 
         const fa2_batch = new DeployContractBatch(this);
 
@@ -66,7 +66,7 @@ export default class Deploy extends PostDeploy {
         //
         // Minter
         //
-        const minterWasDeployed = this.getDeployment("TL_Minter");
+        const minterWasDeployed = this.deploymentsReg.getContract("TL_Minter");
 
         // prepare minter/dutch batch
         const tezland_batch = new DeployContractBatch(this);

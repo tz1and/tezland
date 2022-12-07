@@ -65,12 +65,12 @@ export default class Upgrade extends PostUpgrade {
         //
         // Get v1 deployments.
         //
-        const tezlandItems = await this.tezos.wallet.at(this.getDeployment("FA2_Items"));
-        const tezlandPlaces = await this.tezos.wallet.at(this.getDeployment("FA2_Places"));
-        const tezlandDAO = await this.tezos.wallet.at(this.getDeployment("FA2_DAO"));
-        const tezlandWorld = await this.tezos.wallet.at(this.getDeployment("TL_World"));
-        const tezlandMinter = await this.tezos.wallet.at(this.getDeployment("TL_Minter"));
-        const tezlandDutchAuctions = await this.tezos.wallet.at(this.getDeployment("TL_Dutch"));
+        const tezlandItems = await this.tezos.wallet.at(this.deploymentsReg.getContract("FA2_Items")!);
+        const tezlandPlaces = await this.tezos.wallet.at(this.deploymentsReg.getContract("FA2_Places")!);
+        const tezlandDAO = await this.tezos.wallet.at(this.deploymentsReg.getContract("FA2_DAO")!);
+        const tezlandWorld = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_World")!);
+        const tezlandMinter = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_Minter")!);
+        const tezlandDutchAuctions = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_Dutch")!);
 
         // TODO: add task flags to deploy registry. so I can tell if something already happened.
 
@@ -131,7 +131,7 @@ export default class Upgrade extends PostUpgrade {
             places_v2_FA2_contract: ContractAbstraction<Wallet>,
             items_v2_FA2_contract: ContractAbstraction<Wallet>;
         {
-            const minterV2WasDeployed = this.getDeployment("TL_Minter_v2");
+            const minterV2WasDeployed = this.deploymentsReg.getContract("TL_Minter_v2");
 
             // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);
@@ -228,7 +228,7 @@ export default class Upgrade extends PostUpgrade {
         //
         let World_v2_contract: ContractAbstraction<Wallet>;
         {
-            const worldV2WasDeployed = this.getDeployment("TL_World_v2");
+            const worldV2WasDeployed = this.deploymentsReg.getContract("TL_World_v2");
 
             // Compile and deploy Places contract.
             // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
@@ -272,7 +272,7 @@ export default class Upgrade extends PostUpgrade {
         let Factory_contract: ContractAbstraction<Wallet>,
             Dutch_v2_contract: ContractAbstraction<Wallet>;
         {
-            const factoryWasDeployed = this.getDeployment("TL_TokenFactory");
+            const factoryWasDeployed = this.deploymentsReg.getContract("TL_TokenFactory");
 
             // prepare minter/interiors batch
             const tezland_batch = new DeployContractBatch(this);

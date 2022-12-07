@@ -8,6 +8,7 @@ import TransportNodeHid from '@ledgerhq/hw-transport-node-hid';
 import { performance } from 'perf_hooks';
 import config from '../user.config';
 import { PrivateKeyAccount, LedgerAccount, NetworkConfig } from '../config/config';
+import DeploymentsRegistry from "./DeploymentsRegistry";
 import assert from 'assert';
 import kleur from 'kleur';
 import prompt from 'prompt';
@@ -42,8 +43,8 @@ export class DeployContractBatch {
 
         // Check if deployment is in project.deployments.json
         // if yes, skip.
-        const existingDeployment = this.deploy.getDeployment(contract_name);
-        this.contractList.push({name: contract_name, address: existingDeployment});
+        const existingDeployment = this.deploy.deploymentsReg.getContract(contract_name);
+        this.contractList.push({name: contract_name, address: existingDeployment ? existingDeployment : ''});
         if(existingDeployment) {
             console.log(`>> Using existing deployment for '${contract_name}': ${existingDeployment}\n`);
             return;
@@ -92,7 +93,7 @@ export class DeployContractBatch {
             // let's hope it's a ref
             filtered_contracts[i].address = contract_address;
 
-            this.deploy.addDeployment(contract_name, contract_address);
+            this.deploy.deploymentsReg.addContract(contract_name, contract_address);
         }
 
         console.log();
@@ -118,8 +119,7 @@ export default class DeployBase {
 
     private deploymentsDir: string;
 
-    private deploymentsRegPath: string
-    private deploymentsReg: any;
+    readonly deploymentsReg: DeploymentsRegistry;
 
     public getNetwork(): string { return this.network; }
     public isSandboxNetwork(): boolean { return this.isSandboxNet; }
@@ -138,7 +138,7 @@ export default class DeployBase {
         assert(this.networkConfig.accounts.deployer, `deployer account not set for '${this.network}'`)
 
         this.deploymentsDir = `./deployments/${this.network}`;
-        this.deploymentsRegPath =`${this.deploymentsDir}/project.deployments.json`;
+        this.deploymentsReg = new DeploymentsRegistry(`${this.deploymentsDir}/project.deployments.json`)
     }
 
     private async initTezosToolkit() {
@@ -157,21 +157,6 @@ export default class DeployBase {
         this.tezos.setProvider({ signer: signer });
 
         this.accountAddress = await signer.publicKeyHash();
-    }
-
-    public getDeployment(contract_name: string): string {
-        if(this.deploymentsReg[contract_name] && this.deploymentsReg[contract_name].contract) {
-            return this.deploymentsReg[contract_name].contract;
-        }
-        return '';
-    }
-
-    public addDeployment(contract_name: string, address: string) {
-        this.deploymentsReg[contract_name] = { contract: address };
-
-        // Write deployment file.
-        // Do this here instead of at the end, otherwise deployments will be lost on error.
-        fs.writeFileSync(this.deploymentsRegPath, JSON.stringify(this.deploymentsReg), { encoding: 'utf-8' })
     }
 
     public async getAccountPubkey(account_name: string): Promise<string> {
@@ -233,7 +218,7 @@ export default class DeployBase {
 
         // Check if deployment is in project.deployments.json
         // if yes, skip.
-        const existingDeployment = this.getDeployment(contract_name);
+        const existingDeployment = this.deploymentsReg.getContract(contract_name);
         if(existingDeployment) {
             console.log(`>> Using existing deployment for '${contract_name}': ${existingDeployment}\n`);
             return this.tezos.wallet.at(existingDeployment);
@@ -251,7 +236,7 @@ export default class DeployBase {
         assert(contract_address);
 
         // Write deployment (name, address) to project.deployments.json
-        this.addDeployment(contract_name, contract_address);
+        this.deploymentsReg.addContract(contract_name, contract_address);
 
         console.log(`Successfully deployed contract ${contract_name}`);
         console.log(`>> Transaction hash: ${orig_op.hash}`);
@@ -324,10 +309,7 @@ export default class DeployBase {
         
         if (!fs.existsSync(this.deploymentsDir)) fs.mkdirSync(this.deploymentsDir, { recursive: true });
 
-        // Parse deployments registry
-        if (fs.existsSync(this.deploymentsRegPath))
-            this.deploymentsReg = JSON.parse(fs.readFileSync(this.deploymentsRegPath, { encoding: 'utf-8' }));
-        else this.deploymentsReg = {};
+        this.deploymentsReg.readFromDisk();
     }
 
     public async deploy(): Promise<void> {
