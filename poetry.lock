@@ -11,7 +11,7 @@ develop = false
 type = "git"
 url = "https://github.com/tezosbuilders/contracts-smartpy.git"
 reference = "main"
-resolved_reference = "2b9e6d4dd631be750239883934f34dc2575c8056"
+resolved_reference = "eb3585c0a55384dc1880c56c9d3a6841ba590bba"
 
 [metadata]
 lock-version = "1.1"

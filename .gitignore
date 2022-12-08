@@ -8,4 +8,5 @@ assets/
 .env
 secrets.json
 bin/
+.venv/
 __pycache__/
