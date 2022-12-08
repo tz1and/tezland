@@ -10,6 +10,7 @@ class FeesTest(
     Fees.Fees,
     sp.Contract):
     def __init__(self, administrator, fees_to):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         Fees.Fees.__init__(self, fees_to = fees_to)
 

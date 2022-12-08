@@ -51,6 +51,8 @@ class TL_Dutch(
     def __init__(self, administrator, items_contract, places_contract, metadata,
         name="tz1and Dutch Auctions", description="tz1and Places and Items Dutch auctions", version="1.0.0", exception_optimization_level="default-line"):
 
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         

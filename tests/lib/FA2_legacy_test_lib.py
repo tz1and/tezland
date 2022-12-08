@@ -29,6 +29,7 @@ class TestReceiverBalanceOf(sp.Contract):
     """
 
     def __init__(self):
+        sp.Contract.__init__(self)
         self.init(last_known_balances=sp.big_map())
 
     @sp.entry_point

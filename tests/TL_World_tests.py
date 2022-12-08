@@ -10,6 +10,7 @@ from contracts.utils import FA2Utils
 # utility contract to get token balances
 class FA2_utils(sp.Contract):
     def __init__(self, fa2):
+        sp.Contract.__init__(self)
         self.init(last_sum = 0, fa2 = fa2)
 
     @sp.entry_point

@@ -38,6 +38,8 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
 # TODO: go over records again, find where we can use map/set
+# TODO: include AdminLambda in contracts?
+# TODO: make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 
 
@@ -481,6 +483,8 @@ class TL_World_v2(
     sp.Contract):
     def __init__(self, administrator, registry, royalties_adapter, paused, items_tokens, metadata,
         name, description, exception_optimization_level="default-line", debug_asserts=False):
+
+        sp.Contract.__init__(self)
 
         # Needed for migration ep but not really needed otherwise.
         self.items_tokens = sp.set_type_expr(items_tokens, sp.TAddress)

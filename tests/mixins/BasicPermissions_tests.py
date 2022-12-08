@@ -9,6 +9,7 @@ class BasicPermissionsTest(
     BasicPermissions.BasicPermissions,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         BasicPermissions.BasicPermissions.__init__(self)
 

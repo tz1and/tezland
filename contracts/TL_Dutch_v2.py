@@ -53,6 +53,8 @@ class TL_Dutch_v2(
     """
 
     def __init__(self, administrator, world_contract, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         

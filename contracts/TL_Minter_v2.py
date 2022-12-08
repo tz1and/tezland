@@ -23,6 +23,8 @@ class TL_Minter_v2(
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 

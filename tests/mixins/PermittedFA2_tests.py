@@ -10,6 +10,7 @@ class PermittedFA2Test(
     PermittedFA2.PermittedFA2,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         PermittedFA2.PermittedFA2.__init__(self)
 

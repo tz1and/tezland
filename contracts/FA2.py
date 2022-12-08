@@ -458,6 +458,8 @@ class Common(sp.Contract):
     """Common logic between Fa2Nft, Fa2Fungible and Fa2SingleAsset."""
 
     def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", "default-line")
         self.add_flag("erase-comments")
 

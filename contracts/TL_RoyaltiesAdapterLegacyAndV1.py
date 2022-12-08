@@ -22,6 +22,7 @@ def getRoyalties(royalties_adaper, token_key, royalties_type) -> sp.Expr:
 # Royalties adapter contract.
 class TL_RoyaltiesAdapterLegacyAndV1(sp.Contract):
     def __init__(self, legacy_royalties, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
         #self.add_flag("erase-comments")

@@ -23,6 +23,7 @@ PermissionParams = TL_World_v2.PermissionParams
 # utility contract to get token balances
 class FA2_utils(sp.Contract):
     def __init__(self):
+        sp.Contract.__init__(self)
         self.init(last_sum = 0)
 
     t_token_balance_map = sp.TMap(
@@ -1337,6 +1338,7 @@ def test():
 
     class MigrationTest(sp.Contract):
         def __init__(self, world):
+            sp.Contract.__init__(self)
             self.init_storage(world = world)
 
         @sp.entry_point

@@ -153,6 +153,8 @@ class TL_TokenRegistry(
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, collections_public_key, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         #self.add_flag("erase-comments")
 

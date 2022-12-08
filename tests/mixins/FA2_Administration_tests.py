@@ -10,6 +10,7 @@ class FA2_AdministrationTest(
     FA2_Administration.FA2_Administration,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         FA2_Administration.FA2_Administration.__init__(self)
 

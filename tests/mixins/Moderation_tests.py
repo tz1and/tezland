@@ -9,6 +9,7 @@ class ModerationTest(
     Moderation.Moderation,
     sp.Contract):
     def __init__(self, administrator, moderation_contract):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         Moderation.Moderation.__init__(self, moderation_contract = moderation_contract)
 

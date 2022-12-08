@@ -5,6 +5,7 @@ from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter,
 
 class RoyaltiesAdapterTest(sp.Contract):
     def __init__(self, adapter):
+        sp.Contract.__init__(self)
         self.init_storage(adapter = adapter)
 
     @sp.entry_point

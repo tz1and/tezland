@@ -9,6 +9,7 @@ class WhitelistTests(
     Whitelist.Whitelist,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         Whitelist.Whitelist.__init__(self)
 

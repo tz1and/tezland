@@ -10,6 +10,7 @@ class FA2PermissionsAndWhitelistTest(
     FA2PermissionsAndWhitelist.FA2PermissionsAndWhitelist,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         FA2PermissionsAndWhitelist.FA2PermissionsAndWhitelist.__init__(self)
 

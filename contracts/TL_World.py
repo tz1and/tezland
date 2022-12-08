@@ -252,6 +252,8 @@ class TL_World(
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, items_contract, places_contract, dao_contract, metadata, name, description, version="1.0.0", exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         # Not a win at all in terms of gas, especially on the simpler eps.

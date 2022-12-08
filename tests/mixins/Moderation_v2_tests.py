@@ -10,6 +10,7 @@ class ModerationTest(
     Moderation_v2.Moderation,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         Moderation_v2.Moderation.__init__(self)
 

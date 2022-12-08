@@ -22,6 +22,7 @@ class TL_Blacklist(
     Administrable,
     sp.Contract):
     def __init__(self, administrator, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
         #self.add_flag("erase-comments")

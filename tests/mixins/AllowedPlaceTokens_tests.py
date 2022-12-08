@@ -10,6 +10,7 @@ class AllowedPlaceTokensTest(
     AllowedPlaceTokens.AllowedPlaceTokens,
     sp.Contract):
     def __init__(self, administrator):
+        sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
         AllowedPlaceTokens.AllowedPlaceTokens.__init__(self)
 

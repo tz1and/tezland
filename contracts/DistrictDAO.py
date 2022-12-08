@@ -155,6 +155,8 @@ class DistrictDAO(
     ContractMetadata,
     sp.Contract):
     def __init__(self, administrator, world_contract, items_contract, places_contract, dao_contract, district_number, metadata, exception_optimization_level="default-line"):
+        sp.Contract.__init__(self)
+
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
         
