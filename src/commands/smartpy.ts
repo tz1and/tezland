@@ -258,3 +258,7 @@ export function install(force?: boolean): void {
 
     child.execSync(`sh <(curl -s https://smartpy.io/cli/install.sh) --prefix ${SMART_PY_INSTALL_DIR} --yes`, {stdio: 'inherit'})
 }
+
+export function version(): void {
+    child.execSync(smartPyCli("test", "--version"), {stdio: 'inherit'})
+}

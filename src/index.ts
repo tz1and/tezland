@@ -112,6 +112,13 @@ program
         smartpy.install(options.force);
     });
 
+program
+    .command('versions')
+    .description('Prints versions of stuff.')
+    .action(() => {
+        smartpy.version();
+    });
+
 try {
     program.parse();
 } catch (err) {
