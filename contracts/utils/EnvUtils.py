@@ -13,3 +13,7 @@ def view_helper(func: sp.Expr):
         assert isinstance(res, sp.Expr), "view_helper function does not return expression"
         return res
     return view_helper_check_option
+
+
+def inTests():
+    return environ.get("SMARTPY_NODE_DEV") == "test"

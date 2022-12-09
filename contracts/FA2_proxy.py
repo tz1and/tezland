@@ -5,13 +5,16 @@ from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
 from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from contracts import FA2
 
+# TODO: fix generated metadata
+# TODO: dormant blacklist!
+
 
 # NOTE: all proxied entrypoints must have parameter_type set!
 
 VERBOSE = False
 
 
-class testFA2(
+class OriginalFA2(
     Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
@@ -36,14 +39,14 @@ class testFA2(
         Administrable.__init__(self, admin, include_views = False)
 
 
-class FA2ProxyBase(testFA2):
+class FA2ProxyBase(OriginalFA2):
     """FA2 Proxy base contract"""
 
     def __init__(self, metadata, admin, parent, include_views=True):
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        testFA2.__init__(self, metadata, admin, include_views=include_views)
+        OriginalFA2.__init__(self, metadata, admin, include_views=include_views)
 
         if VERBOSE: print("\nProxyBase")
         self.update_initial_storage(parent = parent)
