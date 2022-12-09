@@ -53,7 +53,11 @@ class FA2ProxyBase(testFA2):
             if isinstance(attr, sp.Entrypoint) and attr.message.lazify != False:
                 self.proxied_entrypoints.append((attr.message.fname, attr.message.parameter_type))
 
+        # Sort proxied (lazy) entrypoints (default comb?) to be able to find ep index.
+        self.proxied_entrypoints.sort(key=lambda x: x[0])
         print(f"proxied_entrypoints: {[ ep[0] for ep in self.proxied_entrypoints ]}")
+
+        self.ep_variant_type = sp.TVariant(**{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints})
 
 
 class FA2ProxyParent(
@@ -125,23 +129,17 @@ class FA2ProxyChild(
                         setattr(self, f, None)
                         #delattr(self, f)
 
-        # Sort proxied (lazy) entrypoints (default comb?) to be able to find ep index.
-        self.proxied_entrypoints_sorted = sorted(self.proxied_entrypoints, key=lambda x: x[0])
-        print([x[0] for x in self.proxied_entrypoints_sorted])
-
 
     @sp.private_lambda(with_storage="read-write", with_operations=True)
     def executeParentLambda(self, params):
         sp.set_type(params, sp.TRecord(
             id = sp.TNat,
-            args = sp.TVariant(**{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints})
+            args = self.ep_variant_type
         ))
-        var_type = sp.TPair(sp.TVariant(**{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints}), self.storage_type)
-        lambda_type = sp.TLambda(var_type, sp.TPair(sp.TList(sp.TOperation), self.storage_type))
-        lambda_view = sp.view("get_ep_lambda", self.data.parent,
+        lambda_type = sp.TLambda(sp.TPair(self.ep_variant_type, self.storage_type), sp.TPair(sp.TList(sp.TOperation), self.storage_type))
+        lambda_function = sp.compute(sp.view("get_ep_lambda", self.data.parent,
             sp.set_type_expr(params.id, sp.TNat),
-            t = lambda_type).open_some()
-        lambda_function = sp.compute(lambda_view)
+            t = lambda_type).open_some())
         ops, storage = sp.match_pair(lambda_function(sp.pair(params.args, self.data)))
         self.data = storage
         sp.add_operations(ops)
@@ -149,15 +147,14 @@ class FA2ProxyChild(
 
     @sp.entry_point(lazify=False)
     def default(self, params):
-        sp.set_type(params, sp.TVariant(
-            **{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints}))
+        sp.set_type(params, self.ep_variant_type)
 
         # Build a matcher for proxied_entrypoints
         with params.match_cases() as arg:
-            for entrypoint in self.proxied_entrypoints:
+            for index, entrypoint in enumerate(self.proxied_entrypoints):
                 print(f"getting lambda for {entrypoint[0]}")
                 with arg.match(entrypoint[0], f"{entrypoint[0]}_match"):
-                    sp.compute(self.executeParentLambda(sp.record(id=self.proxied_entrypoints_sorted.index(entrypoint), args=params)))
+                    sp.compute(self.executeParentLambda(sp.record(id=sp.nat(index), args=params)))
 
 
     # NOTE: This can be on the child only. Base and Parent don't need it.
