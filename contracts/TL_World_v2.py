@@ -39,7 +39,7 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
 # TODO: go over records again, find where we can use map/set
 # TODO: include AdminLambda in contracts?
-# TODO: make a wallet contract to be able to test royalties sent, etc...
+# TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 
 
