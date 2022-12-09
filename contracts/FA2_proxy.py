@@ -6,7 +6,7 @@ from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
 from contracts import FA2
 
 
-class FA2ProxyBase(
+class ProxyBase(
     Administrable,
     FA2.ChangeMetadata,
     FA2.MintFungible,
@@ -40,19 +40,57 @@ class FA2ProxyBase(
         for f in dir(self):
             attr = getattr(self, f)
             if isinstance(attr, sp.Entrypoint) and attr.message.lazify != False:
-                self.proxied_entrypoints.append(attr.message.fname)
+                self.proxied_entrypoints.append((attr.message.fname, attr.message.parameter_type))
 
-        print(self.proxied_entrypoints)
+        print([ ep[0] for ep in self.proxied_entrypoints ])
 
     # TODO: can this be on the child only?
-    @sp.entry_point(lazify=False)
+    @sp.entry_point(parameter_type=sp.TAddress)
     def set_parent(self, parent):
         sp.set_type(parent, sp.TAddress)
         self.data.parent = parent
 
+    @sp.onchain_view(pure=True)
+    def get_parent(self):
+        sp.result(self.data.parent)
+
+#class ProxyBase(sp.Contract):
+#    def __init__(self, metadata, admin, parent):
+#        admin = sp.set_type_expr(admin, sp.TAddress)
+#        parent = sp.set_type_expr(parent, sp.TAddress)
+#
+#        sp.Contract.__init__(self)
+#
+#        self.init_storage(parent = parent)
+#
+#        # get lazy entry points
+#        self.proxied_entrypoints = []
+#        for f in dir(self):
+#            attr = getattr(self, f)
+#            if isinstance(attr, sp.Entrypoint) and attr.message.lazify != False:
+#                self.proxied_entrypoints.append((attr.message.fname, attr.message.parameter_type))
+#
+#        print([ ep[0] for ep in self.proxied_entrypoints ])
+#
+#    # TODO: can this be on the child only?
+#    @sp.entry_point(parameter_type=sp.TRecord(fa2=sp.TAddress, id=sp.TNat))
+#    def get_token(self, params):
+#        #sp.set_type(parent, sp.TAddress)
+#        sp.trace(params)
+#
+#    # TODO: can this be on the child only?
+#    @sp.entry_point(parameter_type=sp.TAddress)
+#    def set_parent(self, parent):
+#        #sp.set_type(parent, sp.TAddress)
+#        self.data.parent = parent
+#
+#    @sp.onchain_view(pure=True)
+#    def get_parent(self):
+#        sp.result(self.data.parent)
+
 
 class FA2ProxyParent(
-    FA2ProxyBase
+    ProxyBase
 ):
     """FA2 Proxy parent contract"""
 
@@ -67,35 +105,27 @@ class FA2ProxyParent(
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        FA2ProxyBase.__init__(self, metadata, admin, parent)
+        ProxyBase.__init__(self, metadata, admin, parent)
 
         def get_ep_lambda(self, ep_name):
             # Build a variant from proxied_entrypoints.
             sp.set_type(ep_name, sp.TVariant(
-                **{entrypoint: sp.TUnit for entrypoint in self.proxied_entrypoints}))
+                **{entrypoint[0]: sp.TUnit for entrypoint in self.proxied_entrypoints}))
 
             # Build a matcher for proxied_entrypoints
             with ep_name.match_cases() as arg:
                 for entrypoint in self.proxied_entrypoints:
-                    with arg.match(entrypoint):
-                        sp.result(sp.entrypoint_map()[sp.entrypoint_id(entrypoint)])
+                    print(f"matching {entrypoint[0]}")
+                    with arg.match(entrypoint[0]):
+                        sp.trace(sp.entrypoint_map())
+                        sp.trace(sp.entrypoint_map()[sp.entrypoint_id(entrypoint[0])])
+                        sp.result(sp.entrypoint_map()[sp.entrypoint_id(entrypoint[0])])
 
         self.get_ep_lambda = sp.onchain_view(pure=True)(get_ep_lambda)
 
-        self.transfer = types.MethodType(self.transfer.f, self)
-
-        def get_private_lambda(self):
-            sp.result(self.data.test_private_lambda)
-
-        self.get_private_lambda = sp.onchain_view(pure=True)(get_private_lambda)
-
-        self.update_initial_storage(
-            test_private_lambda = sp.build_lambda(self.transfer, with_storage=None, with_operations=True)#, contract_self=self)
-        )
-
 
 class FA2ProxyChild(
-    FA2ProxyBase
+    ProxyBase
 ):
     """FA2 Proxy child contract"""
 
@@ -104,74 +134,41 @@ class FA2ProxyChild(
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        FA2ProxyBase.__init__(self, metadata, admin, parent)
+        ProxyBase.__init__(self, metadata, admin, parent)
 
-        # *sigh* I don't know why I have to do this.
-        def update_adhoc_operators(self, batch):
-            sp.set_type(batch, FA2.t_adhoc_operator_params)
-            pass
-            #lambda_function = self.getParentLambda(sp.variant("update_adhoc_operators", sp.unit))
-            #operations = lambda_function(sp.variant("update_adhoc_operators", batch))
-            #sp.add_operations(operations)
+        for f in dir(self):
+            attr = getattr(self, f)
+            if isinstance(attr, sp.Entrypoint):
+                # if found in proxied entrypoints, remove it.
+                for ep in self.proxied_entrypoints:
+                    if attr.message.fname == ep[0]:
+                        variant_name = attr.message.fname
+                        print(f'removing ep {variant_name}')
+                        setattr(self, f, sp.entry_point(None, None))
+                        #setattr(self, f, None)
 
-        self.update_adhoc_operators = sp.entry_point(update_adhoc_operators)
-
-        #for f in dir(self):
-        #    attr = getattr(self, f)
-        #    if isinstance(attr, sp.Entrypoint) and attr.message.fname in self.proxied_entrypoints:
-        #        variant_name = attr.message.fname
-        #        print(f'gotta proxy {variant_name} here')
-        #        def our_replacement(self, params):
-        #            nonlocal variant_name
-        #            lambda_type = sp.TUnit
-        #            lambda_function = self.getParentLambda(sp.variant(variant_name, sp.unit), lambda_type)
-        #            lambda_function(params)
-        #        setattr(self, f, sp.entry_point(our_replacement, name=attr.message.fname))
-
+    @sp.private_lambda(with_storage="read-only")
     def getParentLambda(self, name):
-        return sp.view("get_ep_lambda", self.data.parent,
+        var_type = sp.TPair(sp.TVariant(**{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints}), self.storage_type)
+        lambda_type = sp.TLambda(var_type, sp.TPair(sp.TList(sp.TOperation), self.storage_type))
+        sp.result(sp.view("get_ep_lambda", self.data.parent,
             sp.set_type_expr(name, sp.TVariant(
-            **{entrypoint: sp.TUnit for entrypoint in self.proxied_entrypoints})),
-            t = sp.TUnit).open_some()
+            **{entrypoint[0]: sp.TUnit for entrypoint in self.proxied_entrypoints})),
+            t = lambda_type).open_some())
+       
 
-    #@sp.entry_point
-    #def accept_administrator(self):
-    #    lambda_function = self.getParentLambda(sp.variant("accept_administrator", sp.unit), sp.TUnit)
-    #    sp.add_operations(lambda_function(sp.unit))
+    # TODO: view per parent entrypoint.
+    @sp.entry_point(lazify=False)
+    def default(self, params):
+        sp.set_type(params, sp.TVariant(
+            **{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints}))
 
-    @sp.entry_point
-    def mint(self, batch):
-        sp.set_type(batch, FA2.t_mint_fungible_royalties_batch)
-        pass
-        #lambda_function = self.getParentLambda(sp.variant("mint", sp.unit))
-        #operations = lambda_function(sp.variant("mint", batch))
-        #sp.add_operations(operations)
-
-    #@sp.entry_point
-    #def burn(self, batch):
-    #    sp.set_type(batch, FA2.t_burn_batch)
-    #    lambda_function = self.getParentLambda(sp.variant("burn", sp.unit))
-    #    operations = lambda_function(sp.variant("burn", batch))
-    #    sp.add_operations(operations)
-#
-    #@sp.entry_point
-    #def balance_of(self, batch):
-    #    sp.set_type(batch, FA2.t_balance_of_params)
-    #    lambda_function = self.getParentLambda(sp.variant("balance_of", sp.unit))
-    #    operations = lambda_function(sp.variant("balance_of", batch))
-    #    sp.add_operations(operations)
-#
-    #@sp.entry_point
-    #def transfer(self, batch):
-    #    sp.set_type(batch, FA2.t_transfer_params)
-    #    lambda_function = self.getParentLambda(sp.variant("transfer", sp.unit))
-    #    operations = lambda_function(sp.variant("transfer", batch))
-    #    sp.add_operations(operations)
-#
-    #@sp.entry_point
-    #def update_operators(self, batch):
-    #    sp.set_type(batch, FA2.t_update_operators_params)
-    #    lambda_function = self.getParentLambda(sp.variant("update_operators", sp.unit))
-    #    operations = lambda_function(sp.variant("update_operators", batch))
-    #    sp.add_operations(operations)
-#
+        # Build a matcher for proxied_entrypoints
+        with params.match_cases() as arg:
+            for entrypoint in self.proxied_entrypoints:
+                print(f"getting lambda for {entrypoint[0]}")
+                with arg.match(entrypoint[0], f"{entrypoint[0]}_match"):
+                    lambda_function = sp.compute(self.getParentLambda(sp.variant(entrypoint[0], sp.unit)))
+                    ops, storage = sp.match_pair(lambda_function(sp.pair(params, self.data)))
+                    sp.add_operations(ops)
+                    self.data = storage

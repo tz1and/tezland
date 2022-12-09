@@ -21,7 +21,7 @@ def test():
 
     scenario.h3("Contract origination")
     scenario.h4("base")
-    base = FA2_proxy.FA2ProxyBase(sp.utils.metadata_of_url("ipfs://example"),
+    base = FA2_proxy.ProxyBase(sp.utils.metadata_of_url("ipfs://example"),
         admin.address, admin.address)
     scenario += base
 
@@ -35,24 +35,26 @@ def test():
         admin.address, parent.address)
     scenario += child
 
-    #
-    # update_fees
-    #
-    scenario.h3("update_fees")
+    #child.default(sp.variant("get_token", sp.record(fa2=base.address, id=10001337))).run(sender=admin)
 
-    scenario.show(parent.get_ep_lambda(sp.variant("mint", sp.unit)))
-
-    child.mint([sp.record(
-            token=sp.variant("new", sp.record(
-                metadata={"": sp.utils.bytes_of_string("test_metadata")},
-                royalties=sp.record(
-                    royalties=sp.nat(150),
-                    contributors=[
-                        sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
-                        sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
-                        sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
-                    ]
-                ))),
-            to_=alice.address, amount=1000
-        )
-    ]).run(sender=admin)
+#    #
+#    # update_fees
+#    #
+#    scenario.h3("update_fees")
+#
+#    scenario.show(parent.get_ep_lambda(sp.variant("mint", sp.unit)))
+#
+#    child.mint([sp.record(
+#            token=sp.variant("new", sp.record(
+#                metadata={"": sp.utils.bytes_of_string("test_metadata")},
+#                royalties=sp.record(
+#                    royalties=sp.nat(150),
+#                    contributors=[
+#                        sp.record(address=admin.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(600)),
+#                        sp.record(address=bob.address, role=sp.variant("minter", sp.unit), relative_royalties=sp.nat(200)),
+#                        sp.record(address=alice.address, role=sp.variant("custom", "test"), relative_royalties=sp.nat(200))
+#                    ]
+#                ))),
+#            to_=alice.address, amount=1000
+#        )
+#    ]).run(sender=admin)
