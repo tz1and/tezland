@@ -76,6 +76,7 @@ class tz1andInteriors(
             name="tz1and Interiors", description="tz1and Interior FA2 Tokens.",
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
+        FA2.MintNft.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
 class tz1andPlaces_v2(
@@ -93,6 +94,7 @@ class tz1andPlaces_v2(
             name="tz1and Places", description="tz1and Place FA2 Tokens (v2).",
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
+        FA2.MintNft.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
 class tz1andItems_v2(
@@ -112,5 +114,6 @@ class tz1andItems_v2(
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=True,
             allow_mint_existing=False
         )
+        FA2.MintFungible.__init__(self)
         FA2.Royalties.__init__(self)
         Administrable.__init__(self, admin, include_views = False)

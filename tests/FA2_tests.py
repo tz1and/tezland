@@ -36,6 +36,7 @@ if "templates" not in __name__:
             FA2.Fa2Nft.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
+            FA2.MintNft.__init__(self)
             Administrable.__init__(self, admin.address)
 
     class FungibleTest(
@@ -55,6 +56,7 @@ if "templates" not in __name__:
             FA2.Fa2Fungible.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
+            FA2.MintFungible.__init__(self)
             Administrable.__init__(self, admin.address)
 
     class SingleAssetTest(
@@ -155,6 +157,7 @@ if "templates" not in __name__:
             FA2.Fa2Nft.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
             )
+            FA2.MintNft.__init__(self)
             FA2.Royalties.__init__(self)
             Administrable.__init__(self, admin.address)
 
@@ -170,6 +173,7 @@ if "templates" not in __name__:
             FA2.Fa2Fungible.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, has_royalties=True
             )
+            FA2.MintFungible.__init__(self)
             FA2.Royalties.__init__(self)
             Administrable.__init__(self, admin.address)
     

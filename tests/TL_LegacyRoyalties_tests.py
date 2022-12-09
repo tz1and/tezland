@@ -20,6 +20,7 @@ class tokenNoRoyalties(
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=False,
             allow_mint_existing=False
         )
+        FA2.MintFungible.__init__(self)
         Administrable.__init__(self, admin)
 
 

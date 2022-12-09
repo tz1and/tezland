@@ -309,7 +309,7 @@ class OwnerOrOperatorAdhocTransfer:
                     # Clear adhoc operators.
                     self.data.adhoc_operators = sp.set(t = sp.TBytes)
 
-        contract.update_adhoc_operators = sp.entry_point(update_adhoc_operators)
+        contract.update_adhoc_operators = sp.entry_point(update_adhoc_operators, parameter_type=t_adhoc_operator_params)
 
     def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
         sp.verify(
@@ -368,7 +368,7 @@ class PauseTransfer:
             self.onlyAdministrator()
             self.data.paused = params
 
-        contract.set_pause = sp.entry_point(set_pause)
+        contract.set_pause = sp.entry_point(set_pause, lazify=False, parameter_type=sp.TBool)
 
     def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
         sp.verify(~contract.data.paused, message=sp.pair("FA2_TX_DENIED", "FA2_PAUSED"))
@@ -425,7 +425,7 @@ class BlacklistTransfer:
                 self.onlyAdministrator()
                 self.data.blacklist = params
 
-            contract.set_blacklist = sp.entry_point(set_blacklist)
+            contract.set_blacklist = sp.entry_point(set_blacklist, lazify=False, parameter_type=sp.TAddress)
 
     # TODO: this isn't really optimal: calls view for every tx in the transfer. optimise!
     # + maybe add a check_tx_transfer_permissions_batch or so?
@@ -457,11 +457,11 @@ class BlacklistTransfer:
 class Common(sp.Contract):
     """Common logic between Fa2Nft, Fa2Fungible and Fa2SingleAsset."""
 
-    def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}):
+    def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}, include_views=True):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", "default-line")
-        self.add_flag("erase-comments")
+        #self.add_flag("erase-comments")
 
         if policy is None:
             self.policy = OwnerOrOperatorTransfer()
@@ -477,7 +477,38 @@ class Common(sp.Contract):
             )
         )
         self.policy.init_policy(self)
-        self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
+
+        # Onchain views
+        if include_views:
+            def all_tokens(self):
+                """OffchainView: Return the list of all the token IDs known to the contract."""
+                sp.result(sp.range(0, self.data.last_token_id))
+            self.all_tokens = sp.onchain_view(pure=True)(all_tokens)
+
+            def is_operator(self, params):
+                """Return whether `operator` is allowed to transfer `token_id` tokens
+                owned by `owner`."""
+                sp.set_type(params, t_operator_permission)
+                sp.result(self.policy.is_operator(self, params))
+            self.is_operator = sp.onchain_view(pure=True)(is_operator)
+
+            def get_balance(self, params):
+                """Return the balance of an address for the specified `token_id`."""
+                sp.set_type(
+                    params,
+                    sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
+                        ("owner", "token_id")
+                    ),
+                )
+                sp.result(self.balance_(params.owner, params.token_id))
+            self.get_balance = sp.onchain_view(pure=True)(get_balance)
+
+            def total_supply(self, params):
+                """Return the total number of tokens for the given `token_id`."""
+                sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
+
+                self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
+            self.total_supply = sp.onchain_view(pure=True)(total_supply)
 
     def is_defined(self, token_id):
         return self.data.token_metadata.contains(token_id)
@@ -531,7 +562,7 @@ class Common(sp.Contract):
 
     # Entry points
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_update_operators_params)
     def update_operators(self, batch):
         """Accept a list of variants to add or remove operators who can perform
         transfers on behalf of the owner."""
@@ -548,7 +579,7 @@ class Common(sp.Contract):
         else:
             sp.failwith("FA2_OPERATORS_UNSUPPORTED")
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_balance_of_params)
     def balance_of(self, params):
         """Send the balance of multiple account / token pairs to a callback
         address.
@@ -560,7 +591,7 @@ class Common(sp.Contract):
             self.balance_of_batch(params.requests), sp.mutez(0), params.callback
         )
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_transfer_params)
     def transfer(self, batch):
         """Accept a list of transfer operations between a source and multiple
         destinations.
@@ -580,36 +611,6 @@ class Common(sp.Contract):
                         self.transfer_tx_(transfer.from_, tx)
         else:
             sp.failwith("FA2_TX_DENIED")
-
-    # Onchain views
-
-    @sp.offchain_view(pure=True)
-    def all_tokens(self):
-        """OffchainView: Return the list of all the token IDs known to the contract."""
-        sp.result(sp.range(0, self.data.last_token_id))
-
-    @sp.onchain_view(pure=True)
-    def is_operator(self, params):
-        """Return whether `operator` is allowed to transfer `token_id` tokens
-        owned by `owner`."""
-        sp.set_type(params, t_operator_permission)
-        sp.result(self.policy.is_operator(self, params))
-
-    @sp.onchain_view(pure=True)
-    def get_balance(self, params):
-        """Return the balance of an address for the specified `token_id`."""
-        sp.set_type(
-            params,
-            sp.TRecord(owner=sp.TAddress, token_id=sp.TNat).layout(
-                ("owner", "token_id")
-            ),
-        )
-        sp.result(self.balance_(params.owner, params.token_id))
-
-    @sp.onchain_view(pure=True)
-    def total_supply(self, params):
-        """Return the total number of tokens for the given `token_id`."""
-        sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
 
 
 ################
@@ -713,7 +714,8 @@ class Fa2Fungible(Common):
 
     def __init__(
         self, metadata, name="FA2", description="A Fungible FA2 implementation.",
-        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False, allow_mint_existing=True
+        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False,
+        allow_mint_existing=True, include_views=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.has_royalties = has_royalties
@@ -746,6 +748,7 @@ class Fa2Fungible(Common):
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,
+            include_views=include_views
         )
 
     def initial_mint(self, token_metadata=[], ledger={}, has_royalties=False):
@@ -882,7 +885,7 @@ class ChangeMetadata:
     Requires the `Administrable` mixin.
     """
 
-    @sp.entry_point
+    @sp.entry_point(lazify=False, parameter_type=sp.TBigMap(sp.TString, sp.TBytes))
     def set_metadata(self, metadata):
         """(Admin only) Set the contract metadata."""
         sp.set_type(metadata, sp.TBigMap(sp.TString, sp.TBytes))
@@ -949,23 +952,20 @@ class MintNft:
 
     Requires the `Administrable` mixin.
     """
+    def __init__(self):
+        def mint(self, batch):
+            """Admin can mint new or existing tokens."""
+            self.onlyAdministrator()
+            with sp.for_("action", batch) as action:
+                token_id = sp.compute(self.data.last_token_id)
+                metadata = sp.record(token_id=token_id, token_info=action.metadata)
+                self.data.token_metadata[token_id] = metadata
+                self.data.ledger[token_id] = action.to_
+                if self.has_royalties:
+                    self.data.token_extra[token_id] = sp.record(royalty_info=action.royalties)
+                self.data.last_token_id += 1
 
-    @sp.entry_point
-    def mint(self, batch):
-        """Admin can mint new or existing tokens."""
-        if self.has_royalties:
-            sp.set_type(batch, t_mint_nft_royalties_batch)
-        else:
-            sp.set_type(batch, t_mint_nft_batch)
-        self.onlyAdministrator()
-        with sp.for_("action", batch) as action:
-            token_id = sp.compute(self.data.last_token_id)
-            metadata = sp.record(token_id=token_id, token_info=action.metadata)
-            self.data.token_metadata[token_id] = metadata
-            self.data.ledger[token_id] = action.to_
-            if self.has_royalties:
-                self.data.token_extra[token_id] = sp.record(royalty_info=action.royalties)
-            self.data.last_token_id += 1
+        self.mint = sp.entry_point(mint, parameter_type=(t_mint_nft_royalties_batch if self.has_royalties else t_mint_nft_batch))
 
 
 class MintFungible:
@@ -974,43 +974,40 @@ class MintFungible:
 
     Requires the `Administrable` mixin.
     """
+    def __init__(self):
+        def mint(self, batch):
+            """Admin can mint tokens."""
+            self.onlyAdministrator()
+            with sp.for_("action", batch) as action:
+                with action.token.match_cases() as arg:
+                    with arg.match("new") as new:
+                        token_id = sp.compute(self.data.last_token_id)
+                        self.data.token_metadata[token_id] = sp.record(
+                            token_id=token_id, token_info=new.metadata
+                        )
+                        if self.has_royalties:
+                            self.data.token_extra[token_id] = sp.record(
+                                supply=action.amount,
+                                royalty_info=new.royalties
+                            )
+                        else:
+                            self.data.token_extra[token_id] = sp.record(
+                                supply=action.amount
+                            )
+                        self.data.ledger[(action.to_, token_id)] = action.amount
+                        self.data.last_token_id += 1
+                    with arg.match("existing") as token_id:
+                        if self.allow_mint_existing:
+                            sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
+                            self.data.token_extra[token_id].supply += action.amount
+                            from_ = sp.compute((action.to_, token_id))
+                            self.data.ledger[from_] = (
+                                self.data.ledger.get(from_, sp.nat(0)) + action.amount
+                            )
+                        else:
+                            sp.failwith("FA2_TX_DENIED")
 
-    @sp.entry_point
-    def mint(self, batch):
-        """Admin can mint tokens."""
-        if self.has_royalties:
-            sp.set_type(batch, t_mint_fungible_royalties_batch)
-        else:
-            sp.set_type(batch, t_mint_fungible_batch)
-        self.onlyAdministrator()
-        with sp.for_("action", batch) as action:
-            with action.token.match_cases() as arg:
-                with arg.match("new") as new:
-                    token_id = sp.compute(self.data.last_token_id)
-                    self.data.token_metadata[token_id] = sp.record(
-                        token_id=token_id, token_info=new.metadata
-                    )
-                    if self.has_royalties:
-                        self.data.token_extra[token_id] = sp.record(
-                            supply=action.amount,
-                            royalty_info=new.royalties
-                        )
-                    else:
-                        self.data.token_extra[token_id] = sp.record(
-                            supply=action.amount
-                        )
-                    self.data.ledger[(action.to_, token_id)] = action.amount
-                    self.data.last_token_id += 1
-                with arg.match("existing") as token_id:
-                    if self.allow_mint_existing:
-                        sp.verify(self.is_defined(token_id), "FA2_TOKEN_UNDEFINED")
-                        self.data.token_extra[token_id].supply += action.amount
-                        from_ = sp.compute((action.to_, token_id))
-                        self.data.ledger[from_] = (
-                            self.data.ledger.get(from_, sp.nat(0)) + action.amount
-                        )
-                    else:
-                        sp.failwith("FA2_TX_DENIED")
+        self.mint = sp.entry_point(mint, parameter_type=(t_mint_fungible_royalties_batch if self.has_royalties else t_mint_fungible_batch))
 
 
 class MintSingleAsset:
@@ -1020,7 +1017,7 @@ class MintSingleAsset:
     Requires the `Administrable` mixin.
     """
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_mint_fungible_batch)
     def mint(self, batch):
         """Admin can mint tokens."""
         sp.set_type(batch, t_mint_fungible_batch)
@@ -1054,7 +1051,7 @@ class BurnNft:
     """(Mixin) Non-standard `burn` entrypoint for FA2Nft that uses the transfer
     policy permission."""
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_burn_batch)
     def burn(self, batch):
         """Users can burn tokens if they have the transfer policy permission.
 
@@ -1085,7 +1082,7 @@ class BurnFungible:
     """(Mixin) Non-standard `burn` entrypoint for FA2Fungible that uses the
     transfer policy permission."""
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_burn_batch)
     def burn(self, batch):
         """Users can burn tokens if they have the transfer policy
         permission."""
@@ -1134,7 +1131,7 @@ class BurnSingleAsset:
     """(Mixin) Non-standard `burn` entrypoint for FA2SingleAsset that uses the
     transfer policy permission."""
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=t_burn_batch)
     def burn(self, batch):
         """Users can burn tokens if they have the transfer policy
         permission."""
@@ -1170,22 +1167,24 @@ class Royalties:
     
     I admit, not very elegant, but I want to save that bigmap."""
 
-    def __init__(self):
+    def __init__(self, include_views=True):
         if self.ledger_type == "SingleAsset":
             raise Exception("Royalties not supported on SingleAsset")
         if self.has_royalties != True:
             raise Exception("Royalties not enabled on base")
 
-    @sp.onchain_view(pure=True)
-    def get_royalties(self, token_id):
-        """Returns the token royalties information, including total shares.
+        if include_views:
+            def get_royalties(self, token_id):
+                """Returns the token royalties information, including total shares.
 
-        Fails if unknown royalties."""
-        sp.set_type(token_id, sp.TNat)
+                Fails if unknown royalties."""
+                sp.set_type(token_id, sp.TNat)
 
-        with sp.set_result_type(t_royalties_interop):
-            sp.result(sp.record(total=1000,
-                shares=self.data.token_extra.get(token_id, message="TOKEN_UNDEFINED").royalty_info))
+                with sp.set_result_type(t_royalties_interop):
+                    sp.result(sp.record(total=1000,
+                        shares=self.data.token_extra.get(token_id, message="TOKEN_UNDEFINED").royalty_info))
+            
+            self.get_royalties = sp.onchain_view(pure=True)(get_royalties)
 
 
 class OnchainviewCountTokens:

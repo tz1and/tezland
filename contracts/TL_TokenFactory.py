@@ -37,6 +37,7 @@ class tz1andCollection(
             policy=FA2.OwnerOrOperatorAdhocTransfer(), has_royalties=True,
             allow_mint_existing=False
         )
+        FA2.MintFungible.__init__(self)
         FA2.Royalties.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
