@@ -506,9 +506,9 @@ class Common(sp.Contract):
             def total_supply(self, params):
                 """Return the total number of tokens for the given `token_id`."""
                 sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
-
-                self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
             self.total_supply = sp.onchain_view(pure=True)(total_supply)
+            
+            self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
 
     def is_defined(self, token_id):
         return self.data.token_metadata.contains(token_id)
