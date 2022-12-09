@@ -8,6 +8,8 @@ from contracts import FA2
 
 # NOTE: all proxied entrypoints must have parameter_type set!
 
+VERBOSE = False
+
 
 class testFA2(
     Administrable,
@@ -43,7 +45,7 @@ class FA2ProxyBase(testFA2):
 
         testFA2.__init__(self, metadata, admin, include_views=include_views)
 
-        print("\nProxyBase")
+        if VERBOSE: print("\nProxyBase")
         self.update_initial_storage(parent = parent)
 
         # get lazy entry points
@@ -55,7 +57,7 @@ class FA2ProxyBase(testFA2):
 
         # Sort proxied (lazy) entrypoints (default comb?) to be able to find ep index.
         self.proxied_entrypoints.sort(key=lambda x: x[0])
-        print(f"proxied_entrypoints: {[ ep[0] for ep in self.proxied_entrypoints ]}")
+        if VERBOSE: print(f"proxied_entrypoints: {[ ep[0] for ep in self.proxied_entrypoints ]}")
 
         self.ep_variant_type = sp.TVariant(**{entrypoint[0]: entrypoint[1] for entrypoint in self.proxied_entrypoints})
 
@@ -79,7 +81,7 @@ class FA2ProxyParent(
 
         FA2ProxyBase.__init__(self, metadata, admin, parent, include_views=False)
 
-        print("\nProxyParent")
+        if VERBOSE: print("\nProxyParent")
         # remove unneeded entrypoints
         keep_entrypoints = ["accept_administrator", "transfer_administrator", "update_ep"]
         deleted_entrypoints = []
@@ -89,7 +91,7 @@ class FA2ProxyParent(
                 deleted_entrypoints.append(attr.message.fname)
                 setattr(self, f, None)
 
-        print(f"deleted_entrypoints: {deleted_entrypoints}")
+        if VERBOSE: print(f"deleted_entrypoints: {deleted_entrypoints}")
 
         def get_ep_lambda(self, id):
             # Build a variant from proxied_entrypoints.
@@ -116,7 +118,7 @@ class FA2ProxyChild(
 
         FA2ProxyBase.__init__(self, metadata, admin, parent)
 
-        print("\nProxyChild")
+        if VERBOSE: print("\nProxyChild")
         for f in dir(self):
             attr = getattr(self, f)
             if isinstance(attr, sp.Entrypoint):
@@ -124,7 +126,7 @@ class FA2ProxyChild(
                 for ep in self.proxied_entrypoints:
                     if attr.message.fname == ep[0]:
                         variant_name = attr.message.fname
-                        print(f'removing ep {variant_name}')
+                        if VERBOSE: print(f'removing ep {variant_name}')
                         #setattr(self, f, sp.entry_point(None, None))
                         setattr(self, f, None)
                         #delattr(self, f)
@@ -152,7 +154,7 @@ class FA2ProxyChild(
         # Build a matcher for proxied_entrypoints
         with params.match_cases() as arg:
             for index, entrypoint in enumerate(self.proxied_entrypoints):
-                print(f"getting lambda for {entrypoint[0]}")
+                if VERBOSE: print(f"getting lambda for {entrypoint[0]}")
                 with arg.match(entrypoint[0], f"{entrypoint[0]}_match"):
                     sp.compute(self.executeParentLambda(sp.record(id=sp.nat(index), args=params)))
 
