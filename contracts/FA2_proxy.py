@@ -5,19 +5,19 @@ from contracts.Tokens import tz1andPrivateCollection
 from tezosbuilders_contracts_smartpy.utils import Utils
 
 
-# NOTE: all proxied entrypoints must have parameter_type set!
 
 VERBOSE = False
 
+# NOTE: all proxied entrypoints in cls must have parameter_type set!
+# NOTE: cls *should* have a include_views arg that defaults to True.
 def generateProxy(cls):
     class ProxyBase(cls):
         """Proxy base contract"""
 
-        def __init__(self, parent, **kwargs):# metadata, admin, blacklist, parent, include_views=True):
-            #admin = sp.set_type_expr(admin, sp.TAddress)
+        def __init__(self, parent, **kwargs):
             parent = sp.set_type_expr(parent, sp.TAddress)
 
-            cls.__init__(self, **kwargs)# metadata, admin, blacklist, include_views=include_views)
+            cls.__init__(self, **kwargs)
 
             if VERBOSE: print("\nProxyBase")
             self.update_initial_storage(parent = parent)
@@ -42,14 +42,13 @@ def generateProxy(cls):
     ):
         """Proxy parent contract"""
 
-        def __init__(self, parent, **kwargs):# metadata, admin, blacklist, parent):
+        def __init__(self, parent, **kwargs):
             # All entry points should be lazy, exceptions marked not lazy.
             self.add_flag("lazy-entry-points")
 
-            #admin = sp.set_type_expr(admin, sp.TAddress)
             parent = sp.set_type_expr(parent, sp.TAddress)
 
-            ProxyBase.__init__(self, parent, include_views=False, **kwargs)# metadata, admin, blacklist, parent, include_views=False)
+            ProxyBase.__init__(self, parent, include_views=False, **kwargs)
 
             if VERBOSE: print("\nProxyParent")
             # remove unneeded entrypoints
@@ -82,11 +81,10 @@ def generateProxy(cls):
         """Proxy child contract"""
 
         # NOTE: No entry points should be lazy.
-        def __init__(self, parent, **kwargs):# metadata, admin, blacklist, parent):
-            #admin = sp.set_type_expr(admin, sp.TAddress)
+        def __init__(self, parent, **kwargs):
             parent = sp.set_type_expr(parent, sp.TAddress)
 
-            ProxyBase.__init__(self, parent, **kwargs)# metadata, admin, blacklist, parent)
+            ProxyBase.__init__(self, parent, **kwargs)
 
             if VERBOSE: print("\nProxyChild")
             for f in dir(self):
@@ -116,18 +114,20 @@ def generateProxy(cls):
             self.data = storage
             sp.add_operations(ops)
 
-
-        @sp.entry_point(lazify=False)
-        def default(self, params):
-            sp.set_type(params, self.ep_variant_type)
-
+        @sp.inline_result
+        def getEntrypointID(self, params):
             # Build a matcher for proxied_entrypoints
             with params.match_cases() as arg:
                 for index, entrypoint in enumerate(self.proxied_entrypoints):
                     if VERBOSE: print(f"getting lambda for {entrypoint[0]}")
                     with arg.match(entrypoint[0], f"{entrypoint[0]}_match"):
-                        sp.compute(self.executeParentLambda(sp.record(id=sp.nat(index), args=params)))
+                        sp.result(sp.nat(index))
 
+        @sp.entry_point(lazify=False)
+        def default(self, params):
+            sp.set_type(params, self.ep_variant_type)
+            ep_id = sp.compute(self.getEntrypointID(params))
+            sp.compute(self.executeParentLambda(sp.record(id=ep_id, args=params)))
 
         # NOTE: This can be on the child only. Base and Parent don't need it.
         @sp.entry_point(lazify=False, parameter_type=sp.TAddress)
