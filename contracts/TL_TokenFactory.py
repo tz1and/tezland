@@ -109,7 +109,7 @@ class TL_TokenFactory(
             last_token_id = 0,
             ledger = sp.big_map(),
             operators = sp.big_map(),
-            paused = False,
+            #paused = False,
             proposed_administrator = sp.none,
             token_extra = sp.big_map(),
             token_metadata = sp.big_map(),

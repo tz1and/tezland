@@ -1,12 +1,8 @@
-import pprint
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
 from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from contracts.Tokens import tz1andPrivateCollection
-
-# TODO: fix generated metadata
-# TODO: dormant blacklist!
+from tezosbuilders_contracts_smartpy.utils import Utils
 
 
 # NOTE: all proxied entrypoints must have parameter_type set!
@@ -140,4 +136,5 @@ class FA2ProxyChild(
     @sp.entry_point(lazify=False, parameter_type=sp.TAddress)
     def set_parent(self, parent):
         self.onlyAdministrator()
+        Utils.onlyContract(parent)
         self.data.parent = parent

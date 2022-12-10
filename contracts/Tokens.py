@@ -135,7 +135,12 @@ class tz1andPrivateCollection(
         FA2.Fa2Fungible.__init__(
             self, metadata=metadata,
             name="tz1and Collection", description="tz1and Item Collection.",
-            policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
+            # NOTE: If proxied, the FA2 doesn't need to be pausable - can
+            # just nuke the transfer/mint/burn entrypoints in case of emergency.
+            #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
+            #policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()).
+            #policy=FA2.BlacklistTransfer(blacklist, FA2.OwnerOrOperatorAdhocTransfer(), True, True),
+            policy=FA2.OwnerOrOperatorAdhocTransfer(),
             has_royalties=True,
             allow_mint_existing=False,
             include_views=include_views

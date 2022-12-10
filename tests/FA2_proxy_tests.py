@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import FA2_proxy, TL_Blacklist
+from contracts import FA2_proxy, TL_Blacklist, FA2
 
 
 @sp.add_test(name = "FA2_proxy_tests", profile = True)
@@ -41,9 +41,36 @@ def test():
         admin.address, blacklist.address, parent.address)
     scenario += child
 
-    #child.default(sp.variant("get_token", sp.record(fa2=base.address, id=10001337))).run(sender=admin)
+    # Test updating eps, chaging parent, permissions.
 
-    # TODO: Test updating eps, chaging parent, etc permissions!!!!!
+    scenario.h3("Tests")
+    scenario.h4("child: set_parent")
+
+    # only admin can change parent!
+    for acc in [alice, bob, admin]:
+        child.set_parent(blacklist.address).run(
+            sender=acc,
+            valid=(True if acc is admin else False),
+            exception=(None if acc is admin else "ONLY_ADMIN"))
+
+    # can only change parent to a contract
+    child.set_parent(bob.address).run(sender=admin, valid=False, exception="NOT_CONTRACT")
+    child.set_parent(parent.address).run(sender=admin)
+
+    scenario.h4("parent: update_ep")
+
+    def test_transfer_update(self, params):
+        sp.set_type(params, FA2.t_transfer_params)
+        sp.failwith("FAIL")
+
+    upgrade_transfer = sp.record(id = sp.contract_entrypoint_id(parent, "transfer"), new_code = sp.utils.wrap_entry_point("transfer", test_transfer_update))
+
+    # only admin can upgrade entrypoints
+    for acc in [alice, bob, admin]:
+        parent.update_ep(upgrade_transfer).run(
+            sender=acc,
+            valid=(True if acc is admin else False),
+            exception=(None if acc is admin else "ONLY_ADMIN"))
 
     #
     # mint. NOTE: breaks interpreter LOL
