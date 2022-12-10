@@ -7,6 +7,7 @@ from contracts import FA2
 
 # TODO: fix generated metadata
 # TODO: dormant blacklist!
+# TODO: move collection contract to Tokens?
 
 
 # NOTE: all proxied entrypoints must have parameter_type set!
@@ -22,12 +23,12 @@ class OriginalFA2(
     FA2.Royalties,
     FA2.Fa2Fungible,
 ):
-    """tz1and Items"""
+    """tz1and Collection"""
 
     def __init__(self, metadata, admin, include_views=True):
         FA2.Fa2Fungible.__init__(
             self, metadata=metadata,
-            name="tz1and Items", description="tz1and Item FA2 Tokens.",
+            name="tz1and Collection", description="tz1and Item Collection.",
             #policy=FA2.BlacklistTransfer(admin, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True),
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()),
             has_royalties=True,
