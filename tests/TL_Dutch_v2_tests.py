@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_Dutch_v2, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens
+from contracts import TL_Dutch_v2, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens, FA2_proxy
 
 
 @sp.add_test(name = "TL_Dutch_v2_tests", profile = True)
@@ -64,9 +64,15 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
+    scenario.h3("FA2ProxyParent")
+    fa2_proxy_parent = FA2_proxy.FA2ProxyParent(
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address, parent = admin.address)
+    scenario += fa2_proxy_parent
+
     scenario.h3("TokenFactory")
     token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
+        proxy_parent = fa2_proxy_parent.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 

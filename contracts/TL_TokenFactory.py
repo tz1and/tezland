@@ -1,4 +1,3 @@
-from importlib.metadata import metadata
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
@@ -7,39 +6,10 @@ from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 
-from contracts import TL_TokenRegistry, FA2
+from contracts import TL_TokenRegistry, FA2_proxy
 from tezosbuilders_contracts_smartpy.utils import Utils
+from contracts.utils import EnvUtils
 
-
-# TODO: figure out if we *need* FA2.PauseTransfer()
-# + It might be good to have, simply for security reasons...
-#   Then again, if the FA2 is borked, pausing is destructive to value as well.
-#   But one could migrate to another FA2 before all value is lost. So maybe worth it...
-
-#
-# The template FA2 contract.
-class tz1andCollection(
-    Administrable,
-    FA2.ChangeMetadata,
-    FA2.MintFungible,
-    FA2.BurnFungible,
-    FA2.Royalties,
-    FA2.Fa2Fungible,
-):
-    """tz1and Collection"""
-
-    def __init__(self, metadata, admin):
-        admin = sp.set_type_expr(admin, sp.TAddress)
-
-        FA2.Fa2Fungible.__init__(
-            self, metadata=metadata,
-            name="tz1and Collection", description="tz1and Item Collection.",
-            policy=FA2.OwnerOrOperatorAdhocTransfer(), has_royalties=True,
-            allow_mint_existing=False
-        )
-        FA2.MintFungible.__init__(self)
-        FA2.Royalties.__init__(self)
-        Administrable.__init__(self, admin, include_views = False)
 
 #
 # TokenFactory contract.
@@ -51,7 +21,7 @@ class TL_TokenFactory(
     MetaSettings,
     Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, registry, minter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, minter, proxy_parent, metadata, exception_optimization_level="default-line"):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
@@ -60,18 +30,25 @@ class TL_TokenFactory(
         administrator = sp.set_type_expr(administrator, sp.TAddress)
         registry = sp.set_type_expr(registry, sp.TAddress)
         minter = sp.set_type_expr(minter, sp.TAddress)
+        proxy_parent = sp.set_type_expr(proxy_parent, sp.TAddress)
 
         # NOTE: args don't matter here since we set storage on origination.
-        self.collection_contract = tz1andCollection(metadata, administrator)
+        if EnvUtils.inTests():
+            print(f"\x1b[35;20mWARNING: Using FA2ProxyBase in TokenFactory for testing\x1b[0m")
+            self.collection_contract = FA2_proxy.FA2ProxyBase(metadata, administrator, proxy_parent)
+        else:
+            self.collection_contract = FA2_proxy.FA2ProxyChild(metadata, administrator, proxy_parent)
         
         self.init_storage(
             registry = registry,
-            minter = minter
+            minter = minter,
+            proxy_parent = proxy_parent
         )
 
         self.available_settings = [
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("minter", sp.TAddress, lambda x : Utils.onlyContract(x))
+            ("minter", sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("proxy_parent", sp.TAddress, lambda x : Utils.onlyContract(x))
         ]
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
@@ -132,10 +109,11 @@ class TL_TokenFactory(
             last_token_id = 0,
             ledger = sp.big_map(),
             operators = sp.big_map(),
-            #paused = False,
+            paused = False,
             proposed_administrator = sp.none,
             token_extra = sp.big_map(),
-            token_metadata = sp.big_map()
+            token_metadata = sp.big_map(),
+            parent = self.data.proxy_parent
         ))
 
         # Add private collection in token registry

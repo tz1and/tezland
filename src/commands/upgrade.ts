@@ -245,6 +245,17 @@ export default class Upgrade extends PostUpgrade {
         }
 
         //
+        // FA2 Proxy Parent
+        //
+        let FA2ProxyParent_contract: ContractAbstraction<Wallet>;
+        {
+            FA2ProxyParent_contract = await this.deploy_contract("ProxyParent", "FA2_proxy", "FA2ProxyParent", [
+                `admin = sp.address("${this.accountAddress}")`,
+                `parent = sp.address("${this.accountAddress}")`
+            ]);
+        }
+
+        //
         // Token Factory and Dutch v2
         //
         let Factory_contract: ContractAbstraction<Wallet>,
@@ -256,7 +267,8 @@ export default class Upgrade extends PostUpgrade {
             await tezland_batch.addToBatch("TL_TokenFactory", "TL_TokenFactory", "TL_TokenFactory", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
-                `minter = sp.address("${Minter_v2_contract.address}")`
+                `minter = sp.address("${Minter_v2_contract.address}")`,
+                `proxy_parent = sp.address("${FA2ProxyParent_contract.address}")`
             ]);
 
             // Compile and deploy Minter contract.
@@ -386,22 +398,23 @@ export default class Upgrade extends PostUpgrade {
         // Post deploy
         //
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
-            items_FA2_contract: tezlandItems,
+            items_FA2_contract: tezlandItems, // Deprecated
             items_v2_FA2_contract: items_v2_FA2_contract,
-            places_FA2_contract: tezlandPlaces,
+            places_FA2_contract: tezlandPlaces, // Deprecated
             places_v2_FA2_contract: places_v2_FA2_contract,
             interiors_FA2_contract: interiors_FA2_contract,
             dao_FA2_contract: tezlandDAO,
-            Minter_contract: tezlandMinter,
+            Minter_contract: tezlandMinter, // Deprecated
             Minter_v2_contract: Minter_v2_contract,
-            World_contract: tezlandWorld,
+            World_contract: tezlandWorld, // Deprecated
             World_v2_contract: World_v2_contract,
-            Dutch_contract: tezlandDutchAuctions,
+            Dutch_contract: tezlandDutchAuctions,// Deprecated
             Dutch_v2_contract: Dutch_v2_contract,
             Factory_contract: Factory_contract,
             Registry_contract: Registry_contract,
             LegacyRoyalties_contract: LegacyRoyalties_contract,
-            RoyaltiesAdapter_contract: RoyaltiesAdapter_contract
+            RoyaltiesAdapter_contract: RoyaltiesAdapter_contract,
+            FA2ProxyParent_contract: FA2ProxyParent_contract
         })));
     }
 

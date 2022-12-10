@@ -41,6 +41,9 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 # TODO: include AdminLambda in contracts?
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
+# TODO: dormant blacklist in proxy?
+# TODO: places and items proxy as well?
+# TODO: view per ep proxy contract. return lambdas inline. or maybe store them in a bigmap for upgradeability.
 
 
 # Other
