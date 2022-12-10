@@ -3,51 +3,24 @@ import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
 from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from contracts import FA2
+from contracts.Tokens import tz1andPrivateCollection
 
 # TODO: fix generated metadata
 # TODO: dormant blacklist!
-# TODO: move collection contract to Tokens?
 
 
 # NOTE: all proxied entrypoints must have parameter_type set!
 
 VERBOSE = False
 
-
-class OriginalFA2(
-    Administrable,
-    FA2.ChangeMetadata,
-    FA2.MintFungible,
-    FA2.BurnFungible,
-    FA2.Royalties,
-    FA2.Fa2Fungible,
-):
-    """tz1and Collection"""
-
-    def __init__(self, metadata, admin, include_views=True):
-        FA2.Fa2Fungible.__init__(
-            self, metadata=metadata,
-            name="tz1and Collection", description="tz1and Item Collection.",
-            #policy=FA2.BlacklistTransfer(admin, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True),
-            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()),
-            has_royalties=True,
-            allow_mint_existing=False,
-            include_views=include_views
-        )
-        FA2.MintFungible.__init__(self)
-        FA2.Royalties.__init__(self, include_views = include_views)
-        Administrable.__init__(self, admin, include_views = False)
-
-
-class FA2ProxyBase(OriginalFA2):
+class FA2ProxyBase(tz1andPrivateCollection):
     """FA2 Proxy base contract"""
 
-    def __init__(self, metadata, admin, parent, include_views=True):
+    def __init__(self, metadata, admin, blacklist, parent, include_views=True):
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        OriginalFA2.__init__(self, metadata, admin, include_views=include_views)
+        tz1andPrivateCollection.__init__(self, metadata, admin, blacklist, include_views=include_views)
 
         if VERBOSE: print("\nProxyBase")
         self.update_initial_storage(parent = parent)
@@ -76,14 +49,14 @@ class FA2ProxyParent(
     #    sp.set_type(params, FA2.t_transfer_params)
     #    self.transfer.f(self, params)
 
-    def __init__(self, metadata, admin, parent):
+    def __init__(self, metadata, admin, blacklist, parent):
         # All entry points should be lazy, exceptions marked not lazy.
         self.add_flag("lazy-entry-points")
 
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        FA2ProxyBase.__init__(self, metadata, admin, parent, include_views=False)
+        FA2ProxyBase.__init__(self, metadata, admin, blacklist, parent, include_views=False)
 
         if VERBOSE: print("\nProxyParent")
         # remove unneeded entrypoints
@@ -116,11 +89,11 @@ class FA2ProxyChild(
     """FA2 Proxy child contract"""
 
     # NOTE: No entry points should be lazy.
-    def __init__(self, metadata, admin, parent):
+    def __init__(self, metadata, admin, blacklist, parent):
         admin = sp.set_type_expr(admin, sp.TAddress)
         parent = sp.set_type_expr(parent, sp.TAddress)
 
-        FA2ProxyBase.__init__(self, metadata, admin, parent)
+        FA2ProxyBase.__init__(self, metadata, admin, blacklist, parent)
 
         if VERBOSE: print("\nProxyChild")
         for f in dir(self):

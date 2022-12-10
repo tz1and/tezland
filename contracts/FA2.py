@@ -8,6 +8,7 @@ Multiple mixins and several standard [policies](https://gitlab.com/tezos/tzip/-/
 import smartpy as sp
 import types
 
+from contracts import TL_Blacklist
 from contracts.utils import EnvUtils
 
 
@@ -403,38 +404,39 @@ class BlacklistTransfer:
     Needs the `Administrable` mixin in order to work if ep is generated.
     """
 
-    def __init__(self, blacklist_address, policy = None, set_blacklist_ep: bool = False):
+    def __init__(self, blacklist_address, policy = None, set_blacklist_ep: bool = False, dormant: bool = False):
         if policy is None:
             self.policy = OwnerOrOperatorTransfer()
         else:
             self.policy = policy
         self.blacklist_address = blacklist_address
         self.set_blacklist_ep = set_blacklist_ep
+        self.dormant = dormant
 
     def init_policy(self, contract):
         self.policy.init_policy(contract)
         self.name = "blacklist-" + self.policy.name
         self.supports_transfer = self.policy.supports_transfer
         self.supports_operator = self.policy.supports_operator
-        contract.update_initial_storage(blacklist=sp.set_type_expr(self.blacklist_address, sp.TAddress))
+        # NOTE: Probably Not needed, blacklist address is compiled into the code.
+        #contract.update_initial_storage(blacklist=sp.set_type_expr(self.blacklist_address, sp.TAddress))
 
-        # Optionally, add a set_blacklist entrypoint
-        if self.set_blacklist_ep:
-            def set_blacklist(self, params):
-                sp.set_type(params, sp.TAddress)
-                self.onlyAdministrator()
-                self.data.blacklist = params
+        ## Optionally, add a set_blacklist entrypoint
+        #if self.set_blacklist_ep:
+        #    def set_blacklist(self, params):
+        #        sp.set_type(params, sp.TAddress)
+        #        self.onlyAdministrator()
+        #        self.data.blacklist = params
 
-            contract.set_blacklist = sp.entry_point(set_blacklist, lazify=False, parameter_type=sp.TAddress)
+        #    contract.set_blacklist = sp.entry_point(set_blacklist, lazify=False, parameter_type=sp.TAddress)
 
     # TODO: this isn't really optimal: calls view for every tx in the transfer. optimise!
     # + maybe add a check_tx_transfer_permissions_batch or so?
     def check_tx_transfer_permissions(self, contract, from_, to_, token_id):
-        # Call view to check blacklist. Fails if blacklisted.
-        sp.compute(sp.view("check_blacklisted", contract.data.blacklist,
-            sp.set_type_expr(sp.set([from_, to_]), sp.TSet(sp.TAddress)),
-            t = sp.TUnit).open_some())
-        sp.trace("Checked blacklist!")
+        if not self.dormant:
+            # Call view to check blacklist. Fails if blacklisted.
+            print(f"\x1b[35;20mWARNING: Blacklist was awoken!\x1b[0m")
+            sp.compute(TL_Blacklist.checkBlacklisted(self.blacklist_address, sp.set([from_, to_])).open_some(sp.unit))
         self.policy.check_tx_transfer_permissions(contract, from_, to_, token_id)
 
     def check_operator_add_permissions(self, contract, operator_param):

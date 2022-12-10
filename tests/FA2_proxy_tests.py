@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import FA2_proxy
+from contracts import FA2_proxy, TL_Blacklist
 
 
 @sp.add_test(name = "FA2_proxy_tests", profile = True)
@@ -19,23 +19,31 @@ def test():
 
     scenario.h2("Test FA2_proxy")
 
+    scenario.h3("Test env")
+    scenario.h4("Blacklist")
+    blacklist = TL_Blacklist.TL_Blacklist(admin.address,
+        sp.utils.metadata_of_url("ipfs://example"))
+    scenario += blacklist
+
     scenario.h3("Contract origination")
     scenario.h4("base")
     base = FA2_proxy.FA2ProxyBase(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, admin.address)
+        admin.address, blacklist.address, admin.address)
     scenario += base
 
     scenario.h4("parent")
     parent = FA2_proxy.FA2ProxyParent(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, admin.address)
+        admin.address, blacklist.address, admin.address)
     scenario += parent
 
     scenario.h4("child")
     child = FA2_proxy.FA2ProxyChild(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, parent.address)
+        admin.address, blacklist.address, parent.address)
     scenario += child
 
     #child.default(sp.variant("get_token", sp.record(fa2=base.address, id=10001337))).run(sender=admin)
+
+    # TODO: Test updating eps, chaging parent, etc permissions!!!!!
 
     #
     # mint. NOTE: breaks interpreter LOL

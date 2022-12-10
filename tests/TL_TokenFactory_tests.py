@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_TokenFactory, TL_TokenRegistry, TL_Minter_v2, FA2_proxy
+from contracts import TL_TokenFactory, TL_TokenRegistry, TL_Minter_v2, FA2_proxy, TL_Blacklist
 
 
 @sp.add_test(name = "TL_TokenFactory_tests", profile = True)
@@ -31,16 +31,22 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += minter
 
+    scenario.h2("Blacklist")
+    blacklist = TL_Blacklist.TL_Blacklist(admin.address,
+        sp.utils.metadata_of_url("ipfs://example"))
+    scenario += blacklist
+
     scenario.h2("FA2ProxyParent")
     fa2_proxy_parent = FA2_proxy.FA2ProxyParent(
         metadata = sp.utils.metadata_of_url("https://example.com"),
-        admin = admin.address, parent = admin.address)
+        admin = admin.address, blacklist = blacklist.address, parent = admin.address)
     scenario += fa2_proxy_parent
 
     # create token_factory contract
     scenario.h1("Test TokenFactory")
     token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter.address,
-        proxy_parent = fa2_proxy_parent.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+        blacklist = blacklist.address ,proxy_parent = fa2_proxy_parent.address,
+        metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
 

@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from contracts.utils import EnvUtils
 
 
 # TODO: add tests!
@@ -14,6 +15,13 @@ t_manage_blacklist = sp.TList(sp.TVariant(
 t_blacklist_param = sp.TSet(sp.TAddress)
 
 t_blacklist_result = sp.TSet(sp.TAddress)
+
+
+@EnvUtils.view_helper
+def checkBlacklisted(blacklist, address_set) -> sp.Expr:
+    return sp.view("check_blacklisted", sp.set_type_expr(blacklist, sp.TAddress),
+        sp.set_type_expr(address_set, sp.TSet(sp.TAddress)),
+        t = sp.TUnit)
 
 
 #

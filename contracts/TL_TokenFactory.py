@@ -21,7 +21,7 @@ class TL_TokenFactory(
     MetaSettings,
     Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, registry, minter, proxy_parent, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, minter, blacklist, proxy_parent, metadata, exception_optimization_level="default-line"):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
@@ -35,9 +35,9 @@ class TL_TokenFactory(
         # NOTE: args don't matter here since we set storage on origination.
         if EnvUtils.inTests():
             print(f"\x1b[35;20mWARNING: Using FA2ProxyBase in TokenFactory for testing\x1b[0m")
-            self.collection_contract = FA2_proxy.FA2ProxyBase(metadata, administrator, proxy_parent)
+            self.collection_contract = FA2_proxy.FA2ProxyBase(metadata, administrator, blacklist, proxy_parent)
         else:
-            self.collection_contract = FA2_proxy.FA2ProxyChild(metadata, administrator, proxy_parent)
+            self.collection_contract = FA2_proxy.FA2ProxyChild(metadata, administrator, blacklist, proxy_parent)
         
         self.init_storage(
             registry = registry,
