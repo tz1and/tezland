@@ -27,18 +27,21 @@ def test():
 
     scenario.h3("Contract origination")
     scenario.h4("base")
-    base = FA2_proxy.FA2ProxyBase(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, blacklist.address, admin.address)
+    base = FA2_proxy.FA2ProxyBase(admin.address,
+        metadata=sp.utils.metadata_of_url("ipfs://example"),
+        admin=admin.address, blacklist=blacklist.address)
     scenario += base
 
     scenario.h4("parent")
-    parent = FA2_proxy.FA2ProxyParent(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, blacklist.address, admin.address)
+    parent = FA2_proxy.FA2ProxyParent(admin.address,
+        metadata=sp.utils.metadata_of_url("ipfs://example"),
+        admin=admin.address, blacklist=blacklist.address)
     scenario += parent
 
     scenario.h4("child")
-    child = FA2_proxy.FA2ProxyChild(sp.utils.metadata_of_url("ipfs://example"),
-        admin.address, blacklist.address, parent.address)
+    child = FA2_proxy.FA2ProxyChild(parent.address,
+        metadata=sp.utils.metadata_of_url("ipfs://example"),
+        admin=admin.address, blacklist=blacklist.address)
     scenario += child
 
     # Test updating eps, chaging parent, permissions.
