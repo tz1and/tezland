@@ -247,11 +247,22 @@ export default class Upgrade extends PostUpgrade {
         //
         // FA2 Proxy Parent
         //
+        let Blacklist_contract: ContractAbstraction<Wallet>;
+        {
+            Blacklist_contract = await this.deploy_contract("TL_Blacklist", "TL_Blacklist", "TL_Blacklist", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+        }
+
+        //
+        // FA2 Proxy Parent
+        //
         let FA2ProxyParent_contract: ContractAbstraction<Wallet>;
         {
             FA2ProxyParent_contract = await this.deploy_contract("ProxyParent", "FA2_proxy", "FA2ProxyParent", [
                 `admin = sp.address("${this.accountAddress}")`,
-                `parent = sp.address("${this.accountAddress}")`
+                `parent = sp.address("${this.accountAddress}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`
             ]);
         }
 
@@ -268,7 +279,8 @@ export default class Upgrade extends PostUpgrade {
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
                 `minter = sp.address("${Minter_v2_contract.address}")`,
-                `proxy_parent = sp.address("${FA2ProxyParent_contract.address}")`
+                `proxy_parent = sp.address("${FA2ProxyParent_contract.address}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`
             ]);
 
             // Compile and deploy Minter contract.
@@ -414,7 +426,8 @@ export default class Upgrade extends PostUpgrade {
             Registry_contract: Registry_contract,
             LegacyRoyalties_contract: LegacyRoyalties_contract,
             RoyaltiesAdapter_contract: RoyaltiesAdapter_contract,
-            FA2ProxyParent_contract: FA2ProxyParent_contract
+            FA2ProxyParent_contract: FA2ProxyParent_contract,
+            Blacklist_contract: Blacklist_contract
         })));
     }
 
