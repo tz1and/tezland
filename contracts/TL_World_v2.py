@@ -42,8 +42,9 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 # TODO: dormant blacklist in proxy?
+# TODO: should places/interiors also be a proxy?
 # TODO: places and items proxy as well?
-# TODO: view per ep proxy contract. return lambdas inline. or maybe store them in a bigmap for upgradeability.
+# TODO: should anything even be a proxy?
 
 
 # Other
