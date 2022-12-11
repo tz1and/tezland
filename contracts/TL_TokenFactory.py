@@ -35,10 +35,10 @@ class TL_TokenFactory(
         # NOTE: args don't matter here since we set storage on origination.
         if EnvUtils.inTests():
             print(f"\x1b[35;20mWARNING: Using FA2ProxyBase in TokenFactory for testing\x1b[0m")
-            self.collection_contract = Tokens.tz1andItemCollectionBase(parent = proxy_parent,
+            self.collection_contract = Tokens.ItemCollectionProxyBase(parent = proxy_parent,
                 metadata = metadata, admin = administrator, blacklist = blacklist)
         else:
-            self.collection_contract = Tokens.tz1andItemCollectionChild(parent = proxy_parent,
+            self.collection_contract = Tokens.ItemCollectionProxyChild(parent = proxy_parent,
                 metadata = metadata, admin = administrator, blacklist = blacklist)
         
         self.init_storage(

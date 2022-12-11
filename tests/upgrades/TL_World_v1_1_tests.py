@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_Minter, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, Tokens, FA2_proxy, TL_Blacklist
+from contracts import TL_Minter, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, TL_Blacklist, Tokens
 from contracts.upgrades import TL_World_v1_1
 
 
@@ -170,8 +170,8 @@ def test():
         sp.utils.metadata_of_url("ipfs://example"))
     scenario += blacklist
 
-    scenario.h3("FA2ProxyParent")
-    fa2_proxy_parent = FA2_proxy.FA2ProxyParent(
+    scenario.h3("ItemCollectionProxyParent")
+    fa2_proxy_parent = Tokens.ItemCollectionProxyParent(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address, blacklist = blacklist.address, parent = admin.address)
     scenario += fa2_proxy_parent

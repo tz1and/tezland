@@ -36,8 +36,8 @@ def test():
         sp.utils.metadata_of_url("ipfs://example"))
     scenario += blacklist
 
-    scenario.h2("FA2ProxyParent")
-    fa2_proxy_parent = Tokens.tz1andItemCollectionParent(
+    scenario.h2("ItemCollectionProxyParent")
+    fa2_proxy_parent = Tokens.ItemCollectionProxyParent(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address, blacklist = blacklist.address, parent = admin.address)
     scenario += fa2_proxy_parent

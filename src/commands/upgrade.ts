@@ -255,11 +255,11 @@ export default class Upgrade extends PostUpgrade {
         }
 
         //
-        // FA2 Proxy Parent
+        // Item Collection Proxy Parent
         //
-        let FA2ProxyParent_contract: ContractAbstraction<Wallet>;
+        let ItemCollectionProxyParent_contract: ContractAbstraction<Wallet>;
         {
-            FA2ProxyParent_contract = await this.deploy_contract("ProxyParent", "FA2_proxy", "FA2ProxyParent", [
+            ItemCollectionProxyParent_contract = await this.deploy_contract("ItemCollectionProxyParent", "Tokens", "ItemCollectionProxyParent", [
                 `admin = sp.address("${this.accountAddress}")`,
                 `parent = sp.address("${this.accountAddress}")`,
                 `blacklist = sp.address("${Blacklist_contract.address}")`
@@ -279,7 +279,7 @@ export default class Upgrade extends PostUpgrade {
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
                 `minter = sp.address("${Minter_v2_contract.address}")`,
-                `proxy_parent = sp.address("${FA2ProxyParent_contract.address}")`,
+                `proxy_parent = sp.address("${ItemCollectionProxyParent_contract.address}")`,
                 `blacklist = sp.address("${Blacklist_contract.address}")`
             ]);
 
@@ -410,7 +410,7 @@ export default class Upgrade extends PostUpgrade {
         // Post deploy
         //
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
-            items_FA2_contract: tezlandItems, // Deprecated
+            items_FA2_contract: tezlandItems, // Deprecated, but still usable
             items_v2_FA2_contract: items_v2_FA2_contract,
             places_FA2_contract: tezlandPlaces, // Deprecated
             places_v2_FA2_contract: places_v2_FA2_contract,
@@ -426,7 +426,7 @@ export default class Upgrade extends PostUpgrade {
             Registry_contract: Registry_contract,
             LegacyRoyalties_contract: LegacyRoyalties_contract,
             RoyaltiesAdapter_contract: RoyaltiesAdapter_contract,
-            FA2ProxyParent_contract: FA2ProxyParent_contract,
+            ItemCollectionProxyParent_contract: ItemCollectionProxyParent_contract,
             Blacklist_contract: Blacklist_contract
         })));
     }

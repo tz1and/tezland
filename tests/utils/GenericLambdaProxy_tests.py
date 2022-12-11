@@ -17,7 +17,7 @@ def test():
     scenario.h2("Accounts")
     scenario.show([admin, alice, bob])
 
-    scenario.h2("Test FA2_proxy")
+    scenario.h2("Test GenericLambdaProxy")
 
     scenario.h3("Test env")
     scenario.h4("Blacklist")
@@ -27,19 +27,19 @@ def test():
 
     scenario.h3("Contract origination")
     scenario.h4("ProxyBase")
-    base = Tokens.tz1andItemCollectionBase(admin.address,
+    base = Tokens.ItemCollectionProxyBase(admin.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += base
 
     scenario.h4("ProxyParent")
-    parent = Tokens.tz1andItemCollectionParent(admin.address,
+    parent = Tokens.ItemCollectionProxyParent(admin.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += parent
 
     scenario.h4("ProxyChild")
-    child = Tokens.tz1andItemCollectionChild(parent.address,
+    child = Tokens.ItemCollectionProxyChild(parent.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += child

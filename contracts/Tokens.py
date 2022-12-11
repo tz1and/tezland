@@ -123,7 +123,7 @@ def generateItemCollectionProxy():
     # TODO: add name/description to args.
     # TODO: should places/interiors also be a proxy?
     # TODO: should anything even be a proxy?
-    class tz1andItemCollection(
+    class ItemCollection(
         Administrable,
         FA2.ChangeMetadata,
         FA2.MintFungible,
@@ -151,6 +151,6 @@ def generateItemCollectionProxy():
             FA2.Royalties.__init__(self, include_views = include_views)
             Administrable.__init__(self, admin, include_views = False)
 
-    return GenericLambdaProxy(tz1andItemCollection)
+    return GenericLambdaProxy(ItemCollection)
 
-tz1andItemCollectionBase, tz1andItemCollectionParent, tz1andItemCollectionChild = generateItemCollectionProxy()
+ItemCollectionProxyBase, ItemCollectionProxyParent, ItemCollectionProxyChild = generateItemCollectionProxy()
