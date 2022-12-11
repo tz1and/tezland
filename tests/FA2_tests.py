@@ -78,6 +78,7 @@ if "templates" not in __name__:
             FA2.Fa2SingleAsset.__init__(
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
+            FA2.OnchainviewCountTokens.__init__(self)
             Administrable.__init__(self, admin.address)
 
     # Fa2Nft
