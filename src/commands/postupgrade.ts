@@ -1089,13 +1089,26 @@ export default class PostUpgrade extends PostDeployBase {
             return op;
         });
 
+        const originatedTokenContract = await this.tezos!.wallet.at(originatedTokenContractAddress!);
+
         // mint with created token.
         await runTaskAndAddGasResults(gas_results, "mint_private (2)", async () => {
-            const originatedTokenContract = await this.tezos!.wallet.at(originatedTokenContractAddress!);
             const mint_batch2 = this.tezos!.wallet.batch();
             await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
             await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
             return mint_batch2.send();
+        });
+
+        // transfer with created token
+        await runTaskAndAddGasResults(gas_results, "transfer", () => {
+            return originatedTokenContract.methodsObject.transfer([{
+                from_: this.accountAddress,
+                txs: [{
+                    to_: contracts.get("Minter_v2_contract")!.address,
+                    amount: 1,
+                    token_id: 0
+                }]
+            }]).send();
         });
         
 
