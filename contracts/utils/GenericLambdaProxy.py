@@ -7,8 +7,14 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 VERBOSE = False
 
 # NOTE: all proxied entrypoints in cls must have parameter_type set!
-# NOTE: cls *should* have a include_views arg that defaults to True.
+# NOTE: all entrypoints that are not explicitly set to lazify=False are proxied.
+# NOTE: cls *must* have a include_views arg that defaults to True.
+# NOTE: cls is assumed to use Administrable, which will also be proxied (needed for Upgradeable on parent).
 def GenericLambdaProxy(cls):
+    """A generic lambda proxy that slots into smartpy lazy entrypoints.
+    
+    Lambdas are loaded from `ProxyParent` contract and executed on the
+    storage of the `ProxyChild`."""
     class ProxyBase(cls):
         """ProxyBase contract"""
 
@@ -50,7 +56,7 @@ def GenericLambdaProxy(cls):
 
             if VERBOSE: print("\nProxyParent")
             # remove unneeded entrypoints
-            keep_entrypoints = ["accept_administrator", "transfer_administrator", "update_ep"]
+            keep_entrypoints = ["update_ep"]
             deleted_entrypoints = []
             for f in dir(self):
                 attr = getattr(self, f)
@@ -97,15 +103,18 @@ def GenericLambdaProxy(cls):
                             setattr(self, f, None)
                             #delattr(self, f)
 
-
         def executeParentLambda(self, id, args):
             lambda_type = sp.TLambda(sp.TPair(self.ep_variant_type, self.storage_type), sp.TPair(sp.TList(sp.TOperation), self.storage_type))
-            lambda_function = sp.compute(sp.view("get_ep_lambda", self.data.parent,
+            lambda_function_opt = sp.view("get_ep_lambda", self.data.parent,
                 sp.set_type_expr(id, sp.TNat),
-                t = lambda_type).open_some())
-            ops, storage = sp.match_pair(lambda_function(sp.pair(args, self.data)))
-            self.data = storage
-            sp.add_operations(ops)
+                t = lambda_type)
+            with lambda_function_opt.match_cases() as arg:
+                with arg.match("Some") as lambda_function_some:
+                    ops, storage = sp.match_pair(lambda_function_some(sp.pair(args, self.data)))
+                    self.data = storage
+                    sp.add_operations(ops)
+                with arg.match("None"):
+                    sp.failwith(sp.unit)
 
         @sp.inline_result
         def getEntrypointID(self, params):

@@ -887,7 +887,7 @@ class ChangeMetadata:
     Requires the `Administrable` mixin.
     """
 
-    @sp.entry_point(lazify=False, parameter_type=sp.TBigMap(sp.TString, sp.TBytes))
+    @sp.entry_point(parameter_type=sp.TBigMap(sp.TString, sp.TBytes))
     def set_metadata(self, metadata):
         """(Admin only) Set the contract metadata."""
         sp.set_type(metadata, sp.TBigMap(sp.TString, sp.TBytes))
