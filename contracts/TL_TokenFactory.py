@@ -6,7 +6,7 @@ from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 
-from contracts import TL_TokenRegistry, FA2_proxy
+from contracts import TL_TokenRegistry, Tokens
 from tezosbuilders_contracts_smartpy.utils import Utils
 from contracts.utils import EnvUtils
 
@@ -35,9 +35,11 @@ class TL_TokenFactory(
         # NOTE: args don't matter here since we set storage on origination.
         if EnvUtils.inTests():
             print(f"\x1b[35;20mWARNING: Using FA2ProxyBase in TokenFactory for testing\x1b[0m")
-            self.collection_contract = FA2_proxy.FA2ProxyBase(metadata, administrator, blacklist, proxy_parent)
+            self.collection_contract = Tokens.tz1andItemCollectionBase(parent = proxy_parent,
+                metadata = metadata, admin = administrator, blacklist = blacklist)
         else:
-            self.collection_contract = FA2_proxy.FA2ProxyChild(metadata, administrator, blacklist, proxy_parent)
+            self.collection_contract = Tokens.tz1andItemCollectionChild(parent = proxy_parent,
+                metadata = metadata, admin = administrator, blacklist = blacklist)
         
         self.init_storage(
             registry = registry,

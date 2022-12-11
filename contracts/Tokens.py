@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from contracts.utils.GenericLambdaProxy import GenericLambdaProxy
 from contracts.legacy import FA2_legacy
 
 
@@ -118,33 +119,38 @@ class tz1andItems_v2(
         FA2.Royalties.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
-# TODO: add name/description to args.
-# TODO: should places/interiors also be a proxy?
-# TODO: should anything even be a proxy?
-class tz1andPrivateCollection(
-    Administrable,
-    FA2.ChangeMetadata,
-    FA2.MintFungible,
-    FA2.BurnFungible,
-    FA2.Royalties,
-    FA2.Fa2Fungible,
-):
-    """tz1and Collection"""
+def generateItemCollectionProxy():
+    # TODO: add name/description to args.
+    # TODO: should places/interiors also be a proxy?
+    # TODO: should anything even be a proxy?
+    class tz1andItemCollection(
+        Administrable,
+        FA2.ChangeMetadata,
+        FA2.MintFungible,
+        FA2.BurnFungible,
+        FA2.Royalties,
+        FA2.Fa2Fungible,
+    ):
+        """tz1and Collection"""
 
-    def __init__(self, metadata, admin, blacklist, include_views=True):
-        FA2.Fa2Fungible.__init__(
-            self, metadata=metadata,
-            name="tz1and Collection", description="tz1and Item Collection.",
-            # NOTE: If proxied, the FA2 doesn't need to be pausable - can
-            # just nuke the transfer/mint/burn entrypoints in case of emergency.
-            #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
-            #policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()).
-            #policy=FA2.BlacklistTransfer(blacklist, FA2.OwnerOrOperatorAdhocTransfer(), True, True),
-            policy=FA2.OwnerOrOperatorAdhocTransfer(),
-            has_royalties=True,
-            allow_mint_existing=False,
-            include_views=include_views
-        )
-        FA2.MintFungible.__init__(self)
-        FA2.Royalties.__init__(self, include_views = include_views)
-        Administrable.__init__(self, admin, include_views = False)
+        def __init__(self, metadata, admin, blacklist, include_views=True):
+            FA2.Fa2Fungible.__init__(
+                self, metadata=metadata,
+                name="tz1and Collection", description="A collection tz1and Item NFTs.",
+                # NOTE: If proxied, the FA2 doesn't need to be pausable - can
+                # just nuke the transfer/mint/burn entrypoints in case of emergency.
+                #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
+                #policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()).
+                #policy=FA2.BlacklistTransfer(blacklist, FA2.OwnerOrOperatorAdhocTransfer(), True, True),
+                policy=FA2.OwnerOrOperatorAdhocTransfer(),
+                has_royalties=True,
+                allow_mint_existing=False,
+                include_views=include_views
+            )
+            FA2.MintFungible.__init__(self)
+            FA2.Royalties.__init__(self, include_views = include_views)
+            Administrable.__init__(self, admin, include_views = False)
+
+    return GenericLambdaProxy(tz1andItemCollection)
+
+tz1andItemCollectionBase, tz1andItemCollectionParent, tz1andItemCollectionChild = generateItemCollectionProxy()
