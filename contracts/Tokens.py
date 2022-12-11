@@ -78,6 +78,7 @@ class tz1andInteriors(
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
         FA2.MintNft.__init__(self)
+        FA2.OnchainviewCountTokens.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
 class tz1andPlaces_v2(
@@ -96,6 +97,7 @@ class tz1andPlaces_v2(
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
         )
         FA2.MintNft.__init__(self)
+        FA2.OnchainviewCountTokens.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
 
 class tz1andItems_v2(
@@ -136,9 +138,11 @@ def generateItemCollectionProxy():
         def __init__(self, metadata, admin, blacklist, include_views=True):
             FA2.Fa2Fungible.__init__(
                 self, metadata=metadata,
-                name="tz1and Collection", description="A collection tz1and Item NFTs.",
+                name="tz1and Collection", description="A collection of tz1and Item NFTs.",
                 # NOTE: If proxied, the FA2 doesn't need to be pausable - can
                 # just nuke the transfer/mint/burn entrypoints in case of emergency.
+                # NOTE: similarly, invalid/banned/compromised FA2s can have their parent set to
+                # the null address instead of pausing them.
                 #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
                 #policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()).
                 #policy=FA2.BlacklistTransfer(blacklist, FA2.OwnerOrOperatorAdhocTransfer(), True, True),
