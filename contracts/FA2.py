@@ -630,7 +630,8 @@ class Fa2Nft(Common):
 
     def __init__(
         self, metadata, name="FA2", description="A NFT FA2 implementation.",
-        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False
+        token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False,
+        include_views=True
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.has_royalties = has_royalties
@@ -654,7 +655,19 @@ class Fa2Nft(Common):
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,
+            include_views=include_views
         )
+
+        if include_views:
+            def get_owner(self, token_id):
+                """Non-standard onchain view allowing direct retrieval of
+                owner for Nft type ledgers.
+                
+                Return the owner for the given `token_id`."""
+                sp.result(sp.set_type_expr(
+                    self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED"),
+                    sp.TAddress))
+            self.get_owner = sp.onchain_view(pure=True)(get_owner)
 
     def initial_mint(self, token_metadata=[], ledger={}, has_royalties=False):
         """Perform a mint before the origination.
@@ -693,16 +706,6 @@ class Fa2Nft(Common):
         )
         # Do the transfer
         self.data.ledger[tx.token_id] = tx.to_
-
-    @sp.onchain_view(pure=True)
-    def get_owner(self, token_id):
-        """Non-standard onchain view allowing direct retrieval of
-        owner for Nft type ledgers.
-        
-        Return the owner for the given `token_id`."""
-        sp.result(sp.set_type_expr(
-            self.data.ledger.get(token_id, message = "FA2_TOKEN_UNDEFINED"),
-            sp.TAddress))
 
 
 # TODO: test allow_mint_existing=False
@@ -1191,11 +1194,12 @@ class Royalties:
 
 class OnchainviewCountTokens:
     """(Mixin) Adds count_tokens onchain view."""
-    
-    @sp.onchain_view(pure=True)
-    def count_tokens(self):
-        """Returns the number of tokens in the FA2 contract."""
-        sp.result(self.data.last_token_id)
+    def __init__(self, include_views=True):
+        if include_views:
+            def count_tokens(self):
+                """Returns the number of tokens in the FA2 contract."""
+                sp.result(self.data.last_token_id)
+            self.count_tokens = sp.onchain_view(pure=True)(count_tokens)
 
 
 #########
