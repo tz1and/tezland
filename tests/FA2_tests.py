@@ -37,6 +37,7 @@ if "templates" not in __name__:
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
             FA2.MintNft.__init__(self)
+            FA2.OnchainviewCountTokens.__init__(self)
             Administrable.__init__(self, admin.address)
 
     class FungibleTest(
@@ -57,6 +58,7 @@ if "templates" not in __name__:
                 self, sp.utils.metadata_of_url("ipfs://example"), policy=policy
             )
             FA2.MintFungible.__init__(self)
+            FA2.OnchainviewCountTokens.__init__(self)
             Administrable.__init__(self, admin.address)
 
     class SingleAssetTest(
