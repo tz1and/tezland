@@ -10,7 +10,7 @@ VERBOSE = False
 # NOTE: cls *should* have a include_views arg that defaults to True.
 def GenericLambdaProxy(cls):
     class ProxyBase(cls):
-        """Proxy base contract"""
+        """ProxyBase contract"""
 
         def __init__(self, parent, **kwargs):
             parent = sp.set_type_expr(parent, sp.TAddress)
@@ -38,7 +38,7 @@ def GenericLambdaProxy(cls):
         ProxyBase,
         Upgradeable
     ):
-        """Proxy parent contract"""
+        """ProxyParent contract"""
 
         def __init__(self, parent, **kwargs):
             # All entry points should be lazy, exceptions marked not lazy.
@@ -76,7 +76,7 @@ def GenericLambdaProxy(cls):
     class ProxyChild(
         ProxyBase
     ):
-        """Proxy child contract"""
+        """ProxyChild contract"""
 
         # NOTE: No entry points should be lazy.
         def __init__(self, parent, **kwargs):

@@ -1,16 +1,16 @@
 import smartpy as sp
 
-from contracts import FA2_proxy, TL_Blacklist, FA2
+from contracts import TL_Blacklist, FA2, Tokens
 
 
-@sp.add_test(name = "FA2_proxy_tests", profile = True)
+@sp.add_test(name = "GenericLambdaProxy_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
     scenario = sp.test_scenario()
 
-    scenario.h1("FA2_proxy contract")
+    scenario.h1("GenericLambdaProxy contracts")
     scenario.table_of_contents()
 
     # Let's display the accounts:
@@ -26,20 +26,20 @@ def test():
     scenario += blacklist
 
     scenario.h3("Contract origination")
-    scenario.h4("base")
-    base = FA2_proxy.FA2ProxyBase(admin.address,
+    scenario.h4("ProxyBase")
+    base = Tokens.tz1andItemCollectionBase(admin.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += base
 
-    scenario.h4("parent")
-    parent = FA2_proxy.FA2ProxyParent(admin.address,
+    scenario.h4("ProxyParent")
+    parent = Tokens.tz1andItemCollectionParent(admin.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += parent
 
-    scenario.h4("child")
-    child = FA2_proxy.FA2ProxyChild(parent.address,
+    scenario.h4("ProxyChild")
+    child = Tokens.tz1andItemCollectionChild(parent.address,
         metadata=sp.utils.metadata_of_url("ipfs://example"),
         admin=admin.address, blacklist=blacklist.address)
     scenario += child
