@@ -37,15 +37,15 @@ def test():
     scenario += blacklist
 
     scenario.h2("ItemCollectionProxyParent")
-    fa2_proxy_parent = Tokens.ItemCollectionProxyParent(
+    collection_proxy_parent = Tokens.ItemCollectionProxyParent(
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address, blacklist = blacklist.address, parent = admin.address)
-    scenario += fa2_proxy_parent
+    scenario += collection_proxy_parent
 
     # create token_factory contract
     scenario.h1("Test TokenFactory")
     token_factory = TL_TokenFactory.TL_TokenFactory(admin.address, registry.address, minter.address,
-        blacklist = blacklist.address ,proxy_parent = fa2_proxy_parent.address,
+        blacklist = blacklist.address ,proxy_parent = collection_proxy_parent.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += token_factory
     scenario.register(token_factory.collection_contract)
