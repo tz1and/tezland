@@ -1,16 +1,14 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from contracts.Tokens import tz1andPrivateCollection
 from tezosbuilders_contracts_smartpy.utils import Utils
-
 
 
 VERBOSE = False
 
 # NOTE: all proxied entrypoints in cls must have parameter_type set!
 # NOTE: cls *should* have a include_views arg that defaults to True.
-def generateProxy(cls):
+def GenericLambdaProxy(cls):
     class ProxyBase(cls):
         """Proxy base contract"""
 
@@ -137,5 +135,3 @@ def generateProxy(cls):
             self.data.parent = parent
 
     return ProxyBase, ProxyParent, ProxyChild
-
-FA2ProxyBase, FA2ProxyParent, FA2ProxyChild = generateProxy(tz1andPrivateCollection)
