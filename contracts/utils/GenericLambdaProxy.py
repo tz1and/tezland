@@ -6,6 +6,9 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 
 VERBOSE = False
 
+# TODO: allow child views to be proxied to parent? views_proxied_to_parent arr in ctr.
+# TODO: allow customising kept entry points for parent. parent_keep_entrypoints arr in ctr.
+
 # NOTE: all proxied entrypoints in cls must have parameter_type set!
 # NOTE: all entrypoints that are not explicitly set to lazify=False are proxied.
 # NOTE: cls *must* have a include_views arg that defaults to True.
