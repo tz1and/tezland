@@ -98,17 +98,12 @@ def GenericLambdaProxy(cls):
                             #delattr(self, f)
 
 
-        @sp.private_lambda(with_storage="read-write", with_operations=True)
-        def executeParentLambda(self, params):
-            sp.set_type(params, sp.TRecord(
-                id = sp.TNat,
-                args = self.ep_variant_type
-            ))
+        def executeParentLambda(self, id, args):
             lambda_type = sp.TLambda(sp.TPair(self.ep_variant_type, self.storage_type), sp.TPair(sp.TList(sp.TOperation), self.storage_type))
             lambda_function = sp.compute(sp.view("get_ep_lambda", self.data.parent,
-                sp.set_type_expr(params.id, sp.TNat),
+                sp.set_type_expr(id, sp.TNat),
                 t = lambda_type).open_some())
-            ops, storage = sp.match_pair(lambda_function(sp.pair(params.args, self.data)))
+            ops, storage = sp.match_pair(lambda_function(sp.pair(args, self.data)))
             self.data = storage
             sp.add_operations(ops)
 
@@ -124,8 +119,7 @@ def GenericLambdaProxy(cls):
         @sp.entry_point(lazify=False)
         def default(self, params):
             sp.set_type(params, self.ep_variant_type)
-            ep_id = sp.compute(self.getEntrypointID(params))
-            sp.compute(self.executeParentLambda(sp.record(id=ep_id, args=params)))
+            self.executeParentLambda(self.getEntrypointID(params), params)
 
         # NOTE: This can be on the child only. Base and Parent don't need it.
         @sp.entry_point(lazify=False, parameter_type=sp.TAddress)
