@@ -62,44 +62,6 @@ class tz1andDAO(
 from contracts import FA2
 
 
-class tz1andInteriors(
-    Administrable,
-    FA2.ChangeMetadata,
-    FA2.MintNft,
-    FA2.OnchainviewCountTokens,
-    FA2.Fa2Nft,
-):
-    """tz1and Interiors"""
-
-    def __init__(self, metadata, admin):
-        FA2.Fa2Nft.__init__(
-            self, metadata=metadata,
-            name="tz1and Interiors", description="tz1and Interior FA2 Tokens.",
-            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
-        )
-        FA2.MintNft.__init__(self)
-        FA2.OnchainviewCountTokens.__init__(self)
-        Administrable.__init__(self, admin, include_views = False)
-
-class tz1andPlaces_v2(
-    Administrable,
-    FA2.ChangeMetadata,
-    FA2.MintNft,
-    FA2.OnchainviewCountTokens,
-    FA2.Fa2Nft,
-):
-    """tz1and Places"""
-
-    def __init__(self, metadata, admin):
-        FA2.Fa2Nft.__init__(
-            self, metadata=metadata,
-            name="tz1and Places", description="tz1and Place FA2 Tokens (v2).",
-            policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer())
-        )
-        FA2.MintNft.__init__(self)
-        FA2.OnchainviewCountTokens.__init__(self)
-        Administrable.__init__(self, admin, include_views = False)
-
 class tz1andItems_v2(
     Administrable,
     FA2.ChangeMetadata,
@@ -158,3 +120,36 @@ def generateItemCollectionProxy():
     return GenericLambdaProxy(ItemCollection)
 
 ItemCollectionProxyBase, ItemCollectionProxyParent, ItemCollectionProxyChild = generateItemCollectionProxy()
+
+
+def generatePlaceTokenProxy():
+    # TODO: add name/description to args.
+    # TODO: should places/interiors also be a proxy?
+    # TODO: should anything even be a proxy?
+    class Place(
+        Administrable,
+        FA2.ChangeMetadata,
+        FA2.MintNft,
+        FA2.OnchainviewCountTokens,
+        FA2.Fa2Nft,
+    ):
+        """tz1and Places"""
+
+        def __init__(self, metadata, admin, blacklist, name, description, include_views=True):
+            FA2.Fa2Nft.__init__(
+                self, metadata=metadata,
+                name=name, description=description,
+                #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
+                policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()),
+                include_views=include_views
+            )
+            FA2.MintNft.__init__(self)
+            FA2.OnchainviewCountTokens.__init__(self, include_views)
+            Administrable.__init__(self, admin, include_views = False)
+
+    return GenericLambdaProxy(Place)
+
+PlaceTokenProxyBase, PlaceTokenProxyParent, PlaceTokenProxyChild = generatePlaceTokenProxy()
+
+
+# TODO: use item token proxy for public collection as well?

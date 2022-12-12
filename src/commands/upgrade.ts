@@ -93,10 +93,11 @@ export default class Upgrade extends PostUpgrade {
         });
 
         //
-        // Token Registry, Legacy Royalties
+        // Token Registry, Legacy Royalties, Blacklist
         //
         let Registry_contract: ContractAbstraction<Wallet>,
-            LegacyRoyalties_contract: ContractAbstraction<Wallet>;
+            LegacyRoyalties_contract: ContractAbstraction<Wallet>,
+            Blacklist_contract: ContractAbstraction<Wallet>;;
         {
             const tezland_batch = new DeployContractBatch(this);
 
@@ -111,7 +112,24 @@ export default class Upgrade extends PostUpgrade {
                 `administrator = sp.address("${this.accountAddress}")`
             ]);
 
-            [Registry_contract, LegacyRoyalties_contract] = await tezland_batch.deployBatch();
+            // Blacklist
+            await tezland_batch.addToBatch("TL_Blacklist", "TL_Blacklist", "TL_Blacklist", [
+                `administrator = sp.address("${this.accountAddress}")`
+            ]);
+
+            [Registry_contract, LegacyRoyalties_contract, Blacklist_contract] = await tezland_batch.deployBatch();
+        }
+
+        //
+        // Place Proxy Parent
+        //
+        let PlaceTokenProxyParent_contract: ContractAbstraction<Wallet>;
+        {
+            PlaceTokenProxyParent_contract = await this.deploy_contract("PlaceTokenProxyParent", "Tokens", "PlaceTokenProxyParent", [
+                `admin = sp.address("${this.accountAddress}")`,
+                `parent = sp.address("${this.accountAddress}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`
+            ]);
         }
 
         //
@@ -131,14 +149,23 @@ export default class Upgrade extends PostUpgrade {
                 `registry = sp.address("${Registry_contract.address}")`
             ]);
 
-            await tezland_batch.addToBatch("FA2_Interiors", "Tokens", "tz1andInteriors", [
-                `admin = sp.address("${this.accountAddress}")`
+            await tezland_batch.addToBatch("FA2_Interiors", "Tokens", "PlaceTokenProxyChild", [
+                `admin = sp.address("${this.accountAddress}")`,
+                `parent = sp.address("${PlaceTokenProxyParent_contract.address}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`,
+                `name="tz1and Interiors"`,
+                `description="tz1and Interior FA2 Tokens."`
             ]);
 
-            await tezland_batch.addToBatch("FA2_Places_v2", "Tokens", "tz1andPlaces_v2", [
-                `admin = sp.address("${this.accountAddress}")`
+            await tezland_batch.addToBatch("FA2_Places_v2", "Tokens", "PlaceTokenProxyChild", [
+                `admin = sp.address("${this.accountAddress}")`,
+                `parent = sp.address("${PlaceTokenProxyParent_contract.address}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`,
+                `name="tz1and Places"`,
+                `description="tz1and Place FA2 Tokens (v2)."`
             ]);
 
+            // TODO: should the public collection be a proxy? Maybe not?
             await tezland_batch.addToBatch("FA2_Items_v2", "Tokens", "tz1andItems_v2", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);
@@ -242,16 +269,6 @@ export default class Upgrade extends PostUpgrade {
                     ]).send();
                 });
             });
-        }
-
-        //
-        // FA2 Proxy Parent
-        //
-        let Blacklist_contract: ContractAbstraction<Wallet>;
-        {
-            Blacklist_contract = await this.deploy_contract("TL_Blacklist", "TL_Blacklist", "TL_Blacklist", [
-                `administrator = sp.address("${this.accountAddress}")`
-            ]);
         }
 
         //
@@ -410,6 +427,8 @@ export default class Upgrade extends PostUpgrade {
         // Post deploy
         //
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
+            ItemCollectionProxyParent_contract: ItemCollectionProxyParent_contract,
+            PlaceProxyParent_contract: PlaceTokenProxyParent_contract,
             items_FA2_contract: tezlandItems, // Deprecated, but still usable
             items_v2_FA2_contract: items_v2_FA2_contract,
             places_FA2_contract: tezlandPlaces, // Deprecated
@@ -426,7 +445,6 @@ export default class Upgrade extends PostUpgrade {
             Registry_contract: Registry_contract,
             LegacyRoyalties_contract: LegacyRoyalties_contract,
             RoyaltiesAdapter_contract: RoyaltiesAdapter_contract,
-            ItemCollectionProxyParent_contract: ItemCollectionProxyParent_contract,
             Blacklist_contract: Blacklist_contract
         })));
     }
@@ -463,6 +481,15 @@ export default class Upgrade extends PostUpgrade {
 
     protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
         const num_tokens = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+
+        // TODO
+        // TODO
+        // TODO - ONLY RE-MINT PLACES THAT AREN'T ALREADY MINTED!!!!!!!
+        // TODO
+        // TODO
+        // TODO - DON'T use count_tokens view!!!!!!!!!!
+        // TODO
+        // TODO
 
         const v1placestorage = (await tezlandPlacesV1.storage()) as any;
 

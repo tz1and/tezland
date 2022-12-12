@@ -38,9 +38,10 @@ def test():
     scenario += places_tokens_legacy
 
     scenario.h2("places")
-    places_tokens = Tokens.tz1andPlaces_v2(
+    places_tokens = Tokens.PlaceTokenProxyBase(
         metadata = sp.utils.metadata_of_url("https://example.com"),
-        admin = admin.address)
+        name="tz1and Places", description="tz1and Place FA2 Tokens (v2).",
+        blacklist = admin.address, parent = admin.address, admin = admin.address)
     scenario += places_tokens
 
     scenario.h2("minter")

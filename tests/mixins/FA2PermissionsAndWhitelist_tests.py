@@ -57,9 +57,10 @@ def test():
     scenario += permitted
 
     scenario.h4("some other FA2 token")
-    other_token = Tokens.tz1andPlaces_v2(
+    other_token = Tokens.PlaceTokenProxyBase(
         metadata = sp.utils.metadata_of_url("https://example.com"),
-        admin = admin.address)
+        name="tz1and Places", description="tz1and Place FA2 Tokens (v2).",
+        blacklist = admin.address, parent = admin.address, admin = admin.address)
     scenario += other_token
 
     #
