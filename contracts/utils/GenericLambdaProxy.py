@@ -58,8 +58,10 @@ def GenericLambdaProxy(cls):
             ProxyBase.__init__(self, parent, include_views=False, **kwargs)
 
             if VERBOSE: print("\nProxyParent")
+            # These non-lazy entrypoints should be kept.
+            # NOTE: if administrable isn't lazy, it will be kept.
+            keep_entrypoints = ["accept_administrator", "transfer_administrator", "update_ep"]
             # remove unneeded entrypoints
-            keep_entrypoints = ["update_ep"]
             deleted_entrypoints = []
             for f in dir(self):
                 attr = getattr(self, f)
