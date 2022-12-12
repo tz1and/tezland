@@ -8,10 +8,10 @@ class Moderation:
     Can then later be used through add moderation functions through upgrades."""
     def __init__(self, moderation_contract):
         self.update_initial_storage(
-            moderation_contract = moderation_contract
+            moderation_contract = sp.set_type_expr(moderation_contract, sp.TAddress)
         )
 
-    @sp.entry_point
+    @sp.entry_point(parameter_type=sp.TAddress)
     def set_moderation_contract(self, moderation_contract):
         """Set moderation contract.
         """
