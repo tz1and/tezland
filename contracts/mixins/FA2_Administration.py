@@ -1,23 +1,27 @@
 import smartpy as sp
 
 
+t_transfer_fa2_administrator_params = sp.TList(sp.TRecord(
+    fa2 = sp.TAddress,
+    proposed_fa2_administrator = sp.TAddress
+).layout(("fa2", "proposed_fa2_administrator")))
+
+t_accept_fa2_administrator_params = sp.TList(sp.TAddress)
+
+
 # Mixins required: Administrable
 class FA2_Administration:
     def __init__(self):
         pass
 
-    @sp.entry_point
-    def transfer_fa2_administrator(self, transfer_list):
+    @sp.entry_point(parameter_type=t_transfer_fa2_administrator_params)
+    def transfer_fa2_administrator(self, params):
         """Proposes to transfer the FA2 token contracts administator to another
         minter contract.
         """
-        sp.set_type(transfer_list, sp.TList(sp.TRecord(
-            fa2 = sp.TAddress,
-            proposed_fa2_administrator = sp.TAddress
-        ).layout(("fa2", "proposed_fa2_administrator"))))
         self.onlyAdministrator()
 
-        with sp.for_("transfer", transfer_list) as transfer:
+        with sp.for_("transfer", params) as transfer:
             # Get a handle on the FA2 contract transfer_administator entry point
             fa2_transfer_administrator_handle = sp.contract(
                 t=sp.TAddress,
@@ -30,14 +34,13 @@ class FA2_Administration:
                 amount=sp.mutez(0),
                 destination=fa2_transfer_administrator_handle)
 
-    @sp.entry_point
-    def accept_fa2_administrator(self, accept_list):
+    @sp.entry_point(parameter_type=t_accept_fa2_administrator_params)
+    def accept_fa2_administrator(self, params):
         """Accepts the FA2 contracts administrator responsabilities.
         """
-        sp.set_type(accept_list, sp.TList(sp.TAddress))
         self.onlyAdministrator()
 
-        with sp.for_("fa2", accept_list) as fa2:
+        with sp.for_("fa2", params) as fa2:
             # Get a handle on the FA2 contract accept_administrator entry point
             fa2_accept_administrator_handle = sp.contract(
                 t=sp.TUnit,

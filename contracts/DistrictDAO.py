@@ -11,8 +11,8 @@ from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
 from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from contracts.mixins.Fees import Fees
-from contracts.mixins.Moderation_v2 import Moderation
-from contracts.mixins.PermittedFA2 import PermittedFA2
+from contracts.mixins.Moderation import Moderation
+from contracts.legacy.mixins.PermittedFA2 import PermittedFA2
 
 from contracts import TL_World_v2
 from tezosbuilders_contracts_smartpy.utils import Utils

@@ -2,17 +2,17 @@ import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
-from contracts.mixins import Moderation_v2
+from contracts.mixins import Moderation
 
 
 class ModerationTest(
     Administrable,
-    Moderation_v2.Moderation,
+    Moderation.Moderation,
     sp.Contract):
     def __init__(self, administrator):
         sp.Contract.__init__(self)
         Administrable.__init__(self, administrator = administrator)
-        Moderation_v2.Moderation.__init__(self)
+        Moderation.Moderation.__init__(self)
 
 
 class ModerationTestMetaSettings(

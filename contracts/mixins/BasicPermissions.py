@@ -1,6 +1,12 @@
 import smartpy as sp
 
 
+t_manage_permissions_param = sp.TList(sp.TVariant(
+    add_permissions = sp.TSet(sp.TAddress),
+    remove_permissions = sp.TSet(sp.TAddress)
+).layout(("add_permissions", "remove_permissions")))
+
+
 # Mixins required: Administrable
 class BasicPermissions:
     """(Mixin) Provide basic permission checks.
@@ -11,18 +17,13 @@ class BasicPermissions:
         default_permitted_accounts = sp.set_type_expr(default_permitted_accounts, sp.TBigMap(sp.TAddress, sp.TUnit))
 
         self.update_initial_storage(
-            permitted_accounts = default_permitted_accounts #sp.big_map(default_permitted_accounts, tkey=sp.TAddress, tvalue=sp.TUnit)
+            permitted_accounts = sp.set_type_expr(default_permitted_accounts, sp.TBigMap(sp.TAddress, sp.TUnit))
         )
 
         # Admin-only entry point
         def manage_permissions(self, params):
             """Allows the administrator to add accounts permitted
             to register FA2s"""
-            sp.set_type(params, sp.TList(sp.TVariant(
-                add_permissions = sp.TSet(sp.TAddress),
-                remove_permissions = sp.TSet(sp.TAddress)
-            ).layout(("add_permissions", "remove_permissions"))))
-
             self.onlyAdministrator()
 
             with sp.for_("update", params) as update:
@@ -35,7 +36,7 @@ class BasicPermissions:
                         with sp.for_("address", addresses.elements()) as address:
                             del self.data.permitted_accounts[address]
 
-        self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep)
+        self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep, parameter_type=t_manage_permissions_param)
 
     # Inline helpers
     def onlyAdministratorOrPermitted(self):

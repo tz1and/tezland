@@ -24,12 +24,10 @@ class Allowed_place_token_map:
     def get_limits(self, map, fa2):
         return map.get(fa2, message = "PLACE_TOKEN_NOT_ALLOWED")
 
-class Allowed_place_token_param:
-    def get_add_type(self):
-        return sp.TMap(sp.TAddress, allowedPlaceLimitsType)
-
-    def get_remove_type(self):
-        return sp.TSet(sp.TAddress)
+t_set_allowed_place_token_params = sp.TList(sp.TVariant(
+    add = sp.TMap(sp.TAddress, allowedPlaceLimitsType),
+    remove = sp.TSet(sp.TAddress)
+).layout(("add", "remove")))
 
 
 # NOTE:
@@ -41,7 +39,6 @@ class Allowed_place_token_param:
 class AllowedPlaceTokens:
     def __init__(self, default_allowed = {}):
         self.allowed_place_tokens_map = Allowed_place_token_map()
-        self.allowed_place_tokens_param = Allowed_place_token_param()
         self.update_initial_storage(
             place_tokens = self.allowed_place_tokens_map.make(default_allowed),
         )
@@ -66,15 +63,10 @@ class AllowedPlaceTokens:
         return sp.compute(self.allowed_place_tokens_map.get_limits(self.data.place_tokens, fa2))
 
 
-    @sp.entry_point(lazify=True)
+    @sp.entry_point(lazify=True, parameter_type=t_set_allowed_place_token_params)
     def set_allowed_place_token(self, params):
         """Call to add/remove place token contracts from
         token contracts allowed in the world."""
-        sp.set_type(params, sp.TList(sp.TVariant(
-            add = self.allowed_place_tokens_param.get_add_type(),
-            remove = self.allowed_place_tokens_param.get_remove_type()
-        ).layout(("add", "remove"))))
-
         self.onlyAdministrator()
         
         with sp.for_("update", params) as update:

@@ -6,7 +6,7 @@ class Fees:
     def __init__(self, fees_to):
         self.update_initial_storage(
             fees = sp.nat(25),
-            fees_to = fees_to
+            fees_to = sp.set_type_expr(fees_to, sp.TAddress)
         )
 
         if hasattr(self, 'available_settings'):
@@ -31,6 +31,6 @@ class Fees:
                 self.onlyAdministrator()
                 self.data.fees_to = fees_to
 
-            self.update_fees = sp.entry_point(update_fees)
-            self.update_fees_to = sp.entry_point(update_fees_to)
+            self.update_fees = sp.entry_point(update_fees, parameter_type=sp.TNat)
+            self.update_fees_to = sp.entry_point(update_fees_to, parameter_type=sp.TAddress)
 

@@ -20,9 +20,8 @@ class Moderation:
         else:
             def set_moderation_contract(self, moderation_contract):
                 """Set moderation contract."""
-                sp.set_type(moderation_contract, sp.TOption(sp.TAddress))
                 self.onlyAdministrator()
                 Utils.ifSomeRun(moderation_contract, lambda y: Utils.onlyContract(y))
                 self.data.moderation_contract = moderation_contract
 
-            self.set_moderation_contract = sp.entry_point(set_moderation_contract)
+            self.set_moderation_contract = sp.entry_point(set_moderation_contract, parameter_type=sp.TOption(sp.TAddress))
