@@ -1,6 +1,9 @@
 import smartpy as sp
 
 
+# NOTE: deprecated for now.
+
+
 # Mixins required: Administrable
 class Whitelist:
     def __init__(self):
