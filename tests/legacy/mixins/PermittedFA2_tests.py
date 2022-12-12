@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from contracts.mixins import PermittedFA2
+from contracts.legacy.mixins import PermittedFA2
 from contracts import Tokens
 
 

@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from contracts.mixins import Whitelist
+from contracts.legacy.mixins import Whitelist
 
 
 class WhitelistTests(

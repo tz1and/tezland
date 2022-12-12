@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from contracts.mixins import Moderation
+from contracts.legacy.mixins import Moderation
 
 
 class ModerationTest(
