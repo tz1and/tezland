@@ -7,7 +7,7 @@ from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMeta
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins.BasicPermissions import BasicPermissions
 
-from contracts.utils import EnvUtils
+from contracts.utils import EnvUtils, ErrorMessages
 
 
 ownershipInfo = sp.TOption(sp.TRecord(
@@ -212,10 +212,10 @@ class TL_TokenRegistry(
     #
     def onlyOwnerPrivate(self, collection):
         # Get owner from private collection map and check owner
-        the_collection = sp.compute(self.data.collections.get(collection, message = "INVALID_COLLECTION"))
-        sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+        the_collection = sp.compute(self.data.collections.get(collection, message = ErrorMessages.invalid_collection()))
+        sp.verify(the_collection.collection_type == collectionPrivate, ErrorMessages.not_private())
         # CHeck owner.
-        sp.verify(the_collection.ownership.open_some().owner == sp.sender, "ONLY_OWNER")
+        sp.verify(the_collection.ownership.open_some().owner == sp.sender, ErrorMessages.only_owner())
 
 
     #
@@ -236,7 +236,7 @@ class TL_TokenRegistry(
 
                     with sp.for_("add_private_item", add_private.items()) as add_private_item:
                         # You cannot add collections that already exist
-                        sp.verify(~self.data.collections.contains(add_private_item.key), "COLLECTION_EXISTS")
+                        sp.verify(~self.data.collections.contains(add_private_item.key), ErrorMessages.collection_exists())
                         self.data.collections[add_private_item.key] = sp.record(
                             royalties_type = add_private_item.value.royalties_type,
                             collection_type = collectionPrivate,
@@ -250,7 +250,7 @@ class TL_TokenRegistry(
 
                     with sp.for_("add_public_item", add_public.items()) as add_public_item:
                         # You cannot add collections that already exist
-                        sp.verify(~self.data.collections.contains(add_public_item.key), "COLLECTION_EXISTS")
+                        sp.verify(~self.data.collections.contains(add_public_item.key), ErrorMessages.collection_exists())
                         self.data.collections[add_public_item.key] = sp.record(
                             royalties_type = add_public_item.value,
                             collection_type = collectionPublic,
@@ -260,7 +260,7 @@ class TL_TokenRegistry(
                     # Anyone can add_trusted. If the signature is valid.
                     with sp.for_("add_trusted_item", add_trusted.items()) as add_trusted_item:
                         # You cannot add collections that already exist
-                        sp.verify(~self.data.collections.contains(add_trusted_item.key), "COLLECTION_EXISTS")
+                        sp.verify(~self.data.collections.contains(add_trusted_item.key), ErrorMessages.collection_exists())
 
                         # Validate signature!
                         sp.verify(sp.check_signature(self.data.collections_public_key,
@@ -308,12 +308,12 @@ class TL_TokenRegistry(
                             del self.data.collaborators[sp.record(collection = remove_collaborators_item.key, collaborator = address)]
 
                 with arg.match("transfer_ownership") as transfer_ownership:
-                    the_collection = sp.compute(self.data.collections.get(transfer_ownership.collection, message = "INVALID_COLLECTION"))
-                    sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+                    the_collection = sp.compute(self.data.collections.get(transfer_ownership.collection, message = ErrorMessages.invalid_collection()))
+                    sp.verify(the_collection.collection_type == collectionPrivate, ErrorMessages.not_private())
                     ownership_open = sp.compute(the_collection.ownership.open_some())
 
                     # Only owner can transfer ownership.
-                    sp.verify(ownership_open.owner == sp.sender, "ONLY_OWNER")
+                    sp.verify(ownership_open.owner == sp.sender, ErrorMessages.only_owner())
 
                     # Set proposed owner.
                     ownership_open.proposed_owner = sp.some(transfer_ownership.new_owner)
@@ -323,13 +323,13 @@ class TL_TokenRegistry(
                     self.data.collections[transfer_ownership.collection] = the_collection
 
                 with arg.match("acccept_ownership") as acccept_ownership:
-                    the_collection = sp.compute(self.data.collections.get(acccept_ownership, message = "INVALID_COLLECTION"))
-                    sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+                    the_collection = sp.compute(self.data.collections.get(acccept_ownership, message = ErrorMessages.invalid_collection()))
+                    sp.verify(the_collection.collection_type == collectionPrivate, ErrorMessages.not_private())
                     ownership_open = sp.compute(the_collection.ownership.open_some())
 
                     # Check that there is a proposed owner and
                     # check that the proposed owner executed the entry point.
-                    sp.verify(sp.some(sp.sender) == ownership_open.proposed_owner, message="NOT_PROPOSED_OWNER")
+                    sp.verify(sp.some(sp.sender) == ownership_open.proposed_owner, message=ErrorMessages.not_proposed_owner())
 
                     # Set the new owner address.
                     ownership_open.owner = sp.sender
@@ -381,7 +381,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(t_royalties_bounded):
             sp.result(self.data.collections.get(contract,
-                message="INVALID_COLLECTION").royalties_type)
+                message=ErrorMessages.invalid_collection()).royalties_type)
 
 
     @sp.onchain_view(pure=True)
@@ -393,7 +393,7 @@ class TL_TokenRegistry(
 
         with sp.set_result_type(collectionType):
             sp.result(self.data.collections.get(contract,
-                message="INVALID_COLLECTION"))
+                message=ErrorMessages.invalid_collection()))
 
 
     @sp.onchain_view(pure=True)
@@ -408,8 +408,8 @@ class TL_TokenRegistry(
         with sp.set_result_type(t_ownership_result):
             # Get private collection params.
             the_collection = sp.compute(self.data.collections.get(params.collection,
-                message = "INVALID_COLLECTION"))
-            sp.verify(the_collection.collection_type == collectionPrivate, "NOT_PRIVATE")
+                message = ErrorMessages.invalid_collection()))
+            sp.verify(the_collection.collection_type == collectionPrivate, ErrorMessages.not_private())
 
             # Return "owner" if owner.
             with sp.if_(the_collection.ownership.open_some(sp.unit).owner == params.address):
@@ -419,7 +419,7 @@ class TL_TokenRegistry(
                 with sp.if_(self.data.collaborators.contains(sp.record(collection = params.collection, collaborator = params.address))):
                     sp.result(sp.bounded("collaborator"))
                 with sp.else_():
-                    sp.failwith("NOT_OWNER_OR_COLLABORATOR")
+                    sp.failwith(ErrorMessages.not_owner_or_collaborator())
 
 
     @sp.onchain_view(pure=True)

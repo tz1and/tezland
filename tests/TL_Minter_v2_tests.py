@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_TokenRegistry, TL_Minter_v2, Tokens
+from contracts.utils import ErrorMessages
 
 
 @sp.add_test(name = "TL_Minter_v2_tests", profile = True)
@@ -72,7 +73,7 @@ def test():
         to_ = bob.address,
         amount = 4,
         royalties = { bob.address: sp.nat(250) },
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = "INVALID_COLLECTION")
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = ErrorMessages.invalid_collection())
 
     minter.mint_public(collection = items_tokens.address,
         to_ = bob.address,
@@ -114,7 +115,7 @@ def test():
         to_ = bob.address,
         amount = 4,
         royalties = { bob.address: sp.nat(250) },
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = "INVALID_COLLECTION")
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob, valid = False, exception = ErrorMessages.invalid_collection())
 
     minter.mint_private(collection = items_tokens.address,
         to_ = bob.address,
@@ -135,7 +136,7 @@ def test():
         to_ = alice.address,
         amount = 25,
         royalties = { alice.address: sp.nat(250) },
-        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
+        metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = alice, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
 
     minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
 
@@ -155,8 +156,8 @@ def test():
     invalid_metadata_uri = sp.utils.bytes_of_string("ipf://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8")
     valid_metadata_uri = sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
 
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = admin, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = alice, valid = False, exception = "NOT_OWNER_OR_COLLABORATOR")
+    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = admin, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
+    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = alice, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
     minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: invalid_metadata_uri})]).run(sender = bob, valid = False, exception = "INVALID_METADATA")
 
     scenario.verify(items_tokens.data.metadata[""] == sp.utils.bytes_of_string("https://example.com"))

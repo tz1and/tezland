@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, Tokens
+from contracts.utils import ErrorMessages
 
 
 class RoyaltiesAdapterTest(sp.Contract):
@@ -87,7 +88,7 @@ def test():
 
     # View should fail if not in collections.
     for val in token_keys.values():
-        adapter_test.testRoyalties(token_key=val, expected=sp.none).run(sender=admin, valid=False, exception="INVALID_COLLECTION")
+        adapter_test.testRoyalties(token_key=val, expected=sp.none).run(sender=admin, valid=False, exception=ErrorMessages.invalid_collection())
 
     scenario.h2("Add collections to registry")
 

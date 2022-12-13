@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_TokenFactory, TL_TokenRegistry, TL_Minter_v2, TL_Blacklist, Tokens
+from contracts.utils import ErrorMessages
 
 
 @sp.add_test(name = "TL_TokenFactory_tests", profile = True)
@@ -111,6 +112,6 @@ def test():
         minter.mint_private(collection=dyn_collection_token.address, to_=alice.address, amount=10, royalties={}, metadata=sp.bytes("0x00")).run(
             sender=acc,
             valid=(True if acc is bob else False),
-            exception=(None if acc is bob else "NOT_OWNER_OR_COLLABORATOR"))
+            exception=(None if acc is bob else ErrorMessages.not_owner_or_collaborator()))
 
     scenario.table_of_contents()

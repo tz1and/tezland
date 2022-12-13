@@ -1,6 +1,10 @@
 import smartpy as sp
 
 from contracts import TL_TokenRegistry, TL_Minter_v2, Tokens
+from contracts.utils import ErrorMessages
+
+
+# TODO: "NOT_PRIVATE" never tested
 
 
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
@@ -83,7 +87,7 @@ def test():
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, TL_TokenRegistry.collectionPublic)
 
     # public collection can't be private
-    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
+    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = ErrorMessages.collection_exists())
 
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
@@ -106,7 +110,7 @@ def test():
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, TL_TokenRegistry.collectionTrusted)
 
     # trusted collection can't be private
-    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
+    registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = ErrorMessages.collection_exists())
 
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
@@ -133,7 +137,7 @@ def test():
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, TL_TokenRegistry.collectionPrivate)
 
     # private collection can't be public
-    registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = admin, valid = False, exception = "COLLECTION_EXISTS")
+    registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = admin, valid = False, exception = ErrorMessages.collection_exists())
 
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = bob, valid = False, exception = "NOT_PERMITTED")
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
@@ -151,14 +155,14 @@ def test():
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
     manager_collaborators_params = {items_tokens.address: sp.set([alice.address])}
-    registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = ErrorMessages.only_owner())
+    registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = ErrorMessages.only_owner())
     scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
     registry.admin_private_collections([sp.variant("add_collaborators", manager_collaborators_params)]).run(sender = bob)
     scenario.verify(registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
 
-    registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = admin, valid = False, exception = ErrorMessages.only_owner())
+    registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = alice, valid = False, exception = ErrorMessages.only_owner())
     registry.admin_private_collections([sp.variant("remove_collaborators", manager_collaborators_params)]).run(sender = bob)
     scenario.verify(~registry.data.collaborators.contains(sp.record(collection = items_tokens.address, collaborator = alice.address)))
 
@@ -172,22 +176,22 @@ def test():
 
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
-    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = admin, valid = False, exception = "ONLY_OWNER")
-    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = alice, valid = False, exception = "ONLY_OWNER")
+    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = admin, valid = False, exception = ErrorMessages.only_owner())
+    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = alice, valid = False, exception = ErrorMessages.only_owner())
     scenario.verify(registry.data.collections[items_tokens.address].ownership.open_some().owner == bob.address)
 
     registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = bob)
     scenario.verify(registry.data.collections[items_tokens.address].ownership.open_some().proposed_owner == sp.some(alice.address))
 
-    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
-    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = admin, valid = False, exception = ErrorMessages.not_proposed_owner())
+    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = bob, valid = False, exception = ErrorMessages.not_proposed_owner())
     registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = alice)
     scenario.verify(registry.data.collections[items_tokens.address].ownership.open_some().owner == alice.address)
     scenario.verify(registry.data.collections[items_tokens.address].ownership.open_some().proposed_owner == sp.none)
 
-    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = admin, valid = False, exception = "NOT_PROPOSED_OWNER")
-    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = bob, valid = False, exception = "NOT_PROPOSED_OWNER")
-    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = alice, valid = False, exception = "NOT_PROPOSED_OWNER")
+    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = admin, valid = False, exception = ErrorMessages.not_proposed_owner())
+    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = bob, valid = False, exception = ErrorMessages.not_proposed_owner())
+    registry.admin_private_collections([sp.variant("acccept_ownership", items_tokens.address)]).run(sender = alice, valid = False, exception = ErrorMessages.not_proposed_owner())
 
     registry.update_settings([sp.variant("paused", True)]).run(sender = admin)
     registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = bob.address))]).run(sender = alice, valid = False, exception = "ONLY_UNPAUSED")
