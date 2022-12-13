@@ -16,7 +16,7 @@ from contracts.mixins.Moderation import Moderation
 from contracts.mixins.AllowedPlaceTokens import AllowedPlaceTokens
 
 from contracts import TL_TokenRegistry, TL_RoyaltiesAdapter, FA2
-from contracts.utils import TokenTransfer, FA2Utils
+from contracts.utils import TokenTransfer, FA2Utils, ErrorMessages
 from tezosbuilders_contracts_smartpy.utils import Utils
 
 
@@ -400,22 +400,6 @@ permissionProps      = sp.nat(4) # can edit place props
 permissionCanSell    = sp.nat(8) # can place items that are for sale. # TODO: not implemented.
 permissionFull       = sp.nat(15) # has full permissions.
 
-class Error_message:
-    def __init__(self):
-        #self.prefix = "WORLD_"
-        self.prefix = ""
-    def make(self, s): return (self.prefix + s)
-    def no_permission(self):        return self.make("NO_PERMISSION")
-    def not_owner(self):            return self.make("NOT_OWNER")
-    def parameter_error(self):      return self.make("PARAM_ERROR")
-    def data_length(self):          return self.make("DATA_LEN")
-    def chunk_limit(self):          return self.make("CHUNK_LIMIT")
-    def chunk_item_limit(self):     return self.make("CHUNK_ITEM_LIMIT")
-    def not_for_sale(self):         return self.make("NOT_FOR_SALE")
-    def wrong_amount(self):         return self.make("WRONG_AMOUNT")
-    def wrong_item_type(self):      return self.make("WRONG_ITEM_TYPE")
-    def unknown_owner(self):        return self.make("UNKNOWN_OWNER")
-
 #
 # Like Operator_set from legacy FA2. Lazy set for place permissions.
 class Permission_map:
@@ -519,7 +503,6 @@ class TL_World_v2(
         # Makes much smaller code but removes annots from eps.
         #self.add_flag("simplify-via-michel")
 
-        self.error_message = Error_message()
         self.permission_map = Permission_map()
 
         self.init_storage(
@@ -536,7 +519,7 @@ class TL_World_v2(
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("royalties_adapter", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("migration_from", sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y))),
-            ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
+            ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=ErrorMessages.parameter_error()))
         ]
 
         if include_views: self.addViews()
@@ -592,8 +575,8 @@ class TL_World_v2(
                     # can only add permissions for allowed places
                     self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
-                    sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
-                    sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = self.error_message.parameter_error())
+                    sp.verify(upd.owner == sp.sender, message = ErrorMessages.not_owner())
+                    sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = ErrorMessages.parameter_error())
                     # Add permission
                     self.permission_map.add(self.data.permissions,
                         upd.owner,
@@ -604,7 +587,7 @@ class TL_World_v2(
                     # NOTE: don't need to check if place key is valid
                     #self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
-                    sp.verify(upd.owner == sp.sender, message = self.error_message.not_owner())
+                    sp.verify(upd.owner == sp.sender, message = ErrorMessages.not_owner())
                     # Remove permission
                     self.permission_map.remove(self.data.permissions,
                         upd.owner,
@@ -643,7 +626,7 @@ class TL_World_v2(
 
         # Caller must have Full permissions.
         permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
-        sp.verify(permissions & permissionProps == permissionProps, message = self.error_message.no_permission())
+        sp.verify(permissions & permissionProps == permissionProps, message = ErrorMessages.no_permission())
 
         # Get or create the place.
         this_place = PlaceStorage(self.data.places, params.place_key, True)
@@ -663,8 +646,8 @@ class TL_World_v2(
 
         # Verify the properties contrain at least the color (key 0x00).
         # And that the color is the right length.
-        sp.verify(sp.len(this_place.value.props.get(sp.bytes("0x00"), message=self.error_message.parameter_error())) == placePropsColorLen,
-            message = self.error_message.data_length())
+        sp.verify(sp.len(this_place.value.props.get(sp.bytes("0x00"), message=ErrorMessages.parameter_error())) == placePropsColorLen,
+            message = ErrorMessages.data_length())
 
         # Increment place interaction counter.
         this_place.value.counter += 1
@@ -675,7 +658,7 @@ class TL_World_v2(
 
     def validateItemData(self, data):
         """Verify the item data has the right length."""
-        sp.verify(sp.len(data) >= itemDataMinLen, message = self.error_message.data_length())
+        sp.verify(sp.len(data) >= itemDataMinLen, message = ErrorMessages.data_length())
 
 
     @sp.entry_point(lazify = True, parameter_type=placeItemsType)
@@ -687,14 +670,14 @@ class TL_World_v2(
 
         # Caller must have PlaceItems permissions.
         permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
-        sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = self.error_message.no_permission())
+        sp.verify(permissions & permissionPlaceItems == permissionPlaceItems, message = ErrorMessages.no_permission())
         # TODO: special permission for sending items to place? Might be good.
 
         # Count items to be added, get FA2 set and check id limits.
         chunk_add_item_count = sp.local("chunk_add_item_count", sp.map(tkey=sp.TNat, tvalue=sp.TNat))
         fa2_set = sp.local("fa2_set", sp.set(t=sp.TAddress))
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
-            sp.verify(chunk_item.key < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+            sp.verify(chunk_item.key < place_limits.chunk_limit, message = ErrorMessages.chunk_limit())
 
             add_item_count = sp.local("add_item_count", sp.nat(0))
             with sp.for_("fa2_map", chunk_item.value.values()) as fa2_map:
@@ -722,7 +705,7 @@ class TL_World_v2(
             chunk_item_count = this_chunk.count_items()
 
             # Make sure chunk item limit is not exceeded.
-            sp.verify(chunk_item_count + chunk_add_item_count.value.get(chunk_item.key, sp.nat(0)) <= place_limits.chunk_item_limit, message = self.error_message.chunk_item_limit())
+            sp.verify(chunk_item_count + chunk_add_item_count.value.get(chunk_item.key, sp.nat(0)) <= place_limits.chunk_item_limit, message = ErrorMessages.chunk_item_limit())
 
             # For each fa2 in the map.
             with sp.for_("send_to_place_item", chunk_item.value.items()) as send_to_place_item:
@@ -787,7 +770,7 @@ class TL_World_v2(
         with sp.if_(~hasModifyAll):
             with sp.for_("issuer_map", params.update_map.values()) as issuer_map:
                 with sp.for_("remove_key", issuer_map.keys()) as remove_key:
-                    sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
+                    sp.verify(remove_key == sp.some(sp.sender), message = ErrorMessages.no_permission())
 
         # Update items.
         with sp.for_("chunk_item", params.update_map.items()) as chunk_item:
@@ -838,7 +821,7 @@ class TL_World_v2(
         with sp.if_(~hasModifyAll):
             with sp.for_("issuer_map", params.remove_map.values()) as issuer_map:
                 with sp.for_("remove_key", issuer_map.keys()) as remove_key:
-                    sp.verify(remove_key == sp.some(sp.sender), message = self.error_message.no_permission())
+                    sp.verify(remove_key == sp.some(sp.sender), message = ErrorMessages.no_permission())
 
         # Token transfer map.
         transferMap = TokenTransfer.FA2TokenTransferMap()
@@ -916,11 +899,11 @@ class TL_World_v2(
             total_royalties.value += share_mutez
 
         # Send rest of the value to seller. Should throw if royalties total > rate.
-        left_amount = sp.compute(sp.sub_mutez(value_after_fees, total_royalties.value).open_some("ROYALTIES_ERROR"))
+        left_amount = sp.compute(sp.sub_mutez(value_after_fees, total_royalties.value).open_some(ErrorMessages.royalties_error()))
         sendMap.add(issuer_or_place_owner, left_amount)
 
         # Make sure it all adds up correctly!
-        sp.verify((fees_amount + total_royalties.value + left_amount) == rate, "ROYALTIES_ERROR")
+        sp.verify((fees_amount + total_royalties.value + left_amount) == rate, ErrorMessages.royalties_error())
 
         # Transfer.
         sendMap.transfer()
@@ -974,8 +957,8 @@ class TL_World_v2(
                 the_item = sp.local("the_item", immutable)
 
                 # Make sure it's for sale, and the transfered amount is correct.
-                sp.verify(the_item.value.rate > sp.mutez(0), message = self.error_message.not_for_sale())
-                sp.verify(the_item.value.rate == sp.amount, message = self.error_message.wrong_amount())
+                sp.verify(the_item.value.rate > sp.mutez(0), message = ErrorMessages.not_for_sale())
+                sp.verify(the_item.value.rate == sp.amount, message = ErrorMessages.wrong_amount())
 
                 # Transfer royalties, etc.
                 with sp.if_(sp.amount != sp.mutez(0)):
@@ -999,7 +982,7 @@ class TL_World_v2(
 
             # ext items are unswappable.
             with arg.match("ext"):
-                sp.failwith(self.error_message.wrong_item_type())
+                sp.failwith(ErrorMessages.wrong_item_type())
         
         # Remove the item store if empty.
         item_store.persist_or_remove()
@@ -1037,7 +1020,7 @@ class TL_World_v2(
         # Get or create the place.
         this_place = PlaceStorage(self.data.places, params.place_key, True)
         # Make sure the place is empty.
-        sp.verify(sp.len(this_place.value.chunks) == 0, message = "MIGRATION_PLACE_NOT_EMPTY")
+        sp.verify(sp.len(this_place.value.chunks) == 0, message = ErrorMessages.migration_place_not_emptry())
 
         # Set the props on the place to migrate
         this_place.value.props = params.props
@@ -1081,7 +1064,7 @@ class TL_World_v2(
                             # Reset counters and increment current chunk.
                             add_item_count.value = sp.nat(0)
                             chunk_key.value = sp.record(place_key = params.place_key, chunk_id = chunk_key.value.chunk_id + sp.nat(1))
-                            sp.verify(chunk_key.value.chunk_id < place_limits.chunk_limit, message = self.error_message.chunk_limit())
+                            sp.verify(chunk_key.value.chunk_id < place_limits.chunk_limit, message = ErrorMessages.chunk_limit())
 
                             # update chunk and item storage
                             this_chunk.load(chunk_key.value, True)

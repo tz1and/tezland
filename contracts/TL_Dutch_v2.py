@@ -9,7 +9,7 @@ from contracts.mixins.Fees import Fees
 from contracts.mixins.FA2PermissionsAndWhitelist import FA2PermissionsAndWhitelist
 
 from contracts import TL_World_v2, FA2
-from contracts.utils import TokenTransfer, FA2Utils
+from contracts.utils import TokenTransfer, FA2Utils, ErrorMessages
 from tezosbuilders_contracts_smartpy.utils import Utils
 
 
@@ -142,7 +142,7 @@ class TL_Dutch_v2(
         self.onlyWhitelistAdminIfSecondaryDisabled(fa2_props)
 
         # Auction owner in auction_key must be sender.
-        sp.verify(params.auction_key.owner == sp.sender, "NOT_OWNER")
+        sp.verify(params.auction_key.owner == sp.sender, ErrorMessages.not_owner())
 
         # Check auction params,
         sp.verify((params.auction.start_time >= sp.now) &
@@ -155,7 +155,7 @@ class TL_Dutch_v2(
         sp.verify(~self.data.auctions.contains(params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
-        sp.verify(FA2Utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, "NOT_OWNER")
+        sp.verify(FA2Utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, ErrorMessages.not_owner())
 
         # Make sure auction contract is operator of token.
         sp.verify(FA2Utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
@@ -181,7 +181,7 @@ class TL_Dutch_v2(
 
         sp.verify(self.data.auctions.contains(params.auction_key), "INVALID_AUCTION")
 
-        sp.verify(params.auction_key.owner == sp.sender, "NOT_OWNER")
+        sp.verify(params.auction_key.owner == sp.sender, ErrorMessages.not_owner())
 
         del self.data.auctions[params.auction_key]
 
@@ -288,7 +288,7 @@ class TL_Dutch_v2(
         #sp.trace(ask_price)
 
         # check if correct value was sent. probably best to send back overpay instead of cancel.
-        sp.verify(sp.amount >= ask_price, message = "WRONG_AMOUNT")
+        sp.verify(sp.amount >= ask_price, message = ErrorMessages.wrong_amount())
 
         # validate sequence hash, to prevent front-running.
         self.validatePlaceSequenceHash(params.auction_key.fa2, params.auction_key.token_id, params.seq_hash)

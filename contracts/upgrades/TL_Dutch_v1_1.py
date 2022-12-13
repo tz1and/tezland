@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_Dutch
-from contracts.utils import FA2Utils
+from contracts.utils import FA2Utils, ErrorMessages
 
 
 class TL_Dutch_v1_1(TL_Dutch.TL_Dutch):
@@ -28,7 +28,7 @@ class TL_Dutch_v1_1(TL_Dutch.TL_Dutch):
         # If sender is not administrator, check onlyUnpaused and auction owner.
         with sp.if_(~self.isAdministrator(sp.sender)):
             self.onlyUnpaused()
-            sp.verify(the_auction.owner == sp.sender, message = "NOT_OWNER")
+            sp.verify(the_auction.owner == sp.sender, message = ErrorMessages.not_owner())
 
         # transfer token back to auction owner.
         FA2Utils.fa2_transfer(the_auction.fa2, sp.self_address, the_auction.owner, the_auction.token_id, 1)

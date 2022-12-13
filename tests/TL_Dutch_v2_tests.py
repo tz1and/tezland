@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_Dutch_v2, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_World_v2, TL_Blacklist, Tokens
+from contracts.utils import ErrorMessages
 
 
 @sp.add_test(name = "TL_Dutch_v2_tests", profile = True)
@@ -300,7 +301,7 @@ def test():
             end_price = sp.tez(20),
             start_time = sp.timestamp(0),
             end_time = sp.timestamp(0).add_minutes(80)),
-        ext = sp.none).run(sender = bob, valid = False, exception = "NOT_OWNER")
+        ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.not_owner())
 
     dutch.create(
         auction_key = sp.record(
@@ -312,7 +313,7 @@ def test():
             end_price = sp.tez(20),
             start_time = sp.timestamp(0),
             end_time = sp.timestamp(0).add_minutes(80)),
-        ext = sp.none).run(sender = alice, valid = False, exception = "NOT_OWNER")
+        ext = sp.none).run(sender = alice, valid = False, exception = ErrorMessages.not_owner())
 
     dutch.create(
         auction_key = sp.record(
@@ -392,7 +393,7 @@ def test():
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
 
     # not owner
-    dutch.cancel(auction_key = current_auction_key, ext = sp.none).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    dutch.cancel(auction_key = current_auction_key, ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.not_owner())
     # valid
     dutch.cancel(auction_key = current_auction_key, ext = sp.none).run(sender = alice)
     # already cancelled, wrong state
@@ -418,7 +419,7 @@ def test():
     # try a couple of wrong amount bids at several times
     for minutes in [0, 1, 2, 20, 40, 60, 80, 81]:
         dutch.bid(auction_key = current_auction_key, seq_hash = getSeqHash(current_auction_key), ext = sp.none).run(
-            sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(minutes), valid = False, exception = "WRONG_AMOUNT")
+            sender = alice, amount = sp.tez(1), now=sp.timestamp(0).add_minutes(minutes), valid = False, exception = ErrorMessages.wrong_amount())
 
     balance_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_bob)))
 

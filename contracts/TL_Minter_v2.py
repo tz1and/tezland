@@ -7,6 +7,7 @@ from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMeta
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 
 from contracts import TL_TokenRegistry, FA2
+from contracts.utils import ErrorMessages
 from tezosbuilders_contracts_smartpy.utils import Utils
 
 
@@ -36,7 +37,7 @@ class TL_Minter_v2(
 
         self.available_settings = [
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), "PARAM_ERROR")),
+            ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), ErrorMessages.parameter_error())),
             ("max_royalties", sp.TNat, None)
         ]
 
@@ -196,7 +197,7 @@ class TL_Minter_v2(
         self.onlyUnpaused()
         self.onlyPublicCollection(params.collection)
 
-        sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
+        sp.verify((params.amount > 0) & (params.amount <= 10000), message = ErrorMessages.parameter_error())
 
         FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
 
@@ -228,7 +229,7 @@ class TL_Minter_v2(
         self.onlyUnpaused()
         self.onlyOwnerOrCollaboratorPrivate(params.collection, sp.sender)
 
-        sp.verify((params.amount > 0) & (params.amount <= 10000), message = "PARAM_ERROR")
+        sp.verify((params.amount > 0) & (params.amount <= 10000), message = ErrorMessages.parameter_error())
 
         FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
 

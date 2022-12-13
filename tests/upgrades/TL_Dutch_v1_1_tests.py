@@ -2,6 +2,7 @@ import smartpy as sp
 
 from contracts.upgrades import TL_Dutch_v1_1
 from contracts import TL_Minter, Tokens
+from contracts.utils import ErrorMessages
 
 
 @sp.add_test(name = "TL_Dutch_v1_1_tests", profile = True)
@@ -137,7 +138,7 @@ def test():
     balance_alice_before = scenario.compute(places_tokens.get_balance(sp.record(owner = alice.address, token_id = place_alice)))
 
     # not owner
-    dutch.cancel(auction_id = auction_bob, extension = sp.none).run(sender = alice, valid = False, exception = "NOT_OWNER")
+    dutch.cancel(auction_id = auction_bob, extension = sp.none).run(sender = alice, valid = False, exception = ErrorMessages.not_owner())
     # valid - admin
     dutch.cancel(auction_id = auction_bob, extension = sp.none).run(sender = admin)
     # already cancelled, wrong state
@@ -147,7 +148,7 @@ def test():
     scenario.verify(balance_bob_after == (balance_bob_before + 1))
 
     # not owner
-    dutch.cancel(auction_id = auction_alice, extension = sp.none).run(sender = bob, valid = False, exception = "NOT_OWNER")
+    dutch.cancel(auction_id = auction_alice, extension = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.not_owner())
     # valid - owner
     dutch.cancel(auction_id = auction_alice, extension = sp.none).run(sender = alice)
     # already cancelled, wrong state
