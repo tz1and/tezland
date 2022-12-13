@@ -12,7 +12,7 @@ from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins.Fees import Fees
-from contracts.mixins.Moderation_v2 import Moderation
+from contracts.mixins.Moderation import Moderation
 from contracts.mixins.AllowedPlaceTokens import AllowedPlaceTokens
 
 from contracts import TL_TokenRegistry, TL_RoyaltiesAdapter, FA2
@@ -45,6 +45,8 @@ from tezosbuilders_contracts_smartpy.utils import Utils
 # TODO: should places/interiors also be a proxy?
 # TODO: places and items proxy as well?
 # TODO: should anything even be a proxy?
+# TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
+# TODO: do we need the migration ep for incoming? Could have a special version of place_items during migration that and upgrade after.
 
 
 # Other
@@ -376,6 +378,15 @@ removeItemsType = sp.TRecord(
     ext = extensionArgType
 ).layout(("place_key", ("remove_map", "ext")))
 
+getItemType = sp.TRecord(
+    place_key = placeKeyType,
+    chunk_id = sp.TNat,
+    item_id = sp.TNat,
+    issuer = sp.TOption(sp.TAddress),
+    fa2 = sp.TAddress,
+    ext = extensionArgType
+).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", "ext"))))))
+
 itemDataMinLen = sp.nat(7) # format 0 is 7 bytes
 placePropsColorLen = sp.nat(3) # 3 bytes for color
 
@@ -471,6 +482,11 @@ class PermissionParams:
             place_key = place_key)
         return sp.set_type_expr(r, cls.get_remove_type())
 
+setPermissionsType = sp.TList(sp.TVariant(
+    add = PermissionParams.get_add_type(),
+    remove = PermissionParams.get_remove_type()
+).layout(("add", "remove")))
+
 
 #
 # The World contract.
@@ -486,7 +502,7 @@ class TL_World_v2(
     Upgradeable,
     sp.Contract):
     def __init__(self, administrator, registry, royalties_adapter, paused, items_tokens, metadata,
-        name, description, exception_optimization_level="default-line", debug_asserts=False):
+        name, description, exception_optimization_level="default-line", debug_asserts=False, include_views=True):
 
         sp.Contract.__init__(self)
 
@@ -503,16 +519,13 @@ class TL_World_v2(
         # Makes much smaller code but removes annots from eps.
         #self.add_flag("simplify-via-michel")
 
-        registry = sp.set_type_expr(registry, sp.TAddress)
-        royalties_adapter = sp.set_type_expr(royalties_adapter, sp.TAddress)
-
         self.error_message = Error_message()
         self.permission_map = Permission_map()
 
         self.init_storage(
-            registry = registry,
-            royalties_adapter = royalties_adapter,
-            migration_from = sp.none,
+            registry = sp.set_type_expr(registry, sp.TAddress),
+            royalties_adapter = sp.set_type_expr(royalties_adapter, sp.TAddress),
+            migration_from = sp.set_type_expr(sp.none, sp.TOption(sp.TAddress)),
             max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = PlaceStorage.make(),
@@ -526,12 +539,14 @@ class TL_World_v2(
             ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=self.error_message.parameter_error()))
         ]
 
+        if include_views: self.addViews()
+
         Administrable.__init__(self, administrator = administrator, include_views = False)
         Pausable.__init__(self, paused = paused, include_views = False)
         ContractMetadata.__init__(self, metadata = metadata)
         Fees.__init__(self, fees_to = administrator)
         Moderation.__init__(self)
-        AllowedPlaceTokens.__init__(self)
+        AllowedPlaceTokens.__init__(self, include_views = include_views)
         MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
@@ -567,13 +582,8 @@ class TL_World_v2(
     #
     # Public entry points
     #
-    @sp.entry_point(lazify=True)
+    @sp.entry_point(lazify=True, parameter_type=setPermissionsType)
     def set_permissions(self, params):
-        sp.set_type(params, sp.TList(sp.TVariant(
-            add = PermissionParams.get_add_type(),
-            remove = PermissionParams.get_remove_type()
-        ).layout(("add", "remove"))))
-
         #self.onlyUnpaused() # Probably fine to run when paused.
 
         with sp.for_("update", params) as update:
@@ -624,10 +634,8 @@ class TL_World_v2(
                 place_key)))
 
 
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=updatePlacePropsType)
     def update_place_props(self, params):
-        sp.set_type(params, updatePlacePropsType)
-
         self.onlyUnpaused()
 
         # Place token must be allowed
@@ -670,10 +678,8 @@ class TL_World_v2(
         sp.verify(sp.len(data) >= itemDataMinLen, message = self.error_message.data_length())
 
 
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=placeItemsType)
     def place_items(self, params):
-        sp.set_type(params, placeItemsType)
-
         self.onlyUnpaused()
 
         # Place token must be allowed
@@ -766,10 +772,8 @@ class TL_World_v2(
         transferMap.transfer_tokens(sp.sender)
 
 
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=setItemDataType)
     def set_item_data(self, params):
-        sp.set_type(params, setItemDataType)
-
         self.onlyUnpaused()
 
         # NOTE: doesn't matter if place token is not allowed.
@@ -819,10 +823,8 @@ class TL_World_v2(
             this_chunk.persist()
 
 
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=removeItemsType)
     def remove_items(self, params):
-        sp.set_type(params, removeItemsType)
-
         self.onlyUnpaused()
 
         # NOTE: doesn't matter if place token is not allowed.
@@ -944,17 +946,8 @@ class TL_World_v2(
                 sp.result(open)
 
 
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=getItemType)
     def get_item(self, params):
-        sp.set_type(params, sp.TRecord(
-            place_key = placeKeyType,
-            chunk_id = sp.TNat,
-            item_id = sp.TNat,
-            issuer = sp.TOption(sp.TAddress),
-            fa2 = sp.TAddress,
-            ext = extensionArgType
-        ).layout(("place_key", ("chunk_id", ("item_id", ("issuer", ("fa2", "ext")))))))
-
         self.onlyUnpaused()
 
         # NOTE: doesn't matter if place token is not allowed.
@@ -1022,7 +1015,7 @@ class TL_World_v2(
     # Migration
     #
     # TODO: Permissions?
-    @sp.entry_point(lazify = True)
+    @sp.entry_point(lazify = True, parameter_type=migrationType)
     def migration(self, params):
         """An entrypoint to recieve/send migrations.
         
@@ -1031,8 +1024,6 @@ class TL_World_v2(
         
         NOTE: migration() assumes tokens have been recieved already.
         This is dangerous, but saves gas and it's clearly an admin-only action."""
-        sp.set_type(params, migrationType)
-
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
         sp.verify((sp.some(sp.sender) == self.data.migration_from) &
@@ -1130,48 +1121,49 @@ class TL_World_v2(
     #
     # Views
     #
-    @sp.onchain_view(pure=True)
-    def get_place_data(self, params):
-        sp.set_type(params, placeDataParam)
-        with sp.set_result_type(placeDataResultType):
-            res = sp.local("res", sp.record(
-                place = self.data.places.get(params.place_key, placeStorageDefault),
-                chunks = {}))
+    def addViews(self):
+        def get_place_data(self, params):
+            sp.set_type(params, placeDataParam)
+            with sp.set_result_type(placeDataResultType):
+                res = sp.local("res", sp.record(
+                    place = self.data.places.get(params.place_key, placeStorageDefault),
+                    chunks = {}))
 
-            with sp.for_("chunk_id", Utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
-                this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = params.place_key, chunk_id = chunk_id))
-                with this_chunk_opt.match("Some") as this_chunk:
-                    res.value.chunks[chunk_id] = this_chunk
+                with sp.for_("chunk_id", Utils.openSomeOrDefault(params.chunk_ids, res.value.place.chunks).elements()) as chunk_id:
+                    this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = params.place_key, chunk_id = chunk_id))
+                    with this_chunk_opt.match("Some") as this_chunk:
+                        res.value.chunks[chunk_id] = this_chunk
 
-            sp.result(res.value)
-
-
-    @sp.onchain_view(pure=True)
-    def get_place_seqnum(self, place_key):
-        sp.set_type(place_key, placeKeyType)
-
-        with sp.set_result_type(seqNumResultType):
-            # Collect chunk sequence numbers.
-            this_place = PlaceStorage(self.data.places, place_key, True)
-            chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, seqNumResultType.chunk_seqs)
-            with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
-                this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = place_key, chunk_id = chunk_id))
-                with this_chunk_opt.match("Some") as this_chunk:
-                    chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
-                        this_chunk.counter,
-                        this_chunk.next_id)))
-
-            # Return the result.
-            sp.result(sp.record(
-                place_seq = sp.sha3(sp.pack(this_place.value.counter)),
-                chunk_seqs = chunk_sequence_numbers_map.value))
+                sp.result(res.value)
+        self.get_place_data = sp.onchain_view(pure=True)(get_place_data)
 
 
-    @sp.onchain_view(pure=True)
-    def get_permissions(self, query):
-        sp.set_type(query, sp.TRecord(
-            place_key = placeKeyType,
-            permittee = sp.TAddress
-        ).layout(("place_key", "permittee")))
-        with sp.set_result_type(sp.TNat):
-            sp.result(sp.snd(self.getPermissionsInline(query.place_key, query.permittee)))
+        def get_place_seqnum(self, place_key):
+            sp.set_type(place_key, placeKeyType)
+
+            with sp.set_result_type(seqNumResultType):
+                # Collect chunk sequence numbers.
+                this_place = PlaceStorage(self.data.places, place_key, True)
+                chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, seqNumResultType.chunk_seqs)
+                with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
+                    this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = place_key, chunk_id = chunk_id))
+                    with this_chunk_opt.match("Some") as this_chunk:
+                        chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
+                            this_chunk.counter,
+                            this_chunk.next_id)))
+
+                # Return the result.
+                sp.result(sp.record(
+                    place_seq = sp.sha3(sp.pack(this_place.value.counter)),
+                    chunk_seqs = chunk_sequence_numbers_map.value))
+        self.get_place_seqnum = sp.onchain_view(pure=True)(get_place_seqnum)
+
+
+        def get_permissions(self, query):
+            sp.set_type(query, sp.TRecord(
+                place_key = placeKeyType,
+                permittee = sp.TAddress
+            ).layout(("place_key", "permittee")))
+            with sp.set_result_type(sp.TNat):
+                sp.result(sp.snd(self.getPermissionsInline(query.place_key, query.permittee)))
+        self.get_permissions = sp.onchain_view(pure=True)(get_permissions)
