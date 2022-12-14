@@ -41,16 +41,12 @@ class TL_TokenFactory(
             self.collection_contract = Tokens.ItemCollectionProxyChild(parent = proxy_parent,
                 metadata = metadata, admin = administrator, blacklist = blacklist)
         
-        self.init_storage(
-            registry = registry,
-            minter = minter,
-            proxy_parent = proxy_parent
-        )
+        self.init_storage()
 
         self.addMetaSettings([
-            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("minter", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("proxy_parent", sp.TAddress, lambda x : Utils.onlyContract(x))
+            ("registry", registry, sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("minter", minter, sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("proxy_parent", proxy_parent, sp.TAddress, lambda x : Utils.onlyContract(x))
         ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)

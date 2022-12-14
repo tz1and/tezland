@@ -162,12 +162,11 @@ class TL_TokenRegistry(
 
         self.init_storage(
             collections = collectionMapLiteral,
-            collaborators = collaboratorsMapLiteral,
-            collections_public_key = collections_public_key
+            collaborators = collaboratorsMapLiteral
         )
 
         self.addMetaSettings([
-            ("collections_public_key", sp.TKey, None)
+            ("collections_public_key", collections_public_key, sp.TKey, None)
         ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)

@@ -1,6 +1,6 @@
 [[package]]
 name = "tz1and-contracts-smartpy"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 category = "main"
 optional = false
@@ -11,7 +11,7 @@ develop = false
 type = "git"
 url = "https://github.com/tz1and/contracts-smartpy.git"
 reference = "main"
-resolved_reference = "ad48d90d874145d776c2f9e17ae214e17f18a42b"
+resolved_reference = "e5488bf16c4430ee42974e00ec0ecf990d3da1c2"
 
 [metadata]
 lock-version = "1.1"

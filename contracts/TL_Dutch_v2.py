@@ -59,16 +59,16 @@ class TL_Dutch_v2(
         self.add_flag("erase-comments")
         
         self.init_storage(
-            secondary_enabled = sp.bool(False), # If the secondary market is enabled.
-            granularity = sp.nat(60), # Globally controls the granularity of price drops. in seconds.
-            world_contract = sp.set_type_expr(world_contract, sp.TAddress), # The world contract. Needed for some things.
             auctions = sp.big_map(tkey=t_auction_key, tvalue=t_auction)
         )
 
         self.addMetaSettings([
-            ("granularity", sp.TNat, None),
-            ("secondary_enabled", sp.TBool, None),
-            ("world_contract", sp.TAddress, lambda x : Utils.onlyContract(x))
+            # Globally controls the granularity of price drops. in seconds.
+            ("granularity", 60, sp.TNat, None),
+            # If the secondary market is enabled.
+            ("secondary_enabled", False, sp.TBool, None),
+            # The world contract. Needed for some things.
+            ("world_contract", world_contract, sp.TAddress, lambda x : Utils.onlyContract(x))
         ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)

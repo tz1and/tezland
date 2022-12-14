@@ -4,17 +4,17 @@ import smartpy as sp
 # Required mixins: Administrable
 class Fees:
     def __init__(self, fees_to):
-        self.update_initial_storage(
-            fees = sp.nat(25),
-            fees_to = sp.set_type_expr(fees_to, sp.TAddress)
-        )
-
         if hasattr(self, 'addMetaSettings'):
             self.addMetaSettings([
-                ("fees", sp.TNat, lambda x: sp.verify(x <= 60, message = "FEE_ERROR")),
-                ("fees_to", sp.TAddress, None)
+                ("fees", 25, sp.TNat, lambda x: sp.verify(x <= 60, message = "FEE_ERROR")),
+                ("fees_to", fees_to, sp.TAddress, None)
             ])
         else:
+            self.update_initial_storage(
+                fees = sp.nat(25),
+                fees_to = sp.set_type_expr(fees_to, sp.TAddress)
+            )
+
             def update_fees(self, fees):
                 """Call to set fees in permille or fee recipient.
                 Fees must be <= than 60 permille.

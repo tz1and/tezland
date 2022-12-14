@@ -506,20 +506,16 @@ class TL_World_v2(
         self.permission_map = Permission_map()
 
         self.init_storage(
-            registry = sp.set_type_expr(registry, sp.TAddress),
-            royalties_adapter = sp.set_type_expr(royalties_adapter, sp.TAddress),
-            migration_from = sp.set_type_expr(sp.none, sp.TOption(sp.TAddress)),
-            max_permission = permissionFull, # must be (power of 2)-1
             permissions = self.permission_map.make(),
             places = PlaceStorage.make(),
             chunks = ChunkStorage.make()
         )
 
         self.addMetaSettings([
-            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("royalties_adapter", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("migration_from", sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y))),
-            ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=ErrorMessages.parameter_error()))
+            ("registry", registry, sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("royalties_adapter", royalties_adapter, sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("migration_from", sp.none, sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y))),
+            ("max_permission", permissionFull, sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=ErrorMessages.parameter_error()))
         ])
 
         if include_views: self.addViews()

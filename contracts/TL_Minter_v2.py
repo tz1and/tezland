@@ -29,16 +29,12 @@ class TL_Minter_v2(
         self.add_flag("exceptions", exception_optimization_level)
         self.add_flag("erase-comments")
 
-        self.init_storage(
-            registry = registry,
-            max_contributors = sp.nat(3),
-            max_royalties = sp.nat(250)
-        )
+        self.init_storage()
 
         self.addMetaSettings([
-            ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
-            ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), ErrorMessages.parameter_error())),
-            ("max_royalties", sp.TNat, None)
+            ("registry", registry, sp.TAddress, lambda x : Utils.onlyContract(x)),
+            ("max_contributors", 3, sp.TNat, lambda x : sp.verify(x >= sp.nat(1), ErrorMessages.parameter_error())),
+            ("max_royalties", 250, sp.TNat, None)
         ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
