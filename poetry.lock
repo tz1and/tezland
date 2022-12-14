@@ -11,7 +11,7 @@ develop = false
 type = "git"
 url = "https://github.com/tz1and/contracts-smartpy.git"
 reference = "main"
-resolved_reference = "b46b4fb9ef081bc730ddc00f4cb146e4f1478a39"
+resolved_reference = "ad48d90d874145d776c2f9e17ae214e17f18a42b"
 
 [metadata]
 lock-version = "1.1"

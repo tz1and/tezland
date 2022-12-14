@@ -19,8 +19,6 @@ class ModerationTestMetaSettings(
     ModerationTest,
     MetaSettings):
     def __init__(self, administrator):
-        self.available_settings = []
-
         ModerationTest.__init__(self, administrator = administrator)
         MetaSettings.__init__(self)
 

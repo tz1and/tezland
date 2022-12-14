@@ -39,8 +39,6 @@ class TL_Blacklist(
             blacklist = sp.big_map(tkey=sp.TAddress, tvalue=sp.TUnit)
         )
 
-        self.available_settings = []
-
         Administrable.__init__(self, administrator = administrator, include_views = False)
 
         self.generate_contract_metadata()

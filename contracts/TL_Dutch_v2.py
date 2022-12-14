@@ -65,11 +65,11 @@ class TL_Dutch_v2(
             auctions = sp.big_map(tkey=t_auction_key, tvalue=t_auction)
         )
 
-        self.available_settings = [
+        self.addMetaSettings([
             ("granularity", sp.TNat, None),
             ("secondary_enabled", sp.TBool, None),
             ("world_contract", sp.TAddress, lambda x : Utils.onlyContract(x))
-        ]
+        ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
         Pausable.__init__(self, include_views = False)

@@ -47,11 +47,11 @@ class TL_TokenFactory(
             proxy_parent = proxy_parent
         )
 
-        self.available_settings = [
+        self.addMetaSettings([
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("minter", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("proxy_parent", sp.TAddress, lambda x : Utils.onlyContract(x))
-        ]
+        ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
         Pausable.__init__(self, include_views = False)

@@ -166,9 +166,9 @@ class TL_TokenRegistry(
             collections_public_key = collections_public_key
         )
 
-        self.available_settings = [
+        self.addMetaSettings([
             ("collections_public_key", sp.TKey, None)
-        ]
+        ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
         Pausable.__init__(self, include_views = False)

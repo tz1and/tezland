@@ -90,8 +90,6 @@ class TL_LegacyRoyalties(
             royalties = sp.big_map(tkey=t_token_key_opt, tvalue=FA2.t_royalties_interop)
         )
 
-        self.available_settings = []
-
         Administrable.__init__(self, administrator = administrator, include_views = False)
         #Pausable.__init__(self, include_views = False)
         ContractMetadata.__init__(self, metadata = metadata)

@@ -13,10 +13,10 @@ class Moderation:
             moderation_contract = sp.set_type_expr(sp.none, sp.TOption(sp.TAddress))
         )
 
-        if hasattr(self, 'available_settings'):
-            self.available_settings.append(
+        if hasattr(self, 'addMetaSettings'):
+            self.addMetaSettings([
                 ("moderation_contract", sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y)))
-            )
+            ])
         else:
             def set_moderation_contract(self, moderation_contract):
                 """Set moderation contract."""

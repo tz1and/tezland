@@ -35,11 +35,11 @@ class TL_Minter_v2(
             max_royalties = sp.nat(250)
         )
 
-        self.available_settings = [
+        self.addMetaSettings([
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("max_contributors", sp.TNat, lambda x : sp.verify(x >= sp.nat(1), ErrorMessages.parameter_error())),
             ("max_royalties", sp.TNat, None)
-        ]
+        ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
         Pausable.__init__(self, include_views = False)

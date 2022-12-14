@@ -19,8 +19,6 @@ class FeesTestMetaSettings(
     FeesTest,
     MetaSettings):
     def __init__(self, administrator, fees_to):
-        self.available_settings = []
-
         FeesTest.__init__(self, administrator = administrator, fees_to = fees_to)
         MetaSettings.__init__(self)
 

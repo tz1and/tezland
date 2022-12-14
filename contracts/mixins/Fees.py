@@ -9,8 +9,8 @@ class Fees:
             fees_to = sp.set_type_expr(fees_to, sp.TAddress)
         )
 
-        if hasattr(self, 'available_settings'):
-            self.available_settings.extend([
+        if hasattr(self, 'addMetaSettings'):
+            self.addMetaSettings([
                 ("fees", sp.TNat, lambda x: sp.verify(x <= 60, message = "FEE_ERROR")),
                 ("fees_to", sp.TAddress, None)
             ])

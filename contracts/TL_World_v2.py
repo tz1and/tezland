@@ -515,12 +515,12 @@ class TL_World_v2(
             chunks = ChunkStorage.make()
         )
 
-        self.available_settings = [
+        self.addMetaSettings([
             ("registry", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("royalties_adapter", sp.TAddress, lambda x : Utils.onlyContract(x)),
             ("migration_from", sp.TOption(sp.TAddress), lambda x : Utils.ifSomeRun(x, lambda y: Utils.onlyContract(y))),
             ("max_permission", sp.TNat, lambda x: sp.verify(Utils.isPowerOfTwoMinusOne(x), message=ErrorMessages.parameter_error()))
-        ]
+        ])
 
         if include_views: self.addViews()
 
