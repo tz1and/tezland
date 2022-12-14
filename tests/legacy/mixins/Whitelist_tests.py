@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
 from contracts.legacy.mixins import Whitelist
 
 

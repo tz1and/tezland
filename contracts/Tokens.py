@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
 from contracts.utils.GenericLambdaProxy import GenericLambdaProxy
 from contracts.legacy import FA2_legacy
 

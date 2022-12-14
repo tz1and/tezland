@@ -1,5 +1,5 @@
 [[package]]
-name = "tezosbuilders-contracts-smartpy"
+name = "tz1and-contracts-smartpy"
 version = "0.1.0"
 description = ""
 category = "main"
@@ -9,14 +9,14 @@ develop = false
 
 [package.source]
 type = "git"
-url = "https://github.com/tezosbuilders/contracts-smartpy.git"
+url = "https://github.com/tz1and/contracts-smartpy.git"
 reference = "main"
-resolved_reference = "4cea3dc82fcf211e58cb4b31871ddc0a9f65978a"
+resolved_reference = "b46b4fb9ef081bc730ddc00f4cb146e4f1478a39"
 
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<3.11"
-content-hash = "793ee04356f1cbd8b0d710d05589681e5464f16ffd2e1a1c011a15f86639398a"
+content-hash = "0987ad21d5ee33164255991f193ce248fcf1e654bd1edf8fb520e8a18280b69a"
 
 [metadata.files]
-tezosbuilders-contracts-smartpy = []
+tz1and-contracts-smartpy = []

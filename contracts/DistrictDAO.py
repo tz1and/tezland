@@ -6,16 +6,16 @@
 
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
-from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Pausable import Pausable
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from contracts.mixins.Fees import Fees
 from contracts.mixins.Moderation import Moderation
 from contracts.legacy.mixins.PermittedFA2 import PermittedFA2
 
 from contracts import TL_World_v2
-from tezosbuilders_contracts_smartpy.utils import Utils
+from tz1and_contracts_smartpy.utils import Utils
 
 
 class Error_message:

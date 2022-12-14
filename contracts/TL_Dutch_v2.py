@@ -1,16 +1,16 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
-from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
-from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Pausable import Pausable
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
+from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins.Fees import Fees
 from contracts.mixins.FA2PermissionsAndWhitelist import FA2PermissionsAndWhitelist
 
 from contracts import TL_World_v2, FA2
 from contracts.utils import TokenTransfer, FA2Utils, ErrorMessages
-from tezosbuilders_contracts_smartpy.utils import Utils
+from tz1and_contracts_smartpy.utils import Utils
 
 
 # TODO: document reasoning for not limiting bids on secondary disable

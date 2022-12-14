@@ -1,14 +1,14 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
-from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata, contractSetMetadata
-from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Pausable import Pausable
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata, contractSetMetadata
+from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
 
 from contracts import TL_TokenRegistry, FA2
 from contracts.utils import ErrorMessages
-from tezosbuilders_contracts_smartpy.utils import Utils
+from tz1and_contracts_smartpy.utils import Utils
 
 
 # TODO: test update_settings: registry, max_contributors, max_royalties

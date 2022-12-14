@@ -1,7 +1,7 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from tezosbuilders_contracts_smartpy.utils import Utils
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tz1and_contracts_smartpy.utils import Utils
 
 
 VERBOSE = False

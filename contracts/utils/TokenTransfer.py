@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from contracts import FA2
-from tezosbuilders_contracts_smartpy.utils import Utils
+from tz1and_contracts_smartpy.utils import Utils
 from contracts.utils import FA2Utils
 
 

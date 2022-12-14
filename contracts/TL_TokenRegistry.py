@@ -1,10 +1,10 @@
 import smartpy as sp
 
-from tezosbuilders_contracts_smartpy.mixins.Administrable import Administrable
-from tezosbuilders_contracts_smartpy.mixins.Pausable import Pausable
-from tezosbuilders_contracts_smartpy.mixins.Upgradeable import Upgradeable
-from tezosbuilders_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
-from tezosbuilders_contracts_smartpy.mixins.MetaSettings import MetaSettings
+from tz1and_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Pausable import Pausable
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
+from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
+from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins.BasicPermissions import BasicPermissions
 
 from contracts.utils import EnvUtils, ErrorMessages
