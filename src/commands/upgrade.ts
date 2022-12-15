@@ -128,7 +128,9 @@ export default class Upgrade extends PostUpgrade {
             PlaceTokenProxyParent_contract = await this.deploy_contract("PlaceTokenProxyParent", "Tokens", "PlaceTokenProxyParent", [
                 `admin = sp.address("${this.accountAddress}")`,
                 `parent = sp.address("${this.accountAddress}")`,
-                `blacklist = sp.address("${Blacklist_contract.address}")`
+                `blacklist = sp.address("${Blacklist_contract.address}")`,
+                `name="tz1and Place Token Proxy Parent"`,
+                `description="tz1and Place tokens load code from this contract. It's useless otherwise."`
             ]);
         }
 
