@@ -1,7 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_Minter
-from contracts.legacy import FA2_legacy
+from contracts.legacy import FA2_legacy, TL_Minter
 
 
 class TL_Minter_v1_1(TL_Minter.TL_Minter):

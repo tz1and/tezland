@@ -1,6 +1,7 @@
 import smartpy as sp
 
-from contracts import TL_World, TL_World_v2
+from contracts.legacy import TL_World
+from contracts import TL_World_v2
 from contracts.utils import TokenTransfer
 
 

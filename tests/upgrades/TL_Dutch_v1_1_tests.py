@@ -1,7 +1,8 @@
 import smartpy as sp
 
 from contracts.upgrades import TL_Dutch_v1_1
-from contracts import TL_Minter, Tokens
+from contracts.legacy import TL_Minter
+from contracts import Tokens
 from contracts.utils import ErrorMessages
 
 

@@ -1,6 +1,7 @@
 import smartpy as sp
 
-from contracts import TL_Minter, TL_World, Tokens
+from contracts import Tokens
+from contracts.legacy import TL_Minter, TL_World
 from contracts.utils import FA2Utils
 
 

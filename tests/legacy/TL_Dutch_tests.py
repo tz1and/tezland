@@ -1,6 +1,7 @@
 import smartpy as sp
 
-from contracts import TL_Dutch, TL_Minter, Tokens
+from contracts import Tokens
+from contracts.legacy import TL_Dutch, TL_Minter
 
 
 @sp.add_test(name = "TL_Dutch_tests", profile = True)

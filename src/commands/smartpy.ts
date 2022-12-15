@@ -75,8 +75,8 @@ export function compile_metadata(target_name: string, file_name: string, contrac
 
     // write the compilation target
     fs.writeFileSync(`./${target_out_dir}/${target_name}_target.py`, `import smartpy as sp
-${file_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
-sp.add_compilation_target("${target_name}", ${file_name}_contract.${contract_name}(
+${target_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
+sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_name}(
     ${target_args.join(', ')}
     ))`)
 

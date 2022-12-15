@@ -1,6 +1,7 @@
 import smartpy as sp
 
-from contracts import TL_Minter, Tokens
+from contracts import Tokens
+from contracts.legacy import TL_Minter
 
 
 @sp.add_test(name = "TL_Minter_tests", profile = True)

@@ -1,6 +1,6 @@
 import smartpy as sp
 
-from contracts import TL_Dutch
+from contracts.legacy import TL_Dutch
 from contracts.utils import FA2Utils, ErrorMessages
 
 
