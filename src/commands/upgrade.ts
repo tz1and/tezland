@@ -167,7 +167,7 @@ export default class Upgrade extends PostUpgrade {
                 `description="tz1and Place FA2 Tokens (v2)."`
             ]);
 
-            // TODO: should the public collection be a proxy? Maybe not?
+            // NOTE: Public collection is not a proxy, but it's lazy.
             await tezland_batch.addToBatch("FA2_Items_v2", "Tokens", "tz1andItems_v2", [
                 `admin = sp.address("${this.accountAddress}")`
             ]);

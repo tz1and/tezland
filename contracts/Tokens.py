@@ -1,6 +1,7 @@
 import smartpy as sp
 
 from tz1and_contracts_smartpy.mixins.Administrable import Administrable
+from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from contracts.utils.GenericLambdaProxy import GenericLambdaProxy
 from contracts.legacy import FA2_legacy
 
@@ -69,19 +70,24 @@ class tz1andItems_v2(
     FA2.BurnFungible,
     FA2.Royalties,
     FA2.Fa2Fungible,
+    Upgradeable
 ):
     """tz1and Items"""
 
     def __init__(self, metadata, admin):
+        # All eps should be lazy.
+        self.add_flag("lazy-entry-points")
         FA2.Fa2Fungible.__init__(
             self, metadata=metadata,
-            name="tz1and Items", description="tz1and Item FA2 Tokens.",
+            name="tz1and Items", description="The tz1and public Item collection.",
+            #policy=FA2.BlacklistTransfer(blacklist, FA2.OwnerOrOperatorAdhocTransfer(), True, True),
             policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), has_royalties=True,
             allow_mint_existing=False
         )
         FA2.MintFungible.__init__(self)
         FA2.Royalties.__init__(self)
         Administrable.__init__(self, admin, include_views = False)
+        Upgradeable.__init__(self)
 
 def generateItemCollectionProxy():
     # TODO: add name/description to args.
