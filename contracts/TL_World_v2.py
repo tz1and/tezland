@@ -572,7 +572,7 @@ class TL_World_v2(
                     self.onlyAllowedPlaceTokens(upd.place_key.fa2)
                     # Sender must be the owner
                     sp.verify(upd.owner == sp.sender, message = ErrorMessages.not_owner())
-                    sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.max_permission), message = ErrorMessages.parameter_error())
+                    sp.verify((upd.perm > permissionNone) & (upd.perm <= self.data.settings.max_permission), message = ErrorMessages.parameter_error())
                     # Add permission
                     self.permission_map.add(self.data.permissions,
                         upd.owner,
@@ -604,7 +604,7 @@ class TL_World_v2(
 
         # If permittee is the owner, he has full permission.
         with sp.if_(place_owner.value == permittee):
-            sp.result(sp.pair(place_owner.value, self.data.max_permission))
+            sp.result(sp.pair(place_owner.value, self.data.settings.max_permission))
         # Else, query permissions.
         with sp.else_():
             sp.result(sp.pair(place_owner.value, self.permission_map.get_octal(self.data.permissions,
@@ -690,7 +690,7 @@ class TL_World_v2(
         transferMap = TokenTransfer.FA2TokenTransferMap()
 
         # Get registry info for FA2s.
-        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some())
+        sp.compute(TL_TokenRegistry.onlyRegistered(self.data.settings.registry, fa2_set.value).open_some())
 
         with sp.for_("chunk_item", params.place_item_map.items()) as chunk_item:
             chunk_key = sp.compute(sp.record(place_key = params.place_key, chunk_id = chunk_item.key))
@@ -874,8 +874,8 @@ class TL_World_v2(
         sendMap = TokenTransfer.TokenSendMap()
 
         # First, we take our fees are in permille.
-        fees_amount = sp.compute(sp.split_tokens(rate, self.data.fees, sp.nat(1000)))
-        sendMap.add(self.data.fees_to, fees_amount)
+        fees_amount = sp.compute(sp.split_tokens(rate, self.data.settings.fees, sp.nat(1000)))
+        sendMap.add(self.data.settings.fees_to, fees_amount)
 
         value_after_fees = sp.compute(rate - fees_amount)
 
@@ -960,7 +960,7 @@ class TL_World_v2(
                 with sp.if_(sp.amount != sp.mutez(0)):
                     # Get the royalties for this item
                     item_royalty_info = sp.compute(TL_RoyaltiesAdapter.getRoyalties(
-                        self.data.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some())
+                        self.data.settings.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some())
 
                     # Send fees, royalties, value.
                     self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
@@ -1005,7 +1005,7 @@ class TL_World_v2(
         This is dangerous, but saves gas and it's clearly an admin-only action."""
         # Only allow recieving migrations from a certain contract,
         # and also only from admin as source.
-        sp.verify((sp.some(sp.sender) == self.data.migration_from) &
+        sp.verify((sp.some(sp.sender) == self.data.settings.migration_from) &
             (sp.source == self.data.administrator))
 
         # Place token must be allowed
@@ -1034,7 +1034,7 @@ class TL_World_v2(
                 with sp.for_("fa2", fa2_map.keys()) as fa2:
                     fa2_set.value.add(fa2)
 
-            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.registry, fa2_set.value).open_some())
+            sp.compute(TL_TokenRegistry.onlyRegistered(self.data.settings.registry, fa2_set.value).open_some())
 
             # Get or create the current chunk.
             this_chunk = ChunkStorage(self.data.chunks, chunk_key.value, True)

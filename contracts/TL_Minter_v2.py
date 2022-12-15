@@ -78,17 +78,17 @@ class TL_Minter_v2(
     #
     def onlyOwnerPrivate(self, collection, address):
         sp.verify(TL_TokenRegistry.isPrivateOwnerOrCollab(
-            self.data.registry, collection, address) == sp.some(sp.bounded("owner")), ErrorMessages.only_owner())
+            self.data.settings.registry, collection, address) == sp.some(sp.bounded("owner")), ErrorMessages.only_owner())
 
 
     def onlyOwnerOrCollaboratorPrivate(self, collection, address):
-        sp.compute(TL_TokenRegistry.isPrivateOwnerOrCollab(self.data.registry, collection, address)
+        sp.compute(TL_TokenRegistry.isPrivateOwnerOrCollab(self.data.settings.registry, collection, address)
             .open_some())
 
 
     def onlyPublicCollection(self, collection):
         # call registry view to check if public collection.
-        sp.verify(TL_TokenRegistry.getCollectionInfo(self.data.registry, collection)
+        sp.verify(TL_TokenRegistry.getCollectionInfo(self.data.settings.registry, collection)
             .open_some().collection_type == TL_TokenRegistry.collectionPublic, ErrorMessages.not_public())
 
 
@@ -195,7 +195,7 @@ class TL_Minter_v2(
 
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = ErrorMessages.parameter_error())
 
-        FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
+        FA2.validateRoyalties(params.royalties, self.data.settings.max_royalties, self.data.settings.max_contributors)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(
@@ -227,7 +227,7 @@ class TL_Minter_v2(
 
         sp.verify((params.amount > 0) & (params.amount <= 10000), message = ErrorMessages.parameter_error())
 
-        FA2.validateRoyalties(params.royalties, self.data.max_royalties, self.data.max_contributors)
+        FA2.validateRoyalties(params.royalties, self.data.settings.max_royalties, self.data.settings.max_contributors)
 
         FA2.fa2_fungible_royalties_mint(
             [sp.record(

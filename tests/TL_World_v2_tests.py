@@ -817,46 +817,46 @@ def test():
     scenario.h2("Settings")
 
     scenario.h3("update max_permission")
-    scenario.verify(world.data.max_permission == TL_World_v2.permissionFull)
+    scenario.verify(world.data.settings.max_permission == TL_World_v2.permissionFull)
     world.update_settings([sp.variant("max_permission", 127)]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("max_permission", 96)]).run(sender = admin, valid = False, exception=ErrorMessages.parameter_error())
     world.update_settings([sp.variant("max_permission", 127)]).run(sender = admin)
-    scenario.verify(world.data.max_permission == 127)
+    scenario.verify(world.data.settings.max_permission == 127)
 
     scenario.h3("update registry")
-    scenario.verify(world.data.registry == registry.address)
+    scenario.verify(world.data.settings.registry == registry.address)
     world.update_settings([sp.variant("registry", minter.address)]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("registry", minter.address)]).run(sender = admin)
-    scenario.verify(world.data.registry == minter.address)
+    scenario.verify(world.data.settings.registry == minter.address)
     world.update_settings([sp.variant("registry", registry.address)]).run(sender = admin)
 
     scenario.h3("update migration_from")
-    scenario.verify(world.data.migration_from == sp.none)
+    scenario.verify(world.data.settings.migration_from == sp.none)
     world.update_settings([sp.variant("migration_from", sp.some(minter.address))]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("migration_from", sp.some(minter.address))]).run(sender = admin)
-    scenario.verify(world.data.migration_from == sp.some(minter.address))
+    scenario.verify(world.data.settings.migration_from == sp.some(minter.address))
     world.update_settings([sp.variant("migration_from", sp.none)]).run(sender = admin)
 
     scenario.h3("update moderation_contract")
-    scenario.verify(world.data.moderation_contract == sp.none)
+    scenario.verify(world.data.settings.moderation_contract == sp.none)
     world.update_settings([sp.variant("moderation_contract", sp.some(minter.address))]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("moderation_contract", sp.some(minter.address))]).run(sender = admin)
-    scenario.verify(world.data.moderation_contract == sp.some(minter.address))
+    scenario.verify(world.data.settings.moderation_contract == sp.some(minter.address))
     world.update_settings([sp.variant("moderation_contract", sp.none)]).run(sender = admin)
 
     scenario.h3("update fees_to")
-    scenario.verify(world.data.fees_to == admin.address)
+    scenario.verify(world.data.settings.fees_to == admin.address)
     world.update_settings([sp.variant("fees_to", bob.address)]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("fees_to", bob.address)]).run(sender = admin)
-    scenario.verify(world.data.fees_to == bob.address)
+    scenario.verify(world.data.settings.fees_to == bob.address)
     world.update_settings([sp.variant("fees_to", admin.address)]).run(sender = admin)
 
     scenario.h3("update fees")
-    scenario.verify(world.data.fees == sp.nat(25))
+    scenario.verify(world.data.settings.fees == sp.nat(25))
     world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = bob, valid = False)
     world.update_settings([sp.variant("fees", sp.nat(61))]).run(sender = admin, valid = False, exception = "FEE_ERROR")
     world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = admin)
-    scenario.verify(world.data.fees == 55)
+    scenario.verify(world.data.settings.fees == 55)
     world.update_settings([sp.variant("fees", sp.nat(25))]).run(sender = admin)
 
     scenario.h3("update metadata")
@@ -1210,7 +1210,7 @@ def test():
             owner = bob.address,
             permittee = alice.address,
             place_key = place_bob,
-            perm = world.data.max_permission + 1
+            perm = world.data.settings.max_permission + 1
         ))
     ]).run(sender=bob, valid=False, exception=ErrorMessages.parameter_error())
 
@@ -1311,11 +1311,11 @@ def test():
     # test paused
     #
     scenario.h2("pausing")
-    scenario.verify(world.data.paused == False)
+    scenario.verify(world.data.settings.paused == False)
     world.update_settings([sp.variant("paused", True)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     world.update_settings([sp.variant("paused", True)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     world.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    scenario.verify(world.data.paused == True)
+    scenario.verify(world.data.settings.paused == True)
 
     # anything that changes a place or transfers tokens is now disabled
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
@@ -1340,7 +1340,7 @@ def test():
     world.update_settings([sp.variant("paused", False)]).run(sender = bob, valid = False, exception = "ONLY_ADMIN")
     world.update_settings([sp.variant("paused", False)]).run(sender = alice, valid = False, exception = "ONLY_ADMIN")
     world.update_settings([sp.variant("paused", False)]).run(sender = admin)
-    scenario.verify(world.data.paused == False)
+    scenario.verify(world.data.settings.paused == False)
 
     world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=carol)
 

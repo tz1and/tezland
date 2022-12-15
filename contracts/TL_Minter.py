@@ -1,8 +1,8 @@
 import smartpy as sp
 
 from tz1and_contracts_smartpy.mixins.Administrable import Administrable
-from tz1and_contracts_smartpy.mixins.Pausable import Pausable
 from contracts.mixins.FA2_Administration import FA2_Administration
+from contracts.legacy.mixins.Pausable import Pausable
 from contracts.legacy.mixins.Moderation import Moderation
 from contracts.legacy.mixins.Upgradeable import Upgradeable
 

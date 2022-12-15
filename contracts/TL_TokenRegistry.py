@@ -262,7 +262,7 @@ class TL_TokenRegistry(
                         sp.verify(~self.data.collections.contains(add_trusted_item.key), ErrorMessages.collection_exists())
 
                         # Validate signature!
-                        sp.verify(sp.check_signature(self.data.collections_public_key,
+                        sp.verify(sp.check_signature(self.data.settings.collections_public_key,
                             add_trusted_item.value.signature,
                             sp.pack(sp.set_type_expr(sp.record(
                                 collection=add_trusted_item.key,
@@ -423,4 +423,4 @@ class TL_TokenRegistry(
 
     @sp.onchain_view(pure=True)
     def get_collections_public_key(self):
-        sp.result(self.data.collections_public_key)
+        sp.result(self.data.settings.collections_public_key)

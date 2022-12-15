@@ -100,7 +100,7 @@ class TL_TokenFactory(
         # Originate FA2
         originated_token = sp.create_contract(contract = self.collection_contract, storage = sp.record(
             # The storage we need to modify
-            administrator = self.data.minter,
+            administrator = self.data.settings.minter,
             metadata = sp.big_map({"": metadata_uri}),
             # Just the default values
             adhoc_operators = sp.set(),
@@ -111,13 +111,13 @@ class TL_TokenFactory(
             proposed_administrator = sp.none,
             token_extra = sp.big_map(),
             token_metadata = sp.big_map(),
-            parent = self.data.proxy_parent
+            parent = self.data.settings.proxy_parent
         ))
 
         # Add private collection in token registry
         manage_collections_handle = sp.contract(
             TL_TokenRegistry.t_manage_collections,
-            self.data.registry, 
+            self.data.settings.registry, 
             entry_point = "manage_collections").open_some()
 
         sp.transfer([

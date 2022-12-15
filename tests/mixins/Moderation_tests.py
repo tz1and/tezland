@@ -46,7 +46,7 @@ def test():
     scenario.h3("set_moderation_contract")
 
     # Check default
-    scenario.verify(moderation.data.moderation_contract == sp.none)
+    scenario.verify(moderation.data.settings.moderation_contract == sp.none)
 
     # Check failure cases.
     for t in [(bob, moderation.address, "ONLY_ADMIN"), (admin, bob.address, "NOT_CONTRACT")]:
@@ -54,9 +54,9 @@ def test():
         moderation.set_moderation_contract(sp.some(set_address)).run(sender = sender, valid = False, exception = exception)
 
     moderation.set_moderation_contract(sp.some(moderation.address)).run(sender = admin)
-    scenario.verify(moderation.data.moderation_contract == sp.some(moderation.address))
+    scenario.verify(moderation.data.settings.moderation_contract == sp.some(moderation.address))
     moderation.set_moderation_contract(sp.none).run(sender = admin)
-    scenario.verify(moderation.data.moderation_contract == sp.none)
+    scenario.verify(moderation.data.settings.moderation_contract == sp.none)
 
     # test meta settings
     scenario.h2("Test Moderation - MetaSettings")
@@ -68,7 +68,7 @@ def test():
     scenario.h3("update_settings")
 
     # Check default
-    scenario.verify(moderation_meta.data.moderation_contract == sp.none)
+    scenario.verify(moderation_meta.data.settings.moderation_contract == sp.none)
 
     # Check failure cases.
     for t in [(bob, moderation_meta.address, "ONLY_ADMIN"), (admin, bob.address, "NOT_CONTRACT")]:
@@ -76,6 +76,6 @@ def test():
         moderation_meta.update_settings([sp.variant("moderation_contract", sp.some(set_address))]).run(sender = sender, valid = False, exception = exception)
 
     moderation_meta.update_settings([sp.variant("moderation_contract", sp.some(moderation_meta.address))]).run(sender = admin)
-    scenario.verify(moderation_meta.data.moderation_contract == sp.some(moderation_meta.address))
+    scenario.verify(moderation_meta.data.settings.moderation_contract == sp.some(moderation_meta.address))
     moderation_meta.update_settings([sp.variant("moderation_contract", sp.none)]).run(sender = admin)
-    scenario.verify(moderation_meta.data.moderation_contract == sp.none)
+    scenario.verify(moderation_meta.data.settings.moderation_contract == sp.none)

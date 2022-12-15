@@ -205,11 +205,11 @@ def test():
     registry.update_settings([sp.variant("paused", False)]).run(sender=alice, valid=False, exception="ONLY_ADMIN")
     registry.update_settings([sp.variant("paused", False)]).run(sender=bob, valid=False, exception="ONLY_ADMIN")
 
-    scenario.verify_equal(registry.data.collections_public_key, collections_key.public_key)
+    scenario.verify_equal(registry.data.settings.collections_public_key, collections_key.public_key)
     registry.update_settings([sp.variant("collections_public_key", royalties_key.public_key)]).run(sender = admin)
-    scenario.verify_equal(registry.data.collections_public_key, royalties_key.public_key)
+    scenario.verify_equal(registry.data.settings.collections_public_key, royalties_key.public_key)
     registry.update_settings([sp.variant("collections_public_key", collections_key.public_key)]).run(sender = admin)
-    scenario.verify_equal(registry.data.collections_public_key, collections_key.public_key)
+    scenario.verify_equal(registry.data.settings.collections_public_key, collections_key.public_key)
 
     # Test onchain views
     scenario.h2("Test views")
@@ -263,7 +263,7 @@ def test():
     # Test trusted validation
     scenario.h2("Test signing")
 
-    scenario.verify_equal(registry.get_collections_public_key(), registry.data.collections_public_key)
+    scenario.verify_equal(registry.get_collections_public_key(), registry.data.settings.collections_public_key)
 
     # Royalties and collections keys.
     scenario.verify_equal(registry.get_collections_public_key(), collections_key.public_key)

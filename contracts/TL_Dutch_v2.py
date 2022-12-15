@@ -113,7 +113,7 @@ class TL_Dutch_v2(
     #
     def onlyWhitelistAdminIfSecondaryDisabled(self, fa2_props):
         """Fails if secondary is disabled and sender is not whitelist admin"""
-        with sp.if_(~self.data.secondary_enabled):
+        with sp.if_(~self.data.settings.secondary_enabled):
             sp.verify(sp.sender == fa2_props.whitelist_admin, "ONLY_WHITELIST_ADMIN")
 
     #
@@ -148,7 +148,7 @@ class TL_Dutch_v2(
         sp.verify((params.auction.start_time >= sp.now) &
             # NOTE: is assumed by next check. sp.as_nat trows if negative.
             # (params.auction.start_time < params.auction.end_time) &
-            (sp.as_nat(params.auction.end_time - params.auction.start_time, "INVALID_PARAM") > self.data.granularity) &
+            (sp.as_nat(params.auction.end_time - params.auction.start_time, "INVALID_PARAM") > self.data.settings.granularity) &
             (params.auction.start_price >= params.auction.end_price), "INVALID_PARAM")
 
         # Auction can not exist already.
@@ -201,8 +201,8 @@ class TL_Dutch_v2(
 
         with sp.if_(ask_price != sp.mutez(0)):
             # Our fees are in permille.
-            fees_amount = sp.compute(sp.split_tokens(ask_price, self.data.fees, sp.nat(1000)))
-            sendMap.add(self.data.fees_to, fees_amount)
+            fees_amount = sp.compute(sp.split_tokens(ask_price, self.data.settings.fees, sp.nat(1000)))
+            sendMap.add(self.data.settings.fees_to, fees_amount)
 
             # Send rest of the value to seller.
             left_amount = ask_price - fees_amount
@@ -245,13 +245,13 @@ class TL_Dutch_v2(
         # Call token contract to add operators.
         world_handle = sp.contract(
             TL_World_v2.updatePlacePropsType,
-            self.data.world_contract,
+            self.data.settings.world_contract,
             entry_point='update_place_props').open_some()
         sp.transfer(set_props_args, sp.mutez(0), world_handle)
 
     
     def validatePlaceSequenceHash(self, token_contract, token_id, expected_hash):
-        current_hash = sp.sha3(sp.pack(sp.view("get_place_seqnum", self.data.world_contract,
+        current_hash = sp.sha3(sp.pack(sp.view("get_place_seqnum", self.data.settings.world_contract,
             sp.set_type_expr(
                 sp.record(fa2 = token_contract, id = token_id),
                 TL_World_v2.placeKeyType),
@@ -336,9 +336,9 @@ class TL_Dutch_v2(
                 # the input in create. to make sure intervals can't be negative.
                 # NOTE: can use abs here, because end time is checked to be
                 # larger than start_time on auction creation.
-                duration = abs(the_auction.end_time - the_auction.start_time) // self.data.granularity
+                duration = abs(the_auction.end_time - the_auction.start_time) // self.data.settings.granularity
                 # NOTE: can use abs here because we check sp.now > start time.
-                time_since_start = abs(sp.now - the_auction.start_time) // self.data.granularity
+                time_since_start = abs(sp.now - the_auction.start_time) // self.data.settings.granularity
                 # NOTE: this can lead to a division by 0. auction duration must be > granularity.
                 mutez_per_interval = sp.utils.mutez_to_nat(the_auction.start_price - the_auction.end_price) // duration
                 time_deduction = mutez_per_interval * time_since_start
@@ -371,4 +371,4 @@ class TL_Dutch_v2(
     @sp.onchain_view(pure=True)
     def is_secondary_enabled(self):
         """Returns true if secondary is enabled."""
-        sp.result(self.data.secondary_enabled)
+        sp.result(self.data.settings.secondary_enabled)

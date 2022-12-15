@@ -168,7 +168,7 @@ def test():
 
     # enabled secondary, it's disabled by default
     dutch.update_settings([sp.variant("secondary_enabled", True)]).run(sender=admin)
-    scenario.verify(dutch.data.secondary_enabled == True)
+    scenario.verify(dutch.data.settings.secondary_enabled == True)
 
     # some useful expressions for permitted fa2
     add_permitted_fa2_wl_enabled = sp.list([sp.variant("add_permitted",
@@ -580,7 +580,7 @@ def test():
     scenario.h3("update world_contract")
 
     # check default
-    scenario.verify(dutch.data.world_contract == world.address)
+    scenario.verify(dutch.data.settings.world_contract == world.address)
 
     # failure cases.
     for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
@@ -588,9 +588,9 @@ def test():
         dutch.update_settings([sp.variant("world_contract", bob.address)]).run(sender = sender, valid = False, exception = exception)
 
     dutch.update_settings([sp.variant("world_contract", minter.address)]).run(sender = admin)
-    scenario.verify(dutch.data.world_contract == minter.address)
+    scenario.verify(dutch.data.settings.world_contract == minter.address)
     dutch.update_settings([sp.variant("world_contract", world.address)]).run(sender = admin)
-    scenario.verify(dutch.data.world_contract == world.address)
+    scenario.verify(dutch.data.settings.world_contract == world.address)
 
     #
     # update granularity
@@ -598,7 +598,7 @@ def test():
     scenario.h3("update granularity")
 
     # check default
-    scenario.verify(dutch.data.granularity == sp.nat(60))
+    scenario.verify(dutch.data.settings.granularity == sp.nat(60))
 
     # no permission for anyone but admin
     for acc in [alice, bob, admin]:
@@ -607,7 +607,7 @@ def test():
             valid = (True if acc is admin else False),
             exception = (None if acc is admin else "ONLY_ADMIN"))
 
-        if acc is admin: scenario.verify(dutch.data.granularity == sp.nat(35))
+        if acc is admin: scenario.verify(dutch.data.settings.granularity == sp.nat(35))
 
     scenario.table_of_contents()
 
@@ -644,7 +644,7 @@ def test():
     # disable secondary.
     dutch.update_settings([sp.variant("secondary_enabled", False)]).run(sender=bob, valid = False, exception = "ONLY_ADMIN")
     dutch.update_settings([sp.variant("secondary_enabled", False)]).run(sender=admin)
-    scenario.verify(dutch.data.secondary_enabled == False)
+    scenario.verify(dutch.data.settings.secondary_enabled == False)
     scenario.verify(dutch.is_secondary_enabled() == False)
 
     # only wl admin can create auctions if secondary is disabled
@@ -670,7 +670,7 @@ def test():
 
     # enable secondary.
     dutch.update_settings([sp.variant("secondary_enabled", True)]).run(sender=admin)
-    scenario.verify(dutch.data.secondary_enabled == True)
+    scenario.verify(dutch.data.settings.secondary_enabled == True)
     scenario.verify(dutch.is_secondary_enabled() == True)
 
     # If secondary and whitelist are enabled, anyone can create auctions,

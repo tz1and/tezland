@@ -44,8 +44,8 @@ def test():
     scenario += fees
 
     # Check default
-    scenario.verify(fees.data.fees == sp.nat(25))
-    scenario.verify(fees.data.fees_to == admin.address)
+    scenario.verify(fees.data.settings.fees == sp.nat(25))
+    scenario.verify(fees.data.settings.fees_to == admin.address)
 
     #
     # update_fees
@@ -58,7 +58,7 @@ def test():
         fees.update_fees(fee_amount).run(sender = sender, valid = False, exception = exception)
 
     fees.update_fees(45).run(sender = admin)
-    scenario.verify(fees.data.fees == sp.nat(45))
+    scenario.verify(fees.data.settings.fees == sp.nat(45))
 
     scenario.h3("update_fees_to")
 
@@ -69,7 +69,7 @@ def test():
             valid = (True if acc is admin else False),
             exception = (None if acc is admin else "ONLY_ADMIN"))
 
-        if acc is admin: scenario.verify(fees.data.fees_to == bob.address)
+        if acc is admin: scenario.verify(fees.data.settings.fees_to == bob.address)
 
     # Test meta settings
     scenario.h2("Test Fees - MetaSettings")
@@ -79,8 +79,8 @@ def test():
     scenario += fees_meta
 
     # Check default
-    scenario.verify(fees_meta.data.fees == sp.nat(25))
-    scenario.verify(fees_meta.data.fees_to == admin.address)
+    scenario.verify(fees_meta.data.settings.fees == sp.nat(25))
+    scenario.verify(fees_meta.data.settings.fees_to == admin.address)
 
     #
     # update_settings
@@ -93,7 +93,7 @@ def test():
         fees_meta.update_settings([sp.variant("fees", fee_amount)]).run(sender = sender, valid = False, exception = exception)
 
     fees_meta.update_settings([sp.variant("fees", sp.nat(45))]).run(sender = admin)
-    scenario.verify(fees_meta.data.fees == sp.nat(45))
+    scenario.verify(fees_meta.data.settings.fees == sp.nat(45))
 
     # No permission for anyone but admin
     for acc in [alice, bob, admin]:
@@ -102,4 +102,4 @@ def test():
             valid = (True if acc is admin else False),
             exception = (None if acc is admin else "ONLY_ADMIN"))
 
-        if acc is admin: scenario.verify(fees_meta.data.fees_to == bob.address)
+        if acc is admin: scenario.verify(fees_meta.data.settings.fees_to == bob.address)

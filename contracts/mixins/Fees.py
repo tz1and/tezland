@@ -1,18 +1,23 @@
 import smartpy as sp
 
+from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
+from tz1and_contracts_smartpy.utils import Settings
+
 
 # Required mixins: Administrable
 class Fees:
     def __init__(self, fees_to):
-        if hasattr(self, 'addMetaSettings'):
+        if isinstance(self, MetaSettings):
             self.addMetaSettings([
                 ("fees", 25, sp.TNat, lambda x: sp.verify(x <= 60, message = "FEE_ERROR")),
                 ("fees_to", fees_to, sp.TAddress, None)
             ])
         else:
             self.update_initial_storage(
-                fees = sp.nat(25),
-                fees_to = sp.set_type_expr(fees_to, sp.TAddress)
+                settings = sp.record(
+                    **Settings.getPrevSettingsFields(self),
+                    fees = sp.nat(25),
+                    fees_to = sp.set_type_expr(fees_to, sp.TAddress))
             )
 
             def update_fees(self, fees):
@@ -22,14 +27,14 @@ class Fees:
                 sp.set_type(fees, sp.TNat)
                 self.onlyAdministrator()
                 sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
-                self.data.fees = fees
+                self.data.settings.fees = fees
 
             def update_fees_to(self, fees_to):
                 """Set fee recipient.
                 """
                 sp.set_type(fees_to, sp.TAddress)
                 self.onlyAdministrator()
-                self.data.fees_to = fees_to
+                self.data.settings.fees_to = fees_to
 
             self.update_fees = sp.entry_point(update_fees, parameter_type=sp.TNat)
             self.update_fees_to = sp.entry_point(update_fees_to, parameter_type=sp.TAddress)

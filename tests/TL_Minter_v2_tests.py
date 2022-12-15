@@ -54,9 +54,9 @@ def test():
         minter.update_settings([sp.variant("registry", bob.address)]).run(sender = sender, valid = False, exception = exception)
 
     minter.update_settings([sp.variant("registry", minter.address)]).run(sender = admin)
-    scenario.verify(minter.data.registry == minter.address)
+    scenario.verify(minter.data.settings.registry == minter.address)
     minter.update_settings([sp.variant("registry", registry.address)]).run(sender = admin)
-    scenario.verify(minter.data.registry == registry.address)
+    scenario.verify(minter.data.settings.registry == registry.address)
 
 
     #

@@ -58,7 +58,7 @@ def test():
     scenario.h2("update_settings")
 
     # minter
-    scenario.verify(token_factory.data.minter == minter.address)
+    scenario.verify(token_factory.data.settings.minter == minter.address)
 
     # test minter setting failiure cases
     for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
@@ -66,12 +66,12 @@ def test():
         token_factory.update_settings([sp.variant("minter", alice.address)]).run(sender=sender, valid=False, exception=exception)
 
     token_factory.update_settings([sp.variant("minter", token_factory.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.minter == token_factory.address)
+    scenario.verify(token_factory.data.settings.minter == token_factory.address)
     token_factory.update_settings([sp.variant("minter", minter.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.minter == minter.address)
+    scenario.verify(token_factory.data.settings.minter == minter.address)
 
     # registry
-    scenario.verify(token_factory.data.registry == registry.address)
+    scenario.verify(token_factory.data.settings.registry == registry.address)
 
     # test registry setting failiure cases
     for t in [(bob, "ONLY_ADMIN"), (alice, "ONLY_ADMIN"), (admin, "NOT_CONTRACT")]:
@@ -79,9 +79,9 @@ def test():
         token_factory.update_settings([sp.variant("registry", alice.address)]).run(sender=sender, valid=False, exception=exception)
 
     token_factory.update_settings([sp.variant("registry", token_factory.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.registry == token_factory.address)
+    scenario.verify(token_factory.data.settings.registry == token_factory.address)
     token_factory.update_settings([sp.variant("registry", registry.address)]).run(sender=admin)
-    scenario.verify(token_factory.data.registry == registry.address)
+    scenario.verify(token_factory.data.settings.registry == registry.address)
 
     # test create_token
     scenario.h2("create_token")
