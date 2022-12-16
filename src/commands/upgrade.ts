@@ -4,11 +4,12 @@ import { char2Bytes, bytes2Char } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
 import { DeployContractBatch } from './DeployBase';
-import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract } from '@taquito/taquito';
+import { ContractAbstraction, MichelsonMap, OpKind, ParamsWithKind, Wallet, WalletContract, WalletParamsWithKind } from '@taquito/taquito';
 import fs from 'fs';
 import PostUpgrade from './postupgrade';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
+import BigNumber from 'bignumber.js'
 
 
 export default class Upgrade extends PostUpgrade {
@@ -410,6 +411,8 @@ export default class Upgrade extends PostUpgrade {
         // Run upgrades.
         //
 
+        var totalMigrationFee = new BigNumber(0);
+
         // Cancel v1 auctions
         await this.run_flag_task("auctions_v1_cancelled", async () => {
             await this.cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions, tezlandPlaces);
@@ -417,13 +420,17 @@ export default class Upgrade extends PostUpgrade {
 
         // Re-mint and re-distribute place tokens.
         await this.run_flag_task("places_redistributed", async () => {
-            await this.reDistributePlaces(places_v2_FA2_contract, tezlandPlaces);
+            const placeRedistFee = await this.reDistributePlaces(places_v2_FA2_contract, tezlandPlaces);
+            totalMigrationFee = totalMigrationFee.plus(placeRedistFee);
         });
 
         // Run world migration.
         await this.run_flag_task("world_migrated", async () => {
-            await this.migrateWorld(World_v2_contract, tezlandWorld, places_v2_FA2_contract);
+            const worldMigrationFee = await this.migrateWorld(World_v2_contract, tezlandWorld, places_v2_FA2_contract);
+            totalMigrationFee = totalMigrationFee.plus(worldMigrationFee);
         });
+
+        console.log("Total fee for migration:", totalMigrationFee.toNumber() / 1000000);
 
         //
         // Post deploy
@@ -482,29 +489,27 @@ export default class Upgrade extends PostUpgrade {
     }
 
     protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
-        const num_tokens = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+        assert(this.tezos);
+        const num_tokens_v1 = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+        const num_tokens_v2 = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
-        // TODO
-        // TODO
-        // TODO - ONLY RE-MINT PLACES THAT AREN'T ALREADY MINTED!!!!!!!
-        // TODO
-        // TODO
-        // TODO - DON'T use count_tokens view!!!!!!!!!!
-        // TODO
-        // TODO
+        console.log("num_tokens_v1", num_tokens_v1.toNumber())
+        console.log("num_tokens_v2", num_tokens_v2.toNumber())
 
         const v1placestorage = (await tezlandPlacesV1.storage()) as any;
 
         // get metadata map.
+        console.log("Fetching place metadata...");
         const metadata_map = new Map<number, string>();
-        for (let i = 0; i < num_tokens; ++i) {
+        for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
             const entry = await v1placestorage.token_metadata.get(i);
             metadata_map.set(i, bytes2Char(entry.token_info.get("")!));
         }
 
         // Get owner map.
+        console.log("Fetching place owners...");
         const owner_map = new Map<number, string>();
-        for (let i = 0; i < num_tokens; ++i) {
+        for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
             const address = await v1placestorage.ledger.get(i);
             owner_map.set(i, address);
         }
@@ -514,62 +519,143 @@ export default class Upgrade extends PostUpgrade {
             if(v.startsWith("KT")) throw new Error(`Error: Place #${k} is owned by contract.`);
         });
 
+        let totalFee = new BigNumber(0);
+
         // re-mint and -distribute places in v2.
+        if (num_tokens_v1 - num_tokens_v2 > 0) {
+            let mint_batch: any[] = [];
+            for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
+                const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
+                metadata.set('', char2Bytes(metadata_map.get(i)!));
 
-        // TODO: do in batches of 100 or so. record last id in reg?
+                const current_place_list = [{
+                    to_: owner_map.get(i)!,
+                    metadata: metadata
+                }];
 
-        const mint_batch: any[] = [];
-        for (let i = 0; i < num_tokens; ++i) {
-            const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-            metadata.set('', char2Bytes(metadata_map.get(i)!));
-            mint_batch.push({
-                to_: owner_map.get(i)!,
-                metadata: metadata
-            });
+                const mint_batch_temp = mint_batch.concat(current_place_list);
+
+                // Estimate size with added op. If too large, send batch.
+                // Estimate should throw when limits are reached.
+                try {
+                    const est = await this.tezos.estimate.transfer(tezlandPlacesV2.methodsObject.mint(mint_batch_temp).toTransferParams());
+                    // If it succeeds, the temp batch becomes the new batch.
+                    mint_batch = mint_batch_temp;
+                } catch(e) {
+                    // If it fails (op limits), send op.
+                    const op = await this.run_op_task(`Re-mint places x${mint_batch.length}`, () => {
+                        return tezlandPlacesV2.methodsObject.mint(mint_batch).send();
+                    });
+                    const receipt = await op.receipt();
+                    console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
+                    totalFee = totalFee.plus(receipt.totalFee.plus(receipt.totalStorageBurn));
+                    // And reset batch with the list that pushed it over the limit.
+                    mint_batch = current_place_list;
+                }
+            }
+
+            // If we have any places left to minter after, mint them.
+            if (mint_batch.length > 0) {
+                const op = await this.run_op_task(`Re-mint places x${mint_batch.length}`, () => {
+                    return tezlandPlacesV2.methodsObject.mint(mint_batch).send();
+                });
+                const receipt = await op.receipt();
+                console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
+                totalFee = totalFee.plus(receipt.totalFee.plus(receipt.totalStorageBurn));
+            }
+        }
+        else {
+            console.log("No places to re-mint.")
         }
 
-        await this.run_op_task("Re-mint places", () => {
-            return tezlandPlacesV2.methodsObject.mint(mint_batch).send();
-        });
+        console.log("Total fee for re-distributing places:", totalFee.toNumber() / 1000000);
+
+        return totalFee;
     }
 
     protected async migrateWorld(tezlandWorldV2: WalletContract, tezlandWorldV1: WalletContract, tezlandPlacesV2: WalletContract) {
+        assert(this.tezos);
         await this.run_op_task("Set migration contract on World v2...", async () => {
             return tezlandWorldV2.methods.update_settings([{migration_from: tezlandWorldV1.address}]).send()
         });
 
         const num_tokens = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
-        const v1worldtorage = (await tezlandWorldV1.storage()) as any;
+        const v1worldstorage = (await tezlandWorldV1.storage()) as any;
 
         // TODO: do in batches of 100 or so. record last id in reg?
 
-        const batch = this.tezos!.wallet.batch();
+        let empty_places_skipped = 0;
+        let totalFee = new BigNumber(0);
+
+        //const batch = this.tezos!.wallet.batch();
+        let batch_items: WalletParamsWithKind[] = [];
         for (let i = 0; i < num_tokens; ++i) {
             // Check if place is empty. If it is, skip migration.
-            const place = await v1worldtorage.places.get(i);
+            const place = await v1worldstorage.places.get(i);
             if (!place) {
-                console.log(`Place #${i} is empty, skipping.`);
+                //console.log(`Place #${i} is empty, skipping.`);
+                ++empty_places_skipped;
                 continue;
             }
 
-            batch.with([{
+            //console.log("migrating place", i);
+
+            const batch_item_list: WalletParamsWithKind[] = [{
                 kind: OpKind.TRANSACTION,
                 ...tezlandWorldV1.methodsObject.set_item_data({
                     lot_id: i,
                     update_map: new MichelsonMap()
                 }).toTransferParams()
-            }])
+            }];
+
+            const batch_items_temp = batch_items.concat(batch_item_list);
+
+            try {
+                const est = await this.tezos.estimate.batch(batch_items_temp as ParamsWithKind[]);
+                // Let's batch it at some threshold, estimating large batches is slow...
+                if(batch_items_temp.length > 50) throw new Error();
+                // If it succeeds, the temp batch becomes the new batch.
+                batch_items = batch_items_temp;
+            } catch(e) {
+                // If it fails (op limits), send op.
+                const batch = this.tezos.wallet.batch(batch_items);
+                const op = await this.run_op_task(`Migrate world x${batch_items.length}`, () => {
+                    return batch.send();
+                });
+                const receipt = await op.receipt();
+                console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
+                totalFee = totalFee.plus(receipt.totalFee.plus(receipt.totalStorageBurn));
+                // And reset batch with the list that pushed it over the limit.
+                batch_items = batch_item_list;
+            }
         }
 
-        // @ts-expect-error
-        if (batch.operations.length > 0)
-            await this.run_op_task("Migrate world", () => {
+        if (batch_items.length > 0) {
+            const batch = this.tezos.wallet.batch(batch_items);
+
+            const op = await this.run_op_task(`Migrate world x${batch_items.length}`, () => {
                 return batch.send();
             });
+            const receipt = await op.receipt();
+            console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
+            totalFee = totalFee.plus(receipt.totalFee.plus(receipt.totalStorageBurn));
+        }
 
-        await this.run_op_task("World v2: Remove migration contract and unpause...", async () => {
-            return tezlandWorldV2.methods.update_settings([{migration_from: null}, {paused: false}]).send()
+        console.log("Empty places skipped:", empty_places_skipped);
+        console.log("Total fee for migrating world:", totalFee.toNumber() / 1000000);
+
+        await this.run_op_task("World v2: Remove migration contract...", async () => {
+            return tezlandWorldV2.methods.update_settings([{migration_from: null}]).send()
         });
+
+        // NOTE: world must be unpaused manually for prod!
+        if (this.isSandboxNet) {
+            await this.run_op_task("World v2: Unpause for dev...", async () => {
+                return tezlandWorldV2.methods.update_settings([{paused: false}]).send()
+            });
+        }
+
+        return totalFee;
     }
 }
