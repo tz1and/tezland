@@ -244,18 +244,9 @@ export default class DeployBase {
 
     protected async feesToObject(op: TransactionWalletOperation|BatchWalletOperation): Promise<FeeResult> {
         const receipt = await op.receipt();
-        //console.log("totalFee", receipt.totalFee.toNumber());
-        //console.log("totalGas", receipt.totalGas.toNumber());
-        //console.log("totalStorage", receipt.totalStorage.toNumber());
-        //console.log("totalAllocationBurn", receipt.totalAllocationBurn.toNumber());
-        //console.log("totalOriginationBurn", receipt.totalOriginationBurn.toNumber());
-        //console.log("totalPaidStorageDiff", receipt.totalPaidStorageDiff.toNumber());
-        //console.log("totalStorageBurn", receipt.totalStorageBurn.toNumber());
-        // TODO: figure out how to actually calculate burn.
-        const paidStorage = receipt.totalPaidStorageDiff.toNumber() * 250 / 1000000;
+        // totalStorageBurn is paid storage diff + allocation burn + origination burn
+        const paidStorage = receipt.totalStorageBurn.toNumber() / 1000000;
         const totalFee = receipt.totalFee.toNumber() / 1000000;
-        //const totalGas = receipt.totalGas.toNumber() / 1000000;
-        //return `${(totalFee + paidStorage).toFixed(6)} (storage: ${paidStorage.toFixed(6)}, gas: ${totalFee.toFixed(6)})`;
         return { storage: paidStorage.toFixed(6), fee: totalFee.toFixed(6) };
     }
 
