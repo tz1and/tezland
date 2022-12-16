@@ -98,14 +98,16 @@ export default class PostDeploy extends PostDeployBase {
     protected async deployDevWorld(contracts: PostDeployContracts) {
         console.log(kleur.bgGreen("Deploying dev world"));
 
+        const testLargeMigration = false;
+
         // prepare batch
         await this.run_op_task("Mint items", async () => {
             const mint_batch = this.tezos!.wallet.batch();
 
-            await this.mintNewItem('assets/Lantern.glb', 5394, 100, mint_batch, contracts.get("Minter_contract")!);
-            await this.mintNewItem('assets/Fox.glb', 576, 25, mint_batch, contracts.get("Minter_contract")!);
-            await this.mintNewItem('assets/Duck.glb', 4212, 75, mint_batch, contracts.get("Minter_contract")!);
-            await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 66, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Lantern.glb', 5394, 10000, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Fox.glb', 576, 10000, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!);
+            await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 10000, mint_batch, contracts.get("Minter_contract")!);
 
             const places = [];
             places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
@@ -117,6 +119,21 @@ export default class PostDeploy extends PostDeployBase {
             return mint_batch.send();
         });
 
+        if (testLargeMigration) {
+            for (let i = 0; i < 8; ++i) {
+                await this.run_op_task("Mint many Places", async () => {
+                    const mint_batch = this.tezos!.wallet.batch();
+
+                    const places = [];
+                    for (let j = 0; j < 100; ++j)
+                        places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+                    this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
+
+                    return mint_batch.send();
+                });
+            }
+        }
+
         // set operators
         await this.fa2_set_operators(contracts, new Map(Object.entries({
             items_FA2_contract: new Map(Object.entries({
@@ -126,6 +143,40 @@ export default class PostDeploy extends PostDeployBase {
                 Dutch_contract: [1, 3]
             }))
         })));
+
+        if (testLargeMigration) {
+            const places_per_batch = 50;
+            const num_batches = 16;
+            //800/places_per_batch
+            for (let i = 0; i < num_batches; ++i) {
+                const batch = this.tezos!.wallet.batch();
+                const list_ten_items = [
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 2, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 0, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 3, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } },
+                    { item: { token_id: 1, token_amount: 1, mutez_per_token: 1000000, item_data: "01800040520000baa6c9c2460a4000" } }
+                ];
+                for (let j = 0; j < places_per_batch; ++j) {
+                    const place_id = 4 + j + (i * places_per_batch);
+                    //console.log(place_id)
+                    batch.with([{
+                        kind: OpKind.TRANSACTION,
+                        ...contracts.get("World_contract")!.methodsObject.place_items({
+                            lot_id: place_id, item_list: list_ten_items
+                        }).toTransferParams()
+                    }]);
+                }
+                await this.run_op_task(`Place 10 items in ${places_per_batch} Places from ${4 + i * places_per_batch}`, () => {
+                    return batch.send();
+                });
+            }
+        }
 
         await this.run_op_task("Place 10 items in Place #0", () => {
             const list_ten_items = [
