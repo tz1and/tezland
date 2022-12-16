@@ -47,54 +47,58 @@ class TL_World_v1_1(TL_World.TL_World):
 
         self.onlyAdministrator()
 
-        this_place_opt = self.data.places.get_opt(params.lot_id)
+        ext_open = params.extension.open_some("NO_EXT_PARAMS")
+        migrate_place_set = sp.unpack(ext_open.get("place_set", message="NO_PLACE_SET"), sp.TSet(sp.TNat)).open_some("INVALID_PLACE_SET")
 
-        # Do nothing for empty places.
-        with this_place_opt.match("Some") as this_place:
-            # Only migrate place has items or the props have been changed.
-            with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, TL_World_v2.defaultPlaceProps)):
-                # The record of items to migrate to v2.
-                migration_map = sp.local("migration_map", {}, TL_World_v2.migrationItemMapType)
+        with sp.for_("migrate_place", migrate_place_set.elements()) as migrate_place:
+            this_place_opt = self.data.places.get_opt(migrate_place)
 
-                # Our token transfer map.
-                # Since it's all the same token, we can have a single map.
-                transferMap = TokenTransfer.FA2TokenTransferMapSingle(self.data.items_contract)
+            # Do nothing for empty places.
+            with this_place_opt.match("Some") as this_place:
+                # Only migrate place has items or the props have been changed.
+                with sp.if_((sp.len(this_place.stored_items) > 0) | ~sp.poly_equal_expr(this_place.place_props, TL_World_v2.defaultPlaceProps)):
+                    # The record of items to migrate to v2.
+                    migration_map = sp.local("migration_map", {}, TL_World_v2.migrationItemMapType)
 
-                # Fill migration map with items from storage
-                with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
-                    # Get item store - must exist.
-                    item_store = issuer_item.value
+                    # Our token transfer map.
+                    # Since it's all the same token, we can have a single map.
+                    transferMap = TokenTransfer.FA2TokenTransferMapSingle(self.data.items_contract)
 
-                    migration_map.value[issuer_item.key] = sp.map({self.data.items_contract: sp.list([])})
-                    current_list = migration_map.value[issuer_item.key][self.data.items_contract]
+                    # Fill migration map with items from storage
+                    with sp.for_("issuer_item", this_place.stored_items.items()) as issuer_item:
+                        # Get item store - must exist.
+                        item_store = issuer_item.value
 
-                    with sp.for_("item_variant", item_store.values()) as item_variant:
-                        with item_variant.match_cases() as arg:
-                            with arg.match("item") as item:
-                                # Add to transfer map.
-                                transferMap.add_token(self.migrate_to_contract, item.token_id, item.item_amount)
+                        migration_map.value[issuer_item.key] = sp.map({self.data.items_contract: sp.list([])})
+                        current_list = migration_map.value[issuer_item.key][self.data.items_contract]
 
-                                # Add item to migration list.
-                                current_list.push(sp.variant("item", sp.record(
-                                    token_id = item.token_id,
-                                    amount = item.item_amount,
-                                    rate = item.mutez_per_item,
-                                    data = item.item_data,
-                                    primary = False)))
-                            with arg.match("other"):
-                                sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
-                            with arg.match("ext") as ext:
-                                current_list.push(sp.variant("ext", ext))
+                        with sp.for_("item_variant", item_store.values()) as item_variant:
+                            with item_variant.match_cases() as arg:
+                                with arg.match("item") as item:
+                                    # Add to transfer map.
+                                    transferMap.add_token(self.migrate_to_contract, item.token_id, item.item_amount)
 
-                # Transfer FA2 tokens
-                transferMap.transfer_tokens(sp.self_address)
+                                    # Add item to migration list.
+                                    current_list.push(sp.variant("item", sp.record(
+                                        token_id = item.token_id,
+                                        amount = item.item_amount,
+                                        rate = item.mutez_per_item,
+                                        data = item.item_data,
+                                        primary = False)))
+                                with arg.match("other"):
+                                    sp.failwith("OTHER_TYPE_ITEMS_NOT_SUPPORTED")
+                                with arg.match("ext") as ext:
+                                    current_list.push(sp.variant("ext", ext))
 
-                # Send migration to world v2.
-                # NOTE: still have to send migration even if map is empty, for the props.
-                self.send_migration(self.migrate_to_contract, migration_map.value, self.data.places[params.lot_id].place_props, params.lot_id)
+                    # Transfer FA2 tokens
+                    transferMap.transfer_tokens(sp.self_address)
 
-            # Finally, delete the place from storage.
-            del self.data.places[params.lot_id]
+                    # Send migration to world v2.
+                    # NOTE: still have to send migration even if map is empty, for the props.
+                    self.send_migration(self.migrate_to_contract, migration_map.value, self.data.places[migrate_place].place_props, migrate_place)
+
+                # Finally, delete the place from storage.
+                del self.data.places[migrate_place]
 
     @sp.entry_point(lazify = True)
     def get_item(self, params):

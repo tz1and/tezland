@@ -256,13 +256,13 @@ def test():
     scenario.h2("Test access control")
     
     world.set_item_data(
-        lot_id = place_carol_only_props,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
         extension = sp.none).run(sender=carol, valid=False, exception="ONLY_ADMIN")
 
     world.set_item_data(
-        lot_id = place_carol_only_props,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
         extension = sp.none).run(sender=bob, valid=False, exception="ONLY_ADMIN")
@@ -323,10 +323,10 @@ def test():
         extension = sp.none).run(sender=carol)
 
     world.set_item_data(
-        lot_id = place_bob_multiple_issuers,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_bob_multiple_issuers], sp.TNat))})).run(sender=admin)
 
     # have props and three chunks in v2.
     scenario.verify(world_v2.data.places.contains(place_key))
@@ -367,10 +367,10 @@ def test():
         extension = sp.none).run(sender=alice)
 
     world.set_item_data(
-        lot_id = place_alice_multiple_tokens,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_alice_multiple_tokens], sp.TNat))})).run(sender=admin)
 
     # have props and three chunks in v2.
     scenario.verify(world_v2.data.places.contains(place_key))
@@ -409,10 +409,10 @@ def test():
         extension = sp.none).run(sender=bob)
 
     world.set_item_data(
-        lot_id = place_bob_mixed_items,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_bob_mixed_items], sp.TNat))})).run(sender=admin)
 
     # have props and three chunks in v2.
     scenario.verify(world_v2.data.places.contains(place_key))
@@ -441,10 +441,10 @@ def test():
         extension = sp.none).run(sender=bob)
 
     world.set_item_data(
-        lot_id = place_bob_only_ext,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_bob_only_ext], sp.TNat))})).run(sender=admin)
 
     # have props and three chunks in v2.
     scenario.verify(world_v2.data.places.contains(place_key))
@@ -477,10 +477,10 @@ def test():
         extension = sp.none).run(sender=alice)
 
     world.set_item_data(
-        lot_id = place_alice_emptied,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_alice_emptied], sp.TNat))})).run(sender=admin)
 
     # have no props and no chunks in v2
     scenario.verify(~world_v2.data.places.contains(place_key))
@@ -503,10 +503,10 @@ def test():
     prev_props = scenario.compute(world.data.places.get(place_carol_only_props).place_props)
     
     world.set_item_data(
-        lot_id = place_carol_only_props,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_carol_only_props], sp.TNat))})).run(sender=admin)
 
     # have props but no chunks in v2
     scenario.verify(world_v2.data.places.contains(place_key))
@@ -524,10 +524,10 @@ def test():
     chunk_key_0 = sp.record(place_key=place_key, chunk_id=sp.nat(0))
 
     world.set_item_data(
-        lot_id = place_carol_uninit,
+        lot_id = 0,
         owner = sp.none,
         update_map = {},
-        extension = sp.none).run(sender=admin)
+        extension = sp.some({"place_set": sp.pack(sp.set([place_carol_uninit], sp.TNat))})).run(sender=admin)
 
     # Place shouldn't exist anywhere
     scenario.verify(~world_v2.data.places.contains(place_key))
