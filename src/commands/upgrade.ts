@@ -4,7 +4,9 @@ import { char2Bytes, bytes2Char } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
 import { DeployContractBatch } from './DeployBase';
-import { ContractAbstraction, MichelsonMap, OpKind, ParamsWithKind, Wallet, WalletContract, WalletParamsWithKind } from '@taquito/taquito';
+import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract, MichelCodecPacker } from '@taquito/taquito';
+import { MichelsonV1Expression } from '@taquito/rpc';
+import { Schema } from '@taquito/michelson-encoder';
 import fs from 'fs';
 import PostUpgrade from './postupgrade';
 import config from '../user.config';
@@ -533,12 +535,12 @@ export default class Upgrade extends PostUpgrade {
                     metadata: metadata
                 }];
 
-                const mint_batch_temp = mint_batch.concat(current_place_list);
-
+                
                 // Estimate size with added op. If too large, send batch.
                 // Estimate should throw when limits are reached.
                 try {
-                    const est = await this.tezos.estimate.transfer(tezlandPlacesV2.methodsObject.mint(mint_batch_temp).toTransferParams());
+                    const mint_batch_temp = mint_batch.concat(current_place_list);
+                    await this.tezos.estimate.transfer(tezlandPlacesV2.methodsObject.mint(mint_batch_temp).toTransferParams());
                     // If it succeeds, the temp batch becomes the new batch.
                     mint_batch = mint_batch_temp;
                 } catch(e) {
@@ -573,6 +575,22 @@ export default class Upgrade extends PostUpgrade {
         return totalFee;
     }
 
+    private async packSetNat(set: number[]) {
+        // Type as michelson expression
+        const setStorageType: MichelsonV1Expression = {
+            prim: 'set', args: [ { prim: 'nat' }]
+        };
+
+        // Encode result as a michelson expression.
+        const storageSchema = new Schema(setStorageType);
+        const setEncoded = storageSchema.Encode(set);
+
+        // Pack encoded michelson data.
+        const packer = new MichelCodecPacker();
+        const packedSet = await packer.packData({ data: setEncoded, type: setStorageType });
+        return packedSet.packed;
+    }
+
     protected async migrateWorld(tezlandWorldV2: WalletContract, tezlandWorldV1: WalletContract, tezlandPlacesV2: WalletContract) {
         assert(this.tezos);
         await this.run_op_task("Set migration contract on World v2...", async () => {
@@ -589,7 +607,7 @@ export default class Upgrade extends PostUpgrade {
         let totalFee = new BigNumber(0);
 
         //const batch = this.tezos!.wallet.batch();
-        let batch_items: WalletParamsWithKind[] = [];
+        let batch_places: number[] = [];
         for (let i = 0; i < num_tokens; ++i) {
             // Check if place is empty. If it is, skip migration.
             const place = await v1worldstorage.places.get(i);
@@ -599,43 +617,41 @@ export default class Upgrade extends PostUpgrade {
                 continue;
             }
 
-            //console.log("migrating place", i);
-
-            const batch_item_list: WalletParamsWithKind[] = [{
-                kind: OpKind.TRANSACTION,
-                ...tezlandWorldV1.methodsObject.set_item_data({
-                    lot_id: i,
-                    update_map: new MichelsonMap()
-                }).toTransferParams()
-            }];
-
-            const batch_items_temp = batch_items.concat(batch_item_list);
-
+            // Estimate size with added op. If too large, send batch.
+            // Estimate should throw when limits are reached.
             try {
-                const est = await this.tezos.estimate.batch(batch_items_temp as ParamsWithKind[]);
-                // Let's batch it at some threshold, estimating large batches is slow...
-                if(batch_items_temp.length > 50) throw new Error();
+                const batch_places_temp = batch_places.concat([i]);
+                await this.tezos.estimate.transfer(tezlandWorldV1.methodsObject.set_item_data({
+                    lot_id: 0,
+                    update_map: new MichelsonMap(),
+                    extension: {"place_set": await this.packSetNat(batch_places_temp)}
+                }).toTransferParams());
                 // If it succeeds, the temp batch becomes the new batch.
-                batch_items = batch_items_temp;
+                batch_places = batch_places_temp;
             } catch(e) {
                 // If it fails (op limits), send op.
-                const batch = this.tezos.wallet.batch(batch_items);
-                const op = await this.run_op_task(`Migrate world x${batch_items.length}`, () => {
-                    return batch.send();
+                const op = await this.run_op_task(`Migrate world x${batch_places.length}`, async () => {
+                    return tezlandWorldV1.methodsObject.set_item_data({
+                        lot_id: 0,
+                        update_map: new MichelsonMap(),
+                        extension: {"place_set": await this.packSetNat(batch_places)}
+                    }).send();
                 });
                 const receipt = await op.receipt();
                 console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
                 totalFee = totalFee.plus(receipt.totalFee.plus(receipt.totalStorageBurn));
                 // And reset batch with the list that pushed it over the limit.
-                batch_items = batch_item_list;
+                batch_places = [i];
             }
         }
 
-        if (batch_items.length > 0) {
-            const batch = this.tezos.wallet.batch(batch_items);
-
-            const op = await this.run_op_task(`Migrate world x${batch_items.length}`, () => {
-                return batch.send();
+        if (batch_places.length > 0) {
+            const op = await this.run_op_task(`Migrate world x${batch_places.length}`, async () => {
+                return tezlandWorldV1.methodsObject.set_item_data({
+                    lot_id: 0,
+                    update_map: new MichelsonMap(),
+                    extension: {"place_set": await this.packSetNat(batch_places)}
+                }).send();
             });
             const receipt = await op.receipt();
             console.log("Fee for this batch:", receipt.totalFee.plus(receipt.totalStorageBurn).toNumber() / 1000000);
