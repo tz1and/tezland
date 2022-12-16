@@ -41,10 +41,6 @@ from tz1and_contracts_smartpy.utils import Utils
 # TODO: include AdminLambda in contracts?
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
-# TODO: dormant blacklist in proxy?
-# TODO: should places/interiors also be a proxy?
-# TODO: places and items proxy as well?
-# TODO: should anything even be a proxy?
 # TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
 # TODO: do we need the migration ep for incoming? Could have a special version of place_items during migration that and upgrade after.
 
