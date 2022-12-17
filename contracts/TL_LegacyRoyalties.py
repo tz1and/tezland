@@ -7,7 +7,7 @@ from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from contracts.mixins.BasicPermissions import BasicPermissions
 
-from contracts.utils import EnvUtils
+from contracts.utils import EnvUtils, ErrorMessages
 from tz1and_contracts_smartpy.utils import Utils
 
 
@@ -192,7 +192,7 @@ class TL_LegacyRoyalties(
         sp.set_type(token_key, t_token_key)
         sp.result(Utils.openSomeOrDefault(
             self.data.royalties.get_opt(sp.record(fa2=token_key.fa2, id=sp.some(token_key.id))),
-            self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none), message="UNKNOWN_ROYALTIES")))
+            self.data.royalties.get(sp.record(fa2=token_key.fa2, id=sp.none), message=ErrorMessages.unknown_royalties())))
 
 
     @sp.onchain_view(pure=True)

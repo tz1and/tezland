@@ -119,7 +119,7 @@ def test():
     # V2 items should fail with TOKEN_UNDEFINED.
     adapter_test.testRoyalties(token_key=token_keys["items0"], expected=sp.none).run(sender=admin, valid=False, exception="TOKEN_UNDEFINED")
     # Trusted should fail with UNKNOWN_ROYALTIES because no one added the royalties yet.
-    adapter_test.testRoyalties(token_key=token_keys["trusted"], expected=sp.none).run(sender=admin, valid=False, exception="UNKNOWN_ROYALTIES")
+    adapter_test.testRoyalties(token_key=token_keys["trusted"], expected=sp.none).run(sender=admin, valid=False, exception=ErrorMessages.unknown_royalties())
 
     scenario.h2("Add trusted royalties but invalid token")
 

@@ -27,3 +27,6 @@ def invalid_collection(prefix=""):        return make_error_msg(prefix, "INVALID
 def collection_exists(prefix=""):         return make_error_msg(prefix, "COLLECTION_EXISTS")
 def not_proposed_owner(prefix=""):        return make_error_msg(prefix, "NOT_PROPOSED_OWNER")
 def not_owner_or_collaborator(prefix=""): return make_error_msg(prefix, "NOT_OWNER_OR_COLLABORATOR")
+
+# Legacy royalites related
+def unknown_royalties(prefix=""):   return make_error_msg(prefix, "UNKNOWN_ROYALTIES")
