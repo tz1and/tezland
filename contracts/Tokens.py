@@ -91,15 +91,13 @@ class tz1andItems_v2(
 
 def generateItemCollectionProxy():
     # TODO: add name/description to args.
-    # TODO: should places/interiors also be a proxy?
-    # TODO: should anything even be a proxy?
     class ItemCollection(
         Administrable,
         FA2.ChangeMetadata,
         FA2.MintFungible,
         FA2.BurnFungible,
         FA2.Royalties,
-        FA2.Fa2Fungible,
+        FA2.Fa2Fungible
     ):
         """tz1and Collection"""
 
@@ -129,9 +127,6 @@ ItemCollectionProxyBase, ItemCollectionProxyParent, ItemCollectionProxyChild = g
 
 
 def generatePlaceTokenProxy():
-    # TODO: add name/description to args.
-    # TODO: should places/interiors also be a proxy?
-    # TODO: should anything even be a proxy?
     class Place(
         Administrable,
         FA2.ChangeMetadata,
