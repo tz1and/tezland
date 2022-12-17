@@ -4,9 +4,6 @@ from contracts import TL_TokenRegistry, TL_Minter_v2, Tokens
 from contracts.utils import ErrorMessages
 
 
-# TODO: "NOT_PRIVATE" never tested
-
-
 @sp.add_test(name = "TL_TokenRegistry_tests", profile = True)
 def test():
     admin = sp.test_account("Administrator")
@@ -86,6 +83,9 @@ def test():
     registry.manage_collections([sp.variant("add_public", manage_public_params)]).run(sender = alice)
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, TL_TokenRegistry.collectionPublic)
 
+    # public collections can't be managed as private
+    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = alice, valid = False, exception = ErrorMessages.not_private())
+
     # public collection can't be private
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = ErrorMessages.collection_exists())
 
@@ -108,6 +108,9 @@ def test():
 
     registry.manage_collections([sp.variant("add_trusted", manage_trusted_params)]).run(sender = bob)
     scenario.verify_equal(registry.data.collections.get(items_tokens.address).collection_type, TL_TokenRegistry.collectionTrusted)
+
+    # trusted collections can't be managed as private
+    registry.admin_private_collections([sp.variant("transfer_ownership", sp.record(collection = items_tokens.address, new_owner = alice.address))]).run(sender = alice, valid = False, exception = ErrorMessages.not_private())
 
     # trusted collection can't be private
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin, valid = False, exception = ErrorMessages.collection_exists())
