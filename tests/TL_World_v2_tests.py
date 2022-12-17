@@ -9,9 +9,6 @@ PermissionParams = TL_World_v2.PermissionParams
 
 
 # TODO: test royalties, fees, issuer being paid, lol
-# TODO: test registry and collections.
-# TODO: test placing items with signed registry.
-# TODO: test getting items with signed royalties.
 # TODO: token amounts calc probably still wrong in some cases (place owned items).
 
 
@@ -267,10 +264,13 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += legacy_royalties
 
-    scenario.h3("RoyaltiesAdapters")
+    scenario.h2("RoyaltiesAdapters")
     royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
         legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += royalties_adapter_legacy
+
+    scenario.h3("add royalties key")
+    legacy_royalties.manage_registry([sp.variant("add_keys", {"key1": royalties_key.public_key})]).run(admin)
 
     royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
         registry.address, royalties_adapter_legacy.address,
@@ -953,13 +953,10 @@ def test():
     ]).run(sender = alice, valid = True)
 
     # test unpermitted place_item
-    # TODO: other type item tests are a bit broken because all kinds of reasons...
     scenario.h3("Test placing/removing/getting unregistered non-tz1and FA2s")
     place_items(place_alice, {0: {False: {other_token.address: [
         sp.variant("item", sp.record(token_id = 0, amount=1, rate=sp.tez(0), data = position, primary = False))
     ]}}}, sender=alice, valid=False, message="TOKEN_NOT_REGISTERED")
-
-    # TODO: test with signed collection stuff.
 
     # test place_item
     scenario.h3("Test placing/removing/getting registered tz1and collection FA2s")
@@ -969,33 +966,88 @@ def test():
         sp.variant("item", sp.record(token_id = 0, amount=1, rate=sp.tez(0), data = position, primary = False)),
         sp.variant("item", sp.record(token_id = 0, amount=1, rate=sp.tez(0), data = position, primary = False))
     ]}}}, sender=alice)
+    alice_dyn_placed_item0 = last_placed_item_id(place_alice_chunk_0)
+    alice_dyn_placed_item1 = last_placed_item_id(place_alice_chunk_0, 2)
 
     # If a token is registered, you can place as many as you want and also swap them.
     place_items(place_alice, {0: {False: {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, amount=2, rate=sp.tez(0), data = position, primary = False)),
     ]}}}, sender=alice, valid=True)
+    alice_dyn_placed_item2 = last_placed_item_id(place_alice_chunk_0)
 
     place_items(place_alice, {0: {False: {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, amount=1, rate=sp.tez(1), data = position, primary = False)),
     ]}}}, sender=alice, valid=True)
+    alice_dyn_placed_item3 = last_placed_item_id(place_alice_chunk_0)
 
     place_items(place_alice, {0: {False: {dyn_collection_token.address: [
         sp.variant("item", sp.record(token_id = 0, amount=22, rate=sp.tez(1), data = position, primary = False)),
     ]}}}, sender=alice, valid=True)
+    alice_dyn_placed_item4 = last_placed_item_id(place_alice_chunk_0)
 
     scenario.h4("get")
-    item_counter = scenario.compute(world.data.chunks.get(place_alice_chunk_0).next_id)
-    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 1), sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1))
-    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 4), sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message=ErrorMessages.not_for_sale())
-    get_item(place_alice_chunk_0, sp.as_nat(item_counter - 5), sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message=ErrorMessages.not_for_sale())
+    get_item(place_alice_chunk_0, alice_dyn_placed_item4, sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1))
+    get_item(place_alice_chunk_0, alice_dyn_placed_item2, sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message=ErrorMessages.not_for_sale())
+    get_item(place_alice_chunk_0, alice_dyn_placed_item0, sp.some(alice.address), dyn_collection_token.address, sender=bob, amount=sp.tez(1), valid=False, message=ErrorMessages.not_for_sale())
 
     scenario.h4("remove")
     remove_items(place_alice, {0: {sp.some(alice.address): {dyn_collection_token.address: sp.set([
-        sp.as_nat(item_counter - 1),
-        sp.as_nat(item_counter - 2),
-        sp.as_nat(item_counter - 3),
-        sp.as_nat(item_counter - 4),
-        sp.as_nat(item_counter - 5)
+        alice_dyn_placed_item0,
+        alice_dyn_placed_item1,
+        alice_dyn_placed_item2,
+        alice_dyn_placed_item3,
+        alice_dyn_placed_item4
+    ])}}}, sender=alice)
+
+    scenario.h3("signed collection and royalties")
+
+    collection_signature = TL_TokenRegistry.signCollection(sp.record(
+        collection=other_token.address,
+        royalties_type = TL_TokenRegistry.royaltiesLegacy), collections_key.secret_key)
+
+    registry.manage_collections([sp.variant("add_trusted", {other_token.address: sp.record(
+        signature = collection_signature,
+        royalties_type = TL_TokenRegistry.royaltiesLegacy
+    )})]).run(sender=bob)
+
+    scenario.h4("place")
+    place_items(place_alice, {0: {False: {other_token.address: [
+        sp.variant("item", sp.record(token_id = 0, amount=2, rate=sp.tez(1), data = position, primary = True)),
+    ]}}}, sender=alice, valid=True)
+    alice_other_placed_item0 = last_placed_item_id(place_alice_chunk_0)
+
+    place_items(place_alice, {0: {False: {other_token.address: [
+        sp.variant("item", sp.record(token_id = 0, amount=1, rate=sp.tez(1), data = position, primary = False)),
+    ]}}}, sender=alice, valid=True)
+    alice_other_placed_item1 = last_placed_item_id(place_alice_chunk_0)
+
+    scenario.h4("get")
+    # should fail as long no royalties added
+    get_item(place_alice_chunk_0, alice_other_placed_item0, sp.some(alice.address), other_token.address, sender=bob, amount=sp.tez(1), valid=False, message=ErrorMessages.unknown_royalties())
+
+    # Offchain royalties type
+    offchain_royalties = sp.record(
+        token_key = sp.record(
+            fa2 = other_token.address,
+            id = sp.some(0)),
+        token_royalties = sp.record(
+            total = 1000,
+            shares = {bob.address: 100}))
+
+    royalties_signature = TL_LegacyRoyalties.signRoyalties(offchain_royalties, royalties_key.secret_key)
+
+    legacy_royalties.add_royalties({"key1": [sp.record(
+        signature = royalties_signature,
+        offchain_royalties = offchain_royalties
+    )]}).run(sender=bob)
+
+    # now getting items should work
+    get_item(place_alice_chunk_0, alice_other_placed_item0, sp.some(alice.address), other_token.address, sender=bob, amount=sp.tez(1))
+
+    scenario.h4("remove")
+    remove_items(place_alice, {0: {sp.some(alice.address): {other_token.address: sp.set([
+        alice_other_placed_item0,
+        alice_other_placed_item1
     ])}}}, sender=alice)
 
     #
