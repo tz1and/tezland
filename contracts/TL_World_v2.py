@@ -22,18 +22,11 @@ from tz1and_contracts_smartpy.utils import Utils
 
 # Now:
 # TODO: figure out ext-type items. could in theory be a separate map on the issuer level? maybe have token addess and option and make ext items go into sp.none?
-# TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
-# TODO: so many empty FAILWITHs. Optimise... What still can be.
-# TODO: special permission for sending items to place? Might be good.
 # TODO: add tests issuerOrValueToOrPlaceOwnerInline, etc. to make sure they work correctly in all combinations.
 # TODO: test royalties:
 #       + V1 royalties
 #       + V2 royalties
 #       + trusted (legacy) royalties
-# TODO: decide if auction contract should hold places and instead set value_to!!!!!!!
-# TODO: add views option to mixins to allow not including views.
-# TODO: don't deploy factory in upgrade, this feature comes later!
-# TODO: add flags and other state to deploy registry (if a certain step has been executed, etc)
 # TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
@@ -42,7 +35,12 @@ from tz1and_contracts_smartpy.utils import Utils
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 # TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
-# TODO: do we need the migration ep for incoming? Could have a special version of place_items during migration that and upgrade after.
+
+
+# Some time
+# TODO: special permission for sending items to place? Might be good.
+# TODO: delete empty chunks? chunk store remove_if_empty. make sure to delete them from place as well.
+# TODO: so many empty FAILWITHs. Optimise... What still can be.
 
 
 # Other
