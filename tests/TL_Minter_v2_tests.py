@@ -46,6 +46,12 @@ def test():
 
 
     scenario.h2("update_settings")
+
+    # check defaults
+    scenario.verify(minter.data.settings.registry == registry.address)
+    scenario.verify(minter.data.settings.max_contributors == 3)
+    scenario.verify(minter.data.settings.max_royalties == 250)
+
     scenario.h3("registry")
 
     # failure cases.
@@ -57,6 +63,18 @@ def test():
     scenario.verify(minter.data.settings.registry == minter.address)
     minter.update_settings([sp.variant("registry", registry.address)]).run(sender = admin)
     scenario.verify(minter.data.settings.registry == registry.address)
+
+    scenario.h3("max_contributors")
+    minter.update_settings([sp.variant("max_contributors", 6)]).run(sender = admin)
+    scenario.verify(minter.data.settings.max_contributors == 6)
+    minter.update_settings([sp.variant("max_contributors", 3)]).run(sender = admin)
+    scenario.verify(minter.data.settings.max_contributors == 3)
+
+    scenario.h3("max_royalties")
+    minter.update_settings([sp.variant("max_royalties", 100)]).run(sender = admin)
+    scenario.verify(minter.data.settings.max_royalties == 100)
+    minter.update_settings([sp.variant("max_royalties", 250)]).run(sender = admin)
+    scenario.verify(minter.data.settings.max_royalties == 250)
 
 
     #
@@ -149,23 +167,23 @@ def test():
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
 
-    scenario.h3("token_administration: update_private_metadata")
+    scenario.h3("update_private_metadata")
 
     registry.manage_collections([sp.variant("add_private", manage_private_params)]).run(sender = admin)
 
     invalid_metadata_uri = sp.utils.bytes_of_string("ipf://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8")
     valid_metadata_uri = sp.utils.bytes_of_string("ipfs://QmbWqxBEKC3P8tqsKc98xmWNzrzDtRLMiMPL8wBuTGsMnR")
 
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = admin, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = alice, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: invalid_metadata_uri})]).run(sender = bob, valid = False, exception = "INVALID_METADATA")
+    minter.update_private_metadata({items_tokens.address: valid_metadata_uri}).run(sender = admin, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
+    minter.update_private_metadata({items_tokens.address: valid_metadata_uri}).run(sender = alice, valid = False, exception = ErrorMessages.not_owner_or_collaborator())
+    minter.update_private_metadata({items_tokens.address: invalid_metadata_uri}).run(sender = bob, valid = False, exception = "INVALID_METADATA")
 
     scenario.verify(items_tokens.data.metadata[""] == sp.utils.bytes_of_string("https://example.com"))
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = bob)
+    minter.update_private_metadata({items_tokens.address: valid_metadata_uri}).run(sender = bob)
     scenario.verify(items_tokens.data.metadata[""] == valid_metadata_uri)
 
     minter.update_settings([sp.variant("paused", True)]).run(sender = admin)
-    minter.token_administration([sp.variant("update_private_metadata", {items_tokens.address: valid_metadata_uri})]).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
+    minter.update_private_metadata({items_tokens.address: valid_metadata_uri}).run(sender = bob, valid = False, exception = "ONLY_UNPAUSED")
     minter.update_settings([sp.variant("paused", False)]).run(sender = admin)
 
     registry.manage_collections([sp.variant("remove", sp.set([items_tokens.address]))]).run(sender = admin)
@@ -204,6 +222,17 @@ def test():
 
     # check tokens are unpaused
     scenario.verify(items_tokens.data.paused == False)
+
+    scenario.h3("update_collection_metadata")
+
+    # Invalid for anyone but admin.
+    for acc in [alice, bob, admin]:
+        minter.token_administration([
+            sp.variant("update_collection_metadata", {items_tokens.address: valid_metadata_uri})
+        ]).run(
+            sender = acc,
+            valid = (True if acc is admin else False),
+            exception = (None if acc is admin else "ONLY_ADMIN"))
 
 
     #
