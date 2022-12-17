@@ -6,5 +6,5 @@ authors = ["852Kerfunkle <852Kerfunkle@users.noreply.github.com>"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
-tz1and-contracts-smartpy = { git = "https://github.com/tz1and/contracts-smartpy.git", branch = "main" }
+tz1and-contracts-smartpy = { git = "https://github.com/tz1and/contracts-smartpy.git", tag = "v0.2.3" }
 #tz1and-contracts-smartpy = { path = "/home/yves/Programming/Tezos/TZBRC/contracts-smartpy/", develop = true }
