@@ -21,6 +21,10 @@ class BasicPermissionsTest(
     def testOnlyPermitted(self):
         self.onlyPermitted()
 
+    @sp.entry_point
+    def testIsPermitted(self, address):
+        sp.verify(self.isPermitted(address), "NOT_PERMITTED")
+
 
 @sp.add_test(name = "BasicPermissions_tests", profile = True)
 def test():
@@ -91,3 +95,16 @@ def test():
 
     for acc in [admin, alice, bob]:
         basic_permissions.testOnlyPermitted().run(sender=acc, valid=False, exception="NOT_PERMITTED")
+
+    scenario.h3("testIsPermitted")
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testIsPermitted(acc.address).run(sender=acc, valid=False, exception="NOT_PERMITTED")
+
+    basic_permissions.manage_permissions([sp.variant("add_permissions", sp.set([alice.address, bob.address]))]).run(sender=admin)
+
+    for acc in [admin, alice, bob]:
+        basic_permissions.testIsPermitted(acc.address).run(
+            sender=acc,
+            valid=(False if acc is admin else True),
+            exception=("NOT_PERMITTED" if acc is admin else None))

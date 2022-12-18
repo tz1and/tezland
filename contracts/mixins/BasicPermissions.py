@@ -39,8 +39,11 @@ class BasicPermissions:
         self.manage_permissions = sp.entry_point(manage_permissions, lazify=lazy_ep, parameter_type=t_manage_permissions_param)
 
     # Inline helpers
+    def isPermitted(self, address):
+        return self.data.permitted_accounts.contains(sp.set_type_expr(address, sp.TAddress))
+
     def onlyAdministratorOrPermitted(self):
-        sp.verify(self.isAdministrator(sp.sender) | self.data.permitted_accounts.contains(sp.sender), 'NOT_PERMITTED')
+        sp.verify(self.isAdministrator(sp.sender) | self.isPermitted(sp.sender), 'NOT_PERMITTED')
 
     def onlyPermitted(self):
-        sp.verify(self.data.permitted_accounts.contains(sp.sender), 'NOT_PERMITTED')
+        sp.verify(self.isPermitted(sp.sender), 'NOT_PERMITTED')
