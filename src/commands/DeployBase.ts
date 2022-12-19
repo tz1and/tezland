@@ -16,6 +16,7 @@ import fs from 'fs';
 import util, { promisify } from 'util';
 import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
+import path from "path";
 
 
 type FeeResult = {
@@ -38,7 +39,7 @@ export class DeployContractBatch {
         this.deploy = deploy;
     }
 
-    public async addToBatch(target_name: string, file_name: string, contract_name: string, target_args: string[]) {
+    public async addToBatch(target_name: string, file_name: string, contract_name: string, target_args: string[], has_metadata: boolean = true) {
         assert(this.deploy.tezos);
 
         // Check if deployment is in project.deployments.json
@@ -50,13 +51,11 @@ export class DeployContractBatch {
             return;
         }
 
-        await this.deploy.compile_contract(target_name, file_name, contract_name, target_args);
-
-        const { codeJson, initJson } = this.deploy.copyAndReadCode(target_name);
+        const [code, storage] = await this.deploy.compile_contract(target_name, file_name, contract_name, target_args, has_metadata);
 
         this.batch.withOrigination({
-            code: codeJson,
-            init: initJson,
+            code: code,
+            init: storage,
         });
 
         // Write deployment (name, address) to project.deployments.json
@@ -74,7 +73,10 @@ export class DeployContractBatch {
         console.log(`>> Transaction hash: ${batch_op.opHash}`);
 
         const results = await batch_op.operationResults();
-        return this.get_originated_contracts_batch(results);
+        const contracts = this.get_originated_contracts_batch(results);
+        console.log();
+
+        return contracts;
     }
 
     private async get_originated_contracts_batch(results: OperationContentsAndResult[]): Promise<ContractAbstraction<Wallet>[]> {
@@ -169,46 +171,58 @@ export default class DeployBase {
         throw new Error(`Account ${account_name} not defined`);
     }
 
-    public copyAndReadCode(contract_name: string) {
-        const contractFile = `${contract_name}.json`;
-        const storageFile = `${contract_name}_storage.json`;
+    private copyToDeploymentsAndReadCode(code_path: string, storage_path: string) {
+        const code_file = path.basename(code_path);
+        const storage_file = path.basename(storage_path);
 
-        const codePath = `./build/${contractFile}`;
-        const initPath = `./build/${storageFile}`;
-
-        fs.copyFileSync(codePath, `${this.deploymentsDir}/${contractFile}`);
-        fs.copyFileSync(initPath, `${this.deploymentsDir}/${storageFile}`);
+        fs.copyFileSync(code_path, `${this.deploymentsDir}/${code_file}`);
+        fs.copyFileSync(storage_path, `${this.deploymentsDir}/${storage_file}`);
 
         //const codeTz = fs.readFileSync(codePath, { encoding: 'utf-8' });
-        const codeJson = JSON.parse(fs.readFileSync(codePath, { encoding: 'utf-8' }));
-        const initJson = JSON.parse(fs.readFileSync(initPath, { encoding: 'utf-8' }));
+        const code_parsed = JSON.parse(fs.readFileSync(code_path, { encoding: 'utf-8' }));
+        const storage_parsed = JSON.parse(fs.readFileSync(storage_path, { encoding: 'utf-8' }));
 
-        return { codeJson, initJson };
+        return [code_parsed, storage_parsed];
     }
 
     // Compiles metadata, uploads it and then compiles again with metadata set.
     // Note: target_args needs to exclude metadata.
-    public async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], metadata?: ipfs.ContractMetadata) {
-        var metadata_url;
-        if (metadata === undefined) {
+    // Returns parsed code and storage.
+    public async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], has_metadata: boolean = true) {
+        console.log(kleur.yellow(`Compiling target '${target_name}'`), `(${file_name}::${contract_name})`);
+
+        // Build artifact directory.
+        const target_out_dir = `./build/${target_name}`
+
+        // Remove previous build output.
+        if (fs.existsSync(target_out_dir)) fs.rmdirSync(target_out_dir, { recursive: true });
+
+        // Make create the build output dir.
+        fs.mkdirSync(target_out_dir, { recursive: true });
+
+        let used_target_args = target_args;
+
+        if (has_metadata) {
             // Compile metadata
-            smartpy.compile_metadata(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
+            const metadata_path = smartpy.compile_metadata_substep(target_out_dir, target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
 
-            const metadtaFile = `${target_name}_metadata.json`;
-            const metadtaPath = `./build/${metadtaFile}`;
-            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
+            // Upload metadata
+            const contract_metadata = JSON.parse(fs.readFileSync(metadata_path, { encoding: 'utf-8' }));
+            const metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
 
-            metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
-        }
-        else {
-            metadata_url = await ipfs.upload_contract_metadata(metadata, this.isSandboxNet);
+            // Add metadata url to target args.
+            used_target_args = target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`])
         }
 
-        // Compile contract with metadata set.
-        smartpy.compile_newtarget(target_name, file_name, contract_name, target_args.concat([`metadata = sp.utils.metadata_of_url("${metadata_url}")`]));
+        // Compile contract.
+        const [code_path, storage_path] = smartpy.compile_code_substep(target_out_dir, target_name, file_name, contract_name, used_target_args);
+
+        console.log()
+
+        return this.copyToDeploymentsAndReadCode(code_path, storage_path);
     }
 
-    protected async deploy_contract(target_name: string, file_name: string, contract_name: string, target_args: string[]): Promise<ContractAbstraction<Wallet>> {
+    protected async deploy_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], has_metadata: boolean = true): Promise<ContractAbstraction<Wallet>> {
         assert(this.tezos);
 
         // Check if deployment is in project.deployments.json
@@ -219,13 +233,11 @@ export default class DeployBase {
             return this.tezos.wallet.at(existingDeployment);
         }
 
-        await this.compile_contract(target_name, file_name, contract_name, target_args);
-
-        const { codeJson, initJson } = this.copyAndReadCode(target_name);
+        const [code, storage] = await this.compile_contract(target_name, file_name, contract_name, target_args, has_metadata);
 
         const orig_op = await this.tezos.contract.originate({
-            code: codeJson,
-            init: initJson,
+            code: code,
+            init: storage,
         });
 
         await orig_op.confirmation();

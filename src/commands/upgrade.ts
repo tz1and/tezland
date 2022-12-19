@@ -118,7 +118,7 @@ export default class Upgrade extends PostUpgrade {
             // Blacklist
             await tezland_batch.addToBatch("TL_Blacklist", "TL_Blacklist", "TL_Blacklist", [
                 `administrator = sp.address("${this.accountAddress}")`
-            ]);
+            ], false);
 
             [Registry_contract, LegacyRoyalties_contract, Blacklist_contract] = await tezland_batch.deployBatch();
         }
@@ -230,12 +230,12 @@ export default class Upgrade extends PostUpgrade {
         {
             RoyaltiesAdapterLegacyAndV1_contract = await this.deploy_contract("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
                 `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
-            ]);
+            ], false);
 
             RoyaltiesAdapter_contract = await this.deploy_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
                 `registry = sp.address("${Registry_contract.address}")`,
                 `v1_and_legacy_adapter = sp.address("${RoyaltiesAdapterLegacyAndV1_contract.address}")`
-            ]);
+            ], false);
         }
 
         //
