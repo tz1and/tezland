@@ -91,16 +91,17 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 
     child.execSync(smartPyCli("compile", `compile ${metadata_target_path} ${tmp_out_dir}`), {stdio: 'inherit'})
 
-    const metadata_compiled = `${target_name}/step_000_cont_0_metadata.metadata_base.json`
+    // TODO: function for extracting metadata.
+    const metadata_compiled_path = `${tmp_out_dir}/${target_name}/step_000_cont_0_metadata.metadata_base.json`
 
     const metadata_out = `${target_name}_metadata.json`
     const metadata_out_path = `${target_out_dir}/${metadata_out}`
 
-    if (fs.existsSync(`${tmp_out_dir}/${metadata_compiled}`)) {
-        fs.copyFileSync(`${tmp_out_dir}/${metadata_compiled}`, metadata_out_path)
+    if (fs.existsSync(metadata_compiled_path)) {
+        fs.copyFileSync(metadata_compiled_path, metadata_out_path)
         console.log(kleur.green(`Compiled metadata: ${metadata_out}`))
     }
-    else throw new Error(`Metadata not found at ${tmp_out_dir}/${metadata_compiled}`)
+    else throw new Error(`Metadata not found at ${metadata_compiled_path}`)
 
     return metadata_out_path;
 }
@@ -142,14 +143,10 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
     return [contract_out_path, storage_out_path];
 }
 
-// TODO: change output dirs, etc, like compile step.
-// TODO: copy compiled entrypoints output to deployments dir
-export function upgrade_newtarget(target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): Map<string, string> {
-    console.log(kleur.yellow(`Compiling contract '${contract_name}' ...`));
-
-    // Build artifact directory.
-    const target_out_dir = "./build/upgrade"
+// Returns ep code map and metadata path.
+export function compile_upgrade(target_out_dir: string, target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): [Map<string, string>, string] {
     const tmp_out_dir = "./build/tmp_contract_build"
+    const upgrade_target_path = `${target_out_dir}/${target_name}_upgrade_target.py`
 
     // Make target dir if it doesn't exist
     if (!fs.existsSync(target_out_dir)) fs.mkdirSync(target_out_dir, { recursive: true });
@@ -157,7 +154,7 @@ export function upgrade_newtarget(target_name: string, file_name: string, contra
     // Grab raw michelson from compiled storage.
 
     // write the compilation target
-    fs.writeFileSync(`./${target_out_dir}/${target_name}_upgrade.py`, `import smartpy as sp
+    fs.writeFileSync(upgrade_target_path, `import smartpy as sp
 ${target_name}_contract = sp.io.import_script_from_url("file:contracts/${file_name}.py")
 
 @sp.add_target(name = "${target_name}", kind = "upgrade")
@@ -174,22 +171,14 @@ def upgrade():
         **{entrypoint: sp.contract_entrypoint_id(instance, entrypoint) for entrypoint in instance.upgradeable_entrypoints}},
         html=True, compile=True)`)
 
-    // cleanup
+    // Delete tmp out dir if exists
     if (fs.existsSync(tmp_out_dir)) fs.rmSync(tmp_out_dir, {recursive: true})
 
-    console.log(`Compiling ${target_name}`)
-
-    const contract_in = `${target_out_dir}/${target_name}_upgrade.py`
-
-    child.execSync(smartPyCli("compile", `kind upgrade ${contract_in} ${tmp_out_dir} --html`), {stdio: 'inherit'})
-
-    console.log(`Extracting entry point map from output ...`)
+    child.execSync(smartPyCli("compile", `kind upgrade ${upgrade_target_path} ${tmp_out_dir} --html`), {stdio: 'inherit'})
 
     // We can just parse the python expression for the ep map as json.
     const ep_map_compiled = `${tmp_out_dir}/${target_name}/step_001_expression.py`;
     let ep_map = JSON.parse(fs.readFileSync(ep_map_compiled, "utf-8").replace(/'/g, '"'));
-
-    console.log(`Extracting code to upgrade from storage ...`)
 
     // Parse the compiled contracts storage to extract eps from.
     const storage_compiled = `${tmp_out_dir}/${target_name}/step_000_cont_0_storage.json`
@@ -210,28 +199,29 @@ def upgrade():
             if (ep_id === ep_search_id) {
                 // write lambda
                 const ep_out = `${target_name}_ep__${ep_name}.json`
-                fs.writeFileSync(`./build/${ep_out}`, JSON.stringify(ep_lambda, null, 4));
+                const ep_out_path = `${target_out_dir}/${ep_out}`
+                fs.writeFileSync(ep_out_path, JSON.stringify(ep_lambda, null, 4));
 
-                console.log(kleur.green(`Code written written to ${ep_out}`))
-                code_map.set(ep_name, `./build/${ep_out}`);
+                console.log(kleur.green(`Compiled entrypoint: ${ep_out}`))
+                code_map.set(ep_name, ep_out_path);
                 break;
             }
         }
     }
 
     // TODO: function for extracting metadata.
-    console.log(`Extracting metadata ...`)
+    const metadata_compiled_path = `${tmp_out_dir}/${target_name}/step_000_cont_0_metadata.metadata_base.json`
 
     const metadata_out = `${target_name}_metadata.json`
-    const metadata_compiled = `${target_name}/step_000_cont_0_metadata.metadata_base.json`
+    const metadata_out_path = `${target_out_dir}/${metadata_out}`
 
-    if (fs.existsSync(`${tmp_out_dir}/${metadata_compiled}`)) {
-        fs.copyFileSync(`${tmp_out_dir}/${metadata_compiled}`, `./build/${metadata_out}`)
-        console.log(kleur.green(`Metadata written to ${metadata_out}`))
+    if (fs.existsSync(`${metadata_compiled_path}`)) {
+        fs.copyFileSync(`${metadata_compiled_path}`, metadata_out_path)
+        console.log(kleur.green(`Compiled metadata: ${metadata_out}`))
     }
+    else throw new Error(`Metadata not found at ${metadata_compiled_path}`)
 
-    console.log();
-    return code_map;
+    return [code_map, metadata_out_path];
 }
 
 export function install(force?: boolean): void {

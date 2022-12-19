@@ -189,7 +189,7 @@ export default class DeployBase {
     // Note: target_args needs to exclude metadata.
     // Returns parsed code and storage.
     public async compile_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], has_metadata: boolean = true) {
-        console.log(kleur.yellow(`Compiling target '${target_name}'`), `(${file_name}::${contract_name})`);
+        console.log(kleur.yellow(`Compile target '${target_name}'`), `(${file_name}::${contract_name})`);
 
         // Build artifact directory.
         const target_out_dir = `./build/${target_name}`
@@ -220,6 +220,50 @@ export default class DeployBase {
         console.log()
 
         return this.copyToDeploymentsAndReadCode(code_path, storage_path);
+    }
+
+    // Compiles contract, extracts lazy entrypoint code and deploys the updates.
+    // Note: target_args needs to exclude metadata.
+    // Returns path of uploaded metadata.
+    // TODO: copy compiled entrypoints output to deployments dir
+    protected async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string,
+        target_args: string[], entrypoints: string[], has_metadata: boolean = true, upload_new_metadata: boolean = true): Promise<string | undefined>
+    {
+        console.log(kleur.yellow(`Upgrade target '${target_name}'`), `(${file_name}::${contract_name})`);
+
+        // Build artifact directory.
+        const target_out_dir = `./build/${target_name}`
+
+        const used_target_args = has_metadata ? target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']) : target_args;
+
+        // Compile contract with metadata set.
+        const [code_map, metadata_path] = smartpy.compile_upgrade(target_out_dir, target_name, file_name, contract_name, used_target_args, entrypoints);
+
+        await this.run_op_task(`Updating entrypoints [${kleur.yellow(entrypoints.join(', '))}]...`, async () => {
+            let upgrade_batch = this.tezos!.wallet.batch();
+            for (const ep_name of entrypoints) {
+                upgrade_batch.with([
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...contract.methodsObject.update_ep({
+                            ep_name: {[ep_name]: null},
+                            new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
+                        }).toTransferParams()
+                    }
+                ]);
+            }
+            return upgrade_batch.send();
+        });
+
+        let metdata_url;
+        if (has_metadata && upload_new_metadata) {
+            const contract_metadata = JSON.parse(fs.readFileSync(metadata_path, { encoding: 'utf-8' }));
+            metdata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
+        }
+
+        console.log();
+
+        return metdata_url;
     }
 
     protected async deploy_contract(target_name: string, file_name: string, contract_name: string, target_args: string[], has_metadata: boolean = true): Promise<ContractAbstraction<Wallet>> {

@@ -15,42 +15,6 @@ import BigNumber from 'bignumber.js'
 
 
 export default class Upgrade extends PostUpgrade {
-    // Compiles contract, extracts lazy entrypoint code and deploys the updates.
-    // Note: target_args needs to exclude metadata.
-    private async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string,
-        target_args: string[], entrypoints: string[], upload_new_metadata: boolean): Promise<string | undefined> {
-        // Compile contract with metadata set.
-        const code_map = smartpy.upgrade_newtarget(target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']), entrypoints);
-
-        await this.run_op_task(`Updating entrypoints [${kleur.yellow(entrypoints.join(', '))}]...`, async () => {
-            let upgrade_batch = this.tezos!.wallet.batch();
-            for (const ep_name of entrypoints) {
-                upgrade_batch.with([
-                    {
-                        kind: OpKind.TRANSACTION,
-                        ...contract.methodsObject.update_ep({
-                            ep_name: {[ep_name]: null},
-                            new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
-                        }).toTransferParams()
-                    }
-                ]);
-            }
-            return upgrade_batch.send();
-        });
-
-        let metdata_url;
-        if (upload_new_metadata) {
-            const metadtaFile = `${target_name}_metadata.json`;
-            const metadtaPath = `./build/${metadtaFile}`;
-            const contract_metadata = JSON.parse(fs.readFileSync(metadtaPath, { encoding: 'utf-8' }));
-
-            metdata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
-        }
-
-        console.log();
-        return metdata_url;
-    }
-
     protected override async deployDo() {
         assert(this.tezos);
 
@@ -353,7 +317,7 @@ export default class Upgrade extends PostUpgrade {
                     `world_v2_place_contract = sp.address("${places_v2_FA2_contract.address}")`
                 ],
                 // entrypoints to upgrade
-                ["set_item_data", "get_item"], true);
+                ["set_item_data", "get_item"]);
 
             // Update metadata on v1 contracts
             await this.run_op_task("Updating metadata on v1 world contract...", async () => {
@@ -377,7 +341,7 @@ export default class Upgrade extends PostUpgrade {
                     `places_contract = sp.address("${tezlandPlaces.address}")`
                 ],
                 // entrypoints to upgrade
-                ["mint_Place"], true);
+                ["mint_Place"]);
 
             await this.run_op_task("Updating metadata on v1 minter contract...", async () => {
                 assert(minter_v1_1_metadata);
@@ -398,7 +362,7 @@ export default class Upgrade extends PostUpgrade {
                     `places_contract = sp.address("${tezlandPlaces.address}")`
                 ],
                 // entrypoints to upgrade
-                ["cancel", "bid"], true);
+                ["cancel", "bid"]);
 
             await this.run_op_task("Updating metadata on v1 dutch contract...", async () => {
                 assert(dutch_v1_1_metadata);
