@@ -5,6 +5,7 @@ import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletOperationBatch
 import kleur from "kleur";
 import config from "../user.config";
 import { sleep } from "./DeployBase";
+import WorldUtils from "./WorldUtils";
 
 
 export default class PostDeploy extends PostDeployBase {
@@ -75,26 +76,6 @@ export default class PostDeploy extends PostDeployBase {
         }]);
     }
 
-    private async prepareNewPlace(center: number[], border: number[][], buildHeight: number = 10): Promise<any> {
-        const place_metadata_url = await ipfs.upload_place_metadata({
-            name: "Some Place",
-            description: "A nice place",
-            minter: this.accountAddress!,
-            centerCoordinates: center,
-            borderCoordinates: border,
-            buildHeight: buildHeight,
-            placeType: "exterior"
-        }, this.isSandboxNet);
-        console.log(`place token metadata: ${place_metadata_url}`);
-
-        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
-        return {
-            to_: this.accountAddress,
-            metadata: metadata_map
-        }
-    }
-
     protected async deployDevWorld(contracts: PostDeployContracts) {
         console.log(kleur.bgGreen("Deploying dev world"));
 
@@ -110,23 +91,25 @@ export default class PostDeploy extends PostDeployBase {
             await this.mintNewItem('assets/DragonAttenuation.glb', 134995, 10000, mint_batch, contracts.get("Minter_contract")!);
 
             const places = [];
-            places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-            places.push(await this.prepareNewPlace([22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-            places.push(await this.prepareNewPlace([22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
-            places.push(await this.prepareNewPlace([0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]]));
+            places.push(await WorldUtils.prepareNewPlace(0, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
+            places.push(await WorldUtils.prepareNewPlace(1, [22, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
+            places.push(await WorldUtils.prepareNewPlace(2, [22, 0, -22], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
+            places.push(await WorldUtils.prepareNewPlace(3, [0, 0, -25], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10], [0, 0, 14]], this.accountAddress!, this.isSandboxNet));
             this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
 
             return mint_batch.send();
         });
 
         if (testLargeMigration) {
-            for (let i = 0; i < 8; ++i) {
+            const num_batches = 8;
+            for (let i = 0; i < num_batches; ++i) {
                 await this.run_op_task("Mint many Places", async () => {
                     const mint_batch = this.tezos!.wallet.batch();
 
+                    const batch_size = 100;
                     const places = [];
-                    for (let j = 0; j < 100; ++j)
-                        places.push(await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]]));
+                    for (let j = 0; j < batch_size; ++j)
+                        places.push(await WorldUtils.prepareNewPlace(4 + j + (i * batch_size), [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
                     this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
 
                     return mint_batch.send();
@@ -242,8 +225,8 @@ export default class PostDeploy extends PostDeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
+        this.mintNewPlaces([await WorldUtils.prepareNewPlace(0, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("Minter_contract")!);
+        this.mintNewPlaces([await WorldUtils.prepareNewPlace(1, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("Minter_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
         console.log();
@@ -572,7 +555,7 @@ export default class PostDeploy extends PostDeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("Minter_contract")!);
+        this.mintNewPlaces([await WorldUtils.prepareNewPlace(token_id, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("Minter_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 

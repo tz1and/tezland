@@ -10,6 +10,7 @@ import kleur from "kleur";
 import config from "../user.config";
 import { sleep } from "./DeployBase";
 import { SHA3 } from 'sha3';
+import WorldUtils from "./WorldUtils";
 
 
 export default class PostUpgrade extends PostDeployBase {
@@ -172,46 +173,6 @@ export default class PostUpgrade extends PostDeployBase {
         }]);
     }
 
-    private async prepareNewPlace(center: number[], border: number[][], buildHeight: number = 10): Promise<any> {
-        const place_metadata_url = await ipfs.upload_place_metadata({
-            name: "Some Place",
-            description: "A nice place",
-            minter: this.accountAddress!,
-            centerCoordinates: center,
-            borderCoordinates: border,
-            buildHeight: buildHeight,
-            placeType: "exterior"
-        }, this.isSandboxNet);
-        console.log(`place token metadata: ${place_metadata_url}`);
-
-        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
-        return {
-            to_: this.accountAddress,
-            metadata: metadata_map
-        }
-    }
-
-    private async prepareNewInteriorPlace(center: number[], border: number[][], buildHeight: number = 200): Promise<any> {
-        const place_metadata_url = await ipfs.upload_place_metadata({
-            name: "Interior Place",
-            description: "A nice place",
-            minter: this.accountAddress!,
-            centerCoordinates: center,
-            borderCoordinates: border,
-            buildHeight: buildHeight,
-            placeType: "interior"
-        }, this.isSandboxNet);
-        console.log(`interior place token metadata: ${place_metadata_url}`);
-
-        const metadata_map = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-        metadata_map.set('', Buffer.from(place_metadata_url, 'utf8').toString('hex'));
-        return {
-            to_: this.accountAddress,
-            metadata: metadata_map
-        }
-    }
-
     private async getHashedPlaceSeq(contracts: PostDeployContracts, place_key: any) {
         // Place seq type type:
         // (pair (bytes %place_seq) (map %chunk_seqs nat bytes))
@@ -249,10 +210,10 @@ export default class PostUpgrade extends PostDeployBase {
             const mint_batch = this.tezos!.wallet.batch();
 
             const places = [];
-            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[20, 0, 20], [20, 0, -20], [-20, 0, -20], [-20, 0, 20]], 20));
-            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[40, 0, 40], [40, 0, -40], [-40, 0, -40], [-40, 0, 40]], 40));
-            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[80, 0, 80], [80, 0, -80], [-80, 0, -80], [-80, 0, 80]], 80));
-            places.push(await this.prepareNewInteriorPlace([0, 0, 0], [[160, 0, 160], [160, 0, -160], [-160, 0, -160], [-160, 0, 160]], 160));
+            places.push(await WorldUtils.prepareNewInteriorPlace(0, [0, 0, 0], [[20, 0, 20], [20, 0, -20], [-20, 0, -20], [-20, 0, 20]], this.accountAddress!, this.isSandboxNet, 20));
+            places.push(await WorldUtils.prepareNewInteriorPlace(1, [0, 0, 0], [[40, 0, 40], [40, 0, -40], [-40, 0, -40], [-40, 0, 40]], this.accountAddress!, this.isSandboxNet, 40));
+            places.push(await WorldUtils.prepareNewInteriorPlace(2, [0, 0, 0], [[80, 0, 80], [80, 0, -80], [-80, 0, -80], [-80, 0, 80]], this.accountAddress!, this.isSandboxNet, 80));
+            places.push(await WorldUtils.prepareNewInteriorPlace(3, [0, 0, 0], [[160, 0, 160], [160, 0, -160], [-160, 0, -160], [-160, 0, 160]], this.accountAddress!, this.isSandboxNet, 160));
             this.mintNewInteriorPlaces(places, mint_batch, contracts.get("interiors_FA2_contract")!);
 
             return mint_batch.send();
@@ -470,13 +431,13 @@ export default class PostUpgrade extends PostDeployBase {
             await this.mintNewItem_legacy('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_FA2_contract")!);
             await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
             // Mint some places in new place contract
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(0, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(1, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_v2_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(2, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_v2_FA2_contract")!);
             // TODO: TEMP: FIXME: Mint some places in old place contract
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
-            this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(0, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(1, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_FA2_contract")!);
+            this.mintNewPlaces([await WorldUtils.prepareNewPlace(2, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_FA2_contract")!);
             const mint_batch_op = await mint_batch.send();
             await mint_batch_op.confirmation();
         }
@@ -1136,7 +1097,7 @@ export default class PostUpgrade extends PostDeployBase {
 
         const mint_batch = this.tezos.wallet.batch();
         await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
-        this.mintNewPlaces([await this.prepareNewPlace([0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]])], mint_batch, contracts.get("places_v2_FA2_contract")!);
+        this.mintNewPlaces([await WorldUtils.prepareNewPlace(token_id, [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet)], mint_batch, contracts.get("places_v2_FA2_contract")!);
         const mint_batch_op = await mint_batch.send();
         await mint_batch_op.confirmation();
 
