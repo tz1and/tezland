@@ -14,7 +14,7 @@ def getRoyalties(royalties_adaper, token_key) -> sp.Expr:
 #
 # Royalties adapter contract.
 class TL_RoyaltiesAdapter(sp.Contract):
-    def __init__(self, registry, v1_and_legacy_adapter, metadata, exception_optimization_level="default-line"):
+    def __init__(self, registry, v1_and_legacy_adapter, exception_optimization_level="default-line"):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
@@ -27,35 +27,6 @@ class TL_RoyaltiesAdapter(sp.Contract):
             registry = registry,
             v1_and_legacy_adapter = v1_and_legacy_adapter
         )
-
-        self.generate_contract_metadata()
-
-
-    def generate_contract_metadata(self):
-        """Generate a metadata json file with all the contract's offchain views."""
-        metadata_base = {
-            "name": 'tz1and RoyaltiesAdapter',
-            "description": 'tz1and royalties adapter',
-            "version": "1.0.0",
-            "interfaces": ["TZIP-016"],
-            "authors": [
-                "852Kerfunkle <https://github.com/852Kerfunkle>"
-            ],
-            "homepage": "https://www.tz1and.com",
-            "source": {
-                "tools": ["SmartPy"],
-                "location": "https://github.com/tz1and",
-            },
-            "license": { "name": "UNLICENSED" }
-        }
-        offchain_views = []
-        for f in dir(self):
-            attr = getattr(self, f)
-            if isinstance(attr, sp.OnOffchainView):
-                # Include onchain views as tip 16 offchain views
-                offchain_views.append(attr)
-        metadata_base["views"] = offchain_views
-        self.init_metadata("metadata_base", metadata_base)
 
 
     @sp.entry_point

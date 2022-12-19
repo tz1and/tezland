@@ -33,8 +33,7 @@ def test():
     scenario += minter
 
     scenario.h2("Blacklist")
-    blacklist = TL_Blacklist.TL_Blacklist(admin.address,
-        sp.utils.metadata_of_url("ipfs://example"))
+    blacklist = TL_Blacklist.TL_Blacklist(admin.address)
     scenario += blacklist
 
     scenario.h2("ItemCollectionProxyParent")

@@ -5,7 +5,7 @@ from tz1and_contracts_smartpy.mixins.Pausable import Pausable
 from tz1and_contracts_smartpy.mixins.Upgradeable import Upgradeable
 from tz1and_contracts_smartpy.mixins.ContractMetadata import ContractMetadata
 from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
-from contracts.mixins.BasicPermissions import BasicPermissions
+from tz1and_contracts_smartpy.mixins.BasicPermissions import BasicPermissions
 
 from contracts.utils import EnvUtils, ErrorMessages
 
@@ -176,34 +176,10 @@ class TL_TokenRegistry(
         MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
-        self.generate_contract_metadata()
-
-
-    def generate_contract_metadata(self):
-        """Generate a metadata json file with all the contract's offchain views."""
-        metadata_base = {
-            "name": 'tz1and TokenRegistry',
-            "description": 'tz1and token registry',
-            "version": "1.0.0",
-            "interfaces": ["TZIP-016"],
-            "authors": [
-                "852Kerfunkle <https://github.com/852Kerfunkle>"
-            ],
-            "homepage": "https://www.tz1and.com",
-            "source": {
-                "tools": ["SmartPy"],
-                "location": "https://github.com/tz1and",
-            },
-            "license": { "name": "UNLICENSED" }
-        }
-        offchain_views = []
-        for f in dir(self):
-            attr = getattr(self, f)
-            if isinstance(attr, sp.OnOffchainView):
-                # Include onchain views as tip 16 offchain views
-                offchain_views.append(attr)
-        metadata_base["views"] = offchain_views
-        self.init_metadata("metadata_base", metadata_base)
+        self.generateContractMetadata("tz1and TokenRegistry", "tz1and token registry",
+            authors=["852Kerfunkle <https://github.com/852Kerfunkle>"],
+            source_location="https://github.com/tz1and",
+            homepage="https://www.tz1and.com", license="UNLICENSED")
 
 
     #

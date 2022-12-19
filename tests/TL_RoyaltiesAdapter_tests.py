@@ -65,12 +65,11 @@ def test():
 
     scenario.h1("Test RoyaltiesAdapters")
     royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
-        legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+        legacy_royalties.address)
     scenario += royalties_adapter_legacy
 
     royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
-        registry.address, royalties_adapter_legacy.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
+        registry.address, royalties_adapter_legacy.address)
     scenario += royalties_adapter
 
     adapter_test = RoyaltiesAdapterTest(royalties_adapter.address)

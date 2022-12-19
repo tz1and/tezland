@@ -154,12 +154,11 @@ def test():
 
     scenario.h3("RoyaltiesAdapters")
     royalties_adapter_legacy = TL_RoyaltiesAdapterLegacyAndV1.TL_RoyaltiesAdapterLegacyAndV1(
-        legacy_royalties.address, metadata = sp.utils.metadata_of_url("https://example.com"))
+        legacy_royalties.address)
     scenario += royalties_adapter_legacy
 
     royalties_adapter = TL_RoyaltiesAdapter.TL_RoyaltiesAdapter(
-        registry.address, royalties_adapter_legacy.address,
-        metadata = sp.utils.metadata_of_url("https://example.com"))
+        registry.address, royalties_adapter_legacy.address)
     scenario += royalties_adapter
 
     scenario.h3("Minter v2")
@@ -168,8 +167,7 @@ def test():
     scenario += minter_v2
 
     scenario.h3("Blacklist")
-    blacklist = TL_Blacklist.TL_Blacklist(admin.address,
-        sp.utils.metadata_of_url("ipfs://example"))
+    blacklist = TL_Blacklist.TL_Blacklist(admin.address)
     scenario += blacklist
 
     scenario.h3("ItemCollectionProxyParent")
