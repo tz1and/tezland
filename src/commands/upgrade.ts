@@ -220,20 +220,29 @@ export default class Upgrade extends PostUpgrade {
 
             await this.run_flag_task("world_v2_initialised", async () => {
                 await this.run_op_task("Set allowed place tokens on world...", async () => {
-                    return World_v2_contract.methodsObject.set_allowed_place_token([
+                    return this.tezos!.wallet.batch().with([
+                        // Set fees to 3.5% on world contract.
                         {
-                            add: {
-                                [places_v2_FA2_contract.address]: {
-                                    chunk_limit: 2,
-                                    chunk_item_limit: 64
-                                },
-                                [interiors_FA2_contract.address]: {
-                                    chunk_limit: 4,
-                                    chunk_item_limit: 64
+                            kind: OpKind.TRANSACTION,
+                            ...World_v2_contract.methods.update_settings([{fees: 35}]).toTransferParams()
+                        },
+                        // Set allowed place tokens on world
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...World_v2_contract.methodsObject.set_allowed_place_token([{
+                                add: {
+                                    [places_v2_FA2_contract.address]: {
+                                        chunk_limit: 2,
+                                        chunk_item_limit: 64
+                                    },
+                                    [interiors_FA2_contract.address]: {
+                                        chunk_limit: 4,
+                                        chunk_item_limit: 64
+                                    }
                                 }
-                            }
+                            }]).toTransferParams()
                         }
-                    ]).send();
+                    ]).send()
                 });
             });
         }
@@ -291,6 +300,11 @@ export default class Upgrade extends PostUpgrade {
                                     [interiors_FA2_contract.address]: { whitelist_enabled: false, whitelist_admin: this.accountAddress }
                                 }}
                             ]).toTransferParams()
+                        },
+                        // Set fees to 6% on dutch contract.
+                        {
+                            kind: OpKind.TRANSACTION,
+                            ...Dutch_v2_contract.methods.update_settings([{fees: 60}]).toTransferParams()
                         }
                     ]).send();
                 });

@@ -44,7 +44,7 @@ def test():
     scenario += fees
 
     # Check default
-    scenario.verify(fees.data.settings.fees == sp.nat(25))
+    scenario.verify(fees.data.settings.fees == sp.nat(35))
     scenario.verify(fees.data.settings.fees_to == admin.address)
 
     #

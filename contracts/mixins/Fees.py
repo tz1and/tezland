@@ -9,7 +9,8 @@ class Fees:
     def __init__(self, fees_to):
         if isinstance(self, MetaSettings):
             self.addMetaSettings([
-                ("fees", 25, sp.TNat, lambda x: sp.verify(x <= 60, message = "FEE_ERROR")),
+                # Fees must be < 10%.
+                ("fees", 35, sp.TNat, lambda x: sp.verify(x <= 150, message = "FEE_ERROR")),
                 ("fees_to", fees_to, sp.TAddress, None)
             ])
         else:
