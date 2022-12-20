@@ -27,7 +27,7 @@ class Fees:
                 """
                 sp.set_type(fees, sp.TNat)
                 self.onlyAdministrator()
-                sp.verify(fees <= 60, message = "FEE_ERROR") # let's not get greedy
+                sp.verify(fees <= 150, message = "FEE_ERROR") # let's not get greedy
                 self.data.settings.fees = fees
 
             def update_fees_to(self, fees_to):
