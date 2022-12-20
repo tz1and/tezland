@@ -3,6 +3,8 @@ import smartpy as sp
 from tz1and_contracts_smartpy.mixins.MetaSettings import MetaSettings
 from tz1and_contracts_smartpy.utils import Settings
 
+default_fees = 35
+max_fees = 150
 
 # Required mixins: Administrable
 class Fees:
@@ -10,14 +12,14 @@ class Fees:
         if isinstance(self, MetaSettings):
             self.addMetaSettings([
                 # Fees must be < 10%.
-                ("fees", 35, sp.TNat, lambda x: sp.verify(x <= 150, message = "FEE_ERROR")),
+                ("fees", default_fees, sp.TNat, lambda x: sp.verify(x <= max_fees, message = "FEE_ERROR")),
                 ("fees_to", fees_to, sp.TAddress, None)
             ])
         else:
             self.update_initial_storage(
                 settings = sp.record(
                     **Settings.getPrevSettingsFields(self),
-                    fees = sp.nat(25),
+                    fees = sp.nat(default_fees),
                     fees_to = sp.set_type_expr(fees_to, sp.TAddress))
             )
 
@@ -27,7 +29,7 @@ class Fees:
                 """
                 sp.set_type(fees, sp.TNat)
                 self.onlyAdministrator()
-                sp.verify(fees <= 150, message = "FEE_ERROR") # let's not get greedy
+                sp.verify(fees <= max_fees, message = "FEE_ERROR") # let's not get greedy
                 self.data.settings.fees = fees
 
             def update_fees_to(self, fees_to):
