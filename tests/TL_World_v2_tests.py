@@ -882,12 +882,12 @@ def test():
     world.update_settings([sp.variant("fees_to", admin.address)]).run(sender = admin)
 
     scenario.h3("update fees")
-    scenario.verify(world.data.settings.fees == sp.nat(25))
+    scenario.verify(world.data.settings.fees == sp.nat(35))
     world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = bob, valid = False)
-    world.update_settings([sp.variant("fees", sp.nat(61))]).run(sender = admin, valid = False, exception = "FEE_ERROR")
+    world.update_settings([sp.variant("fees", sp.nat(151))]).run(sender = admin, valid = False, exception = "FEE_ERROR")
     world.update_settings([sp.variant("fees", sp.nat(55))]).run(sender = admin)
     scenario.verify(world.data.settings.fees == 55)
-    world.update_settings([sp.variant("fees", sp.nat(25))]).run(sender = admin)
+    world.update_settings([sp.variant("fees", sp.nat(35))]).run(sender = admin)
 
     scenario.h3("update metadata")
     scenario.verify(world.data.metadata.get("") == sp.utils.bytes_of_string("https://example.com"))
@@ -1527,7 +1527,7 @@ def test():
         fa2 = items_tokens_legacy.address,
         ext = sp.none
     ).run(sender = bob, amount = sp.tez(1))
-    scenario.verify(token_reciever.balance == sp.mutez(731250))
+    scenario.verify(token_reciever.balance == sp.mutez(723750))
 
     #
     # Test migration
