@@ -539,10 +539,10 @@ export default class PostUpgrade extends PostDeployBase {
         }*/
 
         // place props
-        await runTaskAndAddGasResults(gas_results, "update_place_props", () => {
+        await runTaskAndAddGasResults(gas_results, "update_place", () => {
             const props_map = new MichelsonMap<string, string>();
             props_map.set('00', '000000');
-            return contracts.get("World_v2_contract")!.methodsObject.update_place_props({ place_key: placeKey0, updates: [{add_props: props_map}] }).send();
+            return contracts.get("World_v2_contract")!.methodsObject.update_place({ place_key: placeKey0, update: { props: [{add_props: props_map}] } }).send();
         });
 
         gas_results = addGasResultsTable({ name: "World place_items", rows: {} });

@@ -35,6 +35,9 @@ from tz1and_contracts_smartpy.utils import Utils
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 # TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
+# TODO: document danger of propsOwner + modifyAll in the UI!!!!!!!!!!!!
+# TODO: test permissionOwnerProps!
+# TODO: test items_to/value_to are working correctly!
 
 
 # Some time
@@ -119,14 +122,18 @@ placeStorageType = sp.TRecord(
     counter = sp.TNat, # interaction counter for seq number generation
     props = placePropsType, # place properties
     chunks = sp.TSet(sp.TNat), # set of active/existing chunks
-    value_to = sp.TOption(sp.TAddress) # value for place owned items is sent to, if set
-).layout(("counter", ("props", ("chunks", "value_to"))))
+    value_to = sp.TOption(sp.TAddress), # value for place owned items is sent to, if set
+    # TODO: document danger of propsOwner + modifyAll in the UI!!!!!!!!!!!!
+    # TODO: test permissionOwnerProps!
+    items_to = sp.TOption(sp.TAddress) # where place owned items are sent to when removed, if set
+).layout(("counter", ("props", ("chunks", ("value_to", "items_to")))))
 
 placeStorageDefault = sp.record(
     counter = sp.nat(0),
     props = defaultPlaceProps,
     chunks = sp.set([]),
-    value_to = sp.none)
+    value_to = sp.none,
+    items_to = sp.none)
 
 placeKeyType = sp.TRecord(
     fa2 = sp.TAddress,
@@ -320,12 +327,6 @@ class ItemStorage:
         # NOTE: always returns FA2 store.
         return self.this_fa2_store.value
 
-setPlacePropsVariantType = sp.TVariant(
-    add_props = placePropsType,
-    del_props = sp.TSet(sp.TBytes),
-    value_to = sp.TOption(sp.TAddress)
-).layout(("add_props", ("del_props", "value_to")))
-
 updateItemListType = sp.TRecord(
     item_id = sp.TNat,
     data = sp.TBytes
@@ -347,12 +348,25 @@ migrationType = sp.TRecord(
     ext = extensionArgType
 ).layout(("place_key", ("item_map", ("props", "ext"))))
 
+updatePlacePropsVariantType = sp.TVariant(
+    add_props = placePropsType,
+    del_props = sp.TSet(sp.TBytes)
+).layout(("add_props", "del_props"))
+
+updatePlaceOwnerPropsVariantType = sp.TVariant(
+    value_to = sp.TOption(sp.TAddress),
+    items_to = sp.TOption(sp.TAddress)
+).layout(("value_to", "items_to"))
+
 # Types for place, get, update, remove entry points.
-updatePlacePropsType = sp.TRecord(
+updatePlaceType = sp.TRecord(
     place_key = placeKeyType,
-    updates = sp.TList(setPlacePropsVariantType),
+    update = sp.TVariant(
+        props = sp.TList(updatePlacePropsVariantType),
+        owner_props = sp.TList(updatePlaceOwnerPropsVariantType)
+    ).layout(("props", "owner_props")),
     ext = extensionArgType
-).layout(("place_key", ("updates", "ext")))
+).layout(("place_key", ("update", "ext")))
 
 placeItemsType = sp.TRecord(
     place_key = placeKeyType,
@@ -391,7 +405,7 @@ permissionNone       = sp.nat(0) # no permissions
 permissionPlaceItems = sp.nat(1) # can place items
 permissionModifyAll  = sp.nat(2) # can edit and remove all items
 permissionProps      = sp.nat(4) # can edit place props
-permissionCanSell    = sp.nat(8) # can place items that are for sale. # TODO: not implemented.
+permissionOwnerProps = sp.nat(8) # can change owner props.
 permissionFull       = sp.nat(15) # has full permissions.
 
 #
@@ -585,37 +599,49 @@ class TL_World_v2(
                 place_key)))
 
 
-    @sp.entry_point(lazify = True, parameter_type=updatePlacePropsType)
-    def update_place_props(self, params):
+    @sp.entry_point(lazify = True, parameter_type=updatePlaceType)
+    def update_place(self, params):
         self.onlyUnpaused()
 
         # Place token must be allowed
         self.onlyAllowedPlaceTokens(params.place_key.fa2)
 
-        # Caller must have Full permissions.
         permissions = sp.snd(self.getPermissionsInline(params.place_key, sp.sender))
-        sp.verify(permissions & permissionProps == permissionProps, message = ErrorMessages.no_permission())
 
         # Get or create the place.
         this_place = PlaceStorage(self.data.places, params.place_key, True)
 
-        with sp.for_("item", params.updates) as item:
-            with item.match_cases() as arg:
-                with arg.match("add_props") as add_props:
-                    with sp.for_("prop", add_props.items()) as prop:
-                        this_place.value.props[prop.key] = prop.value
+        with params.update.match_cases() as update_arg:
+            with update_arg.match("props") as props:
+                # Caller must have props permissions.
+                sp.verify(permissions & permissionProps == permissionProps, message = ErrorMessages.no_permission())
 
-                with arg.match("del_props") as del_props:
-                    with sp.for_("prop", del_props.elements()) as prop:
-                        del this_place.value.props[prop]
+                with sp.for_("item", props) as item:
+                    with item.match_cases() as arg:
+                        with arg.match("add_props") as add_props:
+                            with sp.for_("prop", add_props.items()) as prop:
+                                this_place.value.props[prop.key] = prop.value
 
-                with arg.match("value_to") as value_to:
-                    this_place.value.value_to = value_to
+                        with arg.match("del_props") as del_props:
+                            with sp.for_("prop", del_props.elements()) as prop:
+                                del this_place.value.props[prop]
 
-        # Verify the properties contrain at least the color (key 0x00).
-        # And that the color is the right length.
-        sp.verify(sp.len(this_place.value.props.get(sp.bytes("0x00"), message=ErrorMessages.parameter_error())) == placePropsColorLen,
-            message = ErrorMessages.data_length())
+                # Verify the properties contrain at least the color (key 0x00).
+                # And that the color is the right length.
+                sp.verify(sp.len(this_place.value.props.get(sp.bytes("0x00"), message=ErrorMessages.parameter_error())) == placePropsColorLen,
+                    message = ErrorMessages.data_length())
+
+            with update_arg.match("owner_props") as owner_props:
+                # Caller must have propsOwner permissions.
+                sp.verify(permissions & permissionOwnerProps == permissionOwnerProps, message = ErrorMessages.no_permission())
+
+                with sp.for_("item", owner_props) as item:
+                    with item.match_cases() as arg:
+                        with arg.match("value_to") as value_to:
+                            this_place.value.value_to = value_to
+
+                        with arg.match("items_to") as items_to:
+                            this_place.value.items_to = items_to
 
         # Increment place interaction counter.
         this_place.value.counter += 1
@@ -774,6 +800,26 @@ class TL_World_v2(
             this_chunk.persist()
 
 
+    @sp.inline_result
+    def issuerOrItemsToOrPlaceOwnerInline(self, issuer, items_to, owner):
+        """Inline function for getting where to send the a place ownd tiem
+        on removal (either issuer, items_to or place owner)."""
+        sp.set_type(issuer, sp.TOption(sp.TAddress))
+        sp.set_type(items_to, sp.TOption(sp.TAddress))
+        sp.set_type(owner, sp.TAddress)
+
+        with issuer.match_cases() as arg:
+            with arg.match("None", "issuer_none"):
+                with items_to.match_cases() as arg:
+                    with arg.match("None", "items_to_none"):
+                        sp.result(owner)
+                    with arg.match("Some") as open:
+                        sp.result(open)
+
+            with arg.match("Some") as open:
+                sp.result(open)
+
+
     @sp.entry_point(lazify = True, parameter_type=removeItemsType)
     def remove_items(self, params):
         self.onlyUnpaused()
@@ -791,6 +837,9 @@ class TL_World_v2(
                 with sp.for_("remove_key", issuer_map.keys()) as remove_key:
                     sp.verify(remove_key == sp.some(sp.sender), message = ErrorMessages.no_permission())
 
+        # Get the place - must exist.
+        this_place = PlaceStorage(self.data.places, params.place_key)
+
         # Token transfer map.
         transferMap = TokenTransfer.FA2TokenTransferMap()
 
@@ -802,7 +851,9 @@ class TL_World_v2(
             this_chunk = ChunkStorage(self.data.chunks, chunk_key)
 
             with sp.for_("issuer_item", chunk_item.value.items()) as issuer_item:
-                item_owner = Utils.openSomeOrDefault(issuer_item.key, owner)
+                # If the issuer is none, the items_to or owner is the item owner.
+                # Used for sending place owned items to the correct address.
+                item_owner = self.issuerOrItemsToOrPlaceOwnerInline(issuer_item.key, this_place.value.items_to, owner)
 
                 with sp.for_("fa2_item", issuer_item.value.items()) as fa2_item:
                     # Get item store - must exist.

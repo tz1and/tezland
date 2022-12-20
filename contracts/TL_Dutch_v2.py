@@ -133,7 +133,7 @@ class TL_Dutch_v2(
         sp.verify(~self.data.auctions.contains(params.auction_key), "AUCTION_EXISTS")
 
         # Make sure token is owned by owner.
-        sp.verify(FA2Utils.fa2_get_balance(params.auction_key.fa2, params.auction_key.token_id, sp.sender) > 0, ErrorMessages.not_owner())
+        sp.verify(FA2.getOwner(params.auction_key.fa2, params.auction_key.token_id).open_some() == sp.sender, ErrorMessages.not_owner())
 
         # Make sure auction contract is operator of token.
         sp.verify(FA2Utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
@@ -210,21 +210,24 @@ class TL_Dutch_v2(
             sp.mutez(0), token_handle)
 
 
-    def resetValueToInWorld(self, token_contract, token_id):
+    def resetValueToAndItemsToInWorld(self, token_contract, token_id):
         sp.set_type(token_contract, sp.TAddress)
         sp.set_type(token_id, sp.TNat)
 
         # Build update props param list.
         set_props_args = sp.set_type_expr(sp.record(
             place_key = sp.record(fa2 = token_contract, id = token_id),
-            updates = [sp.variant("value_to", sp.none)],
-            ext = sp.none), TL_World_v2.updatePlacePropsType)
+            update = sp.variant("owner_props", [
+                sp.variant("value_to", sp.none),
+                sp.variant("items_to", sp.none)
+            ]),
+            ext = sp.none), TL_World_v2.updatePlaceType)
 
         # Call token contract to add operators.
         world_handle = sp.contract(
-            TL_World_v2.updatePlacePropsType,
+            TL_World_v2.updatePlaceType,
             self.data.settings.world_contract,
-            entry_point='update_place_props').open_some()
+            entry_point='update_place').open_some()
         sp.transfer(set_props_args, sp.mutez(0), world_handle)
 
     
@@ -277,8 +280,8 @@ class TL_Dutch_v2(
         # Transfer place from owner to this contract.
         FA2Utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
 
-        # Reset the place's value_to property.
-        self.resetValueToInWorld(params.auction_key.fa2, params.auction_key.token_id)
+        # Reset the place's value_to and items_to property.
+        self.resetValueToAndItemsToInWorld(params.auction_key.fa2, params.auction_key.token_id)
 
         # Transfer place from this contract to buyer.
         FA2Utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)

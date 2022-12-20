@@ -750,28 +750,35 @@ def test():
 
     scenario.h3("add_props/del_props")
 
-    valid_place_props = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFFFF')})]
-    other_valid_place_props_2 = [sp.variant("add_props", {sp.bytes("0xf1"): sp.utils.bytes_of_string("blablablabla")})]
-    world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = bob)
+    valid_place_props = sp.variant("props", [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFFFF')})])
+    other_valid_place_props_2 = sp.variant("props", [sp.variant("add_props", {sp.bytes("0xf1"): sp.utils.bytes_of_string("blablablabla")})])
+    world.update_place(place_key = place_bob, update = valid_place_props, ext = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].props.get(sp.bytes("0x00")) == sp.bytes('0xFFFFFF'))
-    world.update_place_props(place_key = place_bob, updates = other_valid_place_props_2, ext = sp.none).run(sender = bob)
+    world.update_place(place_key = place_bob, update = other_valid_place_props_2, ext = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].props.contains(sp.bytes("0x00")))
     scenario.verify(world.data.places[place_bob].props.get(sp.bytes("0xf1")) == sp.utils.bytes_of_string("blablablabla"))
-    world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = bob)
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFF')})], ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.data_length())
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", sp.set([sp.bytes("0x00")]))], ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.parameter_error())
-    world.update_place_props(place_key = place_bob, updates = valid_place_props, ext = sp.none).run(sender = alice, valid = False, exception = ErrorMessages.no_permission())
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("del_props", sp.set([sp.bytes("0xf1")]))], ext = sp.none).run(sender = bob)
+    world.update_place(place_key = place_bob, update = valid_place_props, ext = sp.none).run(sender = bob)
+    world.update_place(place_key = place_bob, update = sp.variant("props", [sp.variant("add_props", {sp.bytes("0x00"): sp.bytes('0xFFFF')})]), ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.data_length())
+    world.update_place(place_key = place_bob, update = sp.variant("props", [sp.variant("del_props", sp.set([sp.bytes("0x00")]))]), ext = sp.none).run(sender = bob, valid = False, exception = ErrorMessages.parameter_error())
+    world.update_place(place_key = place_bob, update = valid_place_props, ext = sp.none).run(sender = alice, valid = False, exception = ErrorMessages.no_permission())
+    world.update_place(place_key = place_bob, update = sp.variant("props", [sp.variant("del_props", sp.set([sp.bytes("0xf1")]))]), ext = sp.none).run(sender = bob)
     scenario.verify(~world.data.places[place_bob].props.contains(sp.bytes("0xf1")))
 
     scenario.h3("value_to")
 
     scenario.verify(world.data.places[place_bob].value_to == sp.none)
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.some(alice.address))], ext = sp.none).run(sender = bob)
+    world.update_place(place_key = place_bob, update = sp.variant("owner_props", [sp.variant("value_to", sp.some(alice.address))]), ext = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].value_to == sp.some(alice.address))
-    world.update_place_props(place_key = place_bob, updates = [sp.variant("value_to", sp.none)], ext = sp.none).run(sender = bob)
+    world.update_place(place_key = place_bob, update = sp.variant("owner_props", [sp.variant("value_to", sp.none)]), ext = sp.none).run(sender = bob)
     scenario.verify(world.data.places[place_bob].value_to == sp.none)
-    
+
+    scenario.h3("items_to")
+
+    scenario.verify(world.data.places[place_bob].items_to == sp.none)
+    world.update_place(place_key = place_bob, update = sp.variant("owner_props", [sp.variant("items_to", sp.some(alice.address))]), ext = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].items_to == sp.some(alice.address))
+    world.update_place(place_key = place_bob, update = sp.variant("owner_props", [sp.variant("items_to", sp.none)]), ext = sp.none).run(sender = bob)
+    scenario.verify(world.data.places[place_bob].items_to == sp.none)
 
     #
     # set_item_data
@@ -1074,7 +1081,7 @@ def test():
     scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionNone)
 
     # alice tries to set place props in bobs place but isn't an op
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # alice tries to remove an item but has no permission
     remove_items(place_bob, {0: {
@@ -1114,7 +1121,7 @@ def test():
 
     scenario.verify(world.data.chunks[place_bob_chunk_0].storage[sp.some(alice.address)][items_tokens_legacy.address][last_item].open_variant('item').data == new_item_data)
 
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
 
     # remove placed item and one of bobs
     remove_items(place_bob, {0: {
@@ -1153,7 +1160,7 @@ def test():
     ]}}} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # can remove own items
     remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1195,7 +1202,7 @@ def test():
     ]}}} ).run(sender=alice, valid=True)
 
     # can't set props
-    world.update_place_props(place_key=place_bob, ext = sp.none, updates=valid_place_props).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+    world.update_place(place_key=place_bob, ext = sp.none, update=valid_place_props).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # can remove own items and bobs items
     remove_items(place_bob, {0: {
@@ -1233,7 +1240,7 @@ def test():
     ]}}} ).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # can't set props
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
 
     # can remove own items. no need to test that again...
     #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1268,7 +1275,7 @@ def test():
         sp.record(item_id = remove_bobs_item3, data = new_item_data)
     ]}}} ).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
 
     # Can of course remove own items
     remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1390,7 +1397,7 @@ def test():
     scenario.verify(world.data.settings.paused == True)
 
     # anything that changes a place or transfers tokens is now disabled
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=carol, valid = False, exception = "ONLY_UNPAUSED")
 
     place_items(place_alice, {0: {False: {items_tokens_legacy.address: [
         sp.variant("item", sp.record(amount=1, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
@@ -1414,7 +1421,7 @@ def test():
     world.update_settings([sp.variant("paused", False)]).run(sender = admin)
     scenario.verify(world.data.settings.paused == False)
 
-    world.update_place_props(place_key=place_bob, updates=valid_place_props, ext = sp.none).run(sender=carol)
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=carol)
 
     #
     # Test migration
