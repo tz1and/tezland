@@ -1293,7 +1293,7 @@ def test():
     world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # Can set owner props
-    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.none)]), ext = sp.none).run(sender=alice, valid=True)
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.none)]), ext = sp.none).run(sender=alice)
 
     # can remove own items. no need to test that again...
     #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1479,6 +1479,55 @@ def test():
     scenario.verify(world.data.settings.paused == False)
 
     world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=carol)
+
+    #
+    # Test place owned items and items_to/value_to
+    #
+    class TokenRecieverContract(sp.Contract):
+        @sp.entry_point
+        def default(self):
+            pass
+
+    token_reciever = TokenRecieverContract()
+    scenario += token_reciever
+
+    scenario.h2("items_to/value_to")
+    place_items(place_alice, {0: {True: {items_tokens_legacy.address: [
+        sp.variant("item", sp.record(amount=1, token_id=item_alice, rate=sp.tez(1), data=position, primary = False)),
+        sp.variant("item", sp.record(amount=1, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
+    ]}}}, sender=alice)
+    alice_place_owned_item0 = last_placed_item_id(place_alice_chunk_0, 1)
+    alice_place_owned_item1 = last_placed_item_id(place_alice_chunk_0, 2)
+
+    world.update_place(place_key=place_alice, update=sp.variant("owner_props", [
+        sp.variant("value_to", sp.some(token_reciever.address)),
+        sp.variant("items_to", sp.some(token_reciever.address))
+    ]), ext = sp.none).run(sender=alice)
+
+    # Make sure removed place-owned items go to token_reciever now.
+    # TODO: fix utils to work with owner/items_to
+    scenario.verify(items_tokens_legacy.get_balance(sp.record(owner=token_reciever.address, token_id=item_alice)) == 0)
+    world.remove_items(
+        place_key = place_alice,
+        remove_map = {0: {sp.none: {items_tokens_legacy.address: sp.set([
+            alice_place_owned_item0
+        ])}}},
+        ext = sp.none
+    ).run(sender = alice)
+    scenario.verify(items_tokens_legacy.get_balance(sp.record(owner=token_reciever.address, token_id=item_alice)) == 1)
+
+    # Make sure value for place-owned items goes to token_reciever now.
+    # TODO: fix utils to work with owner/items_to
+    scenario.verify(token_reciever.balance == sp.mutez(0))
+    world.get_item(
+        place_key = place_alice_chunk_0.place_key,
+        chunk_id = place_alice_chunk_0.chunk_id,
+        item_id = alice_place_owned_item1,
+        issuer = sp.none,
+        fa2 = items_tokens_legacy.address,
+        ext = sp.none
+    ).run(sender = bob, amount = sp.tez(1))
+    scenario.verify(token_reciever.balance == sp.mutez(731250))
 
     #
     # Test migration
