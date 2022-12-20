@@ -30,9 +30,9 @@ t_manage_whitelist_params = sp.TList(sp.TVariant(
 
 # Mixins required: Administrable
 class FA2PermissionsAndWhitelist:
-    def __init__(self, default_permitted = sp.big_map({})):
+    def __init__(self, default_permitted = sp.map({})):
         self.update_initial_storage(
-            permitted_fa2 = sp.set_type_expr(default_permitted, sp.TBigMap(sp.TAddress, permittedFA2MapValueType)),
+            permitted_fa2 = sp.set_type_expr(default_permitted, sp.TMap(sp.TAddress, permittedFA2MapValueType)),
             whitelist = sp.big_map(tkey=t_whitelist_key, tvalue=sp.TUnit)
         )
 
