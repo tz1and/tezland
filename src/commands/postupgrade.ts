@@ -219,6 +219,15 @@ export default class PostUpgrade extends PostDeployBase {
             return mint_batch.send();
         });
 
+        await this.run_op_task("Mint V2 Items", async () => {
+            const mint_batch = this.tezos!.wallet.batch();
+
+            await this.mintNewItem_public('assets/Lantern.glb', 5394, 10, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
+            await this.mintNewItem_public('assets/Fox.glb', 576, 10, mint_batch, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
+
+            return mint_batch.send();
+        });
+
         // set operators
         await this.fa2_set_operators(contracts, new Map(Object.entries({
             items_FA2_contract: new Map(Object.entries({
