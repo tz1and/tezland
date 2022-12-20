@@ -1,6 +1,6 @@
 [[package]]
 name = "tz1and-contracts-smartpy"
-version = "0.2.3"
+version = "0.2.4"
 description = ""
 category = "main"
 optional = false
@@ -10,13 +10,13 @@ develop = false
 [package.source]
 type = "git"
 url = "https://github.com/tz1and/contracts-smartpy.git"
-reference = "v0.2.3"
-resolved_reference = "46f621f8b8d8b47550346b008f2b0784ae3defd6"
+reference = "v0.2.4"
+resolved_reference = "7a459848cc59ccc681a99f98e1fca85a78c0dda3"
 
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.10,<3.11"
-content-hash = "5def0d73b84d8ac6f90ef10c6a547928e8067c0d68680f5344f3889c93f656e4"
+content-hash = "7b511ac28f1af7bb2353547a58c147293be8c006e6581fb42324a67bd6489aa2"
 
 [metadata.files]
 tz1and-contracts-smartpy = []
