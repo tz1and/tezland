@@ -1121,7 +1121,11 @@ def test():
 
     scenario.verify(world.data.chunks[place_bob_chunk_0].storage[sp.some(alice.address)][items_tokens_legacy.address][last_item].open_variant('item').data == new_item_data)
 
-    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    # Can set props
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice)
+
+    # Can set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.some(bob.address))]), ext = sp.none).run(sender=alice)
 
     # remove placed item and one of bobs
     remove_items(place_bob, {0: {
@@ -1161,6 +1165,9 @@ def test():
 
     # can't set props
     world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+
+    # Can't set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.some(bob.address))]), ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # can remove own items
     remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1204,6 +1211,9 @@ def test():
     # can't set props
     world.update_place(place_key=place_bob, ext = sp.none, update=valid_place_props).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
+    # Can't set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.some(bob.address))]), ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+
     # can remove own items and bobs items
     remove_items(place_bob, {0: {
         sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])},
@@ -1214,7 +1224,7 @@ def test():
     #
     #
     scenario.h4("Props permissions")
-    # bob gives alice place item permission to his place
+    # bob gives alice props permission to his place
     world.set_permissions([
         sp.variant("add", PermissionParams.make_add(
             owner = bob.address,
@@ -1224,7 +1234,7 @@ def test():
         ))
     ]).run(sender=bob, valid=True)
     
-    # alice can now modify items in bobs place, but can't set props or place or remove bobs items
+    # alice can now add and delete props but not do anything else
     scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionProps)
     
     # can't place items
@@ -1239,8 +1249,51 @@ def test():
         sp.record(item_id = remove_bobs_item3, data = new_item_data)
     ]}}} ).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
+    # Can set props
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice)
+
+    # Can't set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.some(bob.address))]), ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+
+    # can remove own items. no need to test that again...
+    #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
+    # can't remove others items
+    remove_items(place_bob, {0: {sp.some(bob.address): {items_tokens_legacy.address: sp.set([remove_bobs_item3])}}}, sender=alice, valid=False, message=ErrorMessages.no_permission())
+
+    #
+    #
+    #
+    scenario.h4("Owner props permissions")
+    # bob gives alice owner props permission to his place
+    world.set_permissions([
+        sp.variant("add", PermissionParams.make_add(
+            owner = bob.address,
+            permittee = alice.address,
+            place_key = place_bob,
+            perm = TL_World_v2.permissionOwnerProps
+        ))
+    ]).run(sender=bob, valid=True)
+    
+    # alice can now change owner props but not anything else
+    scenario.verify(world.get_permissions(sp.record(place_key=place_bob, permittee=alice.address)) == TL_World_v2.permissionOwnerProps)
+    
+    # can't place items
+    place_items(place_bob, {0: {False: {items_tokens_legacy.address: [
+        sp.variant("item", sp.record(amount=2, token_id=item_alice, rate=sp.tez(1), data=position, primary = False))
+    ]}}}, sender=alice, valid=False, message=ErrorMessages.no_permission())
+
+    last_item = scenario.compute(sp.as_nat(world.data.chunks[place_bob_chunk_0].next_id - 1))
+
+    # can't modify all items
+    world.set_item_data(place_key = place_bob, ext = sp.none, update_map = {0: {sp.some(bob.address): {items_tokens_legacy.address: [
+        sp.record(item_id = remove_bobs_item3, data = new_item_data)
+    ]}}} ).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+
     # can't set props
-    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
+
+    # Can set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.none)]), ext = sp.none).run(sender=alice, valid=True)
 
     # can remove own items. no need to test that again...
     #remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)
@@ -1275,7 +1328,11 @@ def test():
         sp.record(item_id = remove_bobs_item3, data = new_item_data)
     ]}}} ).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
-    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice, valid=True)
+    # Can't set props
+    world.update_place(place_key=place_bob, update=valid_place_props, ext = sp.none).run(sender=alice)
+
+    # Can set owner props
+    world.update_place(place_key=place_bob, update=sp.variant("owner_props", [sp.variant("value_to", sp.some(bob.address))]), ext = sp.none).run(sender=alice, valid=False, exception=ErrorMessages.no_permission())
 
     # Can of course remove own items
     remove_items(place_bob, {0: {sp.some(alice.address): {items_tokens_legacy.address: sp.set([last_item])}}}, sender=alice, valid=True)

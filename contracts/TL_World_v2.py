@@ -36,7 +36,6 @@ from tz1and_contracts_smartpy.utils import Utils
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 # TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
 # TODO: document danger of propsOwner + modifyAll in the UI!!!!!!!!!!!!
-# TODO: test permissionOwnerProps!
 # TODO: test items_to/value_to are working correctly!
 
 
