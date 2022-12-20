@@ -1,7 +1,7 @@
 import { DeployMode, SmartpyNodeDevConfig, LedgerAccount, PrivateKeyAccount } from './config/config';
 import { readFileSync } from 'fs';
 
-const { collectionsSignerKey, testnetDeployerKey, deployerKey, nftStorageApiKey } = JSON.parse(
+const { collectionsSignerKey, testnetDeployerKey, deployerKey, nftStorageApiKeys } = JSON.parse(
     readFileSync(new URL('../secrets.json', import.meta.url), { encoding: "utf-8" })
 );
 
@@ -44,7 +44,7 @@ const config: SmartpyNodeDevConfig = {
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
-        nftStorageApiKey: nftStorageApiKey
+        nftStorageApiKeys: nftStorageApiKeys
     },
     smartpy: {
         exclude_tests: new Set(["DistrictDAO"]),

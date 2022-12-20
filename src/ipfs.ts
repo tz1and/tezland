@@ -1,6 +1,7 @@
 import * as fs from 'fs';
-import { uploadToIpfs } from './storage';
+import { ipfs_client, uploadToIpfs } from './storage';
 import { File } from 'nft.storage';
+import { concat } from 'uint8arrays/concat'
 import assert from 'assert';
 
 
@@ -41,34 +42,7 @@ export interface ContractMetadata {
 export async function upload_metadata(metadata: any, localIpfs: boolean): Promise<string> {
     const result = await uploadToIpfs(metadata, true, localIpfs, true);
 
-    console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
-
-    return result.metdata_uri;
-}
-
-// TODO: add to some config or so.
-const metaRepository = 'https://github.com/tz1and';
-const metaHomepage = 'https://www.tz1and.com';
-const metaAuthors = ['852Kerfunke <https://github.com/852Kerfunkle>'];
-const metaLicense = { name: "MIT" };
-
-function createContractMetadata(metadata: ContractMetadata): any {
-    return {
-        name: metadata.name,
-        description: metadata.description,
-        authors: metaAuthors,
-        homepage: metaHomepage,
-        repository: metaRepository,
-        license: metaLicense,
-        interfaces: metadata.interfaces,
-        version: metadata.version
-    };
-}
-
-export async function upload_contract_metadata(metadata: ContractMetadata, localIpfs: boolean): Promise<string> {
-    const result = await uploadToIpfs(createContractMetadata(metadata), true, localIpfs, true);
-
-    console.log(`${metadata.name} contract metadata: ${result.metdata_uri}`);
+    console.log(`${metadata.name} metadata: ${result.metdata_uri}`);
 
     return result.metdata_uri;
 }
@@ -135,4 +109,13 @@ function createItemTokenMetadata(metadata: ItemMetadata): any {
         polygonCount: metadata.polygonCount,
         baseScale: 1
     };
+}
+
+export async function downloadFile(file_url: string) {
+    // TODO: does cat() return chunks?
+    const chunks: Uint8Array[] = []
+    for await (const chunk of ipfs_client.cat(file_url.replace("ipfs://", '')))
+        chunks.push(chunk);
+
+    return concat(chunks);
 }

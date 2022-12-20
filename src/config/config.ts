@@ -30,7 +30,7 @@ export type NetworksConfig = {
 
 export type IpfsConfig = {
     localNodeUrl: IpfsUrl;
-    nftStorageApiKey: string;
+    nftStorageApiKeys: string[];
 }
 
 export enum DeployMode {

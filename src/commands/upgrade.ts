@@ -1,4 +1,3 @@
-import * as smartpy from './smartpy';
 import * as ipfs from '../ipfs'
 import { char2Bytes, bytes2Char } from '@taquito/utils'
 import assert from 'assert';
@@ -7,7 +6,6 @@ import { DeployContractBatch } from './DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract, MichelCodecPacker } from '@taquito/taquito';
 import { MichelsonV1Expression } from '@taquito/rpc';
 import { Schema } from '@taquito/michelson-encoder';
-import fs from 'fs';
 import PostUpgrade from './postupgrade';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
@@ -456,8 +454,8 @@ export default class Upgrade extends PostUpgrade {
 
     protected async reDistributePlaces(tezlandPlacesV2: WalletContract, tezlandPlacesV1: WalletContract) {
         assert(this.tezos);
-        const num_tokens_v1 = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
-        const num_tokens_v2 = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+        const num_tokens_v1: BigNumber = await tezlandPlacesV1.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+        const num_tokens_v2: BigNumber = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
         console.log("num_tokens_v1", num_tokens_v1.toNumber())
         console.log("num_tokens_v2", num_tokens_v2.toNumber())
@@ -467,17 +465,35 @@ export default class Upgrade extends PostUpgrade {
         // get metadata map.
         console.log("Fetching place metadata...");
         const metadata_map = new Map<number, string>();
-        for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
+        for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
             const entry = await v1placestorage.token_metadata.get(i);
-            metadata_map.set(i, bytes2Char(entry.token_info.get("")!));
+            metadata_map.set(i.toNumber(), bytes2Char(entry.token_info.get("")!));
+        }
+
+        // Update royalties on places to be 10%.
+        const royalties_address: string = "tz1UZFB9kGauB6F5c2gfJo4hVcvrD8MeJ3Vf";
+
+        for (const [place_id, metadata_url] of metadata_map) {
+            const metadata_file = await ipfs.downloadFile(metadata_url);
+            const file_string = Buffer.from(metadata_file).toString('utf8');
+
+            const parsed_metadata = JSON.parse(file_string);
+            parsed_metadata.royalties = {
+                decimals: 3,
+                shares: new Map([
+                    [royalties_address, 100]
+                ])
+            }
+
+            metadata_map.set(place_id, await ipfs.upload_metadata(parsed_metadata, this.isSandboxNet));
         }
 
         // Get owner map.
         console.log("Fetching place owners...");
         const owner_map = new Map<number, string>();
-        for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
+        for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
             const address = await v1placestorage.ledger.get(i);
-            owner_map.set(i, address);
+            owner_map.set(i.toNumber(), address);
         }
 
         // Make sure no places are owned by contracts.
@@ -488,18 +504,17 @@ export default class Upgrade extends PostUpgrade {
         let totalFee = new BigNumber(0);
 
         // re-mint and -distribute places in v2.
-        if (num_tokens_v1 - num_tokens_v2 > 0) {
+        if (num_tokens_v1.minus(num_tokens_v2).gt(0)) {
             let mint_batch: any[] = [];
-            for (let i = num_tokens_v2; i < num_tokens_v1; ++i) {
+            for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
                 const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-                metadata.set('', char2Bytes(metadata_map.get(i)!));
+                metadata.set('', char2Bytes(metadata_map.get(i.toNumber())!));
 
                 const current_place_list = [{
-                    to_: owner_map.get(i)!,
+                    to_: owner_map.get(i.toNumber())!,
                     metadata: metadata
                 }];
 
-                
                 // Estimate size with added op. If too large, send batch.
                 // Estimate should throw when limits are reached.
                 try {
@@ -539,7 +554,7 @@ export default class Upgrade extends PostUpgrade {
         return totalFee;
     }
 
-    private async packSetNat(set: number[]) {
+    private async packSetNat(set: BigNumber[]) {
         // Type as michelson expression
         const setStorageType: MichelsonV1Expression = {
             prim: 'set', args: [ { prim: 'nat' }]
@@ -561,7 +576,7 @@ export default class Upgrade extends PostUpgrade {
             return tezlandWorldV2.methods.update_settings([{migration_from: tezlandWorldV1.address}]).send()
         });
 
-        const num_tokens = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
+        const num_tokens: BigNumber = await tezlandPlacesV2.contractViews.count_tokens().executeView({viewCaller: this.accountAddress!});
 
         const v1worldstorage = (await tezlandWorldV1.storage()) as any;
 
@@ -571,8 +586,8 @@ export default class Upgrade extends PostUpgrade {
         let totalFee = new BigNumber(0);
 
         //const batch = this.tezos!.wallet.batch();
-        let batch_places: number[] = [];
-        for (let i = 0; i < num_tokens; ++i) {
+        let batch_places: BigNumber[] = [];
+        for (let i = new BigNumber(0); i < num_tokens; i=i.plus(1)) {
             // Check if place is empty. If it is, skip migration.
             const place = await v1worldstorage.places.get(i);
             if (!place) {

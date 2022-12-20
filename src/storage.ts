@@ -12,7 +12,7 @@ import assert from 'assert';
 //import { Blockstore } from 'nft.storage/dist/src/platform';
 
 
-const ipfs_client = ipfs.create({ url: config.ipfs.localNodeUrl, timeout: 30000 });
+export const ipfs_client = ipfs.create({ url: config.ipfs.localNodeUrl, timeout: 30000 });
 
 
 const validateTZip12 = ({ name, description, decimals }: { name: string, description: string, decimals: number}) => {
@@ -149,8 +149,21 @@ type ResultType = {
     cid: string,
 }
 
+// TODO: this is kind of a nasty workaround, but it will probably work for now :)
+var request_counter: number = 0;
+const nft_storage_clients: NFTStorage[] = [];
+for (const key of config.ipfs.nftStorageApiKeys) {
+    nft_storage_clients.push(new NFTStorage({ token: key }));
+}
+
 export const uploadToIpfs = async (data: any, is_contract: boolean, localIpfs: boolean, verbose: boolean = false): Promise<ResultType> => {
-    const client = localIpfs ? undefined : new NFTStorage({ token: config.ipfs.nftStorageApiKey });
+    const client = localIpfs ? undefined : (() => {
+        // Get client id and increase counter.
+        const client_id = request_counter % nft_storage_clients.length;
+        ++request_counter;
+        return nft_storage_clients[client_id];
+    })()
+
     const validator = is_contract ? noValidation : validateTZip12;
 
     // Upload to local and maybe NFT storage.
