@@ -121,8 +121,6 @@ placeStorageType = sp.TRecord(
     props = placePropsType, # place properties
     chunks = sp.TSet(sp.TNat), # set of active/existing chunks
     value_to = sp.TOption(sp.TAddress), # value for place owned items is sent to, if set
-    # TODO: document danger of propsOwner + modifyAll in the UI!!!!!!!!!!!!
-    # TODO: test permissionOwnerProps!
     items_to = sp.TOption(sp.TAddress) # where place owned items are sent to when removed, if set
 ).layout(("counter", ("props", ("chunks", ("value_to", "items_to")))))
 
