@@ -233,6 +233,9 @@ export default class PostUpgrade extends PostDeployBase {
             items_FA2_contract: new Map(Object.entries({
                 World_v2_contract: [0, 1, 2, 3]
             })),
+            items_v2_FA2_contract: new Map(Object.entries({
+                World_v2_contract: [0, 1]
+            })),
             places_v2_FA2_contract: new Map(Object.entries({
                 Dutch_v2_contract: [0, 1, 2, 3]
             }))
@@ -325,6 +328,21 @@ export default class PostUpgrade extends PostDeployBase {
             remove_two_items.set(0, remove_two_items_issuer)
             return contracts.get("World_v2_contract")!.methodsObject.remove_items({
                 place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0 }, remove_map: remove_two_items
+            }).send();
+        });
+
+        await this.run_op_task("Place 2 items v2 in Place #1", () => {
+            const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
+            const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
+            map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
+                [contracts.get("items_v2_FA2_contract")!.address]: [
+                    { item: { token_id: 0, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } },
+                    { item: { token_id: 1, amount: 1, rate: 1000000, data: "01800040520000baa6c9c2460a4000", primary: false } }
+                ]
+            }));
+            map_ten_items.set(0, map_ten_items_issuer)
+            return contracts.get("World_v2_contract")!.methodsObject.place_items({
+                place_key: { fa2: contracts.get("places_v2_FA2_contract")!.address, id: 1 }, place_item_map: map_ten_items
             }).send();
         });
 
