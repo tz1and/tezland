@@ -484,24 +484,6 @@ export default class Upgrade extends PostUpgrade {
             metadata_map.set(i.toNumber(), bytes2Char(entry.token_info.get("")!));
         }
 
-        // Update royalties on places to be 10%.
-        const royalties_address: string = "tz1UZFB9kGauB6F5c2gfJo4hVcvrD8MeJ3Vf";
-
-        for (const [place_id, metadata_url] of metadata_map) {
-            const metadata_file = await ipfs.downloadFile(metadata_url);
-            const file_string = Buffer.from(metadata_file).toString('utf8');
-
-            const parsed_metadata = JSON.parse(file_string);
-            parsed_metadata.royalties = {
-                decimals: 3,
-                shares: new Map([
-                    [royalties_address, 100]
-                ])
-            }
-
-            metadata_map.set(place_id, await ipfs.upload_metadata(parsed_metadata, this.isSandboxNet));
-        }
-
         // Get owner map.
         console.log("Fetching place owners...");
         const owner_map = new Map<number, string>();
@@ -515,14 +497,30 @@ export default class Upgrade extends PostUpgrade {
             if(v.startsWith("KT")) throw new Error(`Error: Place #${k} is owned by contract.`);
         });
 
+        const royalties_address: string = "tz1UZFB9kGauB6F5c2gfJo4hVcvrD8MeJ3Vf";
         let totalFee = new BigNumber(0);
 
         // re-mint and -distribute places in v2.
         if (num_tokens_v1.minus(num_tokens_v2).gt(0)) {
             let mint_batch: any[] = [];
             for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
+                // Update royalties to be 10%.
+                const metadata_file = await ipfs.downloadFile(metadata_map.get(i.toNumber())!);
+                const file_string = Buffer.from(metadata_file).toString('utf8');
+
+                const parsed_metadata = JSON.parse(file_string);
+                parsed_metadata.royalties = {
+                    decimals: 3,
+                    shares: new Map([
+                        [royalties_address, 100]
+                    ])
+                }
+
+                const updated_metadata = await ipfs.upload_metadata(parsed_metadata, this.isSandboxNet);
+
+                // Add to mint batch
                 const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-                metadata.set('', char2Bytes(metadata_map.get(i.toNumber())!));
+                metadata.set('', char2Bytes(updated_metadata));
 
                 const current_place_list = [{
                     to_: owner_map.get(i.toNumber())!,
