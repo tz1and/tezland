@@ -506,8 +506,8 @@ export default class Upgrade extends PostUpgrade {
         }
 
         // get v2 metadata map.
-        // Need to parallelise place metadata re-upload!
-        // Otherwise it would take 40+ minutes in prod.
+        // TODO: Need to parallelise place metadata re-upload?
+        // Otherwise it could take 40+ minutes in prod.
         const metadata_v2_map = new Map<number, string>();
         {
             const place_metadata_map_v2_path = `${this.deploymentsDir}/place_metadata_map_v2.json`;
@@ -532,7 +532,9 @@ export default class Upgrade extends PostUpgrade {
                     const file_string = Buffer.from(metadata_file).toString('utf8');
 
                     const parsed_metadata = JSON.parse(file_string);
+                    parsed_metadata.name = `tz1and Place #${token_id}`;
                     parsed_metadata.minter = this.accountAddress!;
+                    parsed_metadata.symbol = "PLACE";
                     parsed_metadata.royalties = {
                         decimals: 3,
                         shares: Object.fromEntries(new Map([

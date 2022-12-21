@@ -65,7 +65,7 @@ function createPlaceTokenMetadata(metadata: PlaceMetadata): any {
         isTransferable: true,
         isBooleanAmount: true,
         shouldPreferSymbol: false,
-        symbol: 'tz1and Place',
+        symbol: 'PLACE',
         //artifactUri: cid,
         decimals: 0,
         placeType: metadata.placeType
@@ -101,7 +101,7 @@ function createItemTokenMetadata(metadata: ItemMetadata): any {
         isTransferable: true,
         isBooleanAmount: false,
         shouldPreferSymbol: false,
-        symbol: 'tz1and Item',
+        symbol: 'ITEM',
         artifactUri: metadata.modelBlob,
         tags: ["default", "development", "mint"],
         decimals: 0,
