@@ -117,15 +117,18 @@ export default class PostDeploy extends PostDeployBase {
             }
         }
 
-        // set operators
-        await this.fa2_set_operators(contracts, new Map(Object.entries({
+        // operators to add/remove
+        const operators_map = new Map(Object.entries({
             items_FA2_contract: new Map(Object.entries({
                 World_contract: [0, 1, 2, 3]
             })),
             places_FA2_contract: new Map(Object.entries({
                 Dutch_contract: [1, 3]
             }))
-        })));
+        }))
+
+        // add operators
+        await this.fa2_add_operators(contracts, operators_map);
 
         if (testLargeMigration) {
             const places_per_batch = 50;
@@ -215,6 +218,9 @@ export default class PostDeploy extends PostDeployBase {
                 fa2: contracts.get("places_FA2_contract")!.address
             }).send();
         });
+
+        // remove operators
+        await this.fa2_remove_operators(contracts, operators_map);
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {

@@ -228,8 +228,8 @@ export default class PostUpgrade extends PostDeployBase {
             return mint_batch.send();
         });
 
-        // set operators
-        await this.fa2_set_operators(contracts, new Map(Object.entries({
+        // operators to add/remove
+        const operators_map = new Map(Object.entries({
             items_FA2_contract: new Map(Object.entries({
                 World_v2_contract: [0, 1, 2, 3]
             })),
@@ -239,7 +239,10 @@ export default class PostUpgrade extends PostDeployBase {
             places_v2_FA2_contract: new Map(Object.entries({
                 Dutch_v2_contract: [0, 1, 2, 3]
             }))
-        })));
+        }))
+
+        // add operators
+        await this.fa2_add_operators(contracts, operators_map);
 
         await this.run_op_task("Place 10 items in Place #1", () => {
             const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
@@ -404,6 +407,9 @@ export default class PostUpgrade extends PostDeployBase {
                 }
             }).send();
         });
+
+        // remove operators
+        await this.fa2_remove_operators(contracts, operators_map);
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {

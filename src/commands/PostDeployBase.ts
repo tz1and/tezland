@@ -51,8 +51,9 @@ export default class PostDeployBase extends DeployBase {
     }
 
     // Utils
-    protected async fa2_set_operators(contracts: PostDeployContracts, operators: Map<string, Map<string, number[]>>) {
-        return this.run_op_task("Setting operators", () => {
+    // TODO: should properly batch the operator adds per contact
+    protected async fa2_add_operators(contracts: PostDeployContracts, operators: Map<string, Map<string, number[]>>) {
+        return this.run_op_task("Adding operators", () => {
             let batch = this.tezos!.wallet.batch();
 
             for (const [token_contract, token_map] of operators) {
@@ -63,6 +64,33 @@ export default class PostDeployBase extends DeployBase {
                             kind: OpKind.TRANSACTION,
                             ...contract.methods.update_operators([{
                                 add_operator: {
+                                    owner: this.accountAddress,
+                                    operator: contracts.get(to_contract)!.address,
+                                    token_id: token_id
+                                }
+                            }]).toTransferParams()
+                        }])
+                    }
+                }
+            }
+
+            return batch.send()
+        });
+    }
+
+    // TODO: should properly batch the operator removes per contact
+    protected async fa2_remove_operators(contracts: PostDeployContracts, operators: Map<string, Map<string, number[]>>) {
+        return this.run_op_task("Removing operators", () => {
+            let batch = this.tezos!.wallet.batch();
+
+            for (const [token_contract, token_map] of operators) {
+                let contract = contracts.get(token_contract)!;
+                for (const [to_contract, token_ids] of token_map) {
+                    for (const token_id of token_ids) {
+                        batch.with([{
+                            kind: OpKind.TRANSACTION,
+                            ...contract.methods.update_operators([{
+                                remove_operator: {
                                     owner: this.accountAddress,
                                     operator: contracts.get(to_contract)!.address,
                                     token_id: token_id
