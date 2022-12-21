@@ -119,7 +119,7 @@ export default class DeployBase {
     public tezos?: TezosToolkit;
     protected accountAddress?: string;
 
-    private deploymentsDir: string;
+    readonly deploymentsDir: string;
 
     readonly deploymentsReg: DeploymentsRegistry;
 

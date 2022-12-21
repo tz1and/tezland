@@ -10,6 +10,7 @@ import PostUpgrade from './postupgrade';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
 import BigNumber from 'bignumber.js'
+import fs from 'fs';
 
 
 export default class Upgrade extends PostUpgrade {
@@ -437,14 +438,16 @@ export default class Upgrade extends PostUpgrade {
     }
 
     protected async cancelV1AuctionsAndPauseTransfers(tezlandDutchAuctions: WalletContract, tezlandPlaces: WalletContract) {
+        assert(this.tezos);
         const v1auctionstorage = (await tezlandDutchAuctions.storage()) as any;
 
         // TODO: maybe get list of auctions from indexer instead?
-        const auction_id = v1auctionstorage.auction_id;
+        const auction_id: BigNumber = v1auctionstorage.auction_id;
 
-        const batch = this.tezos!.wallet.batch();
+        const batch = this.tezos.wallet.batch();
 
-        for (let id = 0; id < auction_id; ++id) {
+        // TODO: use bignumber. auction_id surely is a bignumber.
+        for (let id = new BigNumber(0); id.lt(auction_id); id=id.plus(1)) {
             const auction = await v1auctionstorage.auctions.get(id);
             if (auction) {
                 console.log(`Cancelling auction #${id}.`);
@@ -477,19 +480,110 @@ export default class Upgrade extends PostUpgrade {
         const v1placestorage = (await tezlandPlacesV1.storage()) as any;
 
         // get metadata map.
-        console.log("Fetching place metadata...");
-        const metadata_map = new Map<number, string>();
-        for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
-            const entry = await v1placestorage.token_metadata.get(i);
-            metadata_map.set(i.toNumber(), bytes2Char(entry.token_info.get("")!));
+        const metadata_v1_map = new Map<number, string>();
+        {
+            const place_metadata_map_v1_path = `${this.deploymentsDir}/place_metadata_map_v1.json`;
+
+            if (fs.existsSync(place_metadata_map_v1_path)) {
+                console.log("Loading cached v1 metadata map...");
+                const json_file = fs.readFileSync(place_metadata_map_v1_path).toString("utf-8");
+                for (const [key, value] of Object.entries<string>(JSON.parse(json_file)))
+                    metadata_v1_map.set(parseInt(key), value);
+            }
+            else {
+                console.log("Fetching place metadata...");
+                for (let i = new BigNumber(0); i.lt(num_tokens_v1); i=i.plus(1)) {
+                    console.log("Fetching metadata for", i.toNumber());
+                    const entry = await v1placestorage.token_metadata.get(i);
+                    const metadata_bytes = entry.token_info.get("");
+                    assert(metadata_bytes);
+                    metadata_v1_map.set(i.toNumber(), bytes2Char(metadata_bytes));
+                }
+
+                // Write the metadata file
+                fs.writeFileSync(place_metadata_map_v1_path, JSON.stringify(Object.fromEntries(metadata_v1_map)));
+            }
+        }
+
+        // get v2 metadata map.
+        // Need to parallelise place metadata re-upload!
+        // Otherwise it would take 40+ minutes in prod.
+        const metadata_v2_map = new Map<number, string>();
+        {
+            const place_metadata_map_v2_path = `${this.deploymentsDir}/place_metadata_map_v2.json`;
+
+            if (fs.existsSync(place_metadata_map_v2_path)) {
+                console.log("Loading cached v2 metadata map...");
+                const json_file = fs.readFileSync(place_metadata_map_v2_path).toString("utf-8");
+                for (const [key, value] of Object.entries<string>(JSON.parse(json_file)))
+                    metadata_v2_map.set(parseInt(key), value);
+            }
+            else {
+                console.log("Uploading v2 place metadata...");
+
+                const royalties_address: string = "tz1UZFB9kGauB6F5c2gfJo4hVcvrD8MeJ3Vf";
+
+                //const upload_promises: Promise<[number, string]>[] = [];
+
+                const reupload_metadata = async (token_id: number, metadata_url: string): Promise<[number, string]> => {
+                    console.log("Reuploading metadata for", token_id);
+                    // Update royalties to be 10%.
+                    const metadata_file = await ipfs.downloadFile(metadata_url);
+                    const file_string = Buffer.from(metadata_file).toString('utf8');
+
+                    const parsed_metadata = JSON.parse(file_string);
+                    parsed_metadata.minter = this.accountAddress!;
+                    parsed_metadata.royalties = {
+                        decimals: 3,
+                        shares: Object.fromEntries(new Map([
+                            [royalties_address, 100]
+                        ]))
+                    }
+
+                    const updated_metadata = await ipfs.upload_metadata(parsed_metadata, this.isSandboxNet);
+
+                    return [token_id, updated_metadata];
+                }
+
+                for (let i = new BigNumber(0); i.lt(num_tokens_v1); i=i.plus(1)) {
+                    const metadata_url = metadata_v1_map.get(i.toNumber());
+                    assert(metadata_url);
+                    //upload_promises.push(reupload_metadata(i.toNumber(), metadata_url))
+                    const [key, value] = await reupload_metadata(i.toNumber(), metadata_url);
+                    metadata_v2_map.set(key, value);
+                }
+
+                /*for (const [key, value] of (await Promise.all(upload_promises))) {
+                    metadata_v2_map.set(key, value);
+                }*/
+
+                // Write the metadata file
+                fs.writeFileSync(place_metadata_map_v2_path, JSON.stringify(Object.fromEntries(metadata_v2_map)));
+            }
         }
 
         // Get owner map.
-        console.log("Fetching place owners...");
         const owner_map = new Map<number, string>();
-        for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
-            const address = await v1placestorage.ledger.get(i);
-            owner_map.set(i.toNumber(), address);
+        {
+            const place_owner_map_v1_path = `${this.deploymentsDir}/place_owner_map_v1.json`;
+
+            if (fs.existsSync(place_owner_map_v1_path)) {
+                console.log("Loading cached v1 place owner map...");
+                const json_file = fs.readFileSync(place_owner_map_v1_path).toString("utf-8");
+                for (const [key, value] of Object.entries<string>(JSON.parse(json_file)))
+                    owner_map.set(parseInt(key), value);
+            }
+            else {
+                console.log("Fetching place owners...");
+                for (let i = new BigNumber(0); i.lt(num_tokens_v1); i=i.plus(1)) {
+                    console.log("Fetching owner for", i.toNumber());
+                    const address = await v1placestorage.ledger.get(i);
+                    owner_map.set(i.toNumber(), address);
+                }
+
+                // Write the metadata file
+                fs.writeFileSync(place_owner_map_v1_path, JSON.stringify(Object.fromEntries(owner_map)));
+            }
         }
 
         // Make sure no places are owned by contracts.
@@ -497,33 +591,22 @@ export default class Upgrade extends PostUpgrade {
             if(v.startsWith("KT")) throw new Error(`Error: Place #${k} is owned by contract.`);
         });
 
-        const royalties_address: string = "tz1UZFB9kGauB6F5c2gfJo4hVcvrD8MeJ3Vf";
         let totalFee = new BigNumber(0);
 
         // re-mint and -distribute places in v2.
         if (num_tokens_v1.minus(num_tokens_v2).gt(0)) {
             let mint_batch: any[] = [];
-            for (let i = num_tokens_v2; i < num_tokens_v1; i=i.plus(1)) {
-                // Update royalties to be 10%.
-                const metadata_file = await ipfs.downloadFile(metadata_map.get(i.toNumber())!);
-                const file_string = Buffer.from(metadata_file).toString('utf8');
-
-                const parsed_metadata = JSON.parse(file_string);
-                parsed_metadata.royalties = {
-                    decimals: 3,
-                    shares: new Map([
-                        [royalties_address, 100]
-                    ])
-                }
-
-                const updated_metadata = await ipfs.upload_metadata(parsed_metadata, this.isSandboxNet);
-
+            for (let i = num_tokens_v2; i.lt(num_tokens_v1); i=i.plus(1)) {
                 // Add to mint batch
                 const metadata = new MichelsonMap<string,string>({ prim: "map", args: [{prim: "string"}, {prim: "bytes"}]});
-                metadata.set('', char2Bytes(updated_metadata));
+                const metadata_url = metadata_v2_map.get(i.toNumber());
+                assert(metadata_url);
+                metadata.set('', char2Bytes(metadata_url));
 
+                const place_owner = owner_map.get(i.toNumber());
+                assert(place_owner);
                 const current_place_list = [{
-                    to_: owner_map.get(i.toNumber())!,
+                    to_: place_owner,
                     metadata: metadata
                 }];
 
@@ -599,7 +682,7 @@ export default class Upgrade extends PostUpgrade {
 
         //const batch = this.tezos!.wallet.batch();
         let batch_places: BigNumber[] = [];
-        for (let i = new BigNumber(0); i < num_tokens; i=i.plus(1)) {
+        for (let i = new BigNumber(0); i.lt(num_tokens); i=i.plus(1)) {
             // Check if place is empty. If it is, skip migration.
             const place = await v1worldstorage.places.get(i);
             if (!place) {
