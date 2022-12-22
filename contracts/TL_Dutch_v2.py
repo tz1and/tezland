@@ -101,7 +101,7 @@ class TL_Dutch_v2(
     def create(self, params):
         """Create a dutch auction.
         
-        Transfers token to auction contract.
+        Does not transfer token to auction contract. Only works with operators.
         
         end_price must be < than start_price.
         end_time must be > than start_time
@@ -147,7 +147,7 @@ class TL_Dutch_v2(
         """Cancel an auction.
 
         Given it is owned.
-        Token is transferred back to auction owner.
+        Removing operators is on the sender.
         """
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
