@@ -1,18 +1,21 @@
+# NOTE: Works best if flextesa and ipfs-node are in hosts file,
+# pointed to 0.0.0.0, because the bcd ui them verbatim.
+
 version: "3.6"
 services:
-  elastic:
-    image: ghcr.io/baking-bad/bcdhub-elastic:${TAG}
-    restart: always
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    environment:
-      - bootstrap.memory_lock=true
-      - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
-    logging: &bcd-logging
-      options:
-        max-size: 10m
-        max-file: "5"
+  #elastic:
+  #  image: ghcr.io/baking-bad/bcdhub-elastic:${TAG}
+  #  restart: always
+  #  volumes:
+  #    - esdata:/usr/share/elasticsearch/data
+  #  environment:
+  #    - bootstrap.memory_lock=true
+  #    - discovery.type=single-node
+  #    - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+  #  logging: &bcd-logging
+  #    options:
+  #      max-size: 10m
+  #      max-file: "5"
 
   db:
     image: postgres:14
@@ -27,7 +30,10 @@ services:
       - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
-    logging: *bcd-logging
+    logging: &bcd-logging
+      options:
+        max-size: 10m
+        max-file: "5"
 
   api:
     restart: always
@@ -40,9 +46,9 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://flextesa:20000
-      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
+      - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
     depends_on:
-      - elastic
+      #- elastic
       - db
     ports:
       - 14000:14000
@@ -62,7 +68,7 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://flextesa:20000
-      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
+      - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
     depends_on:
       - db
       #- metrics
@@ -80,7 +86,7 @@ services:
   #    - POSTGRES_PASSWORD=root
   #    - POSTGRES_DB=indexer
   #    - SANDBOX_NODE_URI=http://flextesa:20000
-  #    - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
+  #    - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
   #  depends_on:
   #    - elastic
   #    - db
@@ -120,7 +126,7 @@ services:
   #
   # IPFS
   #
-  ipfs:
+  ipfs-node:
     container_name: ipfs-node
     restart: always
     image: ipfs/kubo:v0.15.0

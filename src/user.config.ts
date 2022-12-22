@@ -37,10 +37,10 @@ const config: SmartpyNodeDevConfig = {
     sandbox: {
         blockTime: 5, // In seconds.
         deployMode: DeployMode.DevWorld,
-        bcdVersion: "latest",
+        bcdVersion: "master", // NOTE: lima support not in tagged release
         tzktVersion: "latest",
-        flextesaVersion: "20220715",
-        flextesaProtocol: "kathmandubox"
+        flextesaVersion: "20221123",
+        flextesaProtocol: "kathmandubox" // limabox without migration unsupported in tztk right now
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
