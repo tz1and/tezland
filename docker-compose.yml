@@ -1,4 +1,4 @@
-# NOTE: Works best if flextesa and ipfs-node are in hosts file,
+# NOTE: Works best if flextesa and ipfs are in hosts file,
 # pointed to 0.0.0.0, because the bcd ui them verbatim.
 
 version: "3.6"
@@ -46,7 +46,7 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://flextesa:20000
-      - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
+      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
     depends_on:
       #- elastic
       - db
@@ -68,7 +68,7 @@ services:
       - POSTGRES_PASSWORD=root
       - POSTGRES_DB=indexer
       - SANDBOX_NODE_URI=http://flextesa:20000
-      - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
+      - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
     depends_on:
       - db
       #- metrics
@@ -86,7 +86,7 @@ services:
   #    - POSTGRES_PASSWORD=root
   #    - POSTGRES_DB=indexer
   #    - SANDBOX_NODE_URI=http://flextesa:20000
-  #    - SANDBOX_IPFS_GATEWAY=http://ipfs-node:8080
+  #    - SANDBOX_IPFS_GATEWAY=http://ipfs:8080
   #  depends_on:
   #    - elastic
   #    - db
@@ -126,7 +126,7 @@ services:
   #
   # IPFS
   #
-  ipfs-node:
+  ipfs:
     container_name: ipfs-node
     restart: always
     image: ipfs/kubo:v0.15.0
