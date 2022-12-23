@@ -55,10 +55,9 @@ class FA2PermissionsAndWhitelist:
         and returns fa2 props."""
         sp.set_type(fa2, sp.TAddress)
         sp.set_type(user, sp.TAddress)
-        fa2_props = sp.compute(self.getPermittedFA2Props(fa2))
+        fa2_props = self.getPermittedFA2Props(fa2)
         with sp.if_(fa2_props.whitelist_enabled):
             sp.verify(self.data.whitelist.contains(sp.record(fa2=fa2, user=user)), message="ONLY_WHITELISTED")
-        return fa2_props
 
 
     def removeFromFA2Whitelist(self, fa2, user):

@@ -13,7 +13,6 @@ from contracts.utils import TokenTransfer, FA2Utils, ErrorMessages
 from tz1and_contracts_smartpy.utils import Utils
 
 
-# TODO: document reasoning for not limiting bids on secondary disable
 # TODO: private lambda to shrink view? getAuctionPriceInline
 
 
@@ -28,12 +27,17 @@ t_auction_key = sp.TRecord(
     owner = sp.TAddress
 ).layout(("fa2", ("token_id", "owner")))
 
-t_auction = sp.TRecord(
+t_auction_params = sp.TRecord(
     start_price=sp.TMutez,
     end_price=sp.TMutez,
     start_time=sp.TTimestamp,
     end_time=sp.TTimestamp
 ).layout(("start_price", ("end_price", ("start_time", "end_time"))))
+
+t_auction = sp.TRecord(
+    auction_params=t_auction_params,
+    is_primary=sp.TBool
+).layout(("auction_params", "is_primary"))
 
 #
 # Dutch auction contract.
@@ -108,7 +112,7 @@ class TL_Dutch_v2(
         """
         sp.set_type(params, sp.TRecord(
             auction_key = t_auction_key,
-            auction = t_auction,
+            auction = t_auction_params,
             ext = extensionArgType
         ).layout(("auction_key", ("auction", "ext"))))
 
@@ -139,7 +143,9 @@ class TL_Dutch_v2(
         sp.verify(FA2Utils.fa2_is_operator(params.auction_key.fa2, params.auction_key.token_id, sp.sender, sp.self_address), "NOT_OPERATOR")
 
         # Create auction.
-        self.data.auctions[params.auction_key] = params.auction
+        self.data.auctions[params.auction_key] = sp.record(
+            auction_params=params.auction,
+            is_primary=(params.auction_key.owner == fa2_props.whitelist_admin))
 
 
     @sp.entry_point(lazify = True)
@@ -258,13 +264,13 @@ class TL_Dutch_v2(
         the_auction = sp.local("the_auction", self.data.auctions.get(params.auction_key, message="AUCTION_NOT_FOUND"))
 
         # If whitelist is enabled for this token, sender must be whitelisted.
-        fa2_props = self.onlyWhitelistedForFA2(params.auction_key.fa2, sp.sender)
+        self.onlyWhitelistedForFA2(params.auction_key.fa2, sp.sender)
 
         # check auction has started
-        sp.verify(sp.now >= the_auction.value.start_time, message = "NOT_STARTED")
+        sp.verify(sp.now >= the_auction.value.auction_params.start_time, message = "NOT_STARTED")
 
         # calculate current price and verify amount sent
-        ask_price = self.getAuctionPriceInline(the_auction.value)
+        ask_price = self.getAuctionPriceInline(the_auction.value.auction_params)
         #sp.trace(sp.now)
         #sp.trace(ask_price)
 
@@ -290,7 +296,7 @@ class TL_Dutch_v2(
         self.removeOperator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)
 
         # If it was a whitelist required auction, remove from whitelist.
-        with sp.if_(params.auction_key.owner == fa2_props.whitelist_admin):
+        with sp.if_(the_auction.value.is_primary):
             self.removeFromFA2Whitelist(params.auction_key.fa2, sp.sender)
 
         # Delete auction.
@@ -300,7 +306,7 @@ class TL_Dutch_v2(
     # TODO: private lambda to shrink view?
     def getAuctionPriceInline(self, the_auction):
         """Inlined into bid and get_auction_price view"""
-        sp.set_type(the_auction, t_auction)
+        sp.set_type(the_auction, t_auction_params)
         
         # Local var for the result.
         result = sp.local("result", sp.mutez(0))
@@ -347,7 +353,7 @@ class TL_Dutch_v2(
         """Returns the current price of an auction."""
         sp.set_type(auction_key, t_auction_key)
         the_auction = sp.local("the_auction", self.data.auctions.get(auction_key, message="AUCTION_NOT_FOUND"))
-        sp.result(self.getAuctionPriceInline(the_auction.value))
+        sp.result(self.getAuctionPriceInline(the_auction.value.auction_params))
 
     @sp.onchain_view(pure=True)
     def is_secondary_enabled(self):
