@@ -181,3 +181,21 @@ if "templates" not in __name__:
             Administrable.__init__(self, admin.address)
     
     TESTS.test_royalties(NftRoyaltiesTest(), FungibleRoyaltiesTest()) # no royalties on single asset
+
+    # Non-standard transfer
+
+    class NftNonstandardTransferTest(
+        Administrable,
+        FA2.MintNft,
+        FA2.Fa2Nft,
+    ):
+        """NFT contract for testing non-standard transfer."""
+
+        def __init__(self, policy=None):
+            FA2.Fa2Nft.__init__(
+                self, sp.utils.metadata_of_url("ipfs://example"), policy=policy, nonstandard_transfer=True
+            )
+            FA2.MintNft.__init__(self)
+            Administrable.__init__(self, admin.address)
+    
+    TESTS.test_nonstandard_transfer(NftNonstandardTransferTest()) # only test it on NFT. Should all be the same

@@ -1802,3 +1802,53 @@ def test_royalties(nft_contract, fungible_contract):
         # Make sure onchain view fails on unknown
         sc.verify(sp.is_failing(c1.get_royalties(100)))
         sc.verify(sp.is_failing(c2.get_royalties(100)))
+
+def test_nonstandard_transfer(nft_contract):
+    """Test the `Nonstandard transfer` option.
+    """
+    test_name = "FA2_nonstandard_transfer"
+
+    @sp.add_test(name=test_name)
+    def test():
+        sc = sp.test_scenario()
+        sc.h1(test_name)
+        sc.table_of_contents()
+
+        sc.h2("Accounts")
+        sc.show([admin, alice, bob])
+
+        sc.h2("FA2 Contracts")
+        c1 = nft_contract
+        sc += c1
+
+        sc.h3("mint")
+        c1.mint([sp.record(
+            metadata=tok0_md,
+            to_=alice.address
+        )]).run(sender=admin)
+
+        # Check storage
+        # TODO: check blance in ledger
+
+        sc.h3("standard transfer fails")
+        c1.transfer(
+            [
+                sp.record(
+                    from_=alice.address,
+                    txs=[sp.record(to_=alice.address, amount=1, token_id=0)],
+                ),
+            ]
+        ).run(sender=alice, valid=False, exception=("FA2_TX_DENIED", "NONSTANDARD_TRANSFER"))
+
+        sc.h3("non-standard transfer works")
+        c1.transfer_tokens(
+            [
+                sp.record(
+                    from_=alice.address,
+                    txs=[sp.record(to_=alice.address, amount=1, token_id=0)],
+                ),
+            ]
+        ).run(sender=alice)
+
+        # Check storage
+        # TODO: check blance in ledger
