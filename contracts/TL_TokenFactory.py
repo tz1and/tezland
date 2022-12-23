@@ -21,7 +21,7 @@ class TL_TokenFactory(
     MetaSettings,
     Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, registry, minter, blacklist, proxy_parent, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, minter, blacklist, proxy_parent, metadata, paused=False, exception_optimization_level="default-line"):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
@@ -50,7 +50,7 @@ class TL_TokenFactory(
         ])
 
         Administrable.__init__(self, administrator = administrator, include_views = False)
-        Pausable.__init__(self, include_views = False)
+        Pausable.__init__(self, include_views = False, paused = paused)
         ContractMetadata.__init__(self, metadata = metadata)
         MetaSettings.__init__(self)
         Upgradeable.__init__(self)

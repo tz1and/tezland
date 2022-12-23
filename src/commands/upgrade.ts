@@ -129,8 +129,8 @@ export default class Upgrade extends PostUpgrade {
                 `admin = sp.address("${this.accountAddress}")`,
                 `parent = sp.address("${PlaceTokenProxyParent_contract.address}")`,
                 `blacklist = sp.address("${Blacklist_contract.address}")`,
-                `name="tz1and Places"`,
-                `description="tz1and Place FA2 Tokens (v2)."`
+                `name="tz1and Places (v2)"`,
+                `description="tz1and Place FA2 Tokens, version 2."`
             ]);
 
             // NOTE: Public collection is not a proxy, but it's lazy.
@@ -274,7 +274,8 @@ export default class Upgrade extends PostUpgrade {
                 `registry = sp.address("${Registry_contract.address}")`,
                 `minter = sp.address("${Minter_v2_contract.address}")`,
                 `proxy_parent = sp.address("${ItemCollectionProxyParent_contract.address}")`,
-                `blacklist = sp.address("${Blacklist_contract.address}")`
+                `blacklist = sp.address("${Blacklist_contract.address}")`,
+                `paused = ${this.isSandboxNet ? "False" : "True"}`
             ]);
 
             // Compile and deploy Minter contract.
@@ -383,6 +384,19 @@ export default class Upgrade extends PostUpgrade {
                     auction_id: 0,
                     extension: MichelsonMap.fromLiteral({ "metadata_uri": char2Bytes(dutch_v1_1_metadata) })
                 }).send();
+            });
+        });
+
+        // Update place v1 metadata.
+        await this.run_flag_task("update_v1_place_metadata", async () => {
+            const places_v1_metadata = await this.compile_metadata("FA2_Places_v1_metadata_update", "Tokens", "tz1andPlaces", [
+                `admin = sp.address("${this.accountAddress}")`
+            ]);
+
+            await this.run_op_task("Updating metadata on v1 place contract...", async () => {
+                return tezlandPlaces.methodsObject.set_metadata(MichelsonMap.fromLiteral({
+                    "": char2Bytes(places_v1_metadata)
+                })).send();
             });
         });
 

@@ -185,6 +185,33 @@ export default class DeployBase {
         return [code_parsed, storage_parsed];
     }
 
+    // Compiles only metadata and uploads it.
+    // Note: target_args needs to exclude metadata.
+    // Returns metadata uri.
+    public async compile_metadata(target_name: string, file_name: string, contract_name: string, target_args: string[]) {
+        console.log(kleur.yellow(`Metadata target '${target_name}'`), `(${file_name}::${contract_name})`);
+
+        // Build artifact directory.
+        const target_out_dir = `./build/${target_name}`
+
+        // Remove previous build output.
+        if (fs.existsSync(target_out_dir)) fs.rmdirSync(target_out_dir, { recursive: true });
+
+        // Make create the build output dir.
+        fs.mkdirSync(target_out_dir, { recursive: true });
+
+        // Compile metadata
+        const metadata_path = smartpy.compile_metadata_substep(target_out_dir, target_name, file_name, contract_name, target_args.concat(['metadata = sp.utils.metadata_of_url("metadata_dummy")']));
+
+        // Upload metadata
+        const contract_metadata = JSON.parse(fs.readFileSync(metadata_path, { encoding: 'utf-8' }));
+        const metadata_url = await ipfs.upload_metadata(contract_metadata, this.isSandboxNet);
+
+        console.log()
+
+        return metadata_url;
+    }
+
     // Compiles metadata, uploads it and then compiles again with metadata set.
     // Note: target_args needs to exclude metadata.
     // Returns parsed code and storage.
