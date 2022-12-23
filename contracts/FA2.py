@@ -554,7 +554,7 @@ class Common(sp.Contract):
         and standard TZIP-126 and TZIP-016 key/values."""
         nonstandard_transfer_description = ""
         if nonstandard_transfer:
-            nonstandard_transfer_description = "\n\nThis token has a non-standard transfer entrypoint (please refer to the documentation)."
+            nonstandard_transfer_description = "\n\nThis token has a non-standard transfer entrypoint (please refer to https://tz1and.github.io)."
         if metadata_base is None:
             metadata_base = {
                 "name": name,
