@@ -40,7 +40,7 @@ const config: SmartpyNodeDevConfig = {
         bcdVersion: "master", // NOTE: lima support not in tagged release
         tzktVersion: "latest",
         flextesaVersion: "20221123",
-        flextesaProtocol: "kathmandubox" // limabox without migration unsupported in tztk right now
+        flextesaProtocol: "limabox"
     },
     ipfs: {
         localNodeUrl: "http://localhost:5001",
