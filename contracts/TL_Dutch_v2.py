@@ -284,13 +284,13 @@ class TL_Dutch_v2(
         self.sendOverpayValueAndFeesInline(sp.amount, ask_price, params.auction_key.owner)
 
         # Transfer place from owner to this contract.
-        FA2Utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1)
+        FA2Utils.fa2_transfer(params.auction_key.fa2, params.auction_key.owner, sp.self_address, params.auction_key.token_id, 1, nonstandard_transfer=True)
 
         # Reset the place's value_to and items_to property.
         self.resetValueToAndItemsToInWorld(params.auction_key.fa2, params.auction_key.token_id)
 
         # Transfer place from this contract to buyer.
-        FA2Utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1)
+        FA2Utils.fa2_transfer(params.auction_key.fa2, sp.self_address, sp.sender, params.auction_key.token_id, 1, nonstandard_transfer=True)
 
         # After transfer, remove own operator rights for token.
         self.removeOperator(params.auction_key.fa2, params.auction_key.token_id, params.auction_key.owner)

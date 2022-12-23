@@ -40,11 +40,11 @@ export default class PostUpgrade extends PostDeployBase {
 
   tezlandPlacesV2:
     address: ${contracts.get("places_v2_FA2_contract")!.address}
-    typename: tezlandFA2NFTV2
+    typename: tezlandFA2NFTV2NonstandardTransfer
 
   tezlandInteriors:
     address: ${contracts.get("interiors_FA2_contract")!.address}
-    typename: tezlandFA2NFTV2
+    typename: tezlandFA2NFTV2NonstandardTransfer
 
   tezlandDAO:
     address: ${contracts.get("dao_FA2_contract")!.address}

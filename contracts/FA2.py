@@ -459,7 +459,7 @@ class BlacklistTransfer:
 class Common(sp.Contract):
     """Common logic between Fa2Nft, Fa2Fungible and Fa2SingleAsset."""
 
-    def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}, include_views=True):
+    def __init__(self, name, description, policy=None, metadata_base=None, token_metadata={}, include_views=True, nonstandard_transfer=False):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", "default-line")
@@ -479,6 +479,40 @@ class Common(sp.Contract):
             )
         )
         self.policy.init_policy(self)
+
+        # Transfer entrypoint: may need to be non-standard
+        def transfer(self, batch):
+            """Accept a list of transfer operations between a source and multiple
+            destinations.
+
+            `transfer_tx_` must be defined in the child class.
+            """
+            sp.set_type(batch, t_transfer_params)
+            if self.policy.supports_transfer:
+                with sp.for_("transfer", batch) as transfer:
+                    with sp.for_("tx", transfer.txs) as tx:
+                        # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
+                        sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
+                        self.policy.check_tx_transfer_permissions(
+                            self, transfer.from_, tx.to_, tx.token_id
+                        )
+                        with sp.if_(tx.amount > 0):
+                            self.transfer_tx_(transfer.from_, tx)
+            else:
+                sp.failwith("FA2_TX_DENIED")
+
+        if nonstandard_transfer:
+            self.transfer_tokens = sp.entry_point(transfer, "transfer_tokens", parameter_type=t_transfer_params)
+
+            # We need to add a dummy "transfer" EP so indexers recognise it as an FA2.
+            def transfer_dummy(self, batch):
+                """A dummy entrypoint to make this token FA2 compliant."""
+                sp.set_type(batch, t_transfer_params)
+                sp.failwith(sp.pair("FA2_TX_DENIED", "NONSTANDARD_TRANSFER"))
+            # Don't lazify the dummy transfer ep. Really doesn't make sense.
+            self.transfer = sp.entry_point(transfer_dummy, "transfer", lazify=False, parameter_type=t_transfer_params)
+        else:
+            self.transfer = sp.entry_point(transfer, "transfer", parameter_type=t_transfer_params)
 
         # Onchain views
         if include_views:
@@ -509,21 +543,24 @@ class Common(sp.Contract):
                 """Return the total number of tokens for the given `token_id`."""
                 sp.result(sp.set_type_expr(self.supply_(params.token_id), sp.TNat))
             self.total_supply = sp.onchain_view(pure=True)(total_supply)
-            
-        self.generate_contract_metadata(name, description, "metadata_base", metadata_base)
+
+        self.generate_contract_metadata(name, description, nonstandard_transfer, "metadata_base", metadata_base)
 
     def is_defined(self, token_id):
         return self.data.token_metadata.contains(token_id)
 
-    def generate_contract_metadata(self, name, description, filename, metadata_base=None):
+    def generate_contract_metadata(self, name, description, nonstandard_transfer, filename, metadata_base=None):
         """Generate a metadata json file with all the contract's offchain views
         and standard TZIP-126 and TZIP-016 key/values."""
+        nonstandard_transfer_description = ""
+        if nonstandard_transfer:
+            nonstandard_transfer_description = "\n\nThis token has a non-standard transfer entrypoint (please refer to the documentation)."
         if metadata_base is None:
             metadata_base = {
                 "name": name,
                 "version": "1.0.0",
                 "description": (
-                    description + "\n\nBased on the SmartPy FA2 implementation."
+                    description + nonstandard_transfer_description + "\n\nBased on the SmartPy FA2 implementation."
                 ),
                 "interfaces": ["TZIP-012", "TZIP-016"],
                 "authors": [
@@ -593,27 +630,6 @@ class Common(sp.Contract):
             self.balance_of_batch(params.requests), sp.mutez(0), params.callback
         )
 
-    @sp.entry_point(parameter_type=t_transfer_params)
-    def transfer(self, batch):
-        """Accept a list of transfer operations between a source and multiple
-        destinations.
-
-        `transfer_tx_` must be defined in the child class.
-        """
-        sp.set_type(batch, t_transfer_params)
-        if self.policy.supports_transfer:
-            with sp.for_("transfer", batch) as transfer:
-                with sp.for_("tx", transfer.txs) as tx:
-                    # The ordering of sp.verify is important: 1) token_undefined, 2) transfer permission 3) balance
-                    sp.verify(self.is_defined(tx.token_id), "FA2_TOKEN_UNDEFINED")
-                    self.policy.check_tx_transfer_permissions(
-                        self, transfer.from_, tx.to_, tx.token_id
-                    )
-                    with sp.if_(tx.amount > 0):
-                        self.transfer_tx_(transfer.from_, tx)
-        else:
-            sp.failwith("FA2_TX_DENIED")
-
 
 ################
 # Base classes #
@@ -631,7 +647,7 @@ class Fa2Nft(Common):
     def __init__(
         self, metadata, name="FA2", description="A NFT FA2 implementation.",
         token_metadata=[], ledger={}, policy=None, metadata_base=None, has_royalties=False,
-        include_views=True
+        include_views=True, nonstandard_transfer=False
     ):
         metadata = sp.set_type_expr(metadata, sp.TBigMap(sp.TString, sp.TBytes))
         self.has_royalties = has_royalties
@@ -655,7 +671,8 @@ class Fa2Nft(Common):
             policy=policy,
             metadata_base=metadata_base,
             token_metadata=token_metadata,
-            include_views=include_views
+            include_views=include_views,
+            nonstandard_transfer=nonstandard_transfer
         )
 
         if include_views:

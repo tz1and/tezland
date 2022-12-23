@@ -28,13 +28,13 @@ def fa2_is_operator(fa2, token_id, owner, operator):
 # FA2 calls
 #
 
-def fa2_transfer_multi(contract, from_, transfer_list):
+def fa2_transfer_multi(contract, from_, transfer_list, nonstandard_transfer=False):
     sp.set_type(transfer_list, sp.TList(FA2.t_transfer_tx))
     c = sp.contract(
         FA2.t_transfer_params,
         contract,
-        entry_point='transfer').open_some()
+        entry_point=("transfer_tokens" if nonstandard_transfer else "transfer")).open_some()
     sp.transfer(sp.list([sp.record(from_=from_, txs=transfer_list)]), sp.mutez(0), c)
 
-def fa2_transfer(contract, from_, to_, token_id, item_amount):
-    fa2_transfer_multi(contract, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]))
+def fa2_transfer(contract, from_, to_, token_id, item_amount, nonstandard_transfer=False):
+    fa2_transfer_multi(contract, from_, sp.list([sp.record(amount=item_amount, to_=to_, token_id=token_id)]), nonstandard_transfer)

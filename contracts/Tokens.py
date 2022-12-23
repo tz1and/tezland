@@ -142,7 +142,11 @@ def generatePlaceTokenProxy():
                 name=name, description=description,
                 #policy=FA2.BlacklistTransfer(blacklist, FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()), True, True),
                 policy=FA2.PauseTransfer(FA2.OwnerOrOperatorAdhocTransfer()),
-                include_views=include_views
+                include_views=include_views,
+                # Place tokens are a bit special and to make sure they don't end up in random
+                # contracts with NFTs and tez getting stuck, they have a non-standard
+                # transfer entrypoint.
+                nonstandard_transfer=True
             )
             FA2.MintNft.__init__(self)
             FA2.OnchainviewCountTokens.__init__(self, include_views)

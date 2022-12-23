@@ -1379,7 +1379,7 @@ def test():
 
     scenario.h3("No permission after transfer")
     # bob transfers his place to carol
-    places_tokens.transfer([
+    places_tokens.transfer_tokens([
         sp.record(
             from_=bob.address,
             txs=[sp.record(to_=carol.address, amount=1, token_id=place_bob.id)],

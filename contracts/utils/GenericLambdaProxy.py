@@ -11,6 +11,7 @@ VERBOSE = False
 
 # NOTE: all proxied entrypoints in cls must have parameter_type set!
 # NOTE: all entrypoints that are not explicitly set to lazify=False are proxied.
+# NOTE: all entrypoints that are explicitly set to lazify=False are deleted on the parent.
 # NOTE: cls *must* have a include_views arg that defaults to True.
 # NOTE: cls is assumed to use Administrable, which will also be proxied (needed for Upgradeable on parent).
 def GenericLambdaProxy(cls):
