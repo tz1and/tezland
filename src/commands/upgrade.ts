@@ -87,27 +87,37 @@ export default class Upgrade extends PostUpgrade {
         }
 
         //
-        // Place Proxy Parent
+        // Place Proxy Parent and V1 royalties adapter
         //
-        let PlaceTokenProxyParent_contract: ContractAbstraction<Wallet>;
+        let PlaceTokenProxyParent_contract: ContractAbstraction<Wallet>,
+            RoyaltiesAdapterLegacyAndV1_contract: ContractAbstraction<Wallet>;
         {
-            PlaceTokenProxyParent_contract = await this.deploy_contract("PlaceTokenProxyParent", "Tokens", "PlaceTokenProxyParent", [
+            const tezland_batch = new DeployContractBatch(this);
+
+            await tezland_batch.addToBatch("PlaceTokenProxyParent", "Tokens", "PlaceTokenProxyParent", [
                 `admin = sp.address("${this.accountAddress}")`,
                 `parent = sp.address("${this.accountAddress}")`,
                 `blacklist = sp.address("${Blacklist_contract.address}")`,
                 `name="tz1and Place Token Proxy Parent"`,
                 `description="tz1and Place tokens load code from this contract. It's useless otherwise."`
             ]);
+
+            await tezland_batch.addToBatch("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
+                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
+            ], false);
+
+            [PlaceTokenProxyParent_contract, RoyaltiesAdapterLegacyAndV1_contract] = await tezland_batch.deployBatch();
         }
 
         //
-        // Minter v2, Items v2, Places v2 and Interiors.
+        // Minter v2, Items v2, Places v2, Interiors and Royalties adapter.
         //
         // TODO: deploy places and interiors as paused! Unpause when tzkt shows images and names.
         let Minter_v2_contract: ContractAbstraction<Wallet>,
             interiors_FA2_contract: ContractAbstraction<Wallet>,
             places_v2_FA2_contract: ContractAbstraction<Wallet>,
-            items_v2_FA2_contract: ContractAbstraction<Wallet>;
+            items_v2_FA2_contract: ContractAbstraction<Wallet>,
+            RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
         {
             const tezland_batch = new DeployContractBatch(this);
 
@@ -138,7 +148,13 @@ export default class Upgrade extends PostUpgrade {
                 `admin = sp.address("${this.accountAddress}")`
             ]);
 
-            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract, items_v2_FA2_contract] = await tezland_batch.deployBatch();
+            await tezland_batch.addToBatch("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
+                `registry = sp.address("${Registry_contract.address}")`,
+                `v1_and_legacy_adapter = sp.address("${RoyaltiesAdapterLegacyAndV1_contract.address}")`
+            ], false);
+
+            [Minter_v2_contract, interiors_FA2_contract, places_v2_FA2_contract,
+                items_v2_FA2_contract, RoyaltiesAdapter_contract] = await tezland_batch.deployBatch();
 
             await this.run_flag_task("minter_v2_initialised", async () => {
                 // Set the minter as the token administrator
@@ -187,28 +203,15 @@ export default class Upgrade extends PostUpgrade {
             });
         }
 
-        // Royalties adapters
-        let RoyaltiesAdapterLegacyAndV1_contract: ContractAbstraction<Wallet>,
-            RoyaltiesAdapter_contract: ContractAbstraction<Wallet>;
-        {
-            RoyaltiesAdapterLegacyAndV1_contract = await this.deploy_contract("TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", "TL_RoyaltiesAdapterLegacyAndV1", [
-                `legacy_royalties = sp.address("${LegacyRoyalties_contract.address}")`
-            ], false);
-
-            RoyaltiesAdapter_contract = await this.deploy_contract("TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", "TL_RoyaltiesAdapter", [
-                `registry = sp.address("${Registry_contract.address}")`,
-                `v1_and_legacy_adapter = sp.address("${RoyaltiesAdapterLegacyAndV1_contract.address}")`
-            ], false);
-        }
-
         //
-        // World v2 (Marketplaces)
+        // World v2 (Marketplaces) and Item Collection Proxy Parent
         //
-        let World_v2_contract: ContractAbstraction<Wallet>;
+        let World_v2_contract: ContractAbstraction<Wallet>,
+            ItemCollectionProxyParent_contract: ContractAbstraction<Wallet>;
         {
-            // Compile and deploy Places contract.
-            // IMPORTANT NOTE: target name changed so on next mainnet deply it will automatically deploy the v2!
-            World_v2_contract = await this.deploy_contract("TL_World_v2", "TL_World_v2", "TL_World_v2", [
+            const tezland_batch = new DeployContractBatch(this);
+
+            await tezland_batch.addToBatch("TL_World_v2", "TL_World_v2", "TL_World_v2", [
                 `administrator = sp.address("${this.accountAddress}")`,
                 `registry = sp.address("${Registry_contract.address}")`,
                 `royalties_adapter = sp.address("${RoyaltiesAdapter_contract.address}")`,
@@ -218,6 +221,14 @@ export default class Upgrade extends PostUpgrade {
                 `description = "tz1and Virtual World v2"`,
                 `debug_asserts = ${debug_asserts ? "True" : "False"}`
             ]);
+
+            await tezland_batch.addToBatch("ItemCollectionProxyParent", "Tokens", "ItemCollectionProxyParent", [
+                `admin = sp.address("${this.accountAddress}")`,
+                `parent = sp.address("${this.accountAddress}")`,
+                `blacklist = sp.address("${Blacklist_contract.address}")`
+            ]);
+
+            [World_v2_contract, ItemCollectionProxyParent_contract] = await tezland_batch.deployBatch();
 
             await this.run_flag_task("world_v2_initialised", async () => {
                 await this.run_op_task("Set allowed place tokens on world...", async () => {
@@ -246,18 +257,6 @@ export default class Upgrade extends PostUpgrade {
                     ]).send()
                 });
             });
-        }
-
-        //
-        // Item Collection Proxy Parent
-        //
-        let ItemCollectionProxyParent_contract: ContractAbstraction<Wallet>;
-        {
-            ItemCollectionProxyParent_contract = await this.deploy_contract("ItemCollectionProxyParent", "Tokens", "ItemCollectionProxyParent", [
-                `admin = sp.address("${this.accountAddress}")`,
-                `parent = sp.address("${this.accountAddress}")`,
-                `blacklist = sp.address("${Blacklist_contract.address}")`
-            ]);
         }
 
         //
