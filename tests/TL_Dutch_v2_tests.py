@@ -673,11 +673,10 @@ def test():
 
     # If secondary and whitelist are enabled, anyone can create auctions,
     # and anyone can bid on them reglardless of their whitelist status.
+    current_auction_key = sp.record(fa2 = places_tokens.address, token_id = place_carol, owner = carol.address)
+
     dutch.create(
-        auction_key = sp.record(
-            token_id = place_carol,
-            fa2 = places_tokens.address,
-            owner = carol.address),
+        auction_key = current_auction_key,
         auction = sp.record(
             start_price = sp.tez(100),
             end_price = sp.tez(20),
@@ -685,7 +684,8 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         ext = sp.none).run(sender = carol, now=sp.timestamp(0))
 
-    current_auction_key = sp.record(fa2 = places_tokens.address, token_id = place_carol, owner = carol.address)
+    # Make sure primary is not set.
+    scenario.verify(dutch.data.auctions[current_auction_key].is_primary == False)
 
     # furthermore, bidding on a non-whitelist auction should not remove you from the whitelist.
     dutch.manage_whitelist([sp.variant("whitelist_add", [sp.record(fa2=places_tokens.address, user=bob.address)])]).run(sender=admin)
@@ -700,11 +700,10 @@ def test():
     #
 
     # If whitelist is enabled, only whitelisted can bid on admin created auctions.
+    current_auction_key = sp.record(fa2 = places_tokens.address, token_id = place_admin, owner = admin.address)
+
     dutch.create(
-        auction_key = sp.record(
-            token_id = place_admin,
-            fa2 = places_tokens.address,
-            owner = admin.address),
+        auction_key = current_auction_key,
         auction = sp.record(
             start_price = sp.tez(100),
             end_price = sp.tez(20),
@@ -712,7 +711,8 @@ def test():
             end_time = sp.timestamp(0).add_minutes(80)),
         ext = sp.none).run(sender = admin, now=sp.timestamp(0))
 
-    current_auction_key = sp.record(fa2 = places_tokens.address, token_id = place_admin, owner = admin.address)
+    # Make sure primary is set.
+    scenario.verify(dutch.data.auctions[current_auction_key].is_primary == True)
 
     dutch.bid(auction_key = current_auction_key, seq_hash = getSeqHash(current_auction_key), ext = sp.none).run(sender = alice, amount = sp.tez(20), now=sp.timestamp(0).add_minutes(80), valid = False, exception = "ONLY_WHITELISTED")
 
