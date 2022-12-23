@@ -294,6 +294,16 @@ Combined:
 	18231 Bytes
 
 
+Storage: 	
+	10582 Bytes
+Big map originations (5): 	
+	160 Bytes
+Code: 	
+	7844 Bytes
+Combined: 	
+	18586 Bytes
+
+
 #
 # Minter v2
 ######################
