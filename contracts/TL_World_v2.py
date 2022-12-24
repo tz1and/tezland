@@ -27,7 +27,6 @@ from tz1and_contracts_smartpy.utils import Utils
 #       + V1 royalties
 #       + V2 royalties
 #       + trusted (legacy) royalties
-# TODO: allow updating more than just data? (data, rate, primary) | (data) for items and ext respectively.
 # TODO: reverse issuer and fa2 storage? this came up before... it shouldn't make a difference. registry.is_registered could be list. and maybe some other things.
 # TODO: VIEWS: use getX/onlyX instead of isX/checkX where it applies. isX may be OK sometimes!
 # TODO: go over records again, find where we can use map/set
@@ -35,7 +34,6 @@ from tz1and_contracts_smartpy.utils import Utils
 # TODO: Could make a wallet contract to be able to test royalties sent, etc...
 # TODO: LOOK AT MINTER SIZE INCREASE!!!
 # TODO: INDEXER: validate collection metadata doesn't contain fishy stuff (offchain views etc)
-# TODO: document danger of propsOwner + modifyAll in the UI!!!!!!!!!!!!
 
 
 # Some time
@@ -195,6 +193,8 @@ placeDataParam = sp.TRecord(
     place_key = placeKeyType,
     chunk_ids = sp.TOption(sp.TSet(sp.TNat))
 ).layout(("place_key", "chunk_ids"))
+
+placeSeqNumParam = placeDataParam
 
 placeDataResultType = sp.TRecord(
     place = placeStorageType,
@@ -1136,24 +1136,33 @@ class TL_World_v2(
         self.get_place_data = sp.onchain_view(pure=True)(get_place_data)
 
 
-        def get_place_seqnum(self, place_key):
-            sp.set_type(place_key, placeKeyType)
+        def get_place_seqnum(self, params):
+            sp.set_type(params, placeSeqNumParam)
 
             with sp.set_result_type(seqNumResultType):
-                # Collect chunk sequence numbers.
-                this_place = PlaceStorage(self.data.places, place_key, True)
-                chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, seqNumResultType.chunk_seqs)
-                with sp.for_("chunk_id", this_place.value.chunks.elements()) as chunk_id:
-                    this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = place_key, chunk_id = chunk_id))
-                    with this_chunk_opt.match("Some") as this_chunk:
-                        chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
-                            this_chunk.counter,
-                            this_chunk.next_id)))
+                this_place_opt = self.data.places.get_opt(params.place_key)
 
-                # Return the result.
-                sp.result(sp.record(
-                    place_seq = sp.sha3(sp.pack(this_place.value.counter)),
-                    chunk_seqs = chunk_sequence_numbers_map.value))
+                with this_place_opt.match_cases() as arg:
+                    with arg.match("Some", "this_place") as this_place:
+                        # Collect chunk sequence numbers.
+                        chunk_sequence_numbers_map = sp.local("chunk_sequence_numbers_map", {}, seqNumResultType.chunk_seqs)
+
+                        with sp.for_("chunk_id", Utils.openSomeOrDefault(params.chunk_ids, this_place.chunks).elements()) as chunk_id:
+                            this_chunk_opt = self.data.chunks.get_opt(sp.record(place_key = params.place_key, chunk_id = chunk_id))
+                            with this_chunk_opt.match("Some") as this_chunk:
+                                chunk_sequence_numbers_map.value[chunk_id] = sp.sha3(sp.pack(sp.pair(
+                                    this_chunk.counter,
+                                    this_chunk.next_id)))
+
+                        # Return the result.
+                        sp.result(sp.record(
+                            place_seq = sp.sha3(sp.pack(this_place.counter)),
+                            chunk_seqs = chunk_sequence_numbers_map.value))
+
+                    with arg.match("None"):
+                        sp.result(sp.record(
+                            place_seq = sp.sha3(sp.pack(0)),
+                            chunk_seqs = {}))
         self.get_place_seqnum = sp.onchain_view(pure=True)(get_place_seqnum)
 
 

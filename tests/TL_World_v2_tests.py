@@ -501,7 +501,7 @@ def test():
     # TODO: also check item id is in map now
     def place_items(place_key, token_arr, sender: sp.TestAccount, valid: bool = True, message: str = None):
         if valid == True:
-            before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
+            before_sequence_numbers = scenario.compute(world.get_place_seqnum(sp.record(place_key=place_key, chunk_ids=sp.none)).chunk_seqs)
             tokens_amounts = scenario.compute(items_utils.token_amounts(sp.record(token_map = token_arr, issuer = sender.address)))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
@@ -515,7 +515,7 @@ def test():
 
         if valid == True:
             # check seqnum
-            scenario.verify(sp.pack(before_sequence_numbers) != sp.pack(world.get_place_seqnum(place_key).chunk_seqs))
+            scenario.verify(sp.pack(before_sequence_numbers) != sp.pack(world.get_place_seqnum(sp.record(place_key=place_key, chunk_ids=sp.none)).chunk_seqs))
             # check next ids
             scenario.verify(items_utils.check_chunk_next_ids_valid(sp.record(place_key = place_key, prev_next_ids = prev_next_ids, place_items_map = token_arr, world = world.address)))
             # check tokens were transferred
@@ -528,7 +528,7 @@ def test():
     # TODO: also check item in map changed
     def get_item(chunk_key, item_id, issuer, fa2, sender: sp.TestAccount, amount, valid: bool = True, message: str = None, now = None):
         if valid == True:
-            before_sequence_number = scenario.compute(world.get_place_seqnum(chunk_key.place_key).chunk_seqs[chunk_key.chunk_id])
+            before_sequence_number = scenario.compute(world.get_place_seqnum(sp.record(place_key=chunk_key.place_key, chunk_ids=sp.none)).chunk_seqs[chunk_key.chunk_id])
             tokens_amounts = {sp.record(fa2 = fa2, token_id = scenario.compute(world.data.chunks[chunk_key].storage[issuer].get(fa2).get(item_id).open_variant("item").token_id), owner = sp.some(sender.address)) : sp.nat(1)}
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
             balances_world_before = scenario.compute(items_utils.get_balances_other(sp.record(tokens = tokens_amounts, owner = world.address)))
@@ -545,7 +545,7 @@ def test():
 
         if valid == True:
             # check seqnum
-            scenario.verify(before_sequence_number != world.get_place_seqnum(chunk_key.place_key).chunk_seqs[chunk_key.chunk_id])
+            scenario.verify(before_sequence_number != world.get_place_seqnum(sp.record(place_key=chunk_key.place_key, chunk_ids=sp.none)).chunk_seqs[chunk_key.chunk_id])
             # check counter
             scenario.verify(prev_counter + 1 == world.data.chunks[chunk_key].counter)
             # check tokens were transferred
@@ -558,7 +558,7 @@ def test():
     # TODO: make sure item is not in map
     def remove_items(place_key, remove_map, sender: sp.TestAccount, valid: bool = True, message: str = None):
         if valid == True:
-            before_sequence_numbers = scenario.compute(world.get_place_seqnum(place_key).chunk_seqs)
+            before_sequence_numbers = scenario.compute(world.get_place_seqnum(sp.record(place_key=place_key, chunk_ids=sp.none)).chunk_seqs)
             tokens_amounts = scenario.compute(items_utils.remove_token_amounts_in_storage(
                 sp.record(world = world.address, place_key = place_key, chunk_ids = sp.set(remove_map.keys()), remove_map = remove_map)))
             balances_sender_before = scenario.compute(items_utils.get_balances(sp.record(tokens = tokens_amounts, place_owner = sender.address))) # TODO: don't use sender
@@ -573,7 +573,7 @@ def test():
         
         if valid == True:
             # check seqnum
-            scenario.verify(sp.pack(before_sequence_numbers) != sp.pack(world.get_place_seqnum(place_key).chunk_seqs))
+            scenario.verify(sp.pack(before_sequence_numbers) != sp.pack(world.get_place_seqnum(sp.record(place_key=place_key, chunk_ids=sp.none)).chunk_seqs))
             # check counters
             scenario.verify(items_utils.check_chunk_counters_increased(sp.record(place_key = place_key, prev_chunk_counters = prev_counters, world = world.address)))
             # check tokens were transferred
@@ -830,13 +830,18 @@ def test():
     scenario.show(place_data)
 
     scenario.h3("Sequence numbers")
-    sequence_number = scenario.compute(world.get_place_seqnum(place_alice))
+    sequence_number = scenario.compute(world.get_place_seqnum(sp.record(place_key=place_alice, chunk_ids=sp.none)))
     scenario.verify(sequence_number.place_seq == sp.sha3(sp.pack(sp.nat(0))))
     scenario.verify(sp.len(sequence_number.chunk_seqs) == 1)
     scenario.verify(sequence_number.chunk_seqs[0] == sp.sha3(sp.pack(sp.pair(sp.nat(5), sp.nat(6)))))
     scenario.show(sequence_number)
 
-    sequence_number_empty = scenario.compute(world.get_place_seqnum(empty_place_key))
+    sequence_number = scenario.compute(world.get_place_seqnum(sp.record(place_key=place_alice, chunk_ids=sp.some(sp.set([])))))
+    scenario.verify(sequence_number.place_seq == sp.sha3(sp.pack(sp.nat(0))))
+    scenario.verify(sp.len(sequence_number.chunk_seqs) == 0)
+    scenario.show(sequence_number)
+
+    sequence_number_empty = scenario.compute(world.get_place_seqnum(sp.record(place_key=empty_place_key, chunk_ids=sp.none)))
     scenario.verify(sequence_number_empty.place_seq == sp.sha3(sp.pack(sp.nat(0))))
     scenario.verify(sp.len(sequence_number_empty.chunk_seqs) == 0)
     scenario.show(sequence_number_empty)
