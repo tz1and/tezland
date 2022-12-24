@@ -187,9 +187,9 @@ export default class PostUpgrade extends PostDeployBase {
         };
 
         // Get place seq.
-        const place_seq = await contracts.get("World_v2_contract")!.contractViews.get_place_seqnum(
-            place_key
-        ).executeView({viewCaller: this.accountAddress!});
+        const place_seq = await contracts.get("World_v2_contract")!.contractViews.get_place_seqnum({
+            place_key: place_key
+        }).executeView({viewCaller: this.accountAddress!});
 
         // Encode result as a michelson expression.
         const storageSchema = new Schema(placeSeqStorageType);
