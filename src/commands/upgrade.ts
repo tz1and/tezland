@@ -312,7 +312,8 @@ export default class Upgrade extends PostUpgrade {
             });
         }
 
-        await this.confirmToAdvance("Pleace confirm contracts were originated correctly.");
+        if (!this.isSandboxNet)
+            await this.confirmToAdvance("Pleace confirm contracts were originated correctly.");
 
         //
         // Upgrade v1 contracts.
@@ -403,7 +404,8 @@ export default class Upgrade extends PostUpgrade {
         // Run upgrades.
         //
 
-        await this.confirmToAdvance("Pleace confirm contracts were upgraded correctly.");
+        if (!this.isSandboxNet)
+            await this.confirmToAdvance("Pleace confirm contracts were upgraded correctly.");
 
         var totalMigrationFee = new BigNumber(0);
 
@@ -520,7 +522,8 @@ export default class Upgrade extends PostUpgrade {
             }
         }
 
-        await this.confirmToAdvance("Pleace confirm v1 metadata map is correct.");
+        if (!this.isSandboxNet)
+            await this.confirmToAdvance("Pleace confirm v1 metadata map is correct.");
 
         // get v2 metadata map.
         // TODO: Need to parallelise place metadata re-upload?
@@ -581,7 +584,8 @@ export default class Upgrade extends PostUpgrade {
             }
         }
 
-        await this.confirmToAdvance("Pleace confirm v2 metadata map is correct.");
+        if (!this.isSandboxNet)
+            await this.confirmToAdvance("Pleace confirm v2 metadata map is correct.");
 
         // Get owner map.
         const owner_map = new Map<number, string>();
@@ -612,7 +616,8 @@ export default class Upgrade extends PostUpgrade {
             if(v.startsWith("KT")) throw new Error(`Error: Place #${k} is owned by contract.`);
         });
 
-        await this.confirmToAdvance("Pleace confirm owner map is correct.");
+        if (!this.isSandboxNet)
+            await this.confirmToAdvance("Pleace confirm owner map is correct.");
 
         let totalFee = new BigNumber(0);
 
