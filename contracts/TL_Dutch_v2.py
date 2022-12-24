@@ -240,8 +240,8 @@ class TL_Dutch_v2(
     def validatePlaceSequenceHash(self, token_contract, token_id, expected_hash):
         current_hash = sp.sha3(sp.pack(sp.view("get_place_seqnum", self.data.settings.world_contract,
             sp.set_type_expr(
-                sp.record(fa2 = token_contract, id = token_id),
-                TL_World_v2.placeKeyType),
+                sp.record(place_key=sp.record(fa2 = token_contract, id = token_id), chunk_ids=sp.none),
+                TL_World_v2.placeSeqNumParam),
             t = TL_World_v2.seqNumResultType).open_some()))
         sp.verify(current_hash == expected_hash, "NOT_EXPECTED_SEQ_HASH")
 

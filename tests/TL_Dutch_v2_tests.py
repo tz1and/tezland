@@ -408,9 +408,10 @@ def test():
 
     def getSeqHash(auction_key):
         return sp.sha3(sp.pack(world.get_place_seqnum(sp.record(
-            fa2 = auction_key.fa2,
-            id = auction_key.token_id
-        ))))
+            place_key=sp.record(
+                fa2 = auction_key.fa2,
+                id = auction_key.token_id),
+            chunk_ids=sp.none))))
 
     current_auction_key = sp.record(fa2 = places_tokens.address, token_id = place_bob, owner = bob.address)
 
