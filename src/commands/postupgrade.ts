@@ -214,6 +214,7 @@ export default class PostUpgrade extends PostDeployBase {
             places.push(await WorldUtils.prepareNewInteriorPlace(1, [0, 0, 0], [[40, 0, 40], [40, 0, -40], [-40, 0, -40], [-40, 0, 40]], this.accountAddress!, this.isSandboxNet, 40));
             places.push(await WorldUtils.prepareNewInteriorPlace(2, [0, 0, 0], [[80, 0, 80], [80, 0, -80], [-80, 0, -80], [-80, 0, 80]], this.accountAddress!, this.isSandboxNet, 80));
             places.push(await WorldUtils.prepareNewInteriorPlace(3, [0, 0, 0], [[160, 0, 160], [160, 0, -160], [-160, 0, -160], [-160, 0, 160]], this.accountAddress!, this.isSandboxNet, 160));
+            places.push(await WorldUtils.prepareNewInteriorPlace(4, [0, 0, 0], [[4096, 0, 4096], [4096, 0, -4096], [-4096, 0, -4096], [-4096, 0, 4096]], this.accountAddress!, this.isSandboxNet, 1024));
             this.mintNewInteriorPlaces(places, mint_batch, contracts.get("interiors_FA2_contract")!);
 
             return mint_batch.send();
