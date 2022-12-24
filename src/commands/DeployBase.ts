@@ -359,7 +359,7 @@ export default class DeployBase {
         return operation;
     }
 
-    private async confirmDeploy() {
+    protected async confirmToAdvance(msg: string) {
         const properties = [
             {
                 name: 'yesno',
@@ -372,10 +372,10 @@ export default class DeployBase {
 
         prompt.start();
 
-        console.log(kleur.yellow("This will deploy new  contracts to " + this.network));
+        console.log(kleur.yellow(msg));
         const { yesno } = await prompt.get(properties);
 
-        if (yesno === "no") throw new Error("Deploy cancelled");
+        if (yesno === "no") throw new Error("Cancelled advance prompt");
     }
 
     private prepare() {
@@ -395,8 +395,8 @@ export default class DeployBase {
         console.log(kleur.red(`Deploying to '${this.networkConfig.network}' on ${this.networkConfig.url} ...\n`));
         this.prepare();
 
-        if(this.network !== config.defaultNetwork)
-            await this.confirmDeploy();
+        if(!this.isSandboxNet)
+            await this.confirmToAdvance("This will deploy new contracts to " + this.network);
 
         try {
             const start_time = performance.now();
