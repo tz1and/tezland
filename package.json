@@ -14,9 +14,9 @@
   "private": true,
   "dependencies": {
     "@ledgerhq/hw-transport-node-hid": "^6.27.6",
-    "@taquito/ledger-signer": "^14.0.0",
-    "@taquito/signer": "^14.0.0",
-    "@taquito/taquito": "^14.0.0",
+    "@taquito/ledger-signer": "^15.0.0",
+    "@taquito/signer": "^15.0.0",
+    "@taquito/taquito": "^15.0.0",
     "@types/node": "^16",
     "@types/prompt": "^1.1.2",
     "commander": "^9.0.0",

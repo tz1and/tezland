@@ -147,7 +147,9 @@ export default class DeployBase {
         let signer;
         if (this.networkConfig.accounts.deployer instanceof LedgerAccount) {
             console.log("Connecting to ledger...");
-            const transport = await TransportNodeHid.create();
+            // TODO: something is weird with ts node dev and ledger...
+            // @ts-expect-error
+            const transport = await TransportNodeHid.default.create();
             signer = new LedgerSigner(transport);
         }
         else if (this.networkConfig.accounts.deployer instanceof PrivateKeyAccount) {
@@ -159,6 +161,7 @@ export default class DeployBase {
         this.tezos.setProvider({ signer: signer });
 
         this.accountAddress = await signer.publicKeyHash();
+        console.log(`Deploy account address: ${kleur.cyan(this.accountAddress)}`);
     }
 
     public async getAccountPubkey(account_name: string): Promise<string> {
@@ -395,13 +398,13 @@ export default class DeployBase {
         console.log(kleur.red(`Deploying to '${this.networkConfig.network}' on ${this.networkConfig.url} ...\n`));
         this.prepare();
 
-        if(!this.isSandboxNet)
-            await this.confirmToAdvance("This will deploy new contracts to " + this.network);
-
         try {
             const start_time = performance.now();
 
             await this.initTezosToolkit();
+
+            if(!this.isSandboxNet)
+                await this.confirmToAdvance("This will deploy new contracts to " + this.network);
 
             await this.deployDo();
 
