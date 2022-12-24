@@ -108,8 +108,10 @@ export default class PostDeploy extends PostDeployBase {
 
                     const batch_size = 100;
                     const places = [];
-                    for (let j = 0; j < batch_size; ++j)
-                        places.push(await WorldUtils.prepareNewPlace(4 + j + (i * batch_size), [0, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
+                    for (let j = 0; j < batch_size; ++j) {
+                        const place_id = 4 + j + (i * batch_size);
+                        places.push(await WorldUtils.prepareNewPlace(place_id, [place_id * 11, 0, 0], [[10, 0, 10], [10, 0, -10], [-10, 0, -10], [-10, 0, 10]], this.accountAddress!, this.isSandboxNet));
+                    }
                     this.mintNewPlaces(places, mint_batch, contracts.get("Minter_contract")!);
 
                     return mint_batch.send();
