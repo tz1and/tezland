@@ -80,8 +80,8 @@ class TL_Dutch_v2(
         ContractMetadata.__init__(self, metadata = metadata)
         Fees.__init__(self, fees_to = administrator)
         FA2PermissionsAndWhitelist.__init__(self)
-        Upgradeable.__init__(self)
         MetaSettings.__init__(self)
+        Upgradeable.__init__(self)
 
         self.generateContractMetadata("tz1and Dutch Auctions", "tz1and Places and Items Dutch auctions",
             authors=["852Kerfunkle <https://github.com/852Kerfunkle>"],
