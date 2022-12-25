@@ -16,6 +16,7 @@ import WorldUtils from "./WorldUtils";
 export default class PostUpgrade extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
         console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);
+        console.log("REACT_APP_PLACE_V1_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
         console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
         console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
