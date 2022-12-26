@@ -428,6 +428,24 @@ export default class Upgrade extends PostUpgrade {
 
         console.log("Total fee for migration:", totalMigrationFee.toNumber() / 1000000);
 
+        // NOTE: world and factory must be unpaused manually for prod!
+        if (this.isSandboxNet) {
+            await this.run_op_task("Unpause for dev...", async () => {
+                return this.tezos!.wallet.batch().with([
+                    // Unpause world
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...World_v2_contract.methods.update_settings([{paused: false}]).toTransferParams()
+                    },
+                    // Unpause factory
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...Factory_contract.methods.update_settings([{paused: false}]).toTransferParams()
+                    }
+                ]).send();
+            });
+        }
+
         //
         // Post deploy
         //
@@ -766,13 +784,6 @@ export default class Upgrade extends PostUpgrade {
         await this.run_op_task("World v2: Remove migration contract...", async () => {
             return tezlandWorldV2.methods.update_settings([{migration_from: null}]).send()
         });
-
-        // NOTE: world must be unpaused manually for prod!
-        if (this.isSandboxNet) {
-            await this.run_op_task("World v2: Unpause for dev...", async () => {
-                return tezlandWorldV2.methods.update_settings([{paused: false}]).send()
-            });
-        }
 
         return totalFee;
     }
