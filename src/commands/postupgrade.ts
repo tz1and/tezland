@@ -15,17 +15,17 @@ import WorldUtils from "./WorldUtils";
 
 export default class PostUpgrade extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
-        console.log("REACT_APP_ITEM_V1_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
-        console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);
-        console.log("REACT_APP_PLACE_V1_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
-        console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
-        console.log("REACT_APP_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
-        console.log("REACT_APP_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
-        console.log("REACT_APP_WORLD_CONTRACT=" + contracts.get("World_v2_contract")!.address);
-        console.log("REACT_APP_MINTER_CONTRACT=" + contracts.get("Minter_v2_contract")!.address);
-        console.log("REACT_APP_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_v2_contract")!.address);
-        console.log("REACT_APP_FACTORY_CONTRACT=" + contracts.get("Factory_contract")!.address);
-        console.log("REACT_APP_REGISTRY_CONTRACT=" + contracts.get("Registry_contract")!.address);
+        console.log("VITE_ITEM_V1_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
+        console.log("VITE_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);
+        console.log("VITE_PLACE_V1_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
+        console.log("VITE_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
+        console.log("VITE_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
+        console.log("VITE_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
+        console.log("VITE_WORLD_CONTRACT=" + contracts.get("World_v2_contract")!.address);
+        console.log("VITE_MINTER_CONTRACT=" + contracts.get("Minter_v2_contract")!.address);
+        console.log("VITE_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_v2_contract")!.address);
+        console.log("VITE_FACTORY_CONTRACT=" + contracts.get("Factory_contract")!.address);
+        console.log("VITE_REGISTRY_CONTRACT=" + contracts.get("Registry_contract")!.address);
         console.log()
         console.log(`contracts:
   tezlandItems:
@@ -82,7 +82,11 @@ export default class PostUpgrade extends PostDeployBase {
     
   tezlandRegistry:
     address: ${contracts.get("Registry_contract")!.address}
-    typename: tezlandRegistry\n`);
+    typename: tezlandRegistry
+
+  tezlandItemsCollection:
+    code_hash: -767789104
+    typename: tezlandItemsCollection\n`);
     }
 
     private async mintNewItem_legacy(model_path: string, polygonCount: number, amount: number, batch: WalletOperationBatch, Minter_contract: ContractAbstraction<Wallet>, collection_contract: ContractAbstraction<Wallet>) {
