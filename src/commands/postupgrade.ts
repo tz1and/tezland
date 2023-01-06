@@ -417,6 +417,14 @@ export default class PostUpgrade extends PostDeployBase {
 
         // remove operators
         await this.fa2_remove_operators(contracts, operators_map);
+
+        // create a user collection
+        await this.run_op_task("Creat user collection", async () => {
+            const token_metadata_url = await ipfs.upload_metadata({name: "bla", description: "yes"}, this.isSandboxNet);
+            return contracts.get("Factory_contract")!.methods.create_token(
+                char2Bytes(token_metadata_url)
+            ).send();
+        });
     }
 
     protected async gasTestSuite(contracts: PostDeployContracts) {
