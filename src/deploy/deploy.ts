@@ -1,8 +1,8 @@
 import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
-import { DeployContractBatch } from './DeployBase';
+import { DeployContractBatch } from '../commands/DeployBase';
 import { MichelsonMap, OpKind } from '@taquito/taquito';
-import PostDeploy from './postdeploy';
+import PostDeploy from '../deploy/postdeploy';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
 

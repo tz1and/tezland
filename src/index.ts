@@ -1,9 +1,10 @@
 import { program } from 'commander';
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
-import Deploy from './commands/deploy';
-import Upgrade from './commands/upgrade';
+import Deploy from './deploy/deploy';
+import Upgrade from './deploy/upgrade';
 import { readFileSync } from 'fs';
+import DeployBase from './commands/DeployBase';
 
 const packageJson = JSON.parse(
     readFileSync(new URL('../package.json', import.meta.url), { encoding: "utf-8" })
@@ -87,10 +88,12 @@ program
     .alias('d')
     .description('Run the deploy script.')
     .option('-n, --network [network]', 'the network to deploy to (optional)')
-    .action(async (options) => {
-        const deploy = new Deploy(options);
-        await sandbox.startIfNotRunning(deploy.isSandboxNetwork());
-        await deploy.deploy();
+    .argument('deploy_script', 'the name of the deploy script to run')
+    .action(async (deploy_script, options) => {
+        const DeployScript: typeof DeployBase = (await import(`./deploy/${deploy_script}`)).default;
+        const instance = new DeployScript(options); // TODO: have an arg for upgrade
+        await sandbox.startIfNotRunning(instance.isSandboxNetwork());
+        await instance.deploy();
     });
 
 program
@@ -98,10 +101,12 @@ program
     .alias('u')
     .description('Run the upgrade script.')
     .option('-n, --network [network]', 'the network to upgrade on (optional)')
-    .action(async (options) => {
-        const upgrade = new Upgrade(options, true);
-        await sandbox.startIfNotRunning(upgrade.isSandboxNetwork());
-        await upgrade.deploy();
+    .argument('upgrade_script', 'the name of the upgrade script to run')
+    .action(async (upgrade_script, options) => {
+        const UpgradeScript: typeof DeployBase = (await import(`./deploy/${upgrade_script}`)).default;
+        const instance = new UpgradeScript(options, true);
+        await sandbox.startIfNotRunning(instance.isSandboxNetwork());
+        await instance.deploy();
     });
 
 program

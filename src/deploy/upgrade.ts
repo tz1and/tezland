@@ -2,7 +2,7 @@ import * as ipfs from '../ipfs'
 import { char2Bytes, bytes2Char } from '@taquito/utils'
 import assert from 'assert';
 import kleur from 'kleur';
-import { DeployContractBatch } from './DeployBase';
+import { DeployContractBatch } from '../commands/DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract, MichelCodecPacker } from '@taquito/taquito';
 import { MichelsonV1Expression } from '@taquito/rpc';
 import { Schema } from '@taquito/michelson-encoder';

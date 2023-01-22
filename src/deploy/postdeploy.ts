@@ -1,11 +1,11 @@
 import assert from "assert";
-import PostDeployBase, { PostDeployContracts } from "./PostDeployBase";
+import PostDeployBase, { PostDeployContracts } from "../commands/PostDeployBase";
 import * as ipfs from '../ipfs'
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletOperationBatch } from "@taquito/taquito";
 import kleur from "kleur";
 import config from "../user.config";
-import { sleep } from "./DeployBase";
-import WorldUtils from "./WorldUtils";
+import { sleep } from "../commands/DeployBase";
+import WorldUtils from "../commands/WorldUtils";
 
 
 export default class PostDeploy extends PostDeployBase {

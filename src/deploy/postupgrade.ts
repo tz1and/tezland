@@ -1,5 +1,5 @@
 import assert from "assert";
-import PostDeployBase, { PostDeployContracts } from "./PostDeployBase";
+import PostDeployBase, { PostDeployContracts } from "../commands/PostDeployBase";
 import * as ipfs from '../ipfs'
 import { ContractAbstraction, ContractMethodObject, MichelCodecPacker, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
 import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
@@ -8,9 +8,9 @@ import { Schema } from '@taquito/michelson-encoder';
 import { char2Bytes } from '@taquito/utils'
 import kleur from "kleur";
 import config from "../user.config";
-import { sleep } from "./DeployBase";
+import { sleep } from "../commands/DeployBase";
 import { SHA3 } from 'sha3';
-import WorldUtils from "./WorldUtils";
+import WorldUtils from "../commands/WorldUtils";
 
 
 export default class PostUpgrade extends PostDeployBase {
