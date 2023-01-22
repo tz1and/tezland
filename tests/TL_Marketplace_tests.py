@@ -214,6 +214,9 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 2)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, marketplace.address) == 2)
 
+    # check view
+    scenario.verify(marketplace.get_swap(swap_key_bob_item_bob).token_amount == 2)
+
     # Valid
     swap_key_alice_item_alice = sp.record(
         id = 1,
@@ -232,6 +235,9 @@ def test():
     # check balance
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, marketplace.address) == 2)
+
+    # check view
+    scenario.verify(marketplace.get_swap(swap_key_alice_item_alice).token_amount == 2)
 
     #
     # Test collect
@@ -289,6 +295,9 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == 2)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
 
+    # check view is failing
+    scenario.verify(sp.is_failing(marketplace.get_swap(swap_key_alice_item_alice)))
+
     #
     # Test cancel
 
@@ -330,7 +339,5 @@ def test():
     marketplace.update_settings([sp.variant("royalties_adapter", minter.address)]).run(sender = admin)
     scenario.verify(marketplace.data.settings.royalties_adapter == minter.address)
     marketplace.update_settings([sp.variant("royalties_adapter", royalties_adapter.address)]).run(sender = admin)
-
-    # TODO: test view
 
     # TODO: check roaylaties paid, token transferred
