@@ -24,9 +24,9 @@ export default class MarketplacePostDeploy extends PostDeployBase {
         const Marketplace_contract = contracts.get("Marketplace_contract")!;
 
         const marketplace_storage = await Marketplace_contract.storage() as any;
-        const next_swap_id: BigNumber = marketplace_storage.next_swap_id;
+        let next_swap_id: BigNumber = marketplace_storage.next_swap_id;
 
-        const swapCollectCancel = async (row_name: string, token_id: number, swap_id: BigNumber) => {
+        const swapCollect = async (row_name: string, token_id: number, swap_id: BigNumber) => {
             let gas_results = this.addGasResultsTable(gas_results_tables, { name: row_name, rows: {} });
 
             // place one item
@@ -74,6 +74,12 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                 }).send({amount: 12345678, mutez: true});
             });
 
+            return gas_results;
+        }
+
+        const swapCollectCancel = async (row_name: string, token_id: number, swap_id: BigNumber) => {
+            const gas_results = await swapCollect(row_name, token_id, swap_id);
+
             // collect one item
             await this.runTaskAndAddGasResults(gas_results, "cancel swap", () => {
                 return Marketplace_contract.methodsObject.cancel({
@@ -93,7 +99,17 @@ export default class MarketplacePostDeploy extends PostDeployBase {
 
         await swapCollectCancel("swap, collect & cancel once", 0, next_swap_id);
 
-        await swapCollectCancel("swap, collect & cancel again", 0, next_swap_id.plus(1));
+        next_swap_id = next_swap_id.plus(1)
+        await swapCollectCancel("swap, collect & cancel again", 0, next_swap_id);
+
+        next_swap_id = next_swap_id.plus(1)
+        await swapCollect("swap & collect once", 0, next_swap_id);
+
+        next_swap_id = next_swap_id.plus(1)
+        await swapCollect("swap & collect again", 0, next_swap_id);
+
+        next_swap_id = next_swap_id.plus(1)
+        await swapCollect("swap & collect again", 1, next_swap_id);
 
         this.printGasResults(gas_results_tables);
     }
