@@ -259,7 +259,7 @@ def test():
         swap_key = swap_key_bob_item_bob,
         ext = sp.none)).run(sender = alice, amount = sp.tez(100))
 
-    scenario.verify(marketplace.data.swaps[swap_key_bob_item_bob] == 1)
+    scenario.verify(marketplace.data.swaps[swap_key_bob_item_bob].token_amount == 1)
 
     # Check balance
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == 1)
@@ -271,7 +271,7 @@ def test():
         swap_key = swap_key_alice_item_alice,
         ext = sp.none)).run(sender = bob, amount = sp.tez(100))
 
-    scenario.verify(marketplace.data.swaps[swap_key_alice_item_alice] == 1)
+    scenario.verify(marketplace.data.swaps[swap_key_alice_item_alice].token_amount == 1)
 
     # Check balance
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == 1)
@@ -330,5 +330,7 @@ def test():
     marketplace.update_settings([sp.variant("royalties_adapter", minter.address)]).run(sender = admin)
     scenario.verify(marketplace.data.settings.royalties_adapter == minter.address)
     marketplace.update_settings([sp.variant("royalties_adapter", royalties_adapter.address)]).run(sender = admin)
+
+    # TODO: test view
 
     # TODO: check roaylaties paid, token transferred

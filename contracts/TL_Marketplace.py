@@ -30,6 +30,11 @@ t_swap_key = sp.TRecord(
     partial = t_swap_key_partial
 ).layout(("id", ("owner", "partial")))
 
+t_swap = sp.TRecord(
+    token_amount = sp.TNat,
+    ext = extensionArgType
+).layout(("token_amount", "ext"))
+
 #
 # Marketplace contract
 # NOTE: should be pausable for code updates.
@@ -50,7 +55,7 @@ class TL_Marketplace(
         self.add_flag("erase-comments")
         
         self.init_storage(
-            swaps = sp.big_map(tkey=t_swap_key, tvalue=sp.TNat),
+            swaps = sp.big_map(tkey=t_swap_key, tvalue=t_swap),
             next_swap_id = sp.nat(0)
         )
 
@@ -108,7 +113,9 @@ class TL_Marketplace(
             partial=params.swap_key_partial)
 
         # Create swap.
-        self.data.swaps[swap_key] = params.token_amount
+        self.data.swaps[swap_key] = sp.record(
+            token_amount = params.token_amount,
+            ext = params.ext)
 
         # Increment next id.
         self.data.next_swap_id += 1
@@ -131,10 +138,10 @@ class TL_Marketplace(
         # Make sure sender is owner.
         sp.verify(params.swap_key.owner == sp.sender, ErrorMessages.not_owner())
 
-        token_amount = self.data.swaps.get(params.swap_key, message="INVALID_SWAP")
+        the_swap = self.data.swaps.get(params.swap_key, message="INVALID_SWAP")
 
         # Transfer remaining amout to the owner.
-        FA2Utils.fa2_transfer(params.swap_key.partial.fa2, sp.self_address, sp.sender, params.swap_key.partial.token_id, token_amount)
+        FA2Utils.fa2_transfer(params.swap_key.partial.fa2, sp.self_address, sp.sender, params.swap_key.partial.token_id, the_swap.token_amount)
 
         # Delete the swap.
         del self.data.swaps[params.swap_key]
@@ -153,11 +160,11 @@ class TL_Marketplace(
         # check if correct value was sent.
         sp.verify(sp.amount == params.swap_key.partial.price, message = ErrorMessages.wrong_amount())
 
-        token_amount = sp.local("token_amount", self.data.swaps.get(params.swap_key, message="INVALID_SWAP"))
+        the_swap = sp.local("the_swap", self.data.swaps.get(params.swap_key, message="INVALID_SWAP"))
 
         # check the swap has items left.
         # NOTE: should really never happen!
-        sp.verify(token_amount.value >= 1, message = "INVALID_SWAP")
+        sp.verify(the_swap.value.token_amount >= 1, message = "INVALID_SWAP")
 
         # Transfer royalties, value, fees, etc.
         with sp.if_(sp.amount != sp.mutez(0)):
@@ -173,10 +180,10 @@ class TL_Marketplace(
         FA2Utils.fa2_transfer(params.swap_key.partial.fa2, sp.self_address, sp.sender, params.swap_key.partial.token_id, 1)
 
         # Reduce the item amount in storage or remove it.
-        with sp.if_(token_amount.value > 1):
+        with sp.if_(the_swap.value.token_amount > 1):
             # NOTE: fine to use abs here, token amout is checked to be > 1.
-            token_amount.value = abs(token_amount.value - 1)
-            self.data.swaps[params.swap_key] = token_amount.value
+            the_swap.value.token_amount = abs(the_swap.value.token_amount - 1)
+            self.data.swaps[params.swap_key] = the_swap.value
         with sp.else_():
             del self.data.swaps[params.swap_key]
 
