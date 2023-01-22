@@ -882,48 +882,6 @@ class TL_World_v2(
         transferMap.transfer_tokens(sp.self_address)
 
 
-    def sendValueRoyaltiesFeesInline(self, rate, issuer_or_place_owner, item_royalty_info, primary):
-        """Inline function for sending royalties, fees, etc."""
-        sp.set_type(rate, sp.TMutez)
-        sp.set_type(issuer_or_place_owner, sp.TAddress)
-        sp.set_type(item_royalty_info, FA2.t_royalties_interop)
-        sp.set_type(primary, sp.TBool)
-
-        # Collect amounts to send in a map.
-        sendMap = TokenTransfer.TokenSendMap()
-
-        # First, we take our fees are in permille.
-        fees_amount = sp.compute(sp.split_tokens(rate, self.data.settings.fees, sp.nat(1000)))
-        sendMap.add(self.data.settings.fees_to, fees_amount)
-
-        value_after_fees = sp.compute(rate - fees_amount)
-
-        # If a primary sale, split entire value (minus fees) according to royalties.
-        total_shares = sp.local("total_shares", item_royalty_info.total)
-        with sp.if_(primary):
-            # Loop over all the shares to find the total shares.
-            with sp.for_("share_value", item_royalty_info.shares.values()) as share_value:
-                total_shares.value += share_value
-
-        # Send royalties according to total and send remaining value to issuer or place owner.
-        total_royalties = sp.local("total_royalties", sp.mutez(0))
-        with sp.for_("share_item", item_royalty_info.shares.items()) as share_item:
-            # Calculate amount to be paid from absolute share.
-            share_mutez = sp.compute(sp.split_tokens(value_after_fees, share_item.value, total_shares.value))
-            sendMap.add(share_item.key, share_mutez)
-            total_royalties.value += share_mutez
-
-        # Send rest of the value to seller. Should throw if royalties total > rate.
-        left_amount = sp.compute(sp.sub_mutez(value_after_fees, total_royalties.value).open_some(ErrorMessages.royalties_error()))
-        sendMap.add(issuer_or_place_owner, left_amount)
-
-        # Make sure it all adds up correctly!
-        sp.verify((fees_amount + total_royalties.value + left_amount) == rate, ErrorMessages.royalties_error())
-
-        # Transfer.
-        sendMap.transfer()
-
-
     @sp.inline_result
     def issuerOrValueToOrPlaceOwnerInline(self, place_key, issuer, value_to):
         """Inline function for getting where to send the value of an item to
@@ -982,7 +940,8 @@ class TL_World_v2(
                         self.data.settings.royalties_adapter, sp.record(fa2 = params.fa2, id = the_item.value.token_id)).open_some())
 
                     # Send fees, royalties, value.
-                    self.sendValueRoyaltiesFeesInline(sp.amount, item_owner, item_royalty_info, the_item.value.primary)
+                    TL_RoyaltiesAdapter.sendValueRoyaltiesFeesInline(self.data.settings.fees, self.data.settings.fees_to, sp.amount,
+                        item_owner, item_royalty_info, the_item.value.primary)
                 
                 # Transfer item to buyer.
                 FA2Utils.fa2_transfer(params.fa2, sp.self_address, sp.sender, the_item.value.token_id, 1)
