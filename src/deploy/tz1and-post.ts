@@ -8,7 +8,7 @@ import { sleep } from "../commands/DeployBase";
 import WorldUtils from "../commands/WorldUtils";
 
 
-export default class PostDeploy extends PostDeployBase {
+export default class tz1andPostDeploy extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
         console.log("REACT_APP_ITEM_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
         console.log("REACT_APP_PLACE_CONTRACT=" + contracts.get("places_FA2_contract")!.address);

@@ -6,14 +6,14 @@ import { DeployContractBatch } from '../commands/DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract, MichelCodecPacker } from '@taquito/taquito';
 import { MichelsonV1Expression } from '@taquito/rpc';
 import { Schema } from '@taquito/michelson-encoder';
-import PostUpgrade from './postupgrade';
+import tz1andV2PostDeploy from './tz1andV2-post';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
 import BigNumber from 'bignumber.js'
 import fs from 'fs';
 
 
-export default class Upgrade extends PostUpgrade {
+export default class tz1andV2 extends tz1andV2PostDeploy {
     protected override async deployDo() {
         assert(this.tezos);
 

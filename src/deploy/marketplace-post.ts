@@ -1,7 +1,7 @@
 import PostDeployBase, { PostDeployContracts } from "../commands/PostDeployBase";
 
 
-export default class PostMarketplace extends PostDeployBase {
+export default class MarketplacePostDeploy extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts): void {
         console.log("VITE_ITEM_V1_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
         console.log("VITE_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);

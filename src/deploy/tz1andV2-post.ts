@@ -13,7 +13,7 @@ import { SHA3 } from 'sha3';
 import WorldUtils from "../commands/WorldUtils";
 
 
-export default class PostUpgrade extends PostDeployBase {
+export default class tz1andV2PostDeploy extends PostDeployBase {
     protected printContracts(contracts: PostDeployContracts) {
         console.log("VITE_ITEM_V1_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
         console.log("VITE_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);

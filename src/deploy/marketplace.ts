@@ -6,14 +6,14 @@ import { DeployContractBatch } from '../commands/DeployBase';
 import { ContractAbstraction, MichelsonMap, OpKind, Wallet, WalletContract, MichelCodecPacker } from '@taquito/taquito';
 import { MichelsonV1Expression } from '@taquito/rpc';
 import { Schema } from '@taquito/michelson-encoder';
-import PostMarketplace from './postmarketplace';
+import MarketplacePostDeploy from './marketplace-post';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
 import BigNumber from 'bignumber.js'
 import fs from 'fs';
 
 
-export default class Upgrade extends PostMarketplace {
+export default class Merketplace extends MarketplacePostDeploy {
     protected override async deployDo() {
         assert(this.tezos);
 

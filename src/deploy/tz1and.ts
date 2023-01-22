@@ -2,12 +2,12 @@ import { char2Bytes } from '@taquito/utils'
 import assert from 'assert';
 import { DeployContractBatch } from '../commands/DeployBase';
 import { MichelsonMap, OpKind } from '@taquito/taquito';
-import PostDeploy from '../deploy/postdeploy';
+import tz1andPostDeploy from '../deploy/tz1and-post';
 import config from '../user.config';
 import { DeployMode } from '../config/config';
 
 
-export default class Deploy extends PostDeploy {
+export default class tz1and extends tz1andPostDeploy {
     protected override async deployDo() {
         assert(this.tezos);
 

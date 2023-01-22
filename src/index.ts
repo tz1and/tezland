@@ -1,10 +1,8 @@
 import { program } from 'commander';
 import * as sandbox from './commands/sandbox';
 import * as smartpy from './commands/smartpy';
-import Deploy from './deploy/deploy';
-import Upgrade from './deploy/upgrade';
 import { readFileSync } from 'fs';
-import DeployBase from './commands/DeployBase';
+
 
 const packageJson = JSON.parse(
     readFileSync(new URL('../package.json', import.meta.url), { encoding: "utf-8" })
