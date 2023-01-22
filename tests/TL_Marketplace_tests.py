@@ -1,7 +1,7 @@
 import smartpy as sp
 
 from contracts import TL_Marketplace, TL_Minter_v2, TL_TokenFactory, TL_TokenRegistry, TL_LegacyRoyalties, TL_RoyaltiesAdapter, TL_RoyaltiesAdapterLegacyAndV1, TL_Blacklist, Tokens
-from contracts.utils import ErrorMessages
+from contracts.utils import ErrorMessages, FA2Utils
 
 
 @sp.add_test(name = "TL_Marketplace_tests", profile = True)
@@ -29,6 +29,11 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"),
         admin = admin.address)
     scenario += items_tokens
+
+    other_tokens = Tokens.tz1andItems_v2(
+        metadata = sp.utils.metadata_of_url("https://example.com"),
+        admin = admin.address)
+    scenario += other_tokens
 
     scenario.h3("TokenRegistry")
     registry = TL_TokenRegistry.TL_TokenRegistry(admin.address, collections_key.public_key,
@@ -81,13 +86,46 @@ def test():
     ]).run(sender = admin)
 
     # mint some item tokens for testing
-    #minter.mint_public(collection = items_tokens.address,
-    #    to_ = bob.address,
-    #    amount = 4,
-    #    royalties = [ sp.record(address=bob.address, share=sp.nat(250)) ],
-    #    metadata = sp.utils.bytes_of_string("test_metadata")).run(sender = bob)
+    scenario.h3("mint some native tokens for testing")
+    minter.mint_public(sp.record(
+        collection = items_tokens.address,
+        to_ = bob.address,
+        amount = 4,
+        metadata = sp.utils.bytes_of_string("test_metadata"),
+        royalties = {bob.address: 250}
+    )).run(sender = bob)
 
-    #item_bob = sp.nat(0)
+    minter.mint_public(sp.record(
+        collection = items_tokens.address,
+        to_ = alice.address,
+        amount = 4,
+        metadata = sp.utils.bytes_of_string("test_metadata"),
+        royalties = {alice.address: 250}
+    )).run(sender = alice)
+
+    item_bob = sp.nat(0)
+    item_alice = sp.nat(1)
+
+    scenario.h3("mint some non-native tokens for testing")
+    other_tokens.mint([
+        sp.record(
+            to_ = bob.address,
+            amount = 4,
+            token = sp.variant("new", sp.record(
+                metadata = {"": sp.utils.bytes_of_string("test_metadata")},
+                royalties = {bob.address: 250}))
+        ),
+        sp.record(
+            to_ = alice.address,
+            amount = 4,
+            token = sp.variant("new", sp.record(
+                metadata = {"": sp.utils.bytes_of_string("test_metadata")},
+                royalties = {alice.address: 250}))
+        )
+    ]).run(sender = admin)
+
+    other_token_bob = sp.nat(0)
+    other_token_alice = sp.nat(0)
 
     scenario.h2("Test Marketplace")
 
@@ -96,5 +134,183 @@ def test():
     marketplace = TL_Marketplace.TL_Marketplace(admin.address, registry.address, royalties_adapter.address,
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += marketplace
+
+    #
+    # Test swap
+    scenario.h4("test swap")
+
+    # Not operator
+    marketplace.swap(sp.record(
+        swap_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            price = sp.tez(100),
+            primary = False),
+        token_amount = 2,
+        ext = sp.none)).run(sender = bob, valid = False, exception = "FA2_NOT_OPERATOR")
+
+    scenario.h4("set opertors")
+    for collection in [items_tokens, other_tokens]:
+        for sender in [bob, alice]:
+            collection.update_operators([
+                sp.variant("add_operator", sp.record(
+                    owner = sender.address,
+                    operator = marketplace.address,
+                    token_id = item_bob
+                )),
+                sp.variant("add_operator", sp.record(
+                    owner = sender.address,
+                    operator = marketplace.address,
+                    token_id = item_alice
+                ))
+            ]).run(sender = sender)
+
+    # No balance.
+    marketplace.swap(sp.record(
+        swap_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            price = sp.tez(100),
+            primary = False),
+        token_amount = 1,
+        ext = sp.none)).run(sender = alice, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
+
+    # Wrong token_amount
+    marketplace.swap(sp.record(
+        swap_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            price = sp.tez(100),
+            primary = False),
+        token_amount = 0,
+        ext = sp.none)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    # Not registered
+    marketplace.swap(sp.record(
+        swap_key_partial = sp.record(
+            fa2 = other_tokens.address,
+            token_id = other_token_bob,
+            price = sp.tez(100),
+            primary = False),
+        token_amount = 3,
+        ext = sp.none)).run(sender = bob, valid = False, exception = "TOKEN_NOT_REGISTERED")
+
+    # Valid
+    swap_key_bob_item_bob = sp.record(
+        id = 0,
+        owner = bob.address,
+        partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            price = sp.tez(100),
+            primary = False))
+
+    marketplace.swap(sp.record(
+        swap_key_partial = swap_key_bob_item_bob.partial,
+        token_amount = 2,
+        ext = sp.none)).run(sender = bob)
+
+    # check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 2)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, marketplace.address) == 2)
+
+    # Valid
+    swap_key_alice_item_alice = sp.record(
+        id = 1,
+        owner = alice.address,
+        partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_alice,
+            price = sp.tez(100),
+            primary = False))
+
+    marketplace.swap(sp.record(
+        swap_key_partial = swap_key_alice_item_alice.partial,
+        token_amount = 2,
+        ext = sp.none)).run(sender = alice)
+
+    # check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, marketplace.address) == 2)
+
+    #
+    # Test collect
+    scenario.h4("test collect")
+
+    # Wrong amount
+    marketplace.collect(sp.record(
+        swap_key = swap_key_alice_item_alice,
+        ext = sp.none)).run(sender = bob, amount = sp.tez(3), valid = False, exception = "WRONG_AMOUNT")
+
+    # Invalid swap key
+    marketplace.collect(sp.record(
+        swap_key = sp.record(
+            id = 15,
+            owner = admin.address,
+            partial = sp.record(
+                fa2 = carol.address,
+                token_id = other_token_bob,
+                price = sp.tez(12),
+                primary = True)),
+        ext = sp.none)).run(sender = alice, amount = sp.tez(12), valid = False, exception = "INVALID_SWAP")
+
+    # Valid
+    marketplace.collect(sp.record(
+        swap_key = swap_key_bob_item_bob,
+        ext = sp.none)).run(sender = alice, amount = sp.tez(100))
+
+    scenario.verify(marketplace.data.swaps[swap_key_bob_item_bob] == 1)
+
+    # Check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == 1)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, marketplace.address) == 1)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 2)
+
+    # Valid
+    marketplace.collect(sp.record(
+        swap_key = swap_key_alice_item_alice,
+        ext = sp.none)).run(sender = bob, amount = sp.tez(100))
+
+    scenario.verify(marketplace.data.swaps[swap_key_alice_item_alice] == 1)
+
+    # Check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == 1)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, marketplace.address) == 1)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
+
+    # Valid, removes swap
+    marketplace.collect(sp.record(
+        swap_key = swap_key_alice_item_alice,
+        ext = sp.none)).run(sender = bob, amount = sp.tez(100))
+
+    scenario.verify(~marketplace.data.swaps.contains(swap_key_alice_item_alice))
+
+    # Check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == 2)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
+
+    #
+    # Test cancel
+
+    # Invalid not owner
+    marketplace.cancel(sp.record(
+        swap_key = swap_key_bob_item_bob,
+        ext = sp.none)).run(sender = alice, valid = False, exception = "NOT_OWNER")
+
+    # Invalid swap
+    marketplace.cancel(sp.record(
+        swap_key = swap_key_alice_item_alice,
+        ext = sp.none)).run(sender = alice, valid = False, exception = "INVALID_SWAP")
+
+    # Valid
+    marketplace.cancel(sp.record(
+        swap_key = swap_key_bob_item_bob,
+        ext = sp.none)).run(sender = bob)
+
+    scenario.verify(~marketplace.data.swaps.contains(swap_key_bob_item_bob))
+
+    # Check balance
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == 1)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 3)
 
     # TODO: check roaylaties paid, token transferred
