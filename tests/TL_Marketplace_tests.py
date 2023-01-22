@@ -313,4 +313,22 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == 1)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 3)
 
+    scenario.h4("Settings")
+
+    scenario.h3("update registry")
+    scenario.verify(marketplace.data.settings.registry == registry.address)
+    marketplace.update_settings([sp.variant("registry", minter.address)]).run(sender = bob, valid = False)
+    marketplace.update_settings([sp.variant("registry", bob.address)]).run(sender = admin, valid = False)
+    marketplace.update_settings([sp.variant("registry", minter.address)]).run(sender = admin)
+    scenario.verify(marketplace.data.settings.registry == minter.address)
+    marketplace.update_settings([sp.variant("registry", royalties_adapter.address)]).run(sender = admin)
+
+    scenario.h3("update royalties_adapter")
+    scenario.verify(marketplace.data.settings.royalties_adapter == royalties_adapter.address)
+    marketplace.update_settings([sp.variant("royalties_adapter", minter.address)]).run(sender = bob, valid = False)
+    marketplace.update_settings([sp.variant("royalties_adapter", bob.address)]).run(sender = admin, valid = False)
+    marketplace.update_settings([sp.variant("royalties_adapter", minter.address)]).run(sender = admin)
+    scenario.verify(marketplace.data.settings.royalties_adapter == minter.address)
+    marketplace.update_settings([sp.variant("royalties_adapter", royalties_adapter.address)]).run(sender = admin)
+
     # TODO: check roaylaties paid, token transferred
