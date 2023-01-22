@@ -46,7 +46,7 @@ export default class DeploymentsRegistry {
             version: this.version,
             flags: Array.from(this.flags.entries()),
             contracts: Array.from(this.contracts.entries())
-        }), { encoding: 'utf-8' })
+        }, undefined, 4), { encoding: 'utf-8' })
     }
 
     public readFromDisk() {
