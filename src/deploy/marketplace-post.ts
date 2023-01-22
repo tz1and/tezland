@@ -2,6 +2,7 @@ import { OpKind } from "@taquito/taquito";
 import assert from "assert";
 import kleur from "kleur";
 import PostDeployBase, { GasResultsTable, PostDeployContracts } from "../commands/PostDeployBase";
+import BigNumber from 'bignumber.js';
 
 
 export default class MarketplacePostDeploy extends PostDeployBase {
@@ -20,7 +21,12 @@ export default class MarketplacePostDeploy extends PostDeployBase {
 
         console.log(kleur.bgGreen("Running gas test suite"));
 
-        const swapCollectCancel = async (row_name: string, token_id: number, swap_id: number) => {
+        const Marketplace_contract = contracts.get("Marketplace_contract")!;
+
+        const marketplace_storage = await Marketplace_contract.storage() as any;
+        const next_swap_id: BigNumber = marketplace_storage.next_swap_id;
+
+        const swapCollectCancel = async (row_name: string, token_id: number, swap_id: BigNumber) => {
             let gas_results = this.addGasResultsTable(gas_results_tables, { name: row_name, rows: {} });
 
             // place one item
@@ -31,13 +37,13 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                 batch.with([{
                         kind: OpKind.TRANSACTION,
                         ...contracts.get("items_v2_FA2_contract")!.methodsObject.update_adhoc_operators({ add_adhoc_operators: [{
-                            operator: contracts.get("Marketplace_contract")!.address,
+                            operator: Marketplace_contract.address,
                             token_id: token_id
                         }] }).toTransferParams()
                     },
                     {
                         kind: OpKind.TRANSACTION,
-                        ...contracts.get("Marketplace_contract")!.methodsObject.swap({
+                        ...Marketplace_contract.methodsObject.swap({
                             swap_key_partial: {
                                 fa2: contracts.get("items_v2_FA2_contract")!.address,
                                 token_id: token_id,
@@ -54,7 +60,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
 
             // collect one item
             await this.runTaskAndAddGasResults(gas_results, "collect item", () => {
-                return contracts.get("Marketplace_contract")!.methodsObject.collect({
+                return Marketplace_contract.methodsObject.collect({
                     swap_key: {
                         id: swap_id,
                         owner: this.accountAddress!,
@@ -70,7 +76,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
 
             // collect one item
             await this.runTaskAndAddGasResults(gas_results, "cancel swap", () => {
-                return contracts.get("Marketplace_contract")!.methodsObject.cancel({
+                return Marketplace_contract.methodsObject.cancel({
                     swap_key: {
                         id: swap_id,
                         owner: this.accountAddress!,
@@ -83,11 +89,11 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                     }
                 }).send();
             });
-        } 
+        }
 
-        await swapCollectCancel("swap, collect & cancel once", 0, 0);
+        await swapCollectCancel("swap, collect & cancel once", 0, next_swap_id);
 
-        await swapCollectCancel("swap, collect & cancel once", 0, 1);
+        await swapCollectCancel("swap, collect & cancel again", 0, next_swap_id.plus(1));
 
         this.printGasResults(gas_results_tables);
     }
