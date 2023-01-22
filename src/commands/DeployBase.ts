@@ -109,7 +109,7 @@ export class DeployContractBatch {
 }
 
 
-export default class DeployBase {
+export default abstract class DeployBase {
 
     private networkConfig: NetworkConfig;
     protected network: string;
@@ -415,7 +415,5 @@ export default class DeployBase {
         }
     };
 
-    protected async deployDo() {
-        throw new Error("Not implemented");
-    }
+    protected abstract deployDo(): Promise<void>;
 }

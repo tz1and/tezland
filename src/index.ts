@@ -90,8 +90,9 @@ program
     .option('-n, --network [network]', 'the network to deploy to (optional)')
     .argument('deploy_script', 'the name of the deploy script to run')
     .action(async (deploy_script, options) => {
-        const DeployScript: typeof DeployBase = (await import(`./deploy/${deploy_script}`)).default;
-        const instance = new DeployScript(options); // TODO: have an arg for upgrade
+        // TODO: how to type abstract class?
+        const DeployScript = (await import(`./deploy/${deploy_script}`)).default;
+        const instance = new DeployScript(options);
         await sandbox.startIfNotRunning(instance.isSandboxNetwork());
         await instance.deploy();
     });
@@ -103,7 +104,8 @@ program
     .option('-n, --network [network]', 'the network to upgrade on (optional)')
     .argument('upgrade_script', 'the name of the upgrade script to run')
     .action(async (upgrade_script, options) => {
-        const UpgradeScript: typeof DeployBase = (await import(`./deploy/${upgrade_script}`)).default;
+        // TODO: how to type abstract class?
+        const UpgradeScript = (await import(`./deploy/${upgrade_script}`)).default;
         const instance = new UpgradeScript(options, true);
         await sandbox.startIfNotRunning(instance.isSandboxNetwork());
         await instance.deploy();

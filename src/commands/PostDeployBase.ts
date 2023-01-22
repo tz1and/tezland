@@ -7,22 +7,28 @@ import DeployBase from "./DeployBase";
 export type PostDeployContracts = Map<string, ContractAbstraction<Wallet>>;
 
 
-export default class PostDeployBase extends DeployBase {
+export default abstract class PostDeployBase extends DeployBase {
     public async runPostDeploy(deploy_mode: DeployMode, contracts: PostDeployContracts) {
         console.log(kleur.magenta("Running post deploy tasks...\n"));
-        switch (deploy_mode) {
-            case DeployMode.DevWorld:
-                await this.deployDevWorld(contracts);
-                break;
-            case DeployMode.GasTest:
-                await this.gasTestSuite(contracts);
-                break;
-            case DeployMode.StressTestSingle:
-                await this.stressTestSingle(contracts);
-                break;
-            case DeployMode.StressTestMulti:
-                await this.stressTestMulti(contracts);
-                break;
+
+        try {
+            switch (deploy_mode) {
+                case DeployMode.DevWorld:
+                    await this.deployDevWorld(contracts);
+                    break;
+                case DeployMode.GasTest:
+                    await this.gasTestSuite(contracts);
+                    break;
+                case DeployMode.StressTestSingle:
+                    await this.stressTestSingle(contracts);
+                    break;
+                case DeployMode.StressTestMulti:
+                    await this.stressTestMulti(contracts);
+                    break;
+            }
+        }
+        catch(e: any) {
+            console.log("PostDeply failed:", e.message);
         }
     
         if (deploy_mode === DeployMode.None || deploy_mode === DeployMode.DevWorld) {
@@ -30,9 +36,7 @@ export default class PostDeployBase extends DeployBase {
         }
     }
     
-    protected printContracts(contracts: PostDeployContracts) {
-        throw new Error("Method not implemented.");
-    }
+    protected abstract printContracts(contracts: PostDeployContracts): void;
 
     protected async deployDevWorld(contracts: PostDeployContracts) {
         throw new Error("Method not implemented.");
@@ -103,5 +107,9 @@ export default class PostDeployBase extends DeployBase {
 
             return batch.send()
         });
+    }
+
+    protected override async deployDo(): Promise<void> {
+        // Nothing to do, is PostDeployBase
     }
 }
