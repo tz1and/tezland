@@ -85,9 +85,9 @@ export default class MarketplacePostDeploy extends PostDeployBase {
             });
         } 
 
-        await swapCollectCancel("swap & collect once", 0, 0);
+        await swapCollectCancel("swap, collect & cancel once", 0, 0);
 
-        await swapCollectCancel("swap & collect again", 0, 1);
+        await swapCollectCancel("swap, collect & cancel once", 0, 1);
 
         this.printGasResults(gas_results_tables);
     }
