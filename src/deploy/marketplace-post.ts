@@ -44,7 +44,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                                 price: 12345678,
                                 primary: false
                             },
-                            amount: 2,
+                            token_amount: 2,
                         }).toTransferParams()
                     }
                 ]);
