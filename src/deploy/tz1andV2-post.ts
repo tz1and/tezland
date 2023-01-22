@@ -1,5 +1,5 @@
 import assert from "assert";
-import PostDeployBase, { PostDeployContracts } from "../commands/PostDeployBase";
+import PostDeployBase, { GasResultsTable, PostDeployContracts } from "../commands/PostDeployBase";
 import * as ipfs from '../ipfs'
 import { ContractAbstraction, ContractMethodObject, MichelCodecPacker, MichelsonMap, OpKind, TransactionWalletOperation, Wallet, WalletOperationBatch } from "@taquito/taquito";
 import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
@@ -433,44 +433,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
 
         // TODO: PostDeployContracts should be a class with a get that can throw.
 
-        /**
-         * Some types and functions for gas tests and resutls
-         */
-        type GasResultRow = {
-            storage: string;
-            fee: string;
-        }
-
-        type GasResultsRows = {
-            [id: string]: GasResultRow | undefined;
-        }
-
-        type GasResultsTable = {
-            name: string;
-            rows: GasResultsRows;
-        }
-
         const gas_results_tables: GasResultsTable[] = [];
-
-        const addGasResultsTable = (table: GasResultsTable): GasResultsTable => {
-            gas_results_tables.push(table);
-            return table;
-        }
-
-        const runTaskAndAddGasResults = async (
-            gas_results: GasResultsTable,
-            task_name: string,
-            f: () => Promise<TransactionWalletOperation | BatchWalletOperation>) => {
-            try {
-                const op = await this.run_op_task(task_name, f);
-                gas_results.rows[task_name] = await this.feesToObject(op);
-            } catch(error) {
-                console.log(kleur.red(">> Failed:\n"));
-                console.dir(error, {depth: null});
-                console.log();
-                gas_results.rows[task_name] = undefined;
-            }
-        }
 
         console.log(kleur.bgGreen("Running gas test suite"));
 
@@ -490,10 +453,10 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             await mint_batch_op.confirmation();
         }
 
-        let gas_results = addGasResultsTable({ name: "FA2", rows: {} });
+        let gas_results = this.addGasResultsTable(gas_results_tables, { name: "FA2", rows: {} });
 
         // set operator (v1)
-        await runTaskAndAddGasResults(gas_results, "update_operators (v1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_operators (v1)", () => {
             return contracts.get("items_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
@@ -504,7 +467,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set operator (v2)
-        await runTaskAndAddGasResults(gas_results, "update_operators (v2)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_operators (v2)", () => {
             return contracts.get("items_v2_FA2_contract")!.methods.update_operators([{
                 add_operator: {
                     owner: this.accountAddress,
@@ -523,14 +486,14 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
 
         const defaultRate = 1000000;
 
-        gas_results = addGasResultsTable({ name: "World", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "World", rows: {} });
 
         /**
          * World
          */
         // place one item to make sure storage is set.
         let map_place_one_item: MichelsonMap<number, MichelsonMap<any, unknown>>;
-        await runTaskAndAddGasResults(gas_results, "create place 0 (item)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "create place 0 (item)", () => {
             map_place_one_item = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
@@ -545,13 +508,13 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // NOTE: for some reason the first created place is more expensive? some weird storage diff somewhere...
-        await runTaskAndAddGasResults(gas_results, "create place 1 (item)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "create place 1 (item)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
                 place_key: placeKey1, place_item_map: map_place_one_item
             }).send();
         });
 
-        await runTaskAndAddGasResults(gas_results, "create place 2 (item v2)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "create place 2 (item v2)", () => {
             const map_place_one_item_v2 = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
@@ -587,23 +550,23 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         }*/
 
         // place props
-        await runTaskAndAddGasResults(gas_results, "update_place", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_place", () => {
             const props_map = new MichelsonMap<string, string>();
             props_map.set('00', '000000');
             return contracts.get("World_v2_contract")!.methodsObject.update_place({ place_key: placeKey0, update: { props: [{add_props: props_map}] } }).send();
         });
 
-        gas_results = addGasResultsTable({ name: "World place_items", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "World place_items", rows: {} });
 
         // place one item
-        await runTaskAndAddGasResults(gas_results, "place_items (1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "place_items (1)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.place_items({
                 place_key: placeKey0, place_item_map: map_place_one_item
             }).send();
         });
 
         // place ten items
-        await runTaskAndAddGasResults(gas_results, "place_items (10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "place_items (10)", () => {
             const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
@@ -627,7 +590,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // place one item in multiple chunks
-        await runTaskAndAddGasResults(gas_results, "place_items chunks (2x1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "place_items chunks (2x1)", () => {
             const map_one_item_multiple_chunks = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_one_item_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_one_item_issuer.set(false, MichelsonMap.fromLiteral({
@@ -643,7 +606,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // place ten items in multiple chunks
-        await runTaskAndAddGasResults(gas_results, "place_items chunks (2x10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "place_items chunks (2x10)", () => {
             const map_ten_items = new MichelsonMap<number, MichelsonMap<any, unknown>>()
             const map_ten_items_issuer = new MichelsonMap<boolean, MichelsonMap<any, unknown>>()
             map_ten_items_issuer.set(false, MichelsonMap.fromLiteral({
@@ -667,10 +630,10 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        gas_results = addGasResultsTable({ name: "World set_item_data", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "World set_item_data", rows: {} });
 
         // set one items data
-        await runTaskAndAddGasResults(gas_results, "set_item_data (1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "set_item_data (1)", () => {
             const map_update_one_item = new MichelsonMap<number, unknown>()
             const map_update_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -686,7 +649,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set ten items data
-        await runTaskAndAddGasResults(gas_results, "set_item_data (10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "set_item_data (10)", () => {
             const map_update_ten_items = new MichelsonMap<number, unknown>()
             const map_update_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -711,7 +674,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set one items data multiple chunks
-        await runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x1)", () => {
             const map_update_one_item = new MichelsonMap<number, unknown>()
             const map_update_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -728,7 +691,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set ten items data multiple chunks
-        await runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "set_item_data chunks (2x10)", () => {
             const map_update_ten_items = new MichelsonMap<number, unknown>()
             const map_update_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -753,10 +716,10 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        gas_results = addGasResultsTable({ name: "World remove_items", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "World remove_items", rows: {} });
 
         // remove one item
-        await runTaskAndAddGasResults(gas_results, "remove_items (1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "remove_items (1)", () => {
             const map_remove_one_item = new MichelsonMap<number, unknown>()
             const map_remove_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -770,7 +733,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // remove ten items
-        await runTaskAndAddGasResults(gas_results, "remove_items (10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "remove_items (10)", () => {
             const map_remove_ten_items = new MichelsonMap<number, unknown>()
             const map_remove_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -784,7 +747,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // remove one item multiple chunks
-        await runTaskAndAddGasResults(gas_results, "remove_items chunks (2x1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "remove_items chunks (2x1)", () => {
             const map_remove_one_item = new MichelsonMap<number, unknown>()
             const map_remove_one_item_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -804,7 +767,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // remove ten items multiple chunks
-        await runTaskAndAddGasResults(gas_results, "remove_items chunks (2x10)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "remove_items chunks (2x10)", () => {
             const map_remove_ten_items = new MichelsonMap<number, unknown>()
             const map_remove_ten_items_issuer = MichelsonMap.fromLiteral({
                 [this.accountAddress!]: {
@@ -823,10 +786,10 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        gas_results = addGasResultsTable({ name: "World set_permissions", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "World set_permissions", rows: {} });
 
         // set_permissions
-        await runTaskAndAddGasResults(gas_results, "set_permissions", () => {
+        await this.runTaskAndAddGasResults(gas_results, "set_permissions", () => {
             return contracts.get("World_v2_contract")!.methods.set_permissions([{
                 add: {
                     place_key: placeKey0,
@@ -838,26 +801,26 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // get item (v1)
-        await runTaskAndAddGasResults(gas_results, "get_item (v1)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "get_item (v1)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.get_item({
                 place_key: placeKey0, chunk_id: 0, issuer: this.accountAddress, fa2: contracts.get("items_FA2_contract")!.address, item_id: 22
             }).send({ mutez: true, amount: 1000000 });
         });
 
         // get item (v2)
-        await runTaskAndAddGasResults(gas_results, "get_item (v2)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "get_item (v2)", () => {
             return contracts.get("World_v2_contract")!.methodsObject.get_item({
                 place_key: placeKey2, chunk_id: 0, issuer: this.accountAddress, fa2: contracts.get("items_v2_FA2_contract")!.address, item_id: 0
             }).send({ mutez: true, amount: 1000000 });
         });
 
-        gas_results = addGasResultsTable({ name: "Auctions", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "Auctions", rows: {} });
 
         /**
          * Auctions
          */
         // set operator
-        await runTaskAndAddGasResults(gas_results, "create_auction", () => {
+        await this.runTaskAndAddGasResults(gas_results, "create_auction", () => {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             return this.tezos!.wallet.batch().with([
                 // add operator
@@ -893,7 +856,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
 
         await sleep(config.sandbox.blockTime * 1000);
 
-        await runTaskAndAddGasResults(gas_results, "bid", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "bid", async () => {
             const chunkSeqHash = await this.getHashedPlaceSeq(contracts, {
                 fa2: contracts.get("places_v2_FA2_contract")!.address, id: 0
             });
@@ -908,7 +871,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }).send({amount: 200000, mutez: true});
         });
 
-        await runTaskAndAddGasResults(gas_results, "create_auction", () => {
+        await this.runTaskAndAddGasResults(gas_results, "create_auction", () => {
             const current_time = Math.floor(Date.now() / 1000) + config.sandbox.blockTime;
             return this.tezos!.wallet.batch().with([
                 // add operator
@@ -944,7 +907,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
 
         await sleep(config.sandbox.blockTime * 1000);
 
-        await runTaskAndAddGasResults(gas_results, "cancel", () => {
+        await this.runTaskAndAddGasResults(gas_results, "cancel", () => {
             return contracts.get("Dutch_v2_contract")!.methodsObject.cancel({
                 auction_key: {
                     fa2: contracts.get("places_v2_FA2_contract")!.address,
@@ -954,13 +917,13 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }).send();
         });
 
-        gas_results = addGasResultsTable({ name: "Adhoc Operators", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "Adhoc Operators", rows: {} });
 
         /**
          * Test adhoc operator storage effects on gas consumption.
          */
         // set 100 regular operators
-        await runTaskAndAddGasResults(gas_results, "update_operators (100)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_operators (100)", () => {
             const op_alot = [];
             for (const n of [...Array(100).keys()])
                 op_alot.push({
@@ -976,7 +939,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // token transfer
-        await runTaskAndAddGasResults(gas_results, "transfer", () => {
+        await this.runTaskAndAddGasResults(gas_results, "transfer", () => {
             return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
@@ -988,7 +951,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set adhoc operators
-        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_adhoc_operators", () => {
             return contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
                     operator: contracts.get("Minter_v2_contract")!.address,
@@ -999,7 +962,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
 
         // set max adhoc operators
         let item_adhoc_max_op: ContractMethodObject<Wallet>;
-        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
             const adhoc_ops = [];
             for (const n of [...Array(100).keys()])
                 adhoc_ops.push({
@@ -1012,13 +975,13 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             return item_adhoc_max_op.send();
         });
 
-        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", () => {
             // Do that again to see storage diff
             return item_adhoc_max_op.send();
         });
 
         // tokens transfer
-        await runTaskAndAddGasResults(gas_results, "transfer (100 adhoc)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "transfer (100 adhoc)", () => {
             return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
@@ -1030,7 +993,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // set adhoc operators
-        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (reset)", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_adhoc_operators (reset)", async () => {
             return contracts.get("items_FA2_contract")!.methodsObject.update_adhoc_operators({
                 add_adhoc_operators: [{
                     operator: contracts.get("Minter_v2_contract")!.address,
@@ -1040,7 +1003,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // final transfer after adhoc reset
-        await runTaskAndAddGasResults(gas_results, "transfer (reset)", () => {
+        await this.runTaskAndAddGasResults(gas_results, "transfer (reset)", () => {
             return contracts.get("items_FA2_contract")!.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
@@ -1051,10 +1014,10 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
             }]).send();
         });
 
-        gas_results = addGasResultsTable({ name: "Mint", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "Mint", rows: {} });
 
         // mint again
-        await runTaskAndAddGasResults(gas_results, "mint some (2)", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "mint some (2)", async () => {
             const mint_batch2 = this.tezos!.wallet.batch();
             await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
             await this.mintNewItem_public('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, contracts.get("items_v2_FA2_contract")!);
@@ -1062,17 +1025,17 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // Do that again to see storage diff
-        await runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "update_adhoc_operators (100)", async () => {
             return item_adhoc_max_op.send()
         });
 
-        gas_results = addGasResultsTable({ name: "Factory", rows: {} });
+        gas_results = this.addGasResultsTable(gas_results_tables, { name: "Factory", rows: {} });
 
         /**
          * Factory
          */
         var originatedTokenContractAddress: string | undefined;
-        await runTaskAndAddGasResults(gas_results, "create_token", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "create_token", async () => {
             const token_metadata_url = await ipfs.upload_metadata({name: "bla", whatever: "yes"}, this.isSandboxNet);
             const op = await contracts.get("Factory_contract")!.methods.create_token(
                 char2Bytes(token_metadata_url)
@@ -1101,7 +1064,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         const originatedTokenContract = await this.tezos!.wallet.at(originatedTokenContractAddress!);
 
         // mint with created token.
-        await runTaskAndAddGasResults(gas_results, "mint_private (2)", async () => {
+        await this.runTaskAndAddGasResults(gas_results, "mint_private (2)", async () => {
             const mint_batch2 = this.tezos!.wallet.batch();
             await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
             await this.mintNewItem_private('assets/Duck.glb', 4212, 10000, mint_batch2, contracts.get("Minter_v2_contract")!, originatedTokenContract);
@@ -1109,7 +1072,7 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
         });
 
         // transfer with created token
-        await runTaskAndAddGasResults(gas_results, "transfer", () => {
+        await this.runTaskAndAddGasResults(gas_results, "transfer", () => {
             return originatedTokenContract.methodsObject.transfer([{
                 from_: this.accountAddress,
                 txs: [{
@@ -1119,23 +1082,8 @@ export default class tz1andV2PostDeploy extends PostDeployBase {
                 }]
             }]).send();
         });
-        
 
-        /**
-         * Print results to console.
-         */
-        for (const table of gas_results_tables) {
-            console.log();
-            console.log(kleur.blue(table.name));
-            for (const row_key of Object.keys(table.rows)) {
-                const row = table.rows[row_key];
-                if(row)
-                    console.log(`${(row_key + ":").padEnd(32)}storage: ${row.storage}, gas: ${row.fee}`);
-                else
-                    console.log(`${(row_key + ":").padEnd(32)}` + kleur.red("failed!"));
-            }
-            //console.table(table.rows);
-        }
+        this.printGasResults(gas_results_tables);
     }
 
     private async mintAndPlace(contracts: PostDeployContracts, per_batch: number = 100, batches: number = 30, token_id: number = 0) {

@@ -34,11 +34,11 @@ export type IpfsConfig = {
 }
 
 export enum DeployMode {
-    None,
-    DevWorld,
-    GasTest,
-    StressTestSingle,
-    StressTestMulti
+    None = "None",
+    DevWorld = "DevWorld",
+    GasTest = "GasTest",
+    StressTestSingle = "StressTestSingle",
+    StressTestMulti = "StressTestMulti"
 };
 
 export type SandboxConfig = {

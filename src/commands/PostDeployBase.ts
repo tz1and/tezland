@@ -1,10 +1,28 @@
 import kleur from "kleur";
-import { ContractAbstraction, OpKind, Wallet } from "@taquito/taquito";
+import { ContractAbstraction, OpKind, TransactionWalletOperation, Wallet } from "@taquito/taquito";
 import { DeployMode } from "../config/config";
 import DeployBase from "./DeployBase";
+import { BatchWalletOperation } from "@taquito/taquito/dist/types/wallet/batch-operation";
 
 
 export type PostDeployContracts = Map<string, ContractAbstraction<Wallet>>;
+
+/**
+ * Some types and functions for gas tests and resutls
+ */
+type GasResultRow = {
+    storage: string;
+    fee: string;
+}
+
+type GasResultsRows = {
+    [id: string]: GasResultRow | undefined;
+}
+
+export type GasResultsTable = {
+    name: string;
+    rows: GasResultsRows;
+}
 
 
 export default abstract class PostDeployBase extends DeployBase {
@@ -28,10 +46,11 @@ export default abstract class PostDeployBase extends DeployBase {
             }
         }
         catch(e: any) {
-            console.log("PostDeply failed:", e.message);
+            console.log(`PostDeply failed for mode '${deploy_mode}':`, e.message);
         }
     
         if (deploy_mode === DeployMode.None || deploy_mode === DeployMode.DevWorld) {
+            console.log()
             this.printContracts(contracts);
         }
     }
@@ -52,6 +71,42 @@ export default abstract class PostDeployBase extends DeployBase {
 
     protected async stressTestMulti(contracts: PostDeployContracts) {
         throw new Error("Method not implemented.");
+    }
+
+    // Gas results
+    protected addGasResultsTable(gas_results_tables: GasResultsTable[], table: GasResultsTable): GasResultsTable {
+        gas_results_tables.push(table);
+        return table;
+    }
+    
+    protected async runTaskAndAddGasResults(
+        gas_results: GasResultsTable,
+        task_name: string,
+        f: () => Promise<TransactionWalletOperation | BatchWalletOperation>) {
+        try {
+            const op = await this.run_op_task(task_name, f);
+            gas_results.rows[task_name] = await this.feesToObject(op);
+        } catch(error) {
+            console.log(kleur.red(">> Failed:\n"));
+            console.dir(error, {depth: null});
+            console.log();
+            gas_results.rows[task_name] = undefined;
+        }
+    }
+
+    protected printGasResults(gas_results_tables: GasResultsTable[]) {
+        for (const table of gas_results_tables) {
+            console.log();
+            console.log(kleur.blue(table.name));
+            for (const row_key of Object.keys(table.rows)) {
+                const row = table.rows[row_key];
+                if(row)
+                    console.log(`${(row_key + ":").padEnd(32)}storage: ${row.storage}, gas: ${row.fee}`);
+                else
+                    console.log(`${(row_key + ":").padEnd(32)}` + kleur.red("failed!"));
+            }
+            //console.table(table.rows);
+        }
     }
 
     // Utils
