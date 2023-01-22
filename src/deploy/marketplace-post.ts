@@ -1,81 +1,94 @@
-import PostDeployBase, { PostDeployContracts } from "../commands/PostDeployBase";
+import { OpKind } from "@taquito/taquito";
+import assert from "assert";
+import kleur from "kleur";
+import PostDeployBase, { GasResultsTable, PostDeployContracts } from "../commands/PostDeployBase";
 
 
 export default class MarketplacePostDeploy extends PostDeployBase {
-    protected printContracts(contracts: PostDeployContracts): void {
-        console.log("VITE_ITEM_V1_CONTRACT=" + contracts.get("items_FA2_contract")!.address);
-        console.log("VITE_ITEM_CONTRACT=" + contracts.get("items_v2_FA2_contract")!.address);
-        console.log("VITE_PLACE_V1_CONTRACT=" + contracts.get("places_FA2_contract")!.address);
-        console.log("VITE_PLACE_CONTRACT=" + contracts.get("places_v2_FA2_contract")!.address);
-        console.log("VITE_INTERIOR_CONTRACT=" + contracts.get("interiors_FA2_contract")!.address);
-        console.log("VITE_DAO_CONTRACT=" + contracts.get("dao_FA2_contract")!.address);
-        console.log("VITE_WORLD_CONTRACT=" + contracts.get("World_v2_contract")!.address);
-        console.log("VITE_MINTER_CONTRACT=" + contracts.get("Minter_v2_contract")!.address);
-        console.log("VITE_DUTCH_AUCTION_CONTRACT=" + contracts.get("Dutch_v2_contract")!.address);
-        console.log("VITE_FACTORY_CONTRACT=" + contracts.get("Factory_contract")!.address);
-        console.log("VITE_REGISTRY_CONTRACT=" + contracts.get("Registry_contract")!.address);
+    // TODO: should really use the deployments registry!
+    protected override printContracts(contracts: PostDeployContracts): void {
+        console.log("VITE_MARKETPLACE_CONTRACT=" + contracts.get("Marketplace_contract")!.address);
         console.log()
         console.log(`contracts:
-  tezlandItems:
-    address: ${contracts.get("items_FA2_contract")!.address}
-    typename: tezlandFA2Fungible
-
-  tezlandItemsV2:
-    address: ${contracts.get("items_v2_FA2_contract")!.address}
-    typename: tezlandFA2FungibleV2
-
-  tezlandPlaces:
-    address: ${contracts.get("places_FA2_contract")!.address}
-    typename: tezlandFA2NFT
-
-  tezlandPlacesV2:
-    address: ${contracts.get("places_v2_FA2_contract")!.address}
-    typename: tezlandFA2NFTV2NonstandardTransfer
-
-  tezlandInteriors:
-    address: ${contracts.get("interiors_FA2_contract")!.address}
-    typename: tezlandFA2NFTV2NonstandardTransfer
-
-  tezlandDAO:
-    address: ${contracts.get("dao_FA2_contract")!.address}
-    typename: tezlandDAO
-
-  tezlandWorld:
-    address: ${contracts.get("World_contract")!.address}
-    typename: tezlandWorld
-
-  tezlandWorldV2:
-    address: ${contracts.get("World_v2_contract")!.address}
-    typename: tezlandWorldV2
-    
-  tezlandMinter:
-    address: ${contracts.get("Minter_contract")!.address}
-    typename: tezlandMinter
-
-  tezlandMinterV2:
-    address: ${contracts.get("Minter_v2_contract")!.address}
-    typename: tezlandMinterV2
-
-  tezlandDutchAuctions:
-    address: ${contracts.get("Dutch_contract")!.address}
-    typename: tezlandDutchAuctions
-
-  tezlandDutchAuctionsV2:
-    address: ${contracts.get("Dutch_v2_contract")!.address}
-    typename: tezlandDutchAuctionsV2
-    
-  tezlandFactory:
-    address: ${contracts.get("Factory_contract")!.address}
-    typename: tezlandFactory
-    
-  tezlandRegistry:
-    address: ${contracts.get("Registry_contract")!.address}
-    typename: tezlandRegistry
-
-  tezlandItemsCollection:
-    code_hash: -767789104
-    typename: tezlandItemsCollection\n`);
+  tezlandMarketplace:
+    address: ${contracts.get("Marketplace_contract")!.address}
+    typename: tezlandMarketplace\n`);
     }
 
-    
+    protected override async gasTestSuite(contracts: PostDeployContracts) {
+        const gas_results_tables: GasResultsTable[] = [];
+
+        console.log(kleur.bgGreen("Running gas test suite"));
+
+        const swapCollectCancel = async (row_name: string, token_id: number, swap_id: number) => {
+            let gas_results = this.addGasResultsTable(gas_results_tables, { name: row_name, rows: {} });
+
+            // place one item
+            await this.runTaskAndAddGasResults(gas_results, "swap items", () => {
+                assert(this.tezos)
+                const batch = this.tezos.wallet.batch()
+
+                batch.with([{
+                        kind: OpKind.TRANSACTION,
+                        ...contracts.get("items_v2_FA2_contract")!.methodsObject.update_adhoc_operators({ add_adhoc_operators: [{
+                            operator: contracts.get("Marketplace_contract")!.address,
+                            token_id: token_id
+                        }] }).toTransferParams()
+                    },
+                    {
+                        kind: OpKind.TRANSACTION,
+                        ...contracts.get("Marketplace_contract")!.methodsObject.swap({
+                            swap_key_partial: {
+                                fa2: contracts.get("items_v2_FA2_contract")!.address,
+                                token_id: token_id,
+                                price: 12345678,
+                                primary: false
+                            },
+                            amount: 2,
+                        }).toTransferParams()
+                    }
+                ]);
+
+                return batch.send();
+            });
+
+            // collect one item
+            await this.runTaskAndAddGasResults(gas_results, "collect item", () => {
+                return contracts.get("Marketplace_contract")!.methodsObject.collect({
+                    swap_key: {
+                        id: swap_id,
+                        owner: this.accountAddress!,
+                        partial: {
+                            fa2: contracts.get("items_v2_FA2_contract")!.address,
+                            token_id: token_id,
+                            price: 12345678,
+                            primary: false
+                        }
+                    }
+                }).send({amount: 12345678, mutez: true});
+            });
+
+            // collect one item
+            await this.runTaskAndAddGasResults(gas_results, "cancel swap", () => {
+                return contracts.get("Marketplace_contract")!.methodsObject.cancel({
+                    swap_key: {
+                        id: swap_id,
+                        owner: this.accountAddress!,
+                        partial: {
+                            fa2: contracts.get("items_v2_FA2_contract")!.address,
+                            token_id: token_id,
+                            price: 12345678,
+                            primary: false
+                        }
+                    }
+                }).send();
+            });
+        } 
+
+        swapCollectCancel("swap & collect once", 0, 0);
+
+        swapCollectCancel("swap & collect again", 0, 1);
+
+        this.printGasResults(gas_results_tables);
+    }
 }

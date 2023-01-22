@@ -30,15 +30,27 @@ export default class Merketplace extends MarketplacePostDeploy {
         const RoyaltiesAdapter_contract = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_RoyaltiesAdapter")!);
         const Registry_contract = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_TokenRegistry")!);
         const Factory_contract = await this.tezos.wallet.at(this.deploymentsReg.getContract("TL_TokenFactory")!);
+        const FA2_Items_v2 = await this.tezos.wallet.at(this.deploymentsReg.getContract("FA2_Items_v2")!);
+
+        //
+        // Deploy marketplace
+        //
+        let Marketplace_contract = await this.deploy_contract("TL_Marketplace", "TL_Marketplace", "TL_Marketplace", [
+            `administrator = sp.address("${this.accountAddress}")`,
+            `registry = sp.address("${Registry_contract.address}")`,
+            `royalties_adapter = sp.address("${RoyaltiesAdapter_contract.address}")`
+        ]);
 
         //
         // Post deploy
         //
         await this.runPostDeploy(deploy_mode, new Map(Object.entries({
+            items_v2_FA2_contract: FA2_Items_v2,
             Factory_contract: Factory_contract,
             Registry_contract: Registry_contract,
             LegacyRoyalties_contract: LegacyRoyalties_contract,
-            RoyaltiesAdapter_contract: RoyaltiesAdapter_contract
+            RoyaltiesAdapter_contract: RoyaltiesAdapter_contract,
+            Marketplace_contract: Marketplace_contract
         })));
     }
 }
