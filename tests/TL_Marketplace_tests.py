@@ -144,7 +144,7 @@ def test():
         swap_key_partial = sp.record(
             fa2 = items_tokens.address,
             token_id = item_bob,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False),
         token_amount = 2,
         ext = sp.none)).run(sender = bob, valid = False, exception = "FA2_NOT_OPERATOR")
@@ -170,7 +170,7 @@ def test():
         swap_key_partial = sp.record(
             fa2 = items_tokens.address,
             token_id = item_bob,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False),
         token_amount = 1,
         ext = sp.none)).run(sender = alice, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
@@ -180,7 +180,7 @@ def test():
         swap_key_partial = sp.record(
             fa2 = items_tokens.address,
             token_id = item_bob,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False),
         token_amount = 0,
         ext = sp.none)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
@@ -190,7 +190,7 @@ def test():
         swap_key_partial = sp.record(
             fa2 = other_tokens.address,
             token_id = other_token_bob,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False),
         token_amount = 3,
         ext = sp.none)).run(sender = bob, valid = False, exception = "TOKEN_NOT_REGISTERED")
@@ -202,7 +202,7 @@ def test():
         partial = sp.record(
             fa2 = items_tokens.address,
             token_id = item_bob,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False))
 
     marketplace.swap(sp.record(
@@ -224,7 +224,7 @@ def test():
         partial = sp.record(
             fa2 = items_tokens.address,
             token_id = item_alice,
-            price = sp.tez(100),
+            rate = sp.tez(100),
             primary = False))
 
     marketplace.swap(sp.record(
@@ -256,7 +256,7 @@ def test():
             partial = sp.record(
                 fa2 = carol.address,
                 token_id = other_token_bob,
-                price = sp.tez(12),
+                rate = sp.tez(12),
                 primary = True)),
         ext = sp.none)).run(sender = alice, amount = sp.tez(12), valid = False, exception = "INVALID_SWAP")
 

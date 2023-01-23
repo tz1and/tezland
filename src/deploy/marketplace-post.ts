@@ -47,7 +47,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                             swap_key_partial: {
                                 fa2: contracts.get("items_v2_FA2_contract")!.address,
                                 token_id: token_id,
-                                price: 12345678,
+                                rate: 12345678,
                                 primary: false
                             },
                             token_amount: 2,
@@ -67,7 +67,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                         partial: {
                             fa2: contracts.get("items_v2_FA2_contract")!.address,
                             token_id: token_id,
-                            price: 12345678,
+                            rate: 12345678,
                             primary: false
                         }
                     }
@@ -89,7 +89,7 @@ export default class MarketplacePostDeploy extends PostDeployBase {
                         partial: {
                             fa2: contracts.get("items_v2_FA2_contract")!.address,
                             token_id: token_id,
-                            price: 12345678,
+                            rate: 12345678,
                             primary: false
                         }
                     }
