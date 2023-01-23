@@ -20,9 +20,9 @@ extensionArgType = sp.TOption(sp.TMap(sp.TString, sp.TBytes))
 t_swap_key_partial = sp.TRecord(
     fa2 = sp.TAddress,
     token_id = sp.TNat,
-    price = sp.TMutez,
+    rate = sp.TMutez,
     primary = sp.TBool
-).layout(("fa2", ("token_id", ("price", "primary"))))
+).layout(("fa2", ("token_id", ("rate", "primary"))))
 
 t_swap_key = sp.TRecord(
     id = sp.TNat,
@@ -158,7 +158,7 @@ class TL_Marketplace(
         self.onlyUnpaused()
 
         # check if correct value was sent.
-        sp.verify(sp.amount == params.swap_key.partial.price, message = ErrorMessages.wrong_amount())
+        sp.verify(sp.amount == params.swap_key.partial.rate, message = ErrorMessages.wrong_amount())
 
         the_swap = sp.local("the_swap", self.data.swaps.get(params.swap_key, message="INVALID_SWAP"))
 
