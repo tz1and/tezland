@@ -135,6 +135,8 @@ def test():
         metadata = sp.utils.metadata_of_url("https://example.com"))
     scenario += marketplace
 
+    scenario.h3("Test swaps")
+
     #
     # Test swap
     scenario.h4("test swap")
@@ -151,7 +153,7 @@ def test():
 
     scenario.h4("set opertors")
     for collection in [items_tokens, other_tokens]:
-        for sender in [bob, alice]:
+        for sender in [bob, alice, carol]:
             collection.update_operators([
                 sp.variant("add_operator", sp.record(
                     owner = sender.address,
@@ -210,6 +212,8 @@ def test():
         token_amount = 2,
         ext = sp.none)).run(sender = bob)
 
+    scenario.verify(marketplace.data.next_swap_id == 1)
+
     # check balance
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 2)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, marketplace.address) == 2)
@@ -231,6 +235,8 @@ def test():
         swap_key_partial = swap_key_alice_item_alice.partial,
         token_amount = 2,
         ext = sp.none)).run(sender = alice)
+
+    scenario.verify(marketplace.data.next_swap_id == 2)
 
     # check balance
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == 2)
@@ -298,21 +304,25 @@ def test():
     # check view is failing
     scenario.verify(sp.is_failing(marketplace.get_swap(swap_key_alice_item_alice)))
 
+    # make sure next_swap_id is unchanged
+    scenario.verify(marketplace.data.next_swap_id == 2)
+
     #
-    # Test cancel
+    # Test cancel_swap
+    scenario.h4("test cancel_swap")
 
     # Invalid not owner
-    marketplace.cancel(sp.record(
+    marketplace.cancel_swap(sp.record(
         swap_key = swap_key_bob_item_bob,
         ext = sp.none)).run(sender = alice, valid = False, exception = "NOT_OWNER")
 
     # Invalid swap
-    marketplace.cancel(sp.record(
+    marketplace.cancel_swap(sp.record(
         swap_key = swap_key_alice_item_alice,
         ext = sp.none)).run(sender = alice, valid = False, exception = "INVALID_SWAP")
 
     # Valid
-    marketplace.cancel(sp.record(
+    marketplace.cancel_swap(sp.record(
         swap_key = swap_key_bob_item_bob,
         ext = sp.none)).run(sender = bob)
 
@@ -322,7 +332,179 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == 1)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == 3)
 
-    scenario.h4("Settings")
+    # make sure next_swap_id is unchanged
+    scenario.verify(marketplace.data.next_swap_id == 2)
+
+    #
+    # Test cancel_swap
+    scenario.h3("Test offers")
+
+    scenario.h4("test offer")
+
+    # invalid token_amount
+    marketplace.offer(sp.record(
+        offer_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_alice,
+            token_amount = 2,
+            rate = sp.tez(50)),
+        ext = sp.none)).run(sender = bob, amount = sp.tez(50), valid = False, exception = "INVALID_PARAM")
+
+    # wrong tez amount
+    marketplace.offer(sp.record(
+        offer_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_alice,
+            token_amount = 1,
+            rate = sp.tez(50)),
+        ext = sp.none)).run(sender = bob, amount = sp.tez(12), valid = False, exception = "WRONG_AMOUNT")
+
+    # token not registered
+    marketplace.offer(sp.record(
+        offer_key_partial = sp.record(
+            fa2 = other_tokens.address,
+            token_id = other_token_alice,
+            token_amount = 1,
+            rate = sp.tez(50)),
+        ext = sp.none)).run(sender = bob, amount = sp.tez(50), valid = False, exception = "TOKEN_NOT_REGISTERED")
+
+    # Valid
+    offer_key_bob_item_alice = sp.record(
+        id = 0,
+        owner = bob.address,
+        partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_alice,
+            token_amount = 1,
+            rate = sp.tez(50)))
+
+    balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address))
+    balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address))
+
+    marketplace.offer(sp.record(
+        offer_key_partial = offer_key_bob_item_alice.partial,
+        ext = sp.none)).run(sender = bob, amount = sp.tez(50))
+
+    scenario.verify(marketplace.data.next_offer_id == 1)
+
+    # check view
+    scenario.verify(~sp.is_failing(marketplace.get_offer(offer_key_bob_item_alice)))
+
+    # make sure tez transferred
+    scenario.verify(marketplace.balance == sp.tez(50))
+    # make sure tokens not transferred
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == balance_before_bob)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == balance_before_alice)
+
+    # Valid
+    offer_key_alice_item_bob = sp.record(
+        id = 1,
+        owner = alice.address,
+        partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            token_amount = 1,
+            rate = sp.tez(50)))
+
+    balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address))
+    balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address))
+
+    marketplace.offer(sp.record(
+        offer_key_partial = offer_key_alice_item_bob.partial,
+        ext = sp.none)).run(sender = alice, amount = sp.tez(50))
+
+    scenario.verify(marketplace.data.next_offer_id == 2)
+
+    # check view
+    scenario.verify(~sp.is_failing(marketplace.get_offer(offer_key_bob_item_alice)))
+
+    # make sure tez transferred
+    scenario.verify(marketplace.balance == sp.tez(100))
+    # make sure tokens not transferred
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == balance_before_bob)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == balance_before_alice)
+
+    scenario.h4("test fulfill_offer")
+
+    # offer does not exist
+    marketplace.fulfill_offer(sp.record(
+        offer_key = sp.record(
+            id = 14,
+            owner = carol.address,
+            partial = sp.record(
+                fa2 = items_tokens.address,
+                token_id = 25,
+                token_amount = 1,
+                rate = sp.tez(25))),
+        ext = sp.none
+    )).run(sender = alice, valid = False, exception = "INVALID_OFFER")
+
+    # insufficient balance
+    marketplace.fulfill_offer(sp.record(
+        offer_key = offer_key_alice_item_bob,
+        ext = sp.none)).run(sender = carol, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
+
+    # valid
+    balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address))
+    balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address))
+
+    marketplace.fulfill_offer(sp.record(
+        offer_key = offer_key_alice_item_bob,
+        ext = sp.none)).run(sender = bob)
+
+    # make sure next_offer_id is unchanged
+    scenario.verify(marketplace.data.next_offer_id == 2)
+
+    # make sure offer is removed
+    scenario.verify(~marketplace.data.offers.contains(offer_key_alice_item_bob))
+
+    # Make sure tez transferred
+    scenario.verify(marketplace.balance == sp.tez(50))
+    # Make sure tokens transferred
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address) == abs(balance_before_bob - 1))
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address) == balance_before_alice + 1)
+
+    scenario.h4("test cancel_offer")
+
+    # invalid offer
+    marketplace.cancel_offer(sp.record(
+        offer_key = sp.record(
+            id = 14,
+            owner = carol.address,
+            partial = sp.record(
+                fa2 = items_tokens.address,
+                token_id = 25,
+                token_amount = 1,
+                rate = sp.tez(25))),
+        ext = sp.none
+    )).run(sender = carol, valid = False, exception = "INVALID_OFFER")
+
+    # sender not owner
+    marketplace.cancel_offer(sp.record(
+        offer_key = offer_key_bob_item_alice,
+        ext = sp.none)).run(sender = alice, valid = False, exception = "NOT_OWNER")
+
+    # valid
+    balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address))
+    balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address))
+
+    marketplace.cancel_offer(sp.record(
+        offer_key = offer_key_bob_item_alice,
+        ext = sp.none)).run(sender = bob)
+
+    # make sure next_offer_id is unchanged
+    scenario.verify(marketplace.data.next_offer_id == 2)
+
+    # make sure offer is removed
+    scenario.verify(~marketplace.data.offers.contains(offer_key_bob_item_alice))
+
+    # Make sure tez transferred
+    scenario.verify(marketplace.balance == sp.tez(0))
+    # Make sure token not transferred
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == balance_before_bob)
+    scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == balance_before_alice)
+
+    scenario.h3("Settings")
 
     scenario.h3("update registry")
     scenario.verify(marketplace.data.settings.registry == registry.address)
