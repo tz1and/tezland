@@ -23,8 +23,9 @@ t_swap_key_partial = sp.TRecord(
     fa2 = sp.TAddress,
     token_id = sp.TNat,
     rate = sp.TMutez,
-    primary = sp.TBool
-).layout(("fa2", ("token_id", ("rate", "primary"))))
+    primary = sp.TBool,
+    expires = sp.TOption(sp.TTimestamp)
+).layout(("fa2", ("token_id", ("rate", ("primary", "expires")))))
 
 t_swap_key = sp.TRecord(
     id = sp.TNat,
@@ -44,7 +45,8 @@ t_offer_key_partial = sp.TRecord(
     token_id = sp.TNat,
     token_amount = sp.TNat,
     rate = sp.TMutez,
-).layout(("fa2", ("token_id", ("token_amount", "rate"))))
+    expires = sp.TOption(sp.TTimestamp)
+).layout(("fa2", ("token_id", ("token_amount", ("rate", "expires")))))
 
 t_offer_key = sp.TRecord(
     id = sp.TNat,
@@ -100,6 +102,18 @@ class TL_Marketplace(
             homepage="https://www.tz1and.com", license="UNLICENSED",
             version="2.0.0")
 
+    #
+    # Admin only eps
+    #
+    @sp.entry_point(lazify = False, parameter_type=sp.TOption(sp.TKeyHash))
+    def set_delegate(self, delegate):
+        self.onlyAdministrator()
+
+        # Check amount is zero.
+        sp.verify(sp.amount == sp.mutez(0), message = ErrorMessages.no_amount())
+
+        sp.set_delegate(delegate)
+
 
     #
     # Swaps
@@ -119,8 +133,12 @@ class TL_Marketplace(
 
         self.onlyUnpaused()
 
-        # Check swap params,
-        sp.verify((params.token_amount >= sp.nat(1)), "INVALID_PARAM")
+        # Check amount is zero.
+        sp.verify(sp.amount == sp.mutez(0), message = ErrorMessages.no_amount())
+
+        # Check swap params.
+        # Token amount must be > 0 and expriy is currently not supported.
+        sp.verify((params.token_amount >= sp.nat(1)) & (params.swap_key_partial.expires == sp.none), "INVALID_PARAM")
 
         # Only tokens in registry allowed.
         sp.compute(TL_TokenRegistry.onlyRegistered(self.data.settings.registry, sp.set([params.swap_key_partial.fa2])).open_some())
@@ -197,6 +215,9 @@ class TL_Marketplace(
 
         self.onlyUnpaused()
 
+        # Check amount is zero.
+        sp.verify(sp.amount == sp.mutez(0), message = ErrorMessages.no_amount())
+
         # Make sure sender is owner.
         sp.verify(params.swap_key.owner == sp.sender, ErrorMessages.not_owner())
 
@@ -225,8 +246,8 @@ class TL_Marketplace(
         self.onlyUnpaused()
 
         # Check swap params.
-        # token_amount must be == 1, for now.
-        sp.verify((params.offer_key_partial.token_amount == sp.nat(1)), "INVALID_PARAM")
+        # token_amount must be == 1 for now, expiry currently not supported.
+        sp.verify((params.offer_key_partial.token_amount == sp.nat(1)) & (params.offer_key_partial.expires == sp.none), "INVALID_PARAM")
         # Sent amount must be == rate
         sp.verify(sp.amount == params.offer_key_partial.rate, ErrorMessages.wrong_amount())
 
@@ -257,6 +278,9 @@ class TL_Marketplace(
         ).layout(("offer_key", "ext")))
 
         self.onlyUnpaused()
+
+        # Check amount is zero.
+        sp.verify(sp.amount == sp.mutez(0), message = ErrorMessages.no_amount())
 
         # Offer must exist.
         sp.verify(self.data.offers.contains(params.offer_key), message="INVALID_OFFER")
@@ -291,6 +315,9 @@ class TL_Marketplace(
 
         self.onlyUnpaused()
 
+        # Check amount is zero.
+        sp.verify(sp.amount == sp.mutez(0), message = ErrorMessages.no_amount())
+
         # Make sure sender is owner.
         sp.verify(params.offer_key.owner == sp.sender, ErrorMessages.not_owner())
 
@@ -302,7 +329,6 @@ class TL_Marketplace(
 
         # Delete the offer.
         del self.data.offers[params.offer_key]
-
 
     #
     # Views

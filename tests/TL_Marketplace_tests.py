@@ -147,7 +147,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_bob,
             rate = sp.tez(100),
-            primary = False),
+            primary = False,
+            expires = sp.none),
         token_amount = 2,
         ext = sp.none)).run(sender = bob, valid = False, exception = "FA2_NOT_OPERATOR")
 
@@ -173,7 +174,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_bob,
             rate = sp.tez(100),
-            primary = False),
+            primary = False,
+            expires = sp.none),
         token_amount = 1,
         ext = sp.none)).run(sender = alice, valid = False, exception = "FA2_INSUFFICIENT_BALANCE")
 
@@ -183,8 +185,20 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_bob,
             rate = sp.tez(100),
-            primary = False),
+            primary = False,
+            expires = sp.none),
         token_amount = 0,
+        ext = sp.none)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
+
+    # Expires not supported for now
+    marketplace.swap(sp.record(
+        swap_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_bob,
+            rate = sp.tez(100),
+            primary = False,
+            expires = sp.some(sp.timestamp_from_utc_now())),
+        token_amount = 1,
         ext = sp.none)).run(sender = bob, valid = False, exception = "INVALID_PARAM")
 
     # Not registered
@@ -193,7 +207,8 @@ def test():
             fa2 = other_tokens.address,
             token_id = other_token_bob,
             rate = sp.tez(100),
-            primary = False),
+            primary = False,
+            expires = sp.none),
         token_amount = 3,
         ext = sp.none)).run(sender = bob, valid = False, exception = "TOKEN_NOT_REGISTERED")
 
@@ -205,7 +220,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_bob,
             rate = sp.tez(100),
-            primary = False))
+            primary = False,
+            expires = sp.none))
 
     marketplace.swap(sp.record(
         swap_key_partial = swap_key_bob_item_bob.partial,
@@ -229,7 +245,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_alice,
             rate = sp.tez(100),
-            primary = False))
+            primary = False,
+            expires = sp.none))
 
     marketplace.swap(sp.record(
         swap_key_partial = swap_key_alice_item_alice.partial,
@@ -263,7 +280,8 @@ def test():
                 fa2 = carol.address,
                 token_id = other_token_bob,
                 rate = sp.tez(12),
-                primary = True)),
+                primary = True,
+                expires = sp.none)),
         ext = sp.none)).run(sender = alice, amount = sp.tez(12), valid = False, exception = "INVALID_SWAP")
 
     # Valid
@@ -347,7 +365,18 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_alice,
             token_amount = 2,
-            rate = sp.tez(50)),
+            rate = sp.tez(50),
+            expires = sp.none),
+        ext = sp.none)).run(sender = bob, amount = sp.tez(50), valid = False, exception = "INVALID_PARAM")
+
+    # expiry not supported
+    marketplace.offer(sp.record(
+        offer_key_partial = sp.record(
+            fa2 = items_tokens.address,
+            token_id = item_alice,
+            token_amount = 1,
+            rate = sp.tez(50),
+            expires = sp.some(sp.timestamp_from_utc_now())),
         ext = sp.none)).run(sender = bob, amount = sp.tez(50), valid = False, exception = "INVALID_PARAM")
 
     # wrong tez amount
@@ -356,7 +385,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_alice,
             token_amount = 1,
-            rate = sp.tez(50)),
+            rate = sp.tez(50),
+            expires = sp.none),
         ext = sp.none)).run(sender = bob, amount = sp.tez(12), valid = False, exception = "WRONG_AMOUNT")
 
     # token not registered
@@ -365,7 +395,8 @@ def test():
             fa2 = other_tokens.address,
             token_id = other_token_alice,
             token_amount = 1,
-            rate = sp.tez(50)),
+            rate = sp.tez(50),
+            expires = sp.none),
         ext = sp.none)).run(sender = bob, amount = sp.tez(50), valid = False, exception = "TOKEN_NOT_REGISTERED")
 
     # Valid
@@ -376,7 +407,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_alice,
             token_amount = 1,
-            rate = sp.tez(50)))
+            rate = sp.tez(50),
+            expires = sp.none))
 
     balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address))
     balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address))
@@ -404,7 +436,8 @@ def test():
             fa2 = items_tokens.address,
             token_id = item_bob,
             token_amount = 1,
-            rate = sp.tez(50)))
+            rate = sp.tez(50),
+            expires = sp.none))
 
     balance_before_bob = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, bob.address))
     balance_before_alice = scenario.compute(FA2Utils.fa2_get_balance(items_tokens.address, item_bob, alice.address))
@@ -435,7 +468,8 @@ def test():
                 fa2 = items_tokens.address,
                 token_id = 25,
                 token_amount = 1,
-                rate = sp.tez(25))),
+                rate = sp.tez(25),
+                expires = sp.none)),
         ext = sp.none
     )).run(sender = alice, valid = False, exception = "INVALID_OFFER")
 
@@ -475,7 +509,8 @@ def test():
                 fa2 = items_tokens.address,
                 token_id = 25,
                 token_amount = 1,
-                rate = sp.tez(25))),
+                rate = sp.tez(25),
+                expires = sp.none)),
         ext = sp.none
     )).run(sender = carol, valid = False, exception = "INVALID_OFFER")
 
