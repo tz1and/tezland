@@ -10,9 +10,14 @@ def test():
     alice = sp.test_account("Alice")
     bob   = sp.test_account("Robert")
     carol = sp.test_account("Carol")
+    delegate = sp.test_account("Delegate")
     royalties_key = sp.test_account("Royalties")
     collections_key = sp.test_account("Collections")
     scenario = sp.test_scenario()
+
+    voting_powers = {
+        delegate.public_key_hash: 0,
+    }
 
     scenario.h1("Swap and collect marketplace contract")
     scenario.table_of_contents()
@@ -539,9 +544,18 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == balance_before_bob)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == balance_before_alice)
 
+    scenario.h4("Set delegate")
+
+    scenario.verify(marketplace.baker == sp.none)
+    marketplace.set_delegate(sp.some(delegate.public_key_hash)).run(sender = bob, voting_powers = voting_powers, valid = False, exception = "ONLY_ADMIN")
+    marketplace.set_delegate(sp.some(delegate.public_key_hash)).run(sender = admin, voting_powers = voting_powers)
+    scenario.verify(marketplace.baker == sp.some(delegate.public_key_hash))
+    marketplace.set_delegate(sp.none).run(sender = admin, voting_powers = voting_powers)
+    scenario.verify(marketplace.baker == sp.none)
+
     scenario.h3("Settings")
 
-    scenario.h3("update registry")
+    scenario.h4("update registry")
     scenario.verify(marketplace.data.settings.registry == registry.address)
     marketplace.update_settings([sp.variant("registry", minter.address)]).run(sender = bob, valid = False)
     marketplace.update_settings([sp.variant("registry", bob.address)]).run(sender = admin, valid = False)
@@ -549,7 +563,7 @@ def test():
     scenario.verify(marketplace.data.settings.registry == minter.address)
     marketplace.update_settings([sp.variant("registry", royalties_adapter.address)]).run(sender = admin)
 
-    scenario.h3("update royalties_adapter")
+    scenario.h4("update royalties_adapter")
     scenario.verify(marketplace.data.settings.royalties_adapter == royalties_adapter.address)
     marketplace.update_settings([sp.variant("royalties_adapter", minter.address)]).run(sender = bob, valid = False)
     marketplace.update_settings([sp.variant("royalties_adapter", bob.address)]).run(sender = admin, valid = False)
