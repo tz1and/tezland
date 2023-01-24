@@ -17,7 +17,7 @@
     "@taquito/ledger-signer": "^15.0.0",
     "@taquito/signer": "^15.0.0",
     "@taquito/taquito": "^15.0.0",
-    "@types/node": "^16",
+    "@types/node": "^18",
     "@types/prompt": "^1.1.2",
     "commander": "^9.0.0",
     "ipfs-http-client": "^59.0.0",
