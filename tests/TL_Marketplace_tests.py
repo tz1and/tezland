@@ -571,4 +571,4 @@ def test():
     scenario.verify(marketplace.data.settings.royalties_adapter == minter.address)
     marketplace.update_settings([sp.variant("royalties_adapter", royalties_adapter.address)]).run(sender = admin)
 
-    # TODO: check roaylaties paid, token transferred
+    # TODO: check roaylaties paid
