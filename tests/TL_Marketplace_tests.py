@@ -544,7 +544,7 @@ def test():
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, bob.address) == balance_before_bob)
     scenario.verify(FA2Utils.fa2_get_balance(items_tokens.address, item_alice, alice.address) == balance_before_alice)
 
-    scenario.h4("Set delegate")
+    scenario.h3("Set delegate")
 
     scenario.verify(marketplace.baker == sp.none)
     marketplace.set_delegate(sp.some(delegate.public_key_hash)).run(sender = bob, voting_powers = voting_powers, valid = False, exception = "ONLY_ADMIN")
