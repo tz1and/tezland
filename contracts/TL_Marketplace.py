@@ -96,11 +96,11 @@ class TL_Marketplace(
         MetaSettings.__init__(self)
         Upgradeable.__init__(self)
 
-        self.generateContractMetadata("tz1and Marketplace", "tz1and Marketplace swap and collect marketplace contract",
+        self.generateContractMetadata("tz1and Marketplace", "tz1and Marketplace swap and collect marketplace contract with offers",
             authors=["852Kerfunkle <https://github.com/852Kerfunkle>"],
             source_location="https://github.com/tz1and",
             homepage="https://www.tz1and.com", license="UNLICENSED",
-            version="2.0.0")
+            version="1.0.0")
 
     #
     # Admin only eps
