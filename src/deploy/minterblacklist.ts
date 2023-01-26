@@ -37,7 +37,7 @@ export default class MinterBlacklist extends MinterBlacklistPostDeploy {
                     `blacklist = sp.address("${Blacklist_contract.address}")`
                 ],
                 // entrypoints to upgrade
-                ["mint_public", "mint_private"]);
+                ["mint_public", "mint_private"], "byId");
 
             // Update metadata on v1 contracts
             await this.run_op_task("Updating metadata on v2 minter contract...", async () => {

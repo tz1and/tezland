@@ -257,7 +257,7 @@ export default abstract class DeployBase {
     // Returns path of uploaded metadata.
     // TODO: copy compiled entrypoints output to deployments dir
     protected async upgrade_entrypoint(contract: ContractAbstraction<Wallet>, target_name: string, file_name: string, contract_name: string,
-        target_args: string[], entrypoints: string[], has_metadata: boolean = true, upload_new_metadata: boolean = true): Promise<string | undefined>
+        target_args: string[], entrypoints: string[], version: "byId" | "byName", has_metadata: boolean = true, upload_new_metadata: boolean = true): Promise<string | undefined>
     {
         console.log(kleur.yellow(`Upgrade target '${target_name}'`), `(${file_name}::${contract_name})`);
 
@@ -272,12 +272,16 @@ export default abstract class DeployBase {
         await this.run_op_task(`Updating entrypoints [${kleur.yellow(entrypoints.join(', '))}]...`, async () => {
             let upgrade_batch = this.tezos!.wallet.batch();
             for (const ep_name of entrypoints) {
+                const update_params = (version === "byId") ?
+                    {id: code_map.get(ep_name)![0]} :
+                    {ep_name: {[ep_name]: null}};
+
                 upgrade_batch.with([
                     {
                         kind: OpKind.TRANSACTION,
                         ...contract.methodsObject.update_ep({
-                            ep_name: {[ep_name]: null},
-                            new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)!, "utf-8"))
+                            ...update_params,
+                            new_code: JSON.parse(fs.readFileSync(code_map.get(ep_name)![1], "utf-8"))
                         }).toTransferParams()
                     }
                 ]);

@@ -144,7 +144,7 @@ sp.add_compilation_target("${target_name}", ${target_name}_contract.${contract_n
 }
 
 // Returns ep code map and metadata path.
-export function compile_upgrade(target_out_dir: string, target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): [Map<string, string>, string] {
+export function compile_upgrade(target_out_dir: string, target_name: string, file_name: string, contract_name: string, target_args: string[], entrypoints: string[]): [Map<string, [number, string]>, string] {
     const tmp_out_dir = "./build/tmp_contract_build"
     const upgrade_target_path = `${target_out_dir}/${target_name}_upgrade_target.py`
 
@@ -184,7 +184,7 @@ def upgrade():
     const storage_compiled = `${tmp_out_dir}/${target_name}/step_000_cont_0_storage.json`
     let storage = JSON.parse(fs.readFileSync(storage_compiled, "utf-8"));
 
-    const code_map = new Map<string, string>();
+    const code_map = new Map<string, [number, string]>();
 
     // For all the entrypoints we are looking for
     for (const ep_name of entrypoints) {
@@ -203,7 +203,7 @@ def upgrade():
                 fs.writeFileSync(ep_out_path, JSON.stringify(ep_lambda, null, 4));
 
                 console.log(kleur.green(`Compiled entrypoint: ${ep_out}`))
-                code_map.set(ep_name, ep_out_path);
+                code_map.set(ep_name, [ep_id, ep_out_path]);
                 break;
             }
         }

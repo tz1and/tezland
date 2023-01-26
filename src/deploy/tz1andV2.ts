@@ -331,7 +331,7 @@ export default class tz1andV2 extends tz1andV2PostDeploy {
                     `world_v2_place_contract = sp.address("${places_v2_FA2_contract.address}")`
                 ],
                 // entrypoints to upgrade
-                ["set_item_data", "get_item"]);
+                ["set_item_data", "get_item"], "byName");
 
             // Update metadata on v1 contracts
             await this.run_op_task("Updating metadata on v1 world contract...", async () => {
@@ -355,7 +355,7 @@ export default class tz1andV2 extends tz1andV2PostDeploy {
                     `places_contract = sp.address("${tezlandPlaces.address}")`
                 ],
                 // entrypoints to upgrade
-                ["mint_Place"]);
+                ["mint_Place"], "byName");
 
             await this.run_op_task("Updating metadata on v1 minter contract...", async () => {
                 assert(minter_v1_1_metadata);
@@ -376,7 +376,7 @@ export default class tz1andV2 extends tz1andV2PostDeploy {
                     `places_contract = sp.address("${tezlandPlaces.address}")`
                 ],
                 // entrypoints to upgrade
-                ["cancel", "bid"]);
+                ["cancel", "bid"], "byName");
 
             await this.run_op_task("Updating metadata on v1 dutch contract...", async () => {
                 assert(dutch_v1_1_metadata);
