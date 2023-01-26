@@ -21,7 +21,7 @@ class TL_Minter_v2(
     MetaSettings,
     Upgradeable,
     sp.Contract):
-    def __init__(self, administrator, registry, metadata, exception_optimization_level="default-line"):
+    def __init__(self, administrator, registry, metadata, version="2.0.0", exception_optimization_level="default-line"):
         sp.Contract.__init__(self)
 
         self.add_flag("exceptions", exception_optimization_level)
@@ -45,7 +45,7 @@ class TL_Minter_v2(
             authors=["852Kerfunkle <https://github.com/852Kerfunkle>"],
             source_location="https://github.com/tz1and",
             homepage="https://www.tz1and.com", license="UNLICENSED",
-            version="2.0.0")
+            version=version)
 
 
     #
